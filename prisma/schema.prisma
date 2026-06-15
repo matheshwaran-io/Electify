@@ -1,0 +1,80 @@
+datasource db {
+  provider = "postgresql"
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+model Student {
+  id             String        @id @default(cuid())
+  name           String
+  registerNumber String        @unique
+  email          String        @unique
+  passwordHash   String
+  isActive       Boolean       @default(true)
+  isEligible     Boolean       @default(true)
+  hasSubmitted   Boolean       @default(false)
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
+  registration   Registration?
+}
+
+model Faculty {
+  id           String   @id @default(cuid())
+  name         String
+  email        String   @unique
+  passwordHash String
+  role         String   @default("FACULTY") // FACULTY | SUPER_ADMIN
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+}
+
+model Elective {
+  id             String   @id @default(cuid())
+  groupNumber    Int      // 1 or 2
+  name           String
+  totalSeats     Int
+  availableSeats Int
+  isActive       Boolean  @default(true)
+  isFull         Boolean  @default(false)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  registrationsAsG1 Registration[] @relation("Group1Elective")
+  registrationsAsG2 Registration[] @relation("Group2Elective")
+}
+
+model Registration {
+  id                String   @id @default(cuid())
+  studentId         String   @unique
+  electiveGroup1Id  String
+  electiveGroup2Id  String
+  submittedAt       DateTime @default(now())
+
+  student           Student  @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  electiveGroup1    Elective @relation("Group1Elective", fields: [electiveGroup1Id], references: [id])
+  electiveGroup2    Elective @relation("Group2Elective", fields: [electiveGroup2Id], references: [id])
+}
+
+model Settings {
+  id                    String   @id @default("system")
+  registrationEnabled   Boolean  @default(false)
+  maintenanceMode       Boolean  @default(false)
+  showLiveSeats         Boolean  @default(true)
+  allowFacultyEditing   Boolean  @default(true)
+  allowRegistrationEdit Boolean  @default(false)
+  registrationStart     DateTime
+  registrationEnd       DateTime
+  updatedAt             DateTime @updatedAt
+}
+
+model LoginAttempt {
+  id           String    @id @default(cuid())
+  identifier   String    @unique // SRM Email or Faculty Email
+  ip           String
+  attempts     Int       @default(0)
+  lockoutUntil DateTime?
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+}
