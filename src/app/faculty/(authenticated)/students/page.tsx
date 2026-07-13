@@ -12,8 +12,10 @@ export default async function FacultyStudentsPage() {
     redirect("/faculty/login");
   }
 
-  // Fetch student records
+  // Fetch student records based on role
+  const isTutor = session.role !== "SUPER_ADMIN" && session.facultyType === "CLASS_TUTOR";
   const students = await db.student.findMany({
+    where: isTutor ? { className: session.className || undefined } : undefined,
     orderBy: { registerNumber: "asc" },
   });
 
@@ -25,20 +27,23 @@ export default async function FacultyStudentsPage() {
     isActive: s.isActive,
     isEligible: s.isEligible,
     hasSubmitted: s.hasSubmitted,
+    className: s.className || undefined,
   }));
 
   return (
     <div className="space-y-6">
       <div>
         <h1 className="text-3xl font-extrabold tracking-tight text-slate-800 dark:text-slate-100">
-          Student Directory
+          Student Directory {isTutor && `(${session.className})`}
         </h1>
         <p className="text-sm text-slate-500 dark:text-slate-400 font-medium mt-1">
-          Import classes via CSV, toggle logins/eligibility, and reset student credentials.
+          {isTutor 
+            ? `Manage students and import rosters specifically for your class section: ${session.className}.`
+            : "Course coordinator view. Import and manage student classes, toggle eligibility, and reset credentials."}
         </p>
       </div>
 
-      <StudentsClient students={formattedStudents} />
+      <StudentsClient students={formattedStudents} session={session} />
     </div>
   );
 }

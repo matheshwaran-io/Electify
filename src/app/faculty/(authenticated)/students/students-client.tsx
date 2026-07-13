@@ -30,10 +30,20 @@ interface StudentInfo {
   isActive: boolean;
   isEligible: boolean;
   hasSubmitted: boolean;
+  className?: string;
 }
 
 interface StudentsClientProps {
   students: StudentInfo[];
+  session: {
+    userId: string;
+    name: string;
+    email: string;
+    role: "STUDENT" | "FACULTY" | "SUPER_ADMIN";
+    registerNumber?: string;
+    className?: string;
+    facultyType?: "COURSE_COORDINATOR" | "CLASS_TUTOR";
+  };
 }
 
 const studentSchema = z.object({
@@ -45,12 +55,14 @@ const studentSchema = z.object({
   ),
   isEligible: z.boolean().default(true),
   isActive: z.boolean().default(true),
+  className: z.string().optional(),
 });
 
 type StudentFormValues = z.infer<typeof studentSchema>;
 
-export function StudentsClient({ students }: StudentsClientProps) {
+export function StudentsClient({ students, session }: StudentsClientProps) {
   const [searchQuery, setSearchQuery] = React.useState("");
+  const [selectedClassFilter, setSelectedClassFilter] = React.useState("All");
   const [isImporting, setIsImporting] = React.useState(false);
   const [isAddOpen, setIsAddOpen] = React.useState(false);
   const [isEditOpen, setIsEditOpen] = React.useState(false);
@@ -58,6 +70,13 @@ export function StudentsClient({ students }: StudentsClientProps) {
   const [isResetOpen, setIsResetOpen] = React.useState(false);
   const [isDeleteOpen, setIsDeleteOpen] = React.useState(false);
   const [isActionPending, setIsActionPending] = React.useState(false);
+
+  const isCoordinator = session.role === "SUPER_ADMIN" || session.facultyType === "COURSE_COORDINATOR";
+
+  const classesList = React.useMemo(() => {
+    const cls = new Set(students.map((s) => s.className).filter(Boolean));
+    return ["All", ...Array.from(cls)];
+  }, [students]);
 
   const fileInputRef = React.useRef<HTMLInputElement>(null);
 
@@ -70,7 +89,7 @@ export function StudentsClient({ students }: StudentsClientProps) {
     formState: { errors: addErrors },
   } = useForm<StudentFormValues>({
     resolver: zodResolver(studentSchema) as unknown as Resolver<StudentFormValues>,
-    defaultValues: { name: "", registerNumber: "", email: "", isEligible: true, isActive: true },
+    defaultValues: { name: "", registerNumber: "", email: "", isEligible: true, isActive: true, className: "" },
   });
 
   const {
@@ -81,7 +100,7 @@ export function StudentsClient({ students }: StudentsClientProps) {
     formState: { errors: editErrors },
   } = useForm<StudentFormValues>({
     resolver: zodResolver(studentSchema) as unknown as Resolver<StudentFormValues>,
-    defaultValues: { name: "", registerNumber: "", email: "", isEligible: true, isActive: true },
+    defaultValues: { name: "", registerNumber: "", email: "", isEligible: true, isActive: true, className: "" },
   });
 
   // Populate edit form on active student change
@@ -93,6 +112,7 @@ export function StudentsClient({ students }: StudentsClientProps) {
         email: activeStudent.email,
         isEligible: activeStudent.isEligible,
         isActive: activeStudent.isActive,
+        className: activeStudent.className || "",
       });
     }
   }, [activeStudent, isEditOpen, resetEdit]);
@@ -118,13 +138,14 @@ export function StudentsClient({ students }: StudentsClientProps) {
   const filteredStudents = React.useMemo(() => {
     return students.filter((s) => {
       const query = searchQuery.toLowerCase();
-      return (
+      const matchesSearch =
         s.name.toLowerCase().includes(query) ||
         s.email.toLowerCase().includes(query) ||
-        s.registerNumber.toLowerCase().includes(query)
-      );
+        s.registerNumber.toLowerCase().includes(query);
+      const matchesClass = selectedClassFilter === "All" || s.className === selectedClassFilter;
+      return matchesSearch && matchesClass;
     });
-  }, [students, searchQuery]);
+  }, [students, searchQuery, selectedClassFilter]);
 
   const onAddStudent = async (data: StudentFormValues) => {
     setIsActionPending(true);
@@ -134,6 +155,7 @@ export function StudentsClient({ students }: StudentsClientProps) {
       email: data.email,
       isEligible: data.isEligible,
       isActive: data.isActive,
+      className: isCoordinator ? data.className : session.className || undefined,
     });
 
     if (response.success) {
@@ -155,6 +177,7 @@ export function StudentsClient({ students }: StudentsClientProps) {
       email: data.email,
       isEligible: data.isEligible,
       isActive: data.isActive,
+      className: isCoordinator ? data.className : session.className || undefined,
     });
 
     if (response.success) {
@@ -188,6 +211,7 @@ export function StudentsClient({ students }: StudentsClientProps) {
         const regIdx = headers.indexOf("registernumber");
         const nameIdx = headers.indexOf("name");
         const emailIdx = headers.indexOf("email");
+        const sectionIdx = headers.indexOf("section");
 
         if (regIdx === -1 || nameIdx === -1 || emailIdx === -1) {
           throw new Error("CSV headers must contain: 'registerNumber', 'name', and 'email'.");
@@ -203,6 +227,7 @@ export function StudentsClient({ students }: StudentsClientProps) {
             registerNumber: row[regIdx],
             name: row[nameIdx],
             email: row[emailIdx],
+            className: sectionIdx !== -1 ? row[sectionIdx].toUpperCase() : undefined,
           });
         }
 
@@ -280,7 +305,10 @@ export function StudentsClient({ students }: StudentsClientProps) {
   };
 
   const downloadTemplate = () => {
-    const csvContent = "data:text/csv;charset=utf-8,registerNumber,name,email\nRA2532241010001,Student One,student1@srmist.edu.in\nRA2532241010002,Student Two,student2@srmist.edu.in";
+    const headers = isCoordinator ? "registerNumber,name,email,section" : "registerNumber,name,email";
+    const row1 = isCoordinator ? "RA2532241010001,Student One,student1@srmist.edu.in,A" : "RA2532241010001,Student One,student1@srmist.edu.in";
+    const row2 = isCoordinator ? "RA2532241010002,Student Two,student2@srmist.edu.in,B" : "RA2532241010002,Student Two,student2@srmist.edu.in";
+    const csvContent = `data:text/csv;charset=utf-8,${headers}\n${row1}\n${row2}`;
     const encodedUri = encodeURI(csvContent);
     const link = document.createElement("a");
     link.setAttribute("href", encodedUri);
@@ -295,16 +323,37 @@ export function StudentsClient({ students }: StudentsClientProps) {
       
       {/* Search and upload actions bar */}
       <div className="flex flex-col md:flex-row justify-between items-stretch md:items-center gap-4">
-        {/* Search Input */}
-        <div className="relative flex-1">
-          <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400 dark:text-slate-500" />
-          <input
-            type="text"
-            placeholder="Search students..."
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full min-h-[48px] pl-10 pr-4 rounded-inputs text-base md:text-xs font-semibold border border-slate-200/60 dark:border-slate-800/60 bg-white dark:bg-slate-950/20 text-slate-800 dark:text-slate-100 placeholder-slate-400 focus:outline-none focus:ring-1 focus:ring-indigo-500 focus:border-indigo-500 shadow-sm"
-          />
+        {/* Search & Class Filter */}
+        <div className="flex flex-col sm:flex-row flex-1 gap-3">
+          <div className="relative flex-1">
+            <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400 dark:text-slate-500" />
+            <input
+              type="text"
+              placeholder="Search students..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="w-full min-h-[48px] pl-10 pr-4 rounded-inputs text-base md:text-xs font-semibold border border-slate-200/60 dark:border-slate-800/60 bg-white dark:bg-slate-950/20 text-slate-800 dark:text-slate-100 placeholder-slate-400 focus:outline-none focus:ring-1 focus:ring-indigo-500 focus:border-indigo-500 shadow-sm"
+            />
+          </div>
+
+          {isCoordinator && (
+            <div className="relative w-full sm:w-44">
+              <select
+                value={selectedClassFilter}
+                onChange={(e) => setSelectedClassFilter(e.target.value)}
+                className="w-full min-h-[48px] px-4 rounded-inputs text-base md:text-xs font-semibold border border-slate-200/60 dark:border-slate-800/60 bg-white dark:bg-slate-950/20 text-slate-800 dark:text-slate-100 focus:outline-none focus:ring-1 focus:ring-indigo-500 focus:border-indigo-500 shadow-sm cursor-pointer appearance-none"
+              >
+                {classesList.map((cls) => (
+                  <option key={cls} value={cls} className="bg-white dark:bg-slate-950 text-slate-800 dark:text-slate-200">
+                    {cls === "All" ? "All Classes" : cls}
+                  </option>
+                ))}
+              </select>
+              <div className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none text-slate-400 text-[10px]">
+                ▼
+              </div>
+            </div>
+          )}
         </div>
 
         {/* Buttons */}
@@ -420,6 +469,7 @@ export function StudentsClient({ students }: StudentsClientProps) {
                   <TableHead className="font-extrabold text-slate-400 uppercase tracking-widest text-[10px] w-36 pl-6">Register Number</TableHead>
                   <TableHead className="font-extrabold text-slate-400 uppercase tracking-widest text-[10px]">Name</TableHead>
                   <TableHead className="font-extrabold text-slate-400 uppercase tracking-widest text-[10px]">SRM Email</TableHead>
+                  <TableHead className="font-extrabold text-slate-400 uppercase tracking-widest text-[10px] text-center w-24">Class</TableHead>
                   <TableHead className="font-extrabold text-slate-400 uppercase tracking-widest text-[10px] text-center w-28">Eligible</TableHead>
                   <TableHead className="font-extrabold text-slate-400 uppercase tracking-widest text-[10px] text-center w-28">Login Active</TableHead>
                   <TableHead className="font-extrabold text-slate-400 uppercase tracking-widest text-[10px] text-center w-28">Submitted</TableHead>
@@ -437,6 +487,9 @@ export function StudentsClient({ students }: StudentsClientProps) {
                     </TableCell>
                     <TableCell className="text-slate-500 dark:text-slate-400 text-xs font-semibold">
                       {student.email}
+                    </TableCell>
+                    <TableCell className="text-center text-xs font-bold text-slate-500 dark:text-slate-400">
+                      {student.className || "-"}
                     </TableCell>
                     <TableCell className="text-center">
                       <div className="flex justify-center">
@@ -557,6 +610,17 @@ export function StudentsClient({ students }: StudentsClientProps) {
                 {...registerAdd("email")}
               />
 
+              {isCoordinator && (
+                <PremiumInput
+                  id="add-class"
+                  label="Class / Section"
+                  placeholder="e.g. MCA-A"
+                  error={addErrors.className?.message}
+                  disabled={isActionPending}
+                  {...registerAdd("className")}
+                />
+              )}
+
               <div className="flex items-center justify-between p-3 rounded-buttons border border-slate-200/60 dark:border-slate-800/60 bg-slate-50/50 dark:bg-slate-900/30">
                 <div className="space-y-0.5">
                   <label htmlFor="add-eligible" className="text-xs font-bold text-slate-800 dark:text-slate-200">
@@ -653,6 +717,17 @@ export function StudentsClient({ students }: StudentsClientProps) {
                 disabled={isActionPending}
                 {...registerEdit("email")}
               />
+
+              {isCoordinator && (
+                <PremiumInput
+                  id="edit-class"
+                  label="Class / Section"
+                  placeholder="e.g. MCA-A"
+                  error={editErrors.className?.message}
+                  disabled={isActionPending}
+                  {...registerEdit("className")}
+                />
+              )}
 
               <div className="flex items-center justify-between p-3 rounded-buttons border border-slate-200/60 dark:border-slate-800/60 bg-slate-50/50 dark:bg-slate-900/30">
                 <div className="space-y-0.5">

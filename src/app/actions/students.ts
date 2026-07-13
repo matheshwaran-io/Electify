@@ -21,12 +21,22 @@ export async function importStudents(
     registerNumber: string;
     name: string;
     email: string;
+    className?: string;
   }>
 ): Promise<ActionResponse> {
   try {
     const session = await getSession();
     if (!session || (session.role !== "FACULTY" && session.role !== "SUPER_ADMIN")) {
       return { success: false, error: "Unauthorized." };
+    }
+    
+    // Students should be added by Class Tutor, Course Coordinator, or Super Admin
+    if (
+      session.role !== "SUPER_ADMIN" &&
+      session.facultyType !== "CLASS_TUTOR" &&
+      session.facultyType !== "COURSE_COORDINATOR"
+    ) {
+      return { success: false, error: "Only authorized Faculty or Admins can import students." };
     }
 
     if (!studentsList || studentsList.length === 0) {
@@ -38,15 +48,27 @@ export async function importStudents(
 
     // Hash passwords and upsert in DB
     // To speed up, we hash passwords concurrently
+    const tutorClassName = session.role !== "SUPER_ADMIN" && session.facultyType === "CLASS_TUTOR" ? session.className : null;
+
+    // Validate sections (Phase 1: A, B, C, D, E, F)
+    for (const st of studentsList) {
+      const cls = tutorClassName || st.className;
+      if (cls && !["A", "B", "C", "D", "E", "F", "G", "H", "I", "J"].includes(cls.toUpperCase().trim())) {
+        return { success: false, error: `Student "${st.name}" has invalid section: "${cls}". Must be between A and J.` };
+      }
+    }
+
     const hashedStudents = await Promise.all(
       studentsList.map(async (st) => {
         const regNum = st.registerNumber.toUpperCase().trim();
         const hash = await bcrypt.hash(regNum, 10);
+        const cls = tutorClassName || st.className?.trim().toUpperCase() || null;
         return {
           registerNumber: regNum,
           name: st.name.trim(),
           email: st.email.toLowerCase().trim(),
           passwordHash: hash,
+          className: cls,
         };
       })
     );
@@ -68,6 +90,7 @@ export async function importStudents(
             name: st.name,
             email: st.email,
             registerNumber: st.registerNumber,
+            className: st.className,
           },
         });
         updated++;
@@ -79,6 +102,7 @@ export async function importStudents(
             email: st.email,
             registerNumber: st.registerNumber,
             passwordHash: st.passwordHash,
+            className: st.className,
             isActive: true,
             isEligible: true,
             hasSubmitted: false,
@@ -87,6 +111,20 @@ export async function importStudents(
         inserted++;
       }
     }
+
+    // Write action to Audit Log
+    await db.auditLog.create({
+      data: {
+        action: "IMPORTED_STUDENTS",
+        userId: session.userId,
+        userEmail: session.email,
+        metadata: JSON.stringify({
+          count: studentsList.length,
+          inserted,
+          updated
+        }),
+      },
+    });
 
     revalidatePath("/faculty/students");
     revalidatePath("/faculty/dashboard");
@@ -108,12 +146,28 @@ export async function toggleStudentActive(id: string, active: boolean): Promise<
       return { success: false, error: "Unauthorized." };
     }
 
-    await db.student.update({
+    const updated = await db.student.update({
       where: { id },
       data: { isActive: active },
     });
 
+    // Write action to Audit Log
+    await db.auditLog.create({
+      data: {
+        action: active ? "ENABLED_STUDENT" : "SUSPENDED_STUDENT",
+        userId: session.userId,
+        userEmail: session.email,
+        metadata: JSON.stringify({
+          studentId: id,
+          studentName: updated.name,
+          registerNumber: updated.registerNumber
+        }),
+      },
+    });
+
     revalidatePath("/faculty/students");
+    revalidatePath("/faculty/dashboard");
+
     return { success: true };
   } catch (error) {
     console.error("Failed to toggle active status:", error);
@@ -131,9 +185,23 @@ export async function toggleStudentEligibility(id: string, eligible: boolean): P
       return { success: false, error: "Unauthorized." };
     }
 
-    await db.student.update({
+    const updated = await db.student.update({
       where: { id },
       data: { isEligible: eligible },
+    });
+
+    // Write action to Audit Log
+    await db.auditLog.create({
+      data: {
+        action: eligible ? "GRANTED_STUDENT_ELIGIBILITY" : "REVOKED_STUDENT_ELIGIBILITY",
+        userId: session.userId,
+        userEmail: session.email,
+        metadata: JSON.stringify({
+          studentId: id,
+          studentName: updated.name,
+          registerNumber: updated.registerNumber
+        }),
+      },
     });
 
     revalidatePath("/faculty/students");
@@ -170,6 +238,20 @@ export async function resetStudentPassword(id: string): Promise<ActionResponse> 
       data: { passwordHash: newHash },
     });
 
+    // Write action to Audit Log
+    await db.auditLog.create({
+      data: {
+        action: "RESET_STUDENT_PASSWORD",
+        userId: session.userId,
+        userEmail: session.email,
+        metadata: JSON.stringify({
+          studentId: id,
+          studentName: student.name,
+          registerNumber: student.registerNumber
+        }),
+      },
+    });
+
     return { success: true };
   } catch (error) {
     console.error("Failed to reset student password:", error);
@@ -187,9 +269,29 @@ export async function deleteStudent(id: string): Promise<ActionResponse> {
       return { success: false, error: "Unauthorized." };
     }
 
-    await db.student.delete({
+    const student = await db.student.findUnique({
       where: { id },
     });
+
+    if (student) {
+      await db.student.delete({
+        where: { id },
+      });
+
+      // Write action to Audit Log
+      await db.auditLog.create({
+        data: {
+          action: "DELETED_STUDENT",
+          userId: session.userId,
+          userEmail: session.email,
+          metadata: JSON.stringify({
+            studentId: id,
+            studentName: student.name,
+            registerNumber: student.registerNumber
+          }),
+        },
+      });
+    }
 
     revalidatePath("/faculty/students");
     revalidatePath("/faculty/dashboard");
@@ -211,11 +313,21 @@ export async function createStudent(data: {
   email: string;
   isEligible?: boolean;
   isActive?: boolean;
+  className?: string;
 }): Promise<ActionResponse> {
   try {
     const session = await getSession();
     if (!session || (session.role !== "FACULTY" && session.role !== "SUPER_ADMIN")) {
       return { success: false, error: "Unauthorized." };
+    }
+
+    // Students should be added by Class Tutor, Course Coordinator, or Super Admin
+    if (
+      session.role !== "SUPER_ADMIN" &&
+      session.facultyType !== "CLASS_TUTOR" &&
+      session.facultyType !== "COURSE_COORDINATOR"
+    ) {
+      return { success: false, error: "Only authorized Faculty or Admins can add students manually." };
     }
 
     const regNum = data.registerNumber.toUpperCase().trim();
@@ -233,17 +345,38 @@ export async function createStudent(data: {
       return { success: false, error: "A student with this Register Number or Email already exists." };
     }
 
+    const tutorClassName = session.role !== "SUPER_ADMIN" && session.facultyType === "CLASS_TUTOR" ? session.className : data.className;
+
+    if (tutorClassName && !["A", "B", "C", "D", "E", "F", "G", "H", "I", "J"].includes(tutorClassName.toUpperCase().trim())) {
+      return { success: false, error: `Invalid section: "${tutorClassName}". Section must be between A and J.` };
+    }
+
     const hash = await bcrypt.hash(regNum, 10);
 
-    await db.student.create({
+    const created = await db.student.create({
       data: {
         name: nameStr,
         email: emailStr,
         registerNumber: regNum,
         passwordHash: hash,
+        className: tutorClassName || null,
         isActive: data.isActive !== undefined ? data.isActive : true,
         isEligible: data.isEligible !== undefined ? data.isEligible : true,
         hasSubmitted: false,
+      },
+    });
+
+    // Write action to Audit Log
+    await db.auditLog.create({
+      data: {
+        action: "CREATED_STUDENT",
+        userId: session.userId,
+        userEmail: session.email,
+        metadata: JSON.stringify({
+          studentId: created.id,
+          registerNumber: created.registerNumber,
+          className: created.className
+        }),
       },
     });
 
@@ -268,6 +401,7 @@ export async function updateStudent(
     email: string;
     isEligible: boolean;
     isActive: boolean;
+    className?: string;
   }
 ): Promise<ActionResponse> {
   try {
@@ -292,7 +426,13 @@ export async function updateStudent(
       return { success: false, error: "Another student with this Register Number or Email already exists." };
     }
 
-    await db.student.update({
+    const tutorClassName = session.role !== "SUPER_ADMIN" && session.facultyType === "CLASS_TUTOR" ? session.className : data.className;
+
+    if (tutorClassName && !["A", "B", "C", "D", "E", "F", "G", "H", "I", "J"].includes(tutorClassName.toUpperCase().trim())) {
+      return { success: false, error: `Invalid section: "${tutorClassName}". Section must be between A and J.` };
+    }
+
+    const updated = await db.student.update({
       where: { id },
       data: {
         name: nameStr,
@@ -300,6 +440,21 @@ export async function updateStudent(
         registerNumber: regNum,
         isEligible: data.isEligible,
         isActive: data.isActive,
+        className: tutorClassName || null,
+      },
+    });
+
+    // Write action to Audit Log
+    await db.auditLog.create({
+      data: {
+        action: "UPDATED_STUDENT",
+        userId: session.userId,
+        userEmail: session.email,
+        metadata: JSON.stringify({
+          studentId: updated.id,
+          registerNumber: updated.registerNumber,
+          className: updated.className
+        }),
       },
     });
 

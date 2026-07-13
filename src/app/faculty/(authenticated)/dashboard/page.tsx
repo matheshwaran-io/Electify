@@ -12,10 +12,14 @@ export default async function FacultyDashboardPage() {
     redirect("/faculty/login");
   }
 
+  // Check if Tutor
+  const isTutor = session.role !== "SUPER_ADMIN" && session.facultyType === "CLASS_TUTOR";
+  const classFilter = isTutor ? { className: session.className || undefined } : {};
+
   // Fetch KPI data
   const [totalStudents, registeredStudents, settings, electives] = await Promise.all([
-    db.student.count(),
-    db.student.count({ where: { hasSubmitted: true } }),
+    db.student.count({ where: classFilter }),
+    db.student.count({ where: { ...classFilter, hasSubmitted: true } }),
     db.settings.findUnique({ where: { id: "system" } }),
     db.elective.findMany({
       include: {
@@ -59,10 +63,12 @@ export default async function FacultyDashboardPage() {
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div>
           <h1 className="text-3xl font-extrabold tracking-tight text-slate-800 dark:text-slate-100">
-            Overview Dashboard
+            Overview Dashboard {isTutor && `(${session.className})`}
           </h1>
           <p className="text-sm text-slate-500 dark:text-slate-400 font-medium mt-1">
-            Real-time enrollment statistics and settings management
+            {isTutor 
+              ? `Real-time enrollment statistics specifically for your class section: ${session.className}`
+              : "Real-time enrollment statistics and settings management (Global)"}
           </p>
         </div>
       </div>

@@ -27,7 +27,7 @@ export function PremiumButton({
 
   const variants = {
     primary:
-      "bg-gradient-to-r from-indigo-600 to-violet-600 text-white shadow-glow hover:from-indigo-500 hover:to-violet-500 focus:ring-indigo-500 active:from-indigo-700 active:to-violet-700",
+      "bg-gradient-to-r from-sky-500 to-indigo-500 text-white shadow-glow hover:from-sky-400 hover:to-indigo-400 focus:ring-sky-500 active:from-sky-600 active:to-indigo-600",
     secondary:
       "bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-800 dark:text-slate-200 focus:ring-slate-400 active:bg-slate-300 dark:active:bg-slate-600",
     accent:

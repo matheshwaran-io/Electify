@@ -11,6 +11,8 @@ export interface UserSession {
   email: string;
   role: "STUDENT" | "FACULTY" | "SUPER_ADMIN";
   registerNumber?: string; // only for students
+  facultyType?: "COURSE_COORDINATOR" | "CLASS_TUTOR";
+  className?: string; // only for class tutors
 }
 
 /**

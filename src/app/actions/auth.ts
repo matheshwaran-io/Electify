@@ -125,7 +125,7 @@ export async function studentLogin(formData: {
 
     if (!student) {
       await registerFailedAttempt(email, ip);
-      return { success: false, error: "Invalid email or credentials." };
+      return { success: false, error: "Your account has not been created yet. Please contact your Class Tutor or Course Coordinator." };
     }
 
     if (!student.isActive) {
@@ -193,6 +193,10 @@ export async function facultyLogin(formData: {
       return { success: false, error: "Invalid email or password." };
     }
 
+    if (!faculty.isActive) {
+      return { success: false, error: "Your account has been suspended. Please contact the system administrator." };
+    }
+
     // Compare passwords
     const isPasswordValid = await bcrypt.compare(password, faculty.passwordHash);
 
@@ -209,7 +213,9 @@ export async function facultyLogin(formData: {
       userId: faculty.id,
       name: faculty.name,
       email: faculty.email,
-      role: faculty.role as "FACULTY" | "SUPER_ADMIN",
+      role: faculty.role === "SUPER_ADMIN" ? "SUPER_ADMIN" : "FACULTY",
+      facultyType: faculty.role === "SUPER_ADMIN" ? undefined : (faculty.role as "COURSE_COORDINATOR" | "CLASS_TUTOR"),
+      className: faculty.className || undefined,
     });
 
     // Set cookie
@@ -227,4 +233,131 @@ export async function facultyLogin(formData: {
  */
 export async function logout() {
   await clearSessionCookie();
+}
+
+/**
+ * Register new staff action
+ */
+export async function registerStaff(formData: {
+  inviteCode: string;
+  employeeId: string;
+  name: string;
+  email: string;
+  faculty: string;
+  department: string;
+  degree: string;
+  section?: string;
+  passwordHash: string;
+}): Promise<LoginResult> {
+  const { inviteCode, employeeId, name, email, faculty, department, degree, section, passwordHash } = formData;
+
+  try {
+    // 1. Fetch & Validate Invite Code
+    const invite = await db.inviteCode.findUnique({
+      where: { code: inviteCode },
+    });
+
+    if (!invite) {
+      return { success: false, error: "Invalid invite code. Please request a new code." };
+    }
+
+    if (invite.status !== "ACTIVE") {
+      return { success: false, error: "This invite code has already been used or revoked." };
+    }
+
+    if (invite.expiresAt < new Date()) {
+      // Mark as expired in db if active
+      await db.inviteCode.update({
+        where: { id: invite.id },
+        data: { status: "EXPIRED" },
+      });
+      return { success: false, error: "This invite code has expired. Please request a new code." };
+    }
+
+
+
+    if (invite.role === "CLASS_TUTOR") {
+      if (!section || !["A", "B", "C", "D", "E", "F", "G", "H", "I", "J"].includes(section.toUpperCase().trim())) {
+        return { success: false, error: "Please select a valid section (A - J)." };
+      }
+    }
+
+    // 3. SRM Email Domain Check
+    if (!email.toLowerCase().trim().endsWith("@srmist.edu.in")) {
+      return { success: false, error: "Registration is restricted to official '@srmist.edu.in' email addresses." };
+    }
+
+    // 4. Duplicate Checks (Email and Employee ID)
+    const existingEmail = await db.faculty.findUnique({
+      where: { email: email.toLowerCase().trim() },
+    });
+    if (existingEmail) {
+      return { success: false, error: "An account with this email address already exists." };
+    }
+
+    const existingEmp = await db.faculty.findUnique({
+      where: { employeeId: employeeId.trim() },
+    });
+    if (existingEmp) {
+      return { success: false, error: "An account with this Employee ID already exists." };
+    }
+
+    // 5. Hash Password & Create Faculty Entry
+    const hashed = await bcrypt.hash(passwordHash, 10);
+    const newFaculty = await db.faculty.create({
+      data: {
+        employeeId: employeeId.trim(),
+        name: name.trim(),
+        email: email.toLowerCase().trim(),
+        passwordHash: hashed,
+        role: invite.role, // Inherit role directly from the verified invite code
+        faculty: invite.faculty,
+        department: invite.department,
+        degree: invite.degree,
+        className: invite.role === "CLASS_TUTOR" ? invite.section : null,
+      },
+    });
+
+    // 6. Update Invite Code Usage Count
+    const updatedCount = invite.usedCount + 1;
+    await db.inviteCode.update({
+      where: { id: invite.id },
+      data: {
+        usedCount: updatedCount,
+        status: updatedCount >= invite.maxUses ? "USED" : "ACTIVE",
+      },
+    });
+
+    // 7. Write Action to Audit Log
+    await db.auditLog.create({
+      data: {
+        action: "STAFF_REGISTERED",
+        userId: newFaculty.id,
+        userEmail: newFaculty.email,
+        metadata: JSON.stringify({
+          employeeId: newFaculty.employeeId,
+          role: newFaculty.role,
+          inviteCode: invite.code,
+        }),
+      },
+    });
+
+    // 8. Generate Session
+    const token = await signJWT({
+      userId: newFaculty.id,
+      name: newFaculty.name,
+      email: newFaculty.email,
+      role: "FACULTY",
+      facultyType: newFaculty.role as "COURSE_COORDINATOR" | "CLASS_TUTOR",
+      className: newFaculty.className || undefined,
+    });
+
+    // Set cookie
+    await setSessionCookie(token);
+
+    return { success: true, role: newFaculty.role };
+  } catch (error) {
+    console.error("Staff registration error:", error);
+    return { success: false, error: "An unexpected error occurred during registration. Please try again." };
+  }
 }

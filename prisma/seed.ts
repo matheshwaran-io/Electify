@@ -17,6 +17,8 @@ async function main() {
   await prisma.elective.deleteMany().catch(() => {});
   await prisma.faculty.deleteMany().catch(() => {});
   await prisma.settings.deleteMany().catch(() => {});
+  await prisma.inviteCode.deleteMany().catch(() => {});
+  await prisma.auditLog.deleteMany().catch(() => {});
 
   console.log("Seeding system settings...");
   // Registration window starts tomorrow and ends day after tomorrow by default
@@ -48,16 +50,66 @@ async function main() {
   await prisma.faculty.createMany({
     data: [
       {
+        employeeId: "EMP-ADMIN",
         name: "System Administrator",
         email: "admin@electify.edu",
         passwordHash: adminPasswordHash,
         role: "SUPER_ADMIN",
       },
       {
-        name: "Regular Faculty User",
-        email: "faculty@electify.edu",
+        employeeId: "EMP-CC-01",
+        name: "MCA Course Coordinator",
+        email: "coordinator@electify.edu",
         passwordHash: facultyPasswordHash,
-        role: "FACULTY",
+        role: "COURSE_COORDINATOR",
+        faculty: "Faculty of Science & Humanities",
+        department: "Computer Applications",
+        degree: "MCA",
+      },
+      {
+        employeeId: "EMP-TU-01",
+        name: "MCA Class Tutor A",
+        email: "tutor_a@electify.edu",
+        passwordHash: facultyPasswordHash,
+        role: "CLASS_TUTOR",
+        faculty: "Faculty of Science & Humanities",
+        department: "Computer Applications",
+        degree: "MCA",
+        className: "A",
+      },
+    ],
+  });
+
+  console.log("Seeding test invite codes...");
+  const inviteExpiry = new Date();
+  inviteExpiry.setDate(inviteExpiry.getDate() + 7); // Expiration in 7 days
+
+  await prisma.inviteCode.createMany({
+    data: [
+      {
+        code: "ELC-CC-MCA-7A9KD2",
+        role: "COURSE_COORDINATOR",
+        faculty: "Faculty of Science & Humanities",
+        department: "Computer Applications",
+        degree: "MCA",
+        createdBy: "EMP-ADMIN",
+        expiresAt: inviteExpiry,
+        maxUses: 1,
+        usedCount: 0,
+        status: "ACTIVE",
+      },
+      {
+        code: "ELC-TU-MCAF-Q8XPL4",
+        role: "CLASS_TUTOR",
+        faculty: "Faculty of Science & Humanities",
+        department: "Computer Applications",
+        degree: "MCA",
+        section: null,
+        createdBy: "EMP-CC-01",
+        expiresAt: inviteExpiry,
+        maxUses: 1,
+        usedCount: 0,
+        status: "ACTIVE",
       },
     ],
   });

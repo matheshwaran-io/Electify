@@ -17,15 +17,22 @@ model Student {
   hasSubmitted   Boolean       @default(false)
   createdAt      DateTime      @default(now())
   updatedAt      DateTime      @updatedAt
+  className      String?
   registration   Registration?
 }
 
 model Faculty {
   id           String   @id @default(cuid())
+  employeeId   String?  @unique
   name         String
   email        String   @unique
   passwordHash String
-  role         String   @default("FACULTY") // FACULTY | SUPER_ADMIN
+  role         String   @default("CLASS_TUTOR") // COURSE_COORDINATOR | CLASS_TUTOR | SUPER_ADMIN
+  isActive     Boolean  @default(true)
+  faculty      String?
+  department   String?
+  degree       String?
+  className    String?  // Represents Section (A, B, C, D, E, F)
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
 }
@@ -77,4 +84,30 @@ model LoginAttempt {
   lockoutUntil DateTime?
   createdAt    DateTime  @default(now())
   updatedAt    DateTime  @updatedAt
+}
+
+model InviteCode {
+  id           String   @id @default(cuid())
+  code         String   @unique
+  role         String   // "COURSE_COORDINATOR" | "CLASS_TUTOR"
+  faculty      String
+  department   String
+  degree       String
+  section      String?  // Section (Tutor Only)
+  createdBy    String   // ID of creator (Faculty)
+  createdAt    DateTime @default(now())
+  expiresAt    DateTime
+  maxUses      Int      @default(1)
+  usedCount    Int      @default(0)
+  status       String   @default("ACTIVE") // ACTIVE | USED | EXPIRED | REVOKED
+}
+
+model AuditLog {
+  id        String   @id @default(cuid())
+  action    String
+  userId    String?
+  userEmail String?
+  ipAddress String?
+  metadata  String?  // JSON string
+  createdAt DateTime @default(now())
 }

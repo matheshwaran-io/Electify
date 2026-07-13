@@ -12,6 +12,8 @@ interface UserSession {
   email: string;
   role: "STUDENT" | "FACULTY" | "SUPER_ADMIN";
   registerNumber?: string;
+  facultyType?: "COURSE_COORDINATOR" | "CLASS_TUTOR";
+  className?: string;
 }
 
 export async function middleware(request: NextRequest) {

@@ -18,6 +18,8 @@ import {
   Menu,
   X,
   CalendarRange,
+  KeyRound,
+  ClipboardList,
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -27,6 +29,7 @@ interface SidebarProps {
     email: string;
     name: string;
     role: string;
+    facultyType?: "COURSE_COORDINATOR" | "CLASS_TUTOR";
   };
   isSuperAdmin: boolean;
 }
@@ -60,13 +63,19 @@ export function FacultySidebar({ session, isSuperAdmin }: SidebarProps) {
     router.refresh();
   };
 
+  const showInvites = isSuperAdmin || session.facultyType === "COURSE_COORDINATOR";
+
   const navLinks = [
     { href: "/faculty/dashboard", label: "Dashboard", icon: LayoutDashboard },
     { href: "/faculty/electives", label: "Electives", icon: BookOpen },
     { href: "/faculty/students", label: "Students", icon: Users },
     { href: "/faculty/reports", label: "Reports", icon: BarChart3 },
+    ...(showInvites
+      ? [{ href: "/faculty/invites", label: "Invite Codes", icon: KeyRound }]
+      : []),
     ...(isSuperAdmin
       ? [
+          { href: "/faculty/audit", label: "Audit Logs", icon: ClipboardList },
           { href: "/faculty/window", label: "Portal Window", icon: CalendarRange },
           { href: "/faculty/settings", label: "Settings", icon: SettingsIcon },
         ]
@@ -84,7 +93,7 @@ export function FacultySidebar({ session, isSuperAdmin }: SidebarProps) {
               <Image src="/logo.png" alt="Electify Logo" width={32} height={32} className="w-full h-full object-contain" />
             </div>
             <span className="font-extrabold text-base text-slate-900 dark:text-white tracking-tight">
-              Electify Admin
+              Electify Portal
             </span>
           </div>
           <ThemeToggle />
@@ -137,7 +146,11 @@ export function FacultySidebar({ session, isSuperAdmin }: SidebarProps) {
                 {session.name}
               </p>
               <p className="text-[9px] font-bold text-slate-400 dark:text-slate-500 uppercase mt-1 tracking-wider">
-                {session.role === "SUPER_ADMIN" ? "Super Admin" : "Faculty"}
+                {session.role === "SUPER_ADMIN"
+                  ? "Super Admin"
+                  : session.facultyType === "COURSE_COORDINATOR"
+                  ? "Coordinator"
+                  : "Class Tutor"}
               </p>
             </div>
           </div>
@@ -159,7 +172,7 @@ export function FacultySidebar({ session, isSuperAdmin }: SidebarProps) {
             <Image src="/logo.png" alt="Electify Logo" width={32} height={32} className="w-full h-full object-contain" />
           </div>
           <span className="font-extrabold text-base text-slate-900 dark:text-white tracking-tight">
-            Electify Admin
+            Electify Portal
           </span>
         </div>
 
@@ -243,7 +256,11 @@ export function FacultySidebar({ session, isSuperAdmin }: SidebarProps) {
                   <div>
                     <p className="text-sm font-bold text-slate-800 dark:text-slate-200">{session.name}</p>
                     <p className="text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-widest">
-                      {session.role === "SUPER_ADMIN" ? "Super Admin" : "Faculty"}
+                      {session.role === "SUPER_ADMIN"
+                        ? "Super Admin"
+                        : session.facultyType === "COURSE_COORDINATOR"
+                        ? "Coordinator"
+                        : "Class Tutor"}
                     </p>
                   </div>
                 </div>

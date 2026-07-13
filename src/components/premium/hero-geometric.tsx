@@ -273,17 +273,16 @@ export default function HeroGeometric({
                     {hasText && (
                         <div className="flex-1 flex flex-col items-center lg:items-start text-center lg:text-left max-w-[620px]">
 
-                            {/* Badge */}
+                            {/* Badge or Logo */}
                             <motion.div
                                 initial={{ opacity: 0, y: 12 }}
                                 animate={{ opacity: 1, y: 0 }}
                                 transition={{ duration: 0.6, delay: 0.05, ease: "easeOut" }}
                                 className="mb-6 md:mb-8"
                             >
-                                <span className="inline-flex items-center gap-2 px-3 py-1 rounded-full text-[11px] font-semibold uppercase tracking-widest border border-white/30 bg-white/20 backdrop-blur-sm text-white/80 dark:text-white/70 dark:border-white/10 dark:bg-white/5">
-                                    <span className="w-1.5 h-1.5 rounded-full bg-current animate-pulse" />
-                                    Electify Platform
-                                </span>
+                                <div className="inline-flex items-center justify-center p-3 rounded-2xl bg-white shadow-xl">
+                                    <img src="/logo.png" alt="Electify Logo" className="h-16 w-auto object-contain" />
+                                </div>
                             </motion.div>
 
                             {/* Title 1 */}
