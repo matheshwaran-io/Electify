@@ -62,9 +62,10 @@ export default async function RegistrationSuccessPage() {
     return <ClientRedirect to="/dashboard" />;
   }
 
-  // Determine if editing is allowed based on event status
+  // Determine if editing is allowed based on event status and lock
   const now = new Date();
-  const allowRegistrationEdit = event.status === "OPEN" && (!event.closeDate || now <= event.closeDate);
+  const isLocked = registrations.some(r => r.registration.isLocked);
+  const allowRegistrationEdit = !isLocked && event.status === "OPEN" && (!event.closeDate || now <= event.closeDate);
 
   const formattedRegistrations = registrations.map(r => ({
     groupName: r.group?.name || "Unknown Group",

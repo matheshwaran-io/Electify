@@ -238,6 +238,7 @@ export const studentRegistrations = pgTable(
     electiveId: uuid("elective_id")
       .notNull()
       .references(() => electives.id),
+    isLocked: boolean("is_locked").default(true).notNull(),
     submittedAt: timestamp("submitted_at").defaultNow().notNull(),
     updatedAt: timestamp("updated_at").defaultNow().notNull(),
   },

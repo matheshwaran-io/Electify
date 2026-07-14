@@ -9,5 +9,8 @@ export default async function SectionPage() {
 
   const reportData = await getTutorReports();
 
-  return <SectionClient reportData={reportData} session={session} />;
+  return <SectionClient 
+        reportData={reportData} 
+        session={{ name: session.name, sectionId: session.sectionId, role: session.role }} 
+      />;
 }

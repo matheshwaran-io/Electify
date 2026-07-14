@@ -3,7 +3,7 @@
 import { db } from "@/lib/db";
 import {
   users, electives, electiveGroups, registrationEvents,
-  studentRegistrations, eventSections, sections, programmes, academicBatches
+  studentRegistrations, eventSections, sections, programmes, academicBatches, auditLogs
 } from "@/lib/db/schema";
 import { getSession } from "@/lib/auth";
 import { eq, and, asc, count, desc, inArray } from "drizzle-orm";
@@ -315,6 +315,39 @@ export async function createStudent(formData: { name: string; registerNumber: st
     departmentId: session.departmentId,
     isActive: true,
     isEligible: true,
+  });
+}
+
+export async function unlockStudentRegistration(studentId: string, eventId?: string) {
+  const session = await assertTutor();
+  const [student] = await db.select({ email: users.email }).from(users).where(and(eq(users.id, studentId), eq(users.sectionId, session.sectionId!)));
+  if (!student) throw new Error("Student not found.");
+
+  // Use a transaction to unlock registrations
+  await db.transaction(async (tx) => {
+    const conditions = [eq(studentRegistrations.studentId, studentId)];
+    if (eventId) {
+       const [eventLink] = await tx.select().from(eventSections).where(and(eq(eventSections.eventId, eventId), eq(eventSections.sectionId, session.sectionId!)));
+       if (!eventLink) throw new Error("Unauthorized access to this event.");
+       conditions.push(eq(studentRegistrations.eventId, eventId));
+    }
+
+    await tx.update(studentRegistrations)
+      .set({ isLocked: false })
+      .where(and(...conditions));
+
+    // Audit log
+    await tx.insert(auditLogs).values({
+      action: "UNLOCK_STUDENT_REGISTRATION",
+      userId: session.userId,
+      userEmail: session.email,
+      userRole: session.role,
+      metadata: {
+        studentId,
+        studentEmail: student.email,
+        eventId: eventId || "ALL_EVENTS",
+      },
+    });
   });
 }
 

@@ -1,7 +1,9 @@
 "use client";
 
 import { motion } from "framer-motion";
-import { FileText, Users, CheckCircle } from "lucide-react";
+import { FileText, Users, CheckCircle, Download } from "lucide-react";
+import jsPDF from "jspdf";
+import autoTable from "jspdf-autotable";
 
 type SectionReport = { sectionId: string; sectionLabel: string; totalStudents: number; registeredCount: number };
 
@@ -10,11 +12,55 @@ export function ReportsClient({ report }: { report: SectionReport[] }) {
   const totalRegistered = report.reduce((s, r) => s + r.registeredCount, 0);
   const overallPct = totalStudents > 0 ? Math.round((totalRegistered / totalStudents) * 100) : 0;
 
+  const exportCSV = () => {
+    const headers = ["Section", "Total Students", "Registered", "Completion Rate"];
+    const rows = report.map(r => {
+      const pct = r.totalStudents > 0 ? Math.round((r.registeredCount / r.totalStudents) * 100) : 0;
+      return [r.sectionLabel, r.totalStudents, r.registeredCount, `${pct}%`];
+    });
+    const csvContent = "data:text/csv;charset=utf-8," + [headers.join(","), ...rows.map(e => e.join(","))].join("\n");
+    const encodedUri = encodeURI(csvContent);
+    const link = document.createElement("a");
+    link.setAttribute("href", encodedUri);
+    link.setAttribute("download", "registration_report.csv");
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
+  const exportPDF = () => {
+    const doc = new jsPDF();
+    doc.text("Registration Report", 14, 15);
+    
+    const tableData = report.map(r => {
+      const pct = r.totalStudents > 0 ? Math.round((r.registeredCount / r.totalStudents) * 100) : 0;
+      return [r.sectionLabel, r.totalStudents, r.registeredCount, `${pct}%`];
+    });
+
+    autoTable(doc, {
+      head: [["Section", "Total Students", "Registered", "Completion Rate"]],
+      body: tableData,
+      startY: 20,
+    });
+    
+    doc.save("registration_report.pdf");
+  };
+
   return (
     <div className="space-y-8">
-      <div>
-        <h1 className="text-3xl font-bold text-[var(--foreground)]">Registration Reports</h1>
-        <p className="text-[var(--muted-foreground)] mt-1">Section-wise registration completion statistics.</p>
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <div>
+          <h1 className="text-3xl font-bold text-[var(--foreground)]">Registration Reports</h1>
+          <p className="text-[var(--muted-foreground)] mt-1">Section-wise registration completion statistics.</p>
+        </div>
+        <div className="flex items-center gap-3">
+          <button onClick={exportCSV} className="flex items-center gap-2 px-4 py-2 bg-[var(--card)] hover:bg-[var(--accent)] border border-[var(--border)] rounded-xl text-sm font-medium transition-colors">
+            <Download className="w-4 h-4" /> CSV
+          </button>
+          <button onClick={exportPDF} className="flex items-center gap-2 px-4 py-2 bg-indigo-500 hover:bg-indigo-600 text-white rounded-xl text-sm font-medium transition-colors">
+            <Download className="w-4 h-4" /> PDF
+          </button>
+        </div>
       </div>
 
       {/* Summary Cards */}

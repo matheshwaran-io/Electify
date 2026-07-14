@@ -3,7 +3,7 @@
 import { useState, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Users, Search, ShieldCheck, CheckCircle2, Clock, Plus, X, Download, Upload, Pencil, Trash2 } from "lucide-react";
-import { createStudent, importStudentsCSV, updateStudent, deleteStudent } from "@/app/actions/tutor";
+import { createStudent, importStudentsCSV, updateStudent, deleteStudent, unlockStudentRegistration } from "@/app/actions/tutor";
 import { useRouter } from "next/navigation";
 
 type Registration = { studentId: string; electiveName: string; groupName: string; eventName: string };
@@ -17,7 +17,7 @@ type Student = {
   registrations: Registration[] 
 };
 type ReportData = { students: Student[]; totalStudents: number; registeredCount: number };
-type Session = { name: string; sectionId?: string };
+type Session = { name: string; sectionId?: string; role?: string };
 
 export function SectionClient({ reportData, session }: { reportData: ReportData; session: Session }) {
   const router = useRouter();
@@ -88,6 +88,17 @@ export function SectionClient({ reportData, session }: { reportData: ReportData;
     try {
       await deleteStudent(id);
       router.refresh();
+    } catch (err: any) {
+      alert(err.message);
+    }
+  }
+
+  async function handleUnlockStudent(id: string) {
+    if (!confirm("Are you sure you want to unlock this student's registration? This allows them to edit their locked choices.")) return;
+    try {
+      await unlockStudentRegistration(id);
+      router.refresh();
+      alert("Registration successfully unlocked.");
     } catch (err: any) {
       alert(err.message);
     }
@@ -304,6 +315,11 @@ export function SectionClient({ reportData, session }: { reportData: ReportData;
                       </td>
                       <td className="px-6 py-4 text-right">
                         <div className="flex items-center justify-end gap-2">
+                          {(session.role === "SUPER_ADMIN" || session.role === "COURSE_COORDINATOR") && isRegistered && (
+                            <button onClick={() => handleUnlockStudent(s.id)} className="p-1.5 text-orange-500 hover:bg-orange-500/10 rounded-md transition-colors" title="Unlock Registration">
+                              <ShieldCheck className="w-4 h-4" />
+                            </button>
+                          )}
                           <button onClick={() => openEditModal(s)} className="p-1.5 text-blue-500 hover:bg-blue-500/10 rounded-md transition-colors" title="Edit">
                             <Pencil className="w-4 h-4" />
                           </button>

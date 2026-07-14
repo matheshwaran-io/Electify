@@ -65,6 +65,11 @@ export async function registerElectives(
       const existing = await tx.select().from(studentRegistrations)
         .where(and(eq(studentRegistrations.studentId, studentId), eq(studentRegistrations.eventId, eventId)));
 
+      // Enforce Lock
+      if (existing.some(r => r.isLocked)) {
+        throw new Error("Your registration for this event has been locked and cannot be modified.");
+      }
+
       if (existing.length > 0) {
         // Unregister existing: increment seats
         for (const reg of existing) {
@@ -112,6 +117,7 @@ export async function registerElectives(
           eventId,
           groupId: sel.groupId,
           electiveId: sel.electiveId,
+          isLocked: true, // Lock immediately upon confirmation
         });
       }
     });

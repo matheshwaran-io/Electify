@@ -3,10 +3,10 @@
 import { db } from "@/lib/db";
 import {
   users, registrationEvents, programmes, sections,
-  electiveGroups, electives, studentRegistrations, academicBatches, eventTemplates,
+  electiveGroups, electives, studentRegistrations, academicBatches, eventTemplates, auditLogs
 } from "@/lib/db/schema";
 import { getSession } from "@/lib/auth";
-import { eq, and, count, desc, asc } from "drizzle-orm";
+import { eq, and, count, desc, asc, inArray } from "drizzle-orm";
 
 async function assertCoordinator() {
   const session = await getSession();
@@ -90,6 +90,29 @@ export async function getCoordinatorStudents() {
   return students;
 }
 
+export async function deleteMultipleStudents(ids: string[]) {
+  const session = await assertCoordinator();
+  if (!ids || ids.length === 0) return;
+
+  await db.transaction(async (tx) => {
+    // We should refund seats before deleting registrations
+    const existing = await tx.select().from(studentRegistrations).where(inArray(studentRegistrations.studentId, ids));
+    
+    for (const reg of existing) {
+      const [elective] = await tx.select({ availableSeats: electives.availableSeats }).from(electives).where(eq(electives.id, reg.electiveId));
+      if (elective) {
+        await tx.update(electives).set({ 
+          availableSeats: elective.availableSeats + 1,
+          isFull: false 
+        }).where(eq(electives.id, reg.electiveId));
+      }
+    }
+
+    await tx.delete(studentRegistrations).where(inArray(studentRegistrations.studentId, ids));
+    await tx.delete(users).where(inArray(users.id, ids));
+  });
+}
+
 // ── Reports ───────────────────────────────────────────────────────────────
 
 export async function getCoordinatorReports() {
@@ -155,3 +178,50 @@ export async function getCoordinatorTemplates() {
 
   return templates;
 }
+
+export async function resetRegistrationEvent(eventId: string) {
+  const session = await assertCoordinator();
+
+  // Make sure event exists
+  const [event] = await db.select().from(registrationEvents).where(eq(registrationEvents.id, eventId));
+  if (!event) throw new Error("Event not found.");
+
+  await db.transaction(async (tx) => {
+    // 1. Fetch all registrations for this event to identify the electives affected
+    const existingRegistrations = await tx.select().from(studentRegistrations).where(eq(studentRegistrations.eventId, eventId));
+
+    // 2. Refund all seats for these electives
+    // Group by elective to minimize updates
+    const counts: Record<string, number> = {};
+    for (const reg of existingRegistrations) {
+      counts[reg.electiveId] = (counts[reg.electiveId] || 0) + 1;
+    }
+
+    for (const [electiveId, countToRefund] of Object.entries(counts)) {
+      const [elective] = await tx.select({ availableSeats: electives.availableSeats }).from(electives).where(eq(electives.id, electiveId));
+      if (elective) {
+        await tx.update(electives).set({ 
+          availableSeats: elective.availableSeats + countToRefund,
+          isFull: false 
+        }).where(eq(electives.id, electiveId));
+      }
+    }
+
+    // 3. Delete all registrations
+    await tx.delete(studentRegistrations).where(eq(studentRegistrations.eventId, eventId));
+
+    // 4. Create an audit log
+    await tx.insert(auditLogs).values({
+      action: "RESET_REGISTRATION_EVENT",
+      userId: session.userId,
+      userEmail: session.email,
+      userRole: session.role,
+      metadata: {
+        eventId,
+        eventName: event.name,
+        clearedRegistrationsCount: existingRegistrations.length,
+      },
+    });
+  });
+}
+

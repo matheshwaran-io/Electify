@@ -89,6 +89,7 @@ export default async function StudentDashboardPage() {
     .where(and(eq(studentRegistrations.studentId, student.id), eq(studentRegistrations.eventId, event.id)));
   
   const hasSubmitted = currentRegistrations.length > 0;
+  const isLocked = currentRegistrations.some(r => r.isLocked);
 
   if (!isRegistrationStarted) {
     return <ClientRedirect to="/countdown" />;
@@ -98,7 +99,7 @@ export default async function StudentDashboardPage() {
     return <ClientRedirect to="/countdown" />;
   }
 
-  if (hasSubmitted && event.status !== "OPEN" && event.status !== "PUBLISHED") {
+  if (hasSubmitted && (isLocked || (event.status !== "OPEN" && event.status !== "PUBLISHED"))) {
     return <ClientRedirect to="/dashboard/success" />;
   }
 

@@ -5,6 +5,8 @@ import { motion } from "framer-motion";
 import { Calendar, Search } from "lucide-react";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { format } from "date-fns";
+import { resetRegistrationEvent } from "@/app/actions/coordinator";
+import { useRouter } from "next/navigation";
 
 type Event = {
   id: string;
@@ -19,12 +21,29 @@ type Event = {
 };
 
 export function EventsClient({ events }: { events: Event[] }) {
+  const router = useRouter();
+  const [isResetting, setIsResetting] = useState<string | null>(null);
   const [search, setSearch] = useState("");
   const filtered = events.filter(
     (e) =>
       e.name.toLowerCase().includes(search.toLowerCase()) ||
       (e.programmeName ?? "").toLowerCase().includes(search.toLowerCase())
   );
+
+  const handleResetEvent = async (eventId: string, eventName: string) => {
+    if (!confirm(`DANGER: Are you sure you want to completely reset '${eventName}'? This will permanently wipe ALL student registrations for this event and cannot be undone.`)) return;
+    
+    setIsResetting(eventId);
+    try {
+      await resetRegistrationEvent(eventId);
+      router.refresh();
+      alert(`Successfully reset ${eventName}. All students must re-register.`);
+    } catch (err: any) {
+      alert(err.message || "Failed to reset event");
+    } finally {
+      setIsResetting(null);
+    }
+  };
 
   return (
     <div className="space-y-6">
@@ -57,6 +76,7 @@ export function EventsClient({ events }: { events: Event[] }) {
                 <th className="text-left px-6 py-4 font-semibold text-[var(--muted-foreground)]">Status</th>
                 <th className="text-left px-6 py-4 font-semibold text-[var(--muted-foreground)]">Open Date</th>
                 <th className="text-left px-6 py-4 font-semibold text-[var(--muted-foreground)]">Close Date</th>
+                <th className="text-right px-6 py-4 font-semibold text-[var(--muted-foreground)]">Actions</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-[var(--border)]">
@@ -90,6 +110,15 @@ export function EventsClient({ events }: { events: Event[] }) {
                     </td>
                     <td className="px-6 py-4 text-[var(--muted-foreground)]">
                       {event.closeDate ? format(new Date(event.closeDate), "MMM d, yyyy") : "—"}
+                    </td>
+                    <td className="px-6 py-4 text-right">
+                      <button
+                        onClick={() => handleResetEvent(event.id, event.name)}
+                        disabled={isResetting === event.id}
+                        className="px-3 py-1.5 text-xs font-semibold text-red-600 bg-red-100 hover:bg-red-200 rounded-md transition-colors disabled:opacity-50"
+                      >
+                        {isResetting === event.id ? "Resetting..." : "Reset Data"}
+                      </button>
                     </td>
                   </motion.tr>
                 ))
