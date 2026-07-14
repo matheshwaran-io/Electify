@@ -303,9 +303,18 @@ export function AppShell({ children, session, assignedSections = [] }: AppShellP
 
         {session.role === "CLASS_TUTOR" && assignedSections.length > 0 && (
           <div className="px-4 mb-4 mt-2">
-            <label className="text-xs font-semibold text-[var(--muted-foreground)] uppercase tracking-wider pl-2 mb-2 block">
-              Active Section
-            </label>
+            <div className="flex items-center justify-between mb-2 pl-2 pr-1">
+              <label className="text-xs font-semibold text-[var(--muted-foreground)] uppercase tracking-wider block">
+                Active Section
+              </label>
+              <Link 
+                href="/faculty/assign-sections" 
+                className="text-xs font-medium text-indigo-500 hover:text-indigo-600 transition-colors"
+                title="Manage Sections"
+              >
+                Manage
+              </Link>
+            </div>
             <select
               value={session.sectionId || ""}
               onChange={async (e) => {

@@ -6,7 +6,7 @@ import {
   studentRegistrations, eventSections, sections, programmes, academicBatches, auditLogs, registrations, departments
 } from "@/lib/db/schema";
 import { getSession } from "@/lib/auth";
-import { eq, and, asc, count, desc, inArray } from "drizzle-orm";
+import { eq, and, asc, count, desc, inArray, notInArray } from "drizzle-orm";
 
 async function assertTutor() {
   const session = await getSession();
@@ -708,6 +708,10 @@ export async function getAllAvailableSections() {
   const session = await getSession();
   if (!session || session.role !== "CLASS_TUTOR") throw new Error("Unauthorized");
 
+  // Get all assigned sections across the institution
+  const assigned = await db.select({ sectionId: tutorSections.sectionId }).from(tutorSections);
+  const assignedIds = assigned.map(a => a.sectionId);
+
   const results = await db
     .select({
       id: sections.id,
@@ -718,29 +722,48 @@ export async function getAllAvailableSections() {
     .from(sections)
     .innerJoin(academicBatches, eq(sections.academicBatchId, academicBatches.id))
     .innerJoin(programmes, eq(academicBatches.programmeId, programmes.id))
+    .where(assignedIds.length > 0 ? notInArray(sections.id, assignedIds) : undefined)
     .orderBy(programmes.name, academicBatches.year, sections.label);
 
   return results;
 }
 
-export async function claimTutorSection(sectionId: string) {
+export async function claimTutorSection(sectionIds: string[]) {
   const session = await getSession();
   if (!session || session.role !== "CLASS_TUTOR") throw new Error("Unauthorized");
 
-  // Add the section to this tutor
+  if (!sectionIds || sectionIds.length === 0) {
+    throw new Error("No sections selected");
+  }
+
+  // Check how many sections the tutor already has
   const existing = await db
     .select()
     .from(tutorSections)
-    .where(and(eq(tutorSections.tutorId, session.userId), eq(tutorSections.sectionId, sectionId)));
+    .where(eq(tutorSections.tutorId, session.userId));
 
-  if (existing.length === 0) {
-    await db.insert(tutorSections).values({
-      tutorId: session.userId,
-      sectionId: sectionId,
-    });
+  if (existing.length + sectionIds.length > 5) {
+    throw new Error(`You can only manage up to 5 sections. You currently have ${existing.length}.`);
   }
 
-  // Update their session to use this new section as active
+  // Check if any of these sections are already assigned to someone else
+  const alreadyAssigned = await db
+    .select()
+    .from(tutorSections)
+    .where(inArray(tutorSections.sectionId, sectionIds));
+
+  if (alreadyAssigned.length > 0) {
+    throw new Error("One or more selected sections have already been claimed by another tutor.");
+  }
+
+  const valuesToInsert = sectionIds.map(id => ({
+    tutorId: session.userId,
+    sectionId: id,
+  }));
+
+  await db.insert(tutorSections).values(valuesToInsert);
+
+  // Set the first one as active if the tutor had none
   const { switchTutorSection } = await import("@/app/actions/auth");
-  await switchTutorSection(sectionId);
+  await switchTutorSection(sectionIds[0]);
 }
