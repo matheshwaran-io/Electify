@@ -216,8 +216,9 @@ export async function registerStaff(formData: {
     }
 
     // 2. Section validation for CLASS_TUTOR
-    let resolvedSectionId: string | null = null;
-    if (invite.role === "CLASS_TUTOR") {
+    let resolvedSectionId: string | null = invite.sectionId || null;
+    
+    if (invite.role === "CLASS_TUTOR" && !resolvedSectionId) {
       if (!section) {
         return { success: false, error: "Class Tutors must select a section." };
       }
@@ -237,6 +238,8 @@ export async function registerStaff(formData: {
           return { success: false, error: "Invalid section. Please select A–J." };
         }
         resolvedSectionId = sec.id;
+      } else {
+        return { success: false, error: "Cannot assign section without a programme in the invite code. Contact Admin." };
       }
     }
 
