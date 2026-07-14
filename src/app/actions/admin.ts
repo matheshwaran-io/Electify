@@ -40,36 +40,46 @@ export async function getEvents() {
 
 // ── Academic Hierarchy ──────────────────────────────────────────────────────
 
+import { unstable_cache } from "next/cache";
+
+const getCachedDepartmentsTree = unstable_cache(
+  async () => {
+    // Only cache the database fetch and shaping part
+    const allFaculties = await db.select().from(faculties).orderBy(asc(faculties.name));
+    const allDepts = await db.select().from(departments).orderBy(asc(departments.name));
+    const allProgs = await db.select().from(programmes).orderBy(asc(programmes.name));
+    const allBatches = await db.select().from(academicBatches).orderBy(asc(academicBatches.year));
+    const allSections = await db.select().from(sections).orderBy(asc(sections.label));
+
+    return {
+      faculties: allFaculties.map((f) => ({
+        ...f,
+        departments: allDepts
+          .filter((d) => d.facultyId === f.id)
+          .map((d) => ({
+            ...d,
+            programmes: allProgs
+              .filter((p) => p.departmentId === d.id)
+              .map((p) => ({
+                ...p,
+                batches: allBatches
+                  .filter((b) => b.programmeId === p.id)
+                  .map((b) => ({
+                    ...b,
+                    sections: allSections.filter((s) => s.academicBatchId === b.id),
+                  })),
+              })),
+          })),
+      })),
+    };
+  },
+  ["admin-hierarchy"],
+  { tags: ["hierarchy"], revalidate: 3600 }
+);
+
 export async function getDepartmentsTree() {
   await assertAdmin();
-
-  const allFaculties = await db.select().from(faculties).orderBy(asc(faculties.name));
-  const allDepts = await db.select().from(departments).orderBy(asc(departments.name));
-  const allProgs = await db.select().from(programmes).orderBy(asc(programmes.name));
-  const allBatches = await db.select().from(academicBatches).orderBy(asc(academicBatches.year));
-  const allSections = await db.select().from(sections).orderBy(asc(sections.label));
-
-  return {
-    faculties: allFaculties.map((f) => ({
-      ...f,
-      departments: allDepts
-        .filter((d) => d.facultyId === f.id)
-        .map((d) => ({
-          ...d,
-          programmes: allProgs
-            .filter((p) => p.departmentId === d.id)
-            .map((p) => ({
-              ...p,
-              batches: allBatches
-                .filter((b) => b.programmeId === p.id)
-                .map((b) => ({
-                  ...b,
-                  sections: allSections.filter((s) => s.academicBatchId === b.id),
-                })),
-            })),
-        })),
-    })),
-  };
+  return getCachedDepartmentsTree();
 }
 
 // ── Templates ───────────────────────────────────────────────────────────────

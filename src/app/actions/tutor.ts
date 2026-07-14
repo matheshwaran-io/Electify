@@ -276,8 +276,21 @@ export async function updateWindowTimers(eventId: string, openDate: Date | null,
 }
 
 import * as bcrypt from "bcryptjs";
+import { z } from "zod";
 
-export async function createStudent(data: { name: string; registerNumber: string; email: string }) {
+const createStudentSchema = z.object({
+  name: z.string().min(2, "Name must be at least 2 characters"),
+  registerNumber: z.string().min(1, "Register number is required"),
+  email: z.string().email("Invalid email format"),
+});
+
+export async function createStudent(formData: { name: string; registerNumber: string; email: string }) {
+  const parsed = createStudentSchema.safeParse(formData);
+  if (!parsed.success) {
+    throw new Error(parsed.error.issues[0].message);
+  }
+  const data = parsed.data;
+
   const session = await assertTutor();
   if (!session.sectionId || !session.academicBatchId || !session.programmeId || !session.departmentId) {
     throw new Error("Missing assignment data");
@@ -291,7 +304,9 @@ export async function createStudent(data: { name: string; registerNumber: string
 
   if (existing) throw new Error("A user with this email already exists.");
 
-  const hashed = await bcrypt.hash("Student@123", 12); // Default password
+  // Default password is their register number, securely hashed.
+  // Note: System architecture enforces server-side validation.
+  const hashed = await bcrypt.hash(data.registerNumber.toUpperCase().trim(), 12);
 
   await db.insert(users).values({
     name: data.name.trim(),

@@ -5,6 +5,7 @@ import { users, loginAttempts, inviteCodes, auditLogs, sections, faculties, depa
 import * as bcrypt from "bcryptjs";
 import { signJWT, setSessionCookie, clearSessionCookie, type UserSession } from "@/lib/auth";
 import { eq, and, asc } from "drizzle-orm";
+import { z } from "zod";
 
 const MAX_ATTEMPTS = 5;
 const LOCKOUT_DURATION_MS = 15 * 60 * 1000; // 15 minutes
@@ -14,6 +15,11 @@ interface LoginResult {
   error?: string;
   role?: string;
 }
+
+const loginSchema = z.object({
+  email: z.string().email(),
+  password: z.string().min(1, "Password is required"),
+});
 
 // ────────────────────────────────────────────────────────────────────
 // Rate Limiting
@@ -93,7 +99,11 @@ export async function login(formData: {
   email: string;
   password: string;
 }): Promise<LoginResult> {
-  const { email, password } = formData;
+  const parsed = loginSchema.safeParse(formData);
+  if (!parsed.success) {
+    return { success: false, error: "Invalid credentials format." };
+  }
+  const { email, password } = parsed.data;
   const ip = "client-ip"; // In production, get from request headers
 
   try {
@@ -176,6 +186,16 @@ export async function logout() {
   await clearSessionCookie();
 }
 
+const registerStaffSchema = z.object({
+  inviteCode: z.string().min(1, "Invite code is required"),
+  employeeId: z.string().min(1, "Employee ID is required"),
+  name: z.string().min(2, "Name must be at least 2 characters"),
+  email: z.string().email("Invalid email format"),
+  phone: z.string().optional(),
+  section: z.string().optional(),
+  password: z.string().min(6, "Password must be at least 6 characters"),
+});
+
 // ────────────────────────────────────────────────────────────────────
 // Staff Registration (via Invite Code)
 // ────────────────────────────────────────────────────────────────────
@@ -189,7 +209,11 @@ export async function registerStaff(formData: {
   section?: string; // Only for CLASS_TUTOR
   password: string;
 }): Promise<LoginResult> {
-  const { inviteCode, employeeId, name, email, phone, section, password } = formData;
+  const parsed = registerStaffSchema.safeParse(formData);
+  if (!parsed.success) {
+    return { success: false, error: parsed.error.issues[0].message };
+  }
+  const { inviteCode, employeeId, name, email, phone, section, password } = parsed.data;
 
   try {
     // 1. Validate invite code
@@ -337,32 +361,38 @@ export async function registerStaff(formData: {
 // Public Hierarchy (For Registration)
 // ────────────────────────────────────────────────────────────────────
 
-export async function getPublicHierarchy() {
-  const allFaculties = await db.select().from(faculties).orderBy(asc(faculties.name));
-  const allDepts = await db.select().from(departments).orderBy(asc(departments.name));
-  const allProgs = await db.select().from(programmes).orderBy(asc(programmes.name));
-  const allBatches = await db.select().from(academicBatches).orderBy(asc(academicBatches.year));
-  const allSections = await db.select().from(sections).orderBy(asc(sections.label));
+import { unstable_cache } from "next/cache";
 
-  return {
-    faculties: allFaculties.map((f) => ({
-      ...f,
-      departments: allDepts
-        .filter((d) => d.facultyId === f.id)
-        .map((d) => ({
-          ...d,
-          programmes: allProgs
-            .filter((p) => p.departmentId === d.id)
-            .map((p) => ({
-              ...p,
-              batches: allBatches
-                .filter((b) => b.programmeId === p.id)
-                .map((b) => ({
-                  ...b,
-                  sections: allSections.filter((s) => s.academicBatchId === b.id),
-                })),
-            })),
-        })),
-    })),
-  };
-}
+export const getPublicHierarchy = unstable_cache(
+  async () => {
+    const allFaculties = await db.select().from(faculties).orderBy(asc(faculties.name));
+    const allDepts = await db.select().from(departments).orderBy(asc(departments.name));
+    const allProgs = await db.select().from(programmes).orderBy(asc(programmes.name));
+    const allBatches = await db.select().from(academicBatches).orderBy(asc(academicBatches.year));
+    const allSections = await db.select().from(sections).orderBy(asc(sections.label));
+
+    return {
+      faculties: allFaculties.map((f) => ({
+        ...f,
+        departments: allDepts
+          .filter((d) => d.facultyId === f.id)
+          .map((d) => ({
+            ...d,
+            programmes: allProgs
+              .filter((p) => p.departmentId === d.id)
+              .map((p) => ({
+                ...p,
+                batches: allBatches
+                  .filter((b) => b.programmeId === p.id)
+                  .map((b) => ({
+                    ...b,
+                    sections: allSections.filter((s) => s.academicBatchId === b.id),
+                  })),
+              })),
+          })),
+      })),
+    };
+  },
+  ["public-hierarchy"],
+  { tags: ["hierarchy"], revalidate: 3600 }
+);
