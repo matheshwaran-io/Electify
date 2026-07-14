@@ -315,11 +315,12 @@ export async function createElectiveGroup(eventId: string, name: string) {
   const existingGroups = await db.select().from(electiveGroups).where(eq(electiveGroups.eventId, eventId));
   const sortOrder = existingGroups.length;
 
-  await db.insert(electiveGroups).values({
+  const [newGroup] = await db.insert(electiveGroups).values({
     eventId,
     name: name.trim(),
     sortOrder,
-  });
+  }).returning({ id: electiveGroups.id });
+  return newGroup;
 }
 
 export async function createElective(groupId: string, data: { name: string; maxSeats: number; credits: number; courseCode?: string }) {

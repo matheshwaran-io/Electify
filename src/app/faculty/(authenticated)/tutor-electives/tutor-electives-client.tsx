@@ -32,15 +32,15 @@ export function TutorElectivesClient({ electivesData }: { electivesData: EventDa
 
   const [search, setSearch] = useState("");
 
-  const [isGroupModalOpen, setIsGroupModalOpen] = useState(false);
-  const [newGroupName, setNewGroupName] = useState("");
+  const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   
-  const [isElectiveModalOpen, setIsElectiveModalOpen] = useState(false);
+  // Unified Modal States
   const [newElectiveName, setNewElectiveName] = useState("");
   const [newCourseCode, setNewCourseCode] = useState("");
   const [newMaxSeats, setNewMaxSeats] = useState("");
   const [newCredits, setNewCredits] = useState("3");
-  const [newElectiveGroupId, setNewElectiveGroupId] = useState("");
+  const [selectedGroupId, setSelectedGroupId] = useState("");
+  const [newGroupName, setNewGroupName] = useState("");
   
   const [isSaving, setIsSaving] = useState(false);
 
@@ -64,40 +64,46 @@ export function TutorElectivesClient({ electivesData }: { electivesData: EventDa
     }
   }
 
-  async function handleAddGroup() {
-    if (!newGroupName || !firstEventId) return;
-    setIsSaving(true);
-    try {
-      await createElectiveGroup(firstEventId, newGroupName);
-      setIsGroupModalOpen(false);
-      setNewGroupName("");
-      router.refresh();
-    } catch (err: any) {
-      alert(err.message);
-    } finally {
-      setIsSaving(false);
+  function openAddModal(preselectedGroupId?: string) {
+    if (preselectedGroupId) {
+      setSelectedGroupId(preselectedGroupId);
+    } else if (allGroups.length > 0) {
+      setSelectedGroupId(allGroups[0].id);
+    } else {
+      setSelectedGroupId("CREATE_NEW");
     }
+    setNewElectiveName("");
+    setNewCourseCode("");
+    setNewMaxSeats("");
+    setNewGroupName("");
+    setIsAddModalOpen(true);
   }
 
-  function openAddElectiveModal(groupId: string) {
-    setNewElectiveGroupId(groupId);
-    setIsElectiveModalOpen(true);
-  }
+  async function handleSaveCombined() {
+    if (!newElectiveName || !newMaxSeats) return alert("Please fill required fields (Name, Seats)");
+    if (!selectedGroupId) return alert("Please select or create a group.");
+    if (selectedGroupId === "CREATE_NEW" && !newGroupName) return alert("Please enter a new group name.");
 
-  async function handleAddElective() {
-    if (!newElectiveName || !newMaxSeats || !newElectiveGroupId) return;
     setIsSaving(true);
     try {
-      await createElective(newElectiveGroupId, {
+      let finalGroupId = selectedGroupId;
+
+      // 1. Create Group if needed
+      if (finalGroupId === "CREATE_NEW") {
+        if (!firstEventId) throw new Error("No event ID available");
+        const newGroup = await createElectiveGroup(firstEventId, newGroupName);
+        finalGroupId = newGroup.id;
+      }
+
+      // 2. Create Elective
+      await createElective(finalGroupId, {
         name: newElectiveName,
         courseCode: newCourseCode || undefined,
         maxSeats: parseInt(newMaxSeats),
         credits: parseInt(newCredits)
       });
-      setIsElectiveModalOpen(false);
-      setNewElectiveName("");
-      setNewCourseCode("");
-      setNewMaxSeats("");
+      
+      setIsAddModalOpen(false);
       router.refresh();
     } catch (err: any) {
       alert(err.message);
@@ -154,10 +160,10 @@ export function TutorElectivesClient({ electivesData }: { electivesData: EventDa
         </div>
         <div className="flex items-center gap-3">
           <button 
-            onClick={() => setIsGroupModalOpen(true)}
+            onClick={() => openAddModal()}
             className="bg-indigo-600 text-white px-5 py-2.5 rounded-xl text-sm font-medium hover:bg-indigo-500 transition shadow-md shadow-indigo-500/20 whitespace-nowrap flex items-center gap-2"
           >
-            <Plus className="w-4 h-4" /> Create New Group
+            <Plus className="w-4 h-4" /> Add Subject & Group
           </button>
         </div>
       </div>
@@ -221,12 +227,12 @@ export function TutorElectivesClient({ electivesData }: { electivesData: EventDa
         {allGroups.length === 0 ? (
           <div className="text-center py-20 text-[var(--muted-foreground)] bg-[var(--card)] rounded-3xl border border-[var(--border)]">
             <Layers className="w-10 h-10 mx-auto mb-3 opacity-30" />
-            <p>No elective groups created yet.</p>
+            <p>No subjects added yet.</p>
             <button 
-              onClick={() => setIsGroupModalOpen(true)}
+              onClick={() => openAddModal()}
               className="mt-4 bg-indigo-600/10 text-indigo-500 px-4 py-2 rounded-xl text-sm font-bold hover:bg-indigo-600/20 transition"
             >
-              + Create First Group
+              + Create First Subject
             </button>
           </div>
         ) : (
@@ -258,7 +264,7 @@ export function TutorElectivesClient({ electivesData }: { electivesData: EventDa
                     </div>
                   </div>
                   <button 
-                    onClick={() => openAddElectiveModal(group.id)}
+                    onClick={() => openAddModal(group.id)}
                     className="bg-[var(--background)] border border-[var(--border)] text-[var(--foreground)] px-4 py-2 rounded-xl text-sm font-medium hover:bg-[var(--accent)] transition flex items-center gap-2"
                   >
                     <Plus className="w-4 h-4" /> Add Subject to Group
@@ -314,130 +320,95 @@ export function TutorElectivesClient({ electivesData }: { electivesData: EventDa
         )}
       </div>
 
-      {/* Add Group Modal */}
+      {/* Unified Add Modal */}
       <AnimatePresence>
-        {isGroupModalOpen && (
+        {isAddModalOpen && (
           <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
             <motion.div
               initial={{ opacity: 0, scale: 0.95, y: 20 }}
               animate={{ opacity: 1, scale: 1, y: 0 }}
               exit={{ opacity: 0, scale: 0.95, y: 20 }}
-              className="bg-[var(--card)] border border-[var(--border)] rounded-2xl w-full max-w-sm shadow-xl overflow-hidden"
+              className="bg-[var(--card)] border border-[var(--border)] rounded-3xl w-full max-w-lg shadow-xl overflow-hidden"
             >
               <div className="flex justify-between items-center p-6 border-b border-[var(--border)]">
-                <h3 className="text-xl font-bold text-[var(--foreground)]">Add New Group</h3>
-                <button onClick={() => setIsGroupModalOpen(false)} className="text-[var(--muted-foreground)] hover:text-[var(--foreground)] transition-colors">
+                <h3 className="text-xl font-bold text-[var(--foreground)]">Add Subject</h3>
+                <button onClick={() => setIsAddModalOpen(false)} className="text-[var(--muted-foreground)] hover:text-[var(--foreground)] transition-colors">
                   <X className="w-5 h-5" />
                 </button>
               </div>
-              <div className="p-6 space-y-4">
-                <div>
-                  <label className="block text-xs font-bold text-[var(--muted-foreground)] mb-1 uppercase">Group Name</label>
-                  <input 
-                    value={newGroupName} onChange={e => setNewGroupName(e.target.value)}
-                    placeholder="e.g. Core Electives"
-                    className="w-full px-4 py-2 bg-[var(--background)] border border-[var(--border)] rounded-xl text-sm"
-                  />
-                </div>
-              </div>
-              <div className="p-6 bg-[var(--background)] border-t border-[var(--border)] flex justify-end gap-3">
-                <button 
-                  onClick={() => setIsGroupModalOpen(false)}
-                  className="px-4 py-2 rounded-xl text-sm font-medium hover:bg-[var(--accent)] transition-colors"
-                >
-                  Cancel
-                </button>
-                <button 
-                  onClick={handleAddGroup}
-                  disabled={isSaving}
-                  className="bg-indigo-600 text-white px-6 py-2 rounded-xl text-sm font-medium hover:bg-indigo-500 transition-colors shadow-md disabled:opacity-50"
-                >
-                  {isSaving ? "Saving..." : "Add Group"}
-                </button>
-              </div>
-            </motion.div>
-          </div>
-        )}
-      </AnimatePresence>
-
-      {/* Add Elective Modal */}
-      <AnimatePresence>
-        {isElectiveModalOpen && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
-            <motion.div
-              initial={{ opacity: 0, scale: 0.95, y: 20 }}
-              animate={{ opacity: 1, scale: 1, y: 0 }}
-              exit={{ opacity: 0, scale: 0.95, y: 20 }}
-              className="bg-[var(--card)] border border-[var(--border)] rounded-2xl w-full max-w-md shadow-xl overflow-hidden"
-            >
-              <div className="flex justify-between items-center p-6 border-b border-[var(--border)]">
-                <h3 className="text-xl font-bold text-[var(--foreground)]">Add Subject to Group</h3>
-                <button onClick={() => setIsElectiveModalOpen(false)} className="text-[var(--muted-foreground)] hover:text-[var(--foreground)] transition-colors">
-                  <X className="w-5 h-5" />
-                </button>
-              </div>
-              <div className="p-6 space-y-4">
-                <div>
-                  <label className="block text-xs font-bold text-[var(--muted-foreground)] mb-1 uppercase">Course Name</label>
-                  <input 
-                    value={newElectiveName} onChange={e => setNewElectiveName(e.target.value)}
-                    placeholder="e.g. Machine Learning"
-                    className="w-full px-4 py-2 bg-[var(--background)] border border-[var(--border)] rounded-xl text-sm"
-                  />
-                </div>
+              <div className="p-6 space-y-5">
                 <div className="grid grid-cols-2 gap-4">
+                  <div className="col-span-2">
+                    <label className="block text-xs font-bold text-[var(--muted-foreground)] mb-1 uppercase">Course Name <span className="text-red-500">*</span></label>
+                    <input 
+                      value={newElectiveName} onChange={e => setNewElectiveName(e.target.value)}
+                      placeholder="e.g. Machine Learning"
+                      className="w-full px-4 py-2 bg-[var(--background)] border border-[var(--border)] rounded-xl text-sm focus:ring-2 focus:ring-indigo-500/50 outline-none"
+                    />
+                  </div>
                   <div>
                     <label className="block text-xs font-bold text-[var(--muted-foreground)] mb-1 uppercase">Course Code</label>
                     <input 
                       value={newCourseCode} onChange={e => setNewCourseCode(e.target.value)}
                       placeholder="e.g. ML101"
-                      className="w-full px-4 py-2 bg-[var(--background)] border border-[var(--border)] rounded-xl text-sm"
+                      className="w-full px-4 py-2 bg-[var(--background)] border border-[var(--border)] rounded-xl text-sm focus:ring-2 focus:ring-indigo-500/50 outline-none"
                     />
                   </div>
                   <div>
-                    <label className="block text-xs font-bold text-[var(--muted-foreground)] mb-1 uppercase">Seat Quota</label>
+                    <label className="block text-xs font-bold text-[var(--muted-foreground)] mb-1 uppercase">Seat Quota <span className="text-red-500">*</span></label>
                     <input 
                       type="number"
                       value={newMaxSeats} onChange={e => setNewMaxSeats(e.target.value)}
                       placeholder="e.g. 60"
-                      className="w-full px-4 py-2 bg-[var(--background)] border border-[var(--border)] rounded-xl text-sm"
+                      className="w-full px-4 py-2 bg-[var(--background)] border border-[var(--border)] rounded-xl text-sm focus:ring-2 focus:ring-indigo-500/50 outline-none"
                     />
                   </div>
-                </div>
-                <div className="grid grid-cols-2 gap-4">
                   <div>
                     <label className="block text-xs font-bold text-[var(--muted-foreground)] mb-1 uppercase">Credits</label>
                     <input 
                       type="number"
                       value={newCredits} onChange={e => setNewCredits(e.target.value)}
-                      className="w-full px-4 py-2 bg-[var(--background)] border border-[var(--border)] rounded-xl text-sm"
+                      className="w-full px-4 py-2 bg-[var(--background)] border border-[var(--border)] rounded-xl text-sm focus:ring-2 focus:ring-indigo-500/50 outline-none"
                     />
                   </div>
-                  <div>
-                    <label className="block text-xs font-bold text-[var(--muted-foreground)] mb-1 uppercase">Group</label>
-                    <select 
-                      value={newElectiveGroupId} onChange={e => setNewElectiveGroupId(e.target.value)}
-                      disabled
-                      className="w-full px-4 py-2 bg-[var(--accent)] border border-[var(--border)] rounded-xl text-sm opacity-70 cursor-not-allowed"
-                    >
-                      {allGroups.map(g => (
-                        <option key={g.id} value={g.id}>{g.name}</option>
-                      ))}
-                    </select>
-                  </div>
+                </div>
+
+                <div className="p-4 rounded-xl border border-dashed border-[var(--border)] bg-[var(--background)]/30">
+                  <label className="block text-xs font-bold text-[var(--muted-foreground)] mb-2 uppercase">Assign to Group</label>
+                  <select 
+                    value={selectedGroupId} 
+                    onChange={e => setSelectedGroupId(e.target.value)}
+                    className="w-full px-4 py-2 bg-[var(--card)] border border-[var(--border)] rounded-xl text-sm focus:ring-2 focus:ring-indigo-500/50 outline-none mb-3"
+                  >
+                    {allGroups.map(g => (
+                      <option key={g.id} value={g.id}>{g.name}</option>
+                    ))}
+                    <option value="CREATE_NEW">+ Create New Group</option>
+                  </select>
+
+                  {selectedGroupId === "CREATE_NEW" && (
+                    <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: "auto" }}>
+                      <label className="block text-xs font-bold text-[var(--muted-foreground)] mb-1 uppercase">New Group Name <span className="text-red-500">*</span></label>
+                      <input 
+                        value={newGroupName} onChange={e => setNewGroupName(e.target.value)}
+                        placeholder="e.g. Core Electives"
+                        className="w-full px-4 py-2 bg-[var(--card)] border border-[var(--border)] rounded-xl text-sm focus:ring-2 focus:ring-indigo-500/50 outline-none"
+                      />
+                    </motion.div>
+                  )}
                 </div>
               </div>
               <div className="p-6 bg-[var(--background)] border-t border-[var(--border)] flex justify-end gap-3">
                 <button 
-                  onClick={() => setIsElectiveModalOpen(false)}
-                  className="px-4 py-2 rounded-xl text-sm font-medium hover:bg-[var(--accent)] transition-colors"
+                  onClick={() => setIsAddModalOpen(false)}
+                  className="px-5 py-2.5 rounded-xl text-sm font-medium hover:bg-[var(--accent)] transition-colors"
                 >
                   Cancel
                 </button>
                 <button 
-                  onClick={handleAddElective}
+                  onClick={handleSaveCombined}
                   disabled={isSaving}
-                  className="bg-indigo-600 text-white px-6 py-2 rounded-xl text-sm font-medium hover:bg-indigo-500 transition-colors shadow-md disabled:opacity-50"
+                  className="bg-indigo-600 text-white px-6 py-2.5 rounded-xl text-sm font-medium hover:bg-indigo-500 transition-colors shadow-md disabled:opacity-50"
                 >
                   {isSaving ? "Saving..." : "Save Subject"}
                 </button>
