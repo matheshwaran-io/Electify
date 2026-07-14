@@ -33,6 +33,13 @@ interface UserSession {
   employeeId?: string;
 }
 
+const ROLE_DISPLAY: Record<string, string> = {
+  SYSTEM_ADMIN: "System Administrator",
+  COURSE_COORDINATOR: "Course Coordinator",
+  CLASS_TUTOR: "Class Tutor",
+  STUDENT: "Student",
+};
+
 interface FacultyLayoutClientProps {
   children: React.ReactNode;
   session: UserSession;
@@ -142,7 +149,7 @@ export function FacultyLayoutClient({ children, session }: FacultyLayoutClientPr
               {session.name}
             </p>
             <p className="text-xs text-[var(--muted-foreground)] truncate">
-              {session.role.replace(/_/g, " ")}
+              {ROLE_DISPLAY[session.role] ?? session.role.replace(/_/g, " ")}
             </p>
           </div>
         </div>

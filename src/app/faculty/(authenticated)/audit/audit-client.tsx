@@ -7,6 +7,13 @@ import { format } from "date-fns";
 type AuditLog = { id: string; action: string; userId: string | null; userEmail: string | null; userRole: string | null; ipAddress: string | null; createdAt: Date };
 type Data = { logs: AuditLog[]; total: number; pages: number; page: number };
 
+const ROLE_DISPLAY: Record<string, string> = {
+  SYSTEM_ADMIN: "System Administrator",
+  COURSE_COORDINATOR: "Course Coordinator",
+  CLASS_TUTOR: "Class Tutor",
+  STUDENT: "Student",
+};
+
 export function AuditClient({ data }: { data: Data }) {
   return (
     <div className="space-y-6">
@@ -59,7 +66,9 @@ export function AuditClient({ data }: { data: Data }) {
                       </div>
                     </td>
                     <td className="px-6 py-4 text-[var(--muted-foreground)]">{log.userEmail ?? "—"}</td>
-                    <td className="px-6 py-4 text-[var(--muted-foreground)] text-xs">{log.userRole ?? "—"}</td>
+                    <td className="px-6 py-4 text-[var(--muted-foreground)] text-xs">
+                      {log.userRole ? (ROLE_DISPLAY[log.userRole] ?? log.userRole.replace(/_/g, " ")) : "—"}
+                    </td>
                     <td className="px-6 py-4 font-mono text-xs text-[var(--muted-foreground)]">{log.ipAddress ?? "—"}</td>
                     <td className="px-6 py-4 text-[var(--muted-foreground)] whitespace-nowrap">
                       {format(new Date(log.createdAt), "MMM d, yyyy · h:mm a")}

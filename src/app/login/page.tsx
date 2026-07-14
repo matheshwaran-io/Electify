@@ -5,9 +5,8 @@ import Image from "next/image";
 import { motion } from "framer-motion";
 import { HeroGeometricBackground } from "@/components/background/hero-geometric-background";
 import { AuthContainer } from "@/components/auth/auth-container";
-import { StatusPanel } from "@/components/ui/status-panel";
-import { CenterpieceWireframe } from "@/components/ui/centerpiece-wireframe";
 import { ThemeToggle } from "@/components/theme-toggle";
+import { Zap, ShieldCheck, FileText, LayoutGrid } from "lucide-react";
 
 export default function UnifiedLoginPage() {
   return (
@@ -51,11 +50,50 @@ export default function UnifiedLoginPage() {
             </div>
           </div>
 
-          {/* Left Side Elements: Status panel and geometric wireframe centerpiece */}
-          <div className="flex flex-col sm:flex-row items-center gap-12 pt-4">
-            <StatusPanel />
-            <div className="hidden sm:block">
-              <CenterpieceWireframe />
+          {/* Interactive Feature Grid Showcase */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 pt-4">
+            {/* Feature 1 */}
+            <div className="space-y-3 p-5 rounded-2xl bg-white/40 dark:bg-white/[0.01] border border-slate-200/50 dark:border-white/[0.05] backdrop-blur-md shadow-sm hover:border-indigo-500/30 dark:hover:border-indigo-500/20 transition-all group">
+              <div className="w-9 h-9 rounded-xl bg-indigo-50/50 dark:bg-indigo-950/20 text-[#4F8CFF] flex items-center justify-center border border-indigo-100/50 dark:border-indigo-500/10">
+                <Zap className="w-4.5 h-4.5" />
+              </div>
+              <h3 className="text-xs font-bold text-slate-900 dark:text-white uppercase tracking-wider">Instant Seat Allocation</h3>
+              <p className="text-[11px] text-slate-600 dark:text-slate-400 leading-relaxed">
+                Real-time seat allocation updates powered by Supabase, eliminating lag and synchronization issues.
+              </p>
+            </div>
+
+            {/* Feature 2 */}
+            <div className="space-y-3 p-5 rounded-2xl bg-white/40 dark:bg-white/[0.01] border border-slate-200/50 dark:border-white/[0.05] backdrop-blur-md shadow-sm hover:border-purple-500/30 dark:hover:border-purple-500/20 transition-all group">
+              <div className="w-9 h-9 rounded-xl bg-purple-50/50 dark:bg-purple-950/20 text-[#6D5DFE] flex items-center justify-center border border-purple-100/50 dark:border-purple-500/10">
+                <ShieldCheck className="w-4.5 h-4.5" />
+              </div>
+              <h3 className="text-xs font-bold text-slate-900 dark:text-white uppercase tracking-wider">Race-Free Locking</h3>
+              <p className="text-[11px] text-slate-600 dark:text-slate-400 leading-relaxed">
+                Strict database row-level locking guarantees no duplicate selections or overbooking during registration peaks.
+              </p>
+            </div>
+
+            {/* Feature 3 */}
+            <div className="space-y-3 p-5 rounded-2xl bg-white/40 dark:bg-white/[0.01] border border-slate-200/50 dark:border-white/[0.05] backdrop-blur-md shadow-sm hover:border-emerald-500/30 dark:hover:border-emerald-500/20 transition-all group">
+              <div className="w-9 h-9 rounded-xl bg-emerald-50/50 dark:bg-emerald-950/20 text-emerald-500 flex items-center justify-center border border-emerald-100/50 dark:border-emerald-500/10">
+                <FileText className="w-4.5 h-4.5" />
+              </div>
+              <h3 className="text-xs font-bold text-slate-900 dark:text-white uppercase tracking-wider">Tamper-Proof Snapshots</h3>
+              <p className="text-[11px] text-slate-600 dark:text-slate-400 leading-relaxed">
+                Every registration creates an immutable snapshot of selection details, securing student choices permanently.
+              </p>
+            </div>
+
+            {/* Feature 4 */}
+            <div className="space-y-3 p-5 rounded-2xl bg-white/40 dark:bg-white/[0.01] border border-slate-200/50 dark:border-white/[0.05] backdrop-blur-md shadow-sm hover:border-amber-500/30 dark:hover:border-amber-500/20 transition-all group">
+              <div className="w-9 h-9 rounded-xl bg-amber-50/50 dark:bg-amber-950/20 text-amber-500 flex items-center justify-center border border-amber-100/50 dark:border-amber-500/10">
+                <LayoutGrid className="w-4.5 h-4.5" />
+              </div>
+              <h3 className="text-xs font-bold text-slate-900 dark:text-white uppercase tracking-wider">Dynamic Tutor Reports</h3>
+              <p className="text-[11px] text-slate-600 dark:text-slate-400 leading-relaxed">
+                Clean PDF and CSV reports grouped by subject categories, offering immediate registration progress insights.
+              </p>
             </div>
           </div>
         </motion.div>

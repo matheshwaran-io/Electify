@@ -1,10 +1,10 @@
 "use server";
 
 import { db } from "@/lib/db";
-import { users, loginAttempts, inviteCodes, auditLogs, sections, faculties, departments, programmes, academicBatches } from "@/lib/db/schema";
+import { users, loginAttempts, inviteCodes, auditLogs, sections, faculties, departments, programmes, academicBatches, tutorSections } from "@/lib/db/schema";
 import * as bcrypt from "bcryptjs";
-import { signJWT, setSessionCookie, clearSessionCookie, type UserSession } from "@/lib/auth";
-import { eq, and, asc } from "drizzle-orm";
+import { signJWT, setSessionCookie, clearSessionCookie, getSession, type UserSession } from "@/lib/auth";
+import { eq, and, asc, or } from "drizzle-orm";
 import { z } from "zod";
 
 const MAX_ATTEMPTS = 5;
@@ -17,7 +17,7 @@ interface LoginResult {
 }
 
 const loginSchema = z.object({
-  email: z.string().email(),
+  identifier: z.string().min(1, "Email or register number is required"),
   password: z.string().min(1, "Password is required"),
 });
 
@@ -96,19 +96,20 @@ async function resetAttempts(identifier: string) {
 // ────────────────────────────────────────────────────────────────────
 
 export async function login(formData: {
-  email: string;
+  identifier: string;
   password: string;
 }): Promise<LoginResult> {
   const parsed = loginSchema.safeParse(formData);
   if (!parsed.success) {
     return { success: false, error: "Invalid credentials format." };
   }
-  const { email, password } = parsed.data;
+  const { identifier, password } = parsed.data;
+  const normalizedIdentifier = identifier.trim();
   const ip = "client-ip"; // In production, get from request headers
 
   try {
     // Check lockout
-    const lockoutTime = await handleRateLimit(email.toLowerCase().trim(), ip);
+    const lockoutTime = await handleRateLimit(normalizedIdentifier.toLowerCase(), ip);
     if (lockoutTime) {
       const minutesRemaining = Math.ceil((lockoutTime.getTime() - Date.now()) / 60000);
       return {
@@ -117,16 +118,21 @@ export async function login(formData: {
       };
     }
 
-    // Find user by email
+    // Find user by email (staff) OR register number (students)
     const [user] = await db
       .select()
       .from(users)
-      .where(eq(users.email, email.toLowerCase().trim()))
+      .where(
+        or(
+          eq(users.email, normalizedIdentifier.toLowerCase()),
+          eq(users.registerNumber, normalizedIdentifier.toUpperCase())
+        )
+      )
       .limit(1);
 
     if (!user) {
-      await registerFailedAttempt(email.toLowerCase().trim(), ip);
-      return { success: false, error: "Invalid email or password." };
+      await registerFailedAttempt(normalizedIdentifier.toLowerCase(), ip);
+      return { success: false, error: "Invalid credentials." };
     }
 
     if (!user.isActive) {
@@ -139,12 +145,28 @@ export async function login(formData: {
     // Compare passwords
     const isPasswordValid = await bcrypt.compare(password, user.passwordHash);
     if (!isPasswordValid) {
-      await registerFailedAttempt(email.toLowerCase().trim(), ip);
-      return { success: false, error: "Invalid email or password." };
+      await registerFailedAttempt(normalizedIdentifier.toLowerCase(), ip);
+      return { success: false, error: "Invalid credentials." };
     }
 
     // Reset lockout counter
-    await resetAttempts(email.toLowerCase().trim());
+    await resetAttempts(normalizedIdentifier.toLowerCase());
+
+    // For Class Tutors, fetch their mapped sections and default to the first one
+    let activeSectionId = user.sectionId;
+    if (user.role === "CLASS_TUTOR") {
+      const assignedSections = await db
+        .select({ sectionId: tutorSections.sectionId })
+        .from(tutorSections)
+        .where(eq(tutorSections.tutorId, user.id))
+        .limit(1);
+      
+      if (assignedSections.length > 0) {
+        activeSectionId = assignedSections[0].sectionId;
+      } else {
+        activeSectionId = null; // No sections assigned yet
+      }
+    }
 
     // Create JWT session
     const token = await signJWT({
@@ -157,7 +179,7 @@ export async function login(formData: {
       ...(user.facultyId && { facultyId: user.facultyId }),
       ...(user.departmentId && { departmentId: user.departmentId }),
       ...(user.programmeId && { programmeId: user.programmeId }),
-      ...(user.sectionId && { sectionId: user.sectionId }),
+      ...(activeSectionId && { sectionId: activeSectionId }),
     });
 
     await setSessionCookie(token);
@@ -195,7 +217,6 @@ const registerStaffSchema = z.object({
   facultyId: z.string().min(1, "Faculty is required"),
   departmentId: z.string().min(1, "Department is required"),
   programmeId: z.string().min(1, "Programme is required"),
-  section: z.string().optional(),
   password: z.string().min(6, "Password must be at least 6 characters"),
 });
 
@@ -211,14 +232,13 @@ export async function registerStaff(formData: {
   facultyId: string;
   departmentId: string;
   programmeId: string;
-  section?: string; // Only for CLASS_TUTOR
   password: string;
 }): Promise<LoginResult> {
   const parsed = registerStaffSchema.safeParse(formData);
   if (!parsed.success) {
     return { success: false, error: parsed.error.issues[0].message };
   }
-  const { inviteCode, name, email, phone, facultyId, departmentId, programmeId, section, password } = parsed.data;
+  const { inviteCode, name, email, phone, facultyId, departmentId, programmeId, password } = parsed.data;
 
   try {
     // 1. Validate invite code
@@ -242,27 +262,6 @@ export async function registerStaff(formData: {
         .set({ status: "EXPIRED" })
         .where(eq(inviteCodes.id, invite.id));
       return { success: false, error: "This invite code has expired." };
-    }
-
-    // 2. Section validation for CLASS_TUTOR
-    let resolvedSectionId: string | null = null;
-    let resolvedBatchId: string | null = null;
-    
-    if (invite.role === "CLASS_TUTOR") {
-      if (!section) {
-        return { success: false, error: "Class Tutors must select a section." };
-      }
-      // Validate that the section ID exists
-      const [sec] = await db
-        .select()
-        .from(sections)
-        .where(eq(sections.id, section))
-        .limit(1);
-      if (!sec) {
-        return { success: false, error: "Invalid section selected." };
-      }
-      resolvedSectionId = sec.id;
-      resolvedBatchId = sec.academicBatchId;
     }
 
     // 3. Email domain check
@@ -296,8 +295,8 @@ export async function registerStaff(formData: {
         facultyId: facultyId,
         departmentId: departmentId,
         programmeId: programmeId,
-        academicBatchId: resolvedBatchId,
-        sectionId: resolvedSectionId,
+        academicBatchId: null,
+        sectionId: null,
       })
       .returning();
 
@@ -385,3 +384,34 @@ export const getPublicHierarchy = unstable_cache(
   ["public-hierarchy"],
   { tags: ["hierarchy"], revalidate: 3600 }
 );
+
+// ────────────────────────────────────────────────────────────────────
+// Tutor Context Switching
+// ────────────────────────────────────────────────────────────────────
+
+export async function switchTutorSection(sectionId: string) {
+  const session = await getSession();
+  if (!session || session.role !== "CLASS_TUTOR") {
+    throw new Error("Unauthorized");
+  }
+
+  // Verify the tutor actually has access to this section
+  const [assignment] = await db
+    .select()
+    .from(tutorSections)
+    .where(and(eq(tutorSections.tutorId, session.userId), eq(tutorSections.sectionId, sectionId)))
+    .limit(1);
+
+  if (!assignment) {
+    throw new Error("You are not assigned to this section.");
+  }
+
+  // Generate a new token with the updated sectionId
+  const newToken = await signJWT({
+    ...session,
+    sectionId: assignment.sectionId,
+  });
+
+  await setSessionCookie(newToken);
+  return { success: true };
+}

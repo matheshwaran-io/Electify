@@ -109,6 +109,25 @@ export const users = pgTable("users", {
   (table) => [index("users_role_idx").on(table.role), index("users_faculty_idx").on(table.facultyId), index("users_dept_idx").on(table.departmentId), index("users_prog_idx").on(table.programmeId), index("users_batch_idx").on(table.academicBatchId), index("users_section_idx").on(table.sectionId)]);
 
 // ────────────────────────────────────────────────────────────────────
+// MULTI-SECTION TUTOR MAPPING
+// ────────────────────────────────────────────────────────────────────
+
+export const tutorSections = pgTable("tutor_sections", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  tutorId: uuid("tutor_id")
+    .notNull()
+    .references(() => users.id, { onDelete: "cascade" }),
+  sectionId: uuid("section_id")
+    .notNull()
+    .references(() => sections.id, { onDelete: "cascade" }),
+},
+  (table) => [
+    index("tutorSections_tutor_idx").on(table.tutorId),
+    index("tutorSections_section_idx").on(table.sectionId),
+    unique("tutor_sections_unique").on(table.tutorId, table.sectionId)
+  ]);
+
+// ────────────────────────────────────────────────────────────────────
 // INVITE SYSTEM
 // ────────────────────────────────────────────────────────────────────
 

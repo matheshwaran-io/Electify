@@ -8,14 +8,14 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
 import { login, registerStaff } from "@/app/actions/auth";
 import { toast } from "sonner";
-import { User, UserCog, Eye, EyeOff, Mail, Lock, Check, Layers, KeyRound, Building, GraduationCap } from "lucide-react";
+import { User, UserCog, Eye, EyeOff, Mail, Lock, Check, KeyRound, Building, GraduationCap } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { motion, AnimatePresence } from "framer-motion";
 
 // --- Schemas ---
 const studentLoginSchema = z.object({
-  email: z.string().min(1, "Email is required").email("Invalid email address"),
   registerNumber: z.string().min(1, "Register number is required"),
+  password: z.string().min(1, "Password is required"),
 });
 
 const staffLoginSchema = z.object({
@@ -32,18 +32,12 @@ const staffRegisterSchema = z
     faculty: z.string().min(1, "Faculty is required"),
     department: z.string().min(1, "Department is required"),
     degree: z.string().min(1, "Degree is required"),
-    section: z.string().optional(),
-    role: z.enum(["COURSE_COORDINATOR", "CLASS_TUTOR"]),
     password: z.string().min(6, "Password must be at least 6 characters"),
     confirmPassword: z.string().min(1, "Please confirm your password"),
   })
   .refine((data) => data.password === data.confirmPassword, {
     message: "Passwords do not match",
     path: ["confirmPassword"],
-  })
-  .refine((data) => data.role !== "CLASS_TUTOR" || (data.section && data.section.trim().length > 0), {
-    message: "Section is required for Class Tutors",
-    path: ["section"],
   });
 
 type StudentLoginData = z.infer<typeof studentLoginSchema>;
@@ -91,68 +85,49 @@ export function AuthContainer() {
   const { register: registerStaffForm, handleSubmit: handleStaffRegisterSubmit, formState: { errors: staffRegisterErrors }, watch } = useForm<StaffRegisterData>({
     resolver: zodResolver(staffRegisterSchema),
     defaultValues: {
-      role: "CLASS_TUTOR",
       inviteCode: "",
       name: "",
       email: "",
       faculty: "",
       department: "",
       degree: "",
-      section: "",
     },
   });
 
-  const selectedRole = watch("role");
   const selectedFacultyId = watch("faculty");
   const selectedDeptId = watch("department");
-  const selectedProgId = watch("degree");
 
   const currentDepts = hierarchy.find(f => f.id === selectedFacultyId)?.departments || [];
   const currentProgs = currentDepts.find(d => d.id === selectedDeptId)?.programmes || [];
-  const currentSections = currentProgs.find(p => p.id === selectedProgId)?.batches.flatMap(b => b.sections) || [];
 
-  // Animate the progress bar when authenticating
-  useEffect(() => {
-    if (authState === "authenticating") {
-      setAuthProgress(0);
-      const interval = setInterval(() => {
-        setAuthProgress((prev) => {
-          if (prev >= 100) {
-            clearInterval(interval);
-            setAuthState("verified");
-            return 100;
-          }
-          return prev + Math.floor(Math.random() * 15) + 5;
-        });
-      }, 100);
-      return () => clearInterval(interval);
-    }
-  }, [authState]);
+
 
   const runAuthMockAnimation = async (submitCallback: () => Promise<{ success: boolean; error?: string; role?: string }>) => {
     setAuthState("authenticating");
     setAuthProgress(0);
 
-    // Wait until progress bar is full
-    await new Promise((resolve) => {
-      const checkProgress = setInterval(() => {
-        setAuthProgress((prev) => {
-          if (prev >= 100) {
-            clearInterval(checkProgress);
-            resolve(true);
-            return 100;
-          }
-          return prev + Math.floor(Math.random() * 20) + 10;
-        });
-      }, 120);
-    });
+    // Animate progress bar to ~80% while the real API call runs in parallel
+    const progressInterval = setInterval(() => {
+      setAuthProgress((prev) => {
+        if (prev >= 80) {
+          clearInterval(progressInterval);
+          return 80;
+        }
+        return prev + Math.floor(Math.random() * 15) + 5;
+      });
+    }, 100);
 
-    setAuthState("verified");
-    await new Promise((resolve) => setTimeout(resolve, 800));
-
+    // Fire the actual API call
     const result = await submitCallback();
 
+    // Stop progress animation and complete the bar
+    clearInterval(progressInterval);
+    setAuthProgress(100);
+
     if (result.success) {
+      // Only show "verified" after the server confirmed success
+      setAuthState("verified");
+      await new Promise((resolve) => setTimeout(resolve, 700));
       toast.success("Welcome back!");
       if (result.role === "STUDENT") {
         router.push("/dashboard");
@@ -170,8 +145,8 @@ export function AuthContainer() {
   const onStudentLogin = (data: StudentLoginData) => {
     runAuthMockAnimation(() =>
       login({
-        email: data.email.toLowerCase().trim(),
-        password: data.registerNumber.toUpperCase().trim(),
+        identifier: data.registerNumber.toUpperCase().trim(),
+        password: data.password,
       })
     );
   };
@@ -179,7 +154,7 @@ export function AuthContainer() {
   const onStaffLogin = (data: StaffLoginData) => {
     runAuthMockAnimation(() =>
       login({
-        email: data.email.toLowerCase().trim(),
+        identifier: data.email.toLowerCase().trim(),
         password: data.password,
       })
     );
@@ -194,7 +169,6 @@ export function AuthContainer() {
         facultyId: data.faculty,
         departmentId: data.department,
         programmeId: data.degree,
-        section: data.role === "CLASS_TUTOR" ? data.section : undefined,
         password: data.password,
       })
     );
@@ -353,38 +327,38 @@ export function AuthContainer() {
                 <div>
                   <h2 className="text-lg font-bold text-slate-900 dark:text-slate-100 tracking-tight">Student Sign In</h2>
                   <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-1">
-                    Sign in with your official university credentials.
+                    Sign in with your register number and password.
                   </p>
                 </div>
 
-                {/* Email Input */}
+                {/* Register Number Input */}
                 <div className="space-y-1 relative group/input">
                   <div className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within/input:text-[#4F8CFF] transition-colors z-10">
-                    <Mail className="w-3.5 h-3.5" />
+                    <User className="w-3.5 h-3.5" />
                   </div>
                   <input
-                    type="email"
-                    placeholder="SRM Email Address"
+                    type="text"
+                    placeholder="Register Number (e.g. RA2682242010126)"
                     className="w-full pl-10 pr-4 py-2.5 bg-slate-50/50 dark:bg-white/[0.01] border border-slate-200 dark:border-white/[0.06] rounded-xl text-xs text-slate-900 dark:text-slate-100 placeholder-slate-400 dark:placeholder-slate-500 focus:outline-none focus:border-[#4F8CFF]/50 focus:ring-2 focus:ring-[#4F8CFF]/5 dark:focus:ring-[#4F8CFF]/10 hover:border-slate-300 dark:hover:border-white/10 transition-all font-medium"
                     disabled={authState !== "idle"}
-                    {...registerStudent("email")}
+                    {...registerStudent("registerNumber")}
                   />
-                  {studentErrors.email && (
-                    <p className="text-[10px] text-rose-500 mt-1 pl-2">{studentErrors.email.message}</p>
+                  {studentErrors.registerNumber && (
+                    <p className="text-[10px] text-rose-500 mt-1 pl-2">{studentErrors.registerNumber.message}</p>
                   )}
                 </div>
 
-                {/* Register Number Input */}
+                {/* Password Input */}
                 <div className="space-y-1 relative group/input">
                   <div className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within/input:text-[#4F8CFF] transition-colors z-10">
                     <Lock className="w-3.5 h-3.5" />
                   </div>
                   <input
                     type={showPassword ? "text" : "password"}
-                    placeholder="Register Number"
+                    placeholder="Password"
                     className="w-full pl-10 pr-11 py-2.5 bg-slate-50/50 dark:bg-white/[0.01] border border-slate-200 dark:border-white/[0.06] rounded-xl text-xs text-slate-900 dark:text-slate-100 placeholder-slate-400 dark:placeholder-slate-500 focus:outline-none focus:border-[#4F8CFF]/50 focus:ring-2 focus:ring-[#4F8CFF]/5 dark:focus:ring-[#4F8CFF]/10 hover:border-slate-300 dark:hover:border-white/10 transition-all font-medium"
                     disabled={authState !== "idle"}
-                    {...registerStudent("registerNumber")}
+                    {...registerStudent("password")}
                   />
                   <button
                     type="button"
@@ -393,8 +367,8 @@ export function AuthContainer() {
                   >
                     {showPassword ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
                   </button>
-                  {studentErrors.registerNumber && (
-                    <p className="text-[10px] text-rose-500 mt-1 pl-2">{studentErrors.registerNumber.message}</p>
+                  {studentErrors.password && (
+                    <p className="text-[10px] text-rose-500 mt-1 pl-2">{studentErrors.password.message}</p>
                   )}
                 </div>
 
@@ -603,58 +577,6 @@ export function AuthContainer() {
                   </div>
                 </div>
 
-                {/* Role Radio Picker */}
-                <div className="space-y-2 pt-1 flex items-center justify-between border-t border-slate-100 dark:border-white/[0.05] pt-3">
-                  <div className="space-y-0.5">
-                    <span className="text-[10px] text-slate-500 dark:text-slate-400 font-bold uppercase tracking-wider block">Role Type</span>
-                    <span className="text-[9px] text-slate-400 dark:text-slate-500 font-semibold block">Must match invite code</span>
-                  </div>
-                  <div className="flex items-center gap-4">
-                    <label className="flex items-center gap-1.5 cursor-pointer text-xs font-semibold text-slate-700 dark:text-slate-300">
-                      <input
-                        type="radio"
-                        value="CLASS_TUTOR"
-                        className="w-3.5 h-3.5 text-indigo-500 border-slate-300 dark:border-white/10 bg-slate-100 dark:bg-slate-900 focus:ring-indigo-500/50"
-                        disabled={authState !== "idle"}
-                        {...registerStaffForm("role")}
-                      />
-                      Tutor
-                    </label>
-                    <label className="flex items-center gap-1.5 cursor-pointer text-xs font-semibold text-slate-700 dark:text-slate-300">
-                      <input
-                        type="radio"
-                        value="COURSE_COORDINATOR"
-                        className="w-3.5 h-3.5 text-indigo-500 border-slate-300 dark:border-white/10 bg-slate-100 dark:bg-slate-900 focus:ring-indigo-500/50"
-                        disabled={authState !== "idle"}
-                        {...registerStaffForm("role")}
-                      />
-                      Coordinator
-                    </label>
-                  </div>
-                </div>
-
-                {/* Section Selector (Only for CLASS_TUTOR) */}
-                {selectedRole === "CLASS_TUTOR" && (
-                  <div className="space-y-1 relative group/input animate-[fadeIn_0.2s_ease-out_1]">
-                    <div className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within/input:text-[#6D5DFE] transition-colors z-10">
-                      <Layers className="w-3.5 h-3.5" />
-                    </div>
-                    <select
-                      className="w-full pl-10 pr-10 py-2.5 bg-slate-50/50 dark:bg-white/[0.01] border border-slate-200/60 dark:border-white/[0.06] rounded-xl text-xs text-slate-950 dark:text-slate-100 placeholder-slate-400 dark:placeholder-slate-500 focus:outline-none focus:border-[#6D5DFE]/50 focus:ring-2 focus:ring-[#6D5DFE]/5 dark:focus:ring-[#6D5DFE]/10 hover:border-slate-300 dark:hover:border-white/10 transition-all font-medium appearance-none cursor-pointer"
-                      disabled={authState !== "idle"}
-                      {...registerStaffForm("section")}
-                    >
-                      <option value="">Sec</option>
-                      {currentSections.map(s => (
-                        <option key={s.id} value={s.id}>{s.label}</option>
-                      ))}
-                    </select>
-                    <div className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none text-slate-400 text-[10px]">▼</div>
-                    {staffRegisterErrors.section && (
-                      <p className="text-[10px] text-rose-500 mt-1 pl-2">{staffRegisterErrors.section.message}</p>
-                    )}
-                  </div>
-                )}
 
                 {/* Password & Confirm Password (Grid) */}
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">

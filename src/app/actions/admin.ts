@@ -4,10 +4,10 @@ import { db } from "@/lib/db";
 import {
   users, registrationEvents, faculties, departments,
   programmes, academicBatches, sections, auditLogs, eventTemplates,
-  templateGroups, templateElectives, inviteCodes, systemSettings
+  templateGroups, templateElectives, inviteCodes, systemSettings, tutorSections
 } from "@/lib/db/schema";
 import { getSession } from "@/lib/auth";
-import { eq, desc, count, asc, ilike, or } from "drizzle-orm";
+import { eq, desc, count, asc, ilike, or, inArray } from "drizzle-orm";
 
 async function assertAdmin() {
   const session = await getSession();
@@ -115,7 +115,7 @@ export async function getTemplates() {
 
 export async function getStaffUsers() {
   await assertAdmin();
-  return db
+  const staff = await db
     .select({
       id: users.id,
       name: users.name,
@@ -134,6 +134,20 @@ export async function getStaffUsers() {
       )
     )
     .orderBy(asc(users.name));
+
+  // Fetch tutor sections
+  const tutorIds = staff.filter((s) => s.role === "CLASS_TUTOR").map((s) => s.id);
+  let assignments: { tutorId: string; sectionId: string }[] = [];
+  if (tutorIds.length > 0) {
+    assignments = await db.select().from(tutorSections).where(inArray(tutorSections.tutorId, tutorIds));
+  }
+
+  return staff.map((s) => ({
+    ...s,
+    managedSectionIds: s.role === "CLASS_TUTOR" 
+      ? assignments.filter((a) => a.tutorId === s.id).map((a) => a.sectionId)
+      : [],
+  }));
 }
 
 export async function getStudentUsers() {
@@ -264,7 +278,31 @@ export async function revokeInviteCode(id: string) {
     userId: session.userId,
     userEmail: session.email,
     userRole: session.role,
-    metadata: { id },
+    metadata: { inviteCodeId: id },
   });
 }
 
+// ── Tutor Section Management ────────────────────────────────────────────────
+
+export async function assignTutorSections(tutorId: string, sectionIds: string[]) {
+  const session = await assertAdmin();
+
+  const [tutor] = await db.select().from(users).where(eq(users.id, tutorId));
+  if (!tutor || tutor.role !== "CLASS_TUTOR") {
+    throw new Error("Invalid tutor.");
+  }
+
+  await db.transaction(async (tx) => {
+    // Remove existing assignments
+    await tx.delete(tutorSections).where(eq(tutorSections.tutorId, tutorId));
+
+    // Insert new assignments
+    if (sectionIds.length > 0) {
+      await tx.insert(tutorSections).values(
+        sectionIds.map((secId) => ({ tutorId, sectionId: secId }))
+      );
+    }
+  });
+
+  return { success: true };
+}

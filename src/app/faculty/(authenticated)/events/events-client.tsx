@@ -7,6 +7,7 @@ import { StatusBadge } from "@/components/ui/status-badge";
 import { format } from "date-fns";
 import { resetRegistrationEvent } from "@/app/actions/coordinator";
 import { useRouter } from "next/navigation";
+import { toast } from "sonner";
 
 type Event = {
   id: string;
@@ -37,9 +38,9 @@ export function EventsClient({ events }: { events: Event[] }) {
     try {
       await resetRegistrationEvent(eventId);
       router.refresh();
-      alert(`Successfully reset ${eventName}. All students must re-register.`);
+      toast.success(`Successfully reset ${eventName}. All students must re-register.`);
     } catch (err: any) {
-      alert(err.message || "Failed to reset event");
+      toast.error(err.message || "Failed to reset event");
     } finally {
       setIsResetting(null);
     }

@@ -181,7 +181,11 @@ export async function getCoordinatorTemplates() {
 }
 
 export async function resetRegistrationEvent(eventId: string) {
-  const session = await assertCoordinator();
+  // Allow both System Admin and Course Coordinator to reset events
+  const session = await getSession();
+  if (!session || (session.role !== "COURSE_COORDINATOR" && session.role !== "SYSTEM_ADMIN")) {
+    throw new Error("Unauthorized");
+  }
 
   // Make sure event exists
   const [event] = await db.select().from(registrationEvents).where(eq(registrationEvents.id, eventId));

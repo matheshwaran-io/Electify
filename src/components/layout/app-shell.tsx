@@ -33,7 +33,15 @@ interface UserSession {
   email: string;
   role: "SYSTEM_ADMIN" | "COURSE_COORDINATOR" | "CLASS_TUTOR" | "STUDENT";
   employeeId?: string;
+  sectionId?: string;
 }
+
+const ROLE_DISPLAY: Record<string, string> = {
+  SYSTEM_ADMIN: "System Administrator",
+  COURSE_COORDINATOR: "Course Coordinator",
+  CLASS_TUTOR: "Class Tutor",
+  STUDENT: "Student",
+};
 
 interface NotificationItem {
   id: string;
@@ -47,9 +55,10 @@ interface NotificationItem {
 interface AppShellProps {
   children: React.ReactNode;
   session: UserSession;
+  assignedSections?: any[];
 }
 
-export function AppShell({ children, session }: AppShellProps) {
+export function AppShell({ children, session, assignedSections = [] }: AppShellProps) {
   const pathname = usePathname();
   const router = useRouter();
   
@@ -292,6 +301,36 @@ export function AppShell({ children, session }: AppShellProps) {
           <span className="text-[17px] font-semibold tracking-tight text-[var(--foreground)]">Electify</span>
         </div>
 
+        {session.role === "CLASS_TUTOR" && assignedSections.length > 0 && (
+          <div className="px-4 mb-4 mt-2">
+            <label className="text-xs font-semibold text-[var(--muted-foreground)] uppercase tracking-wider pl-2 mb-2 block">
+              Active Section
+            </label>
+            <select
+              value={session.sectionId || ""}
+              onChange={async (e) => {
+                const { switchTutorSection } = await import("@/app/actions/auth");
+                try {
+                  toast.loading("Switching section...", { id: "switch-section" });
+                  await switchTutorSection(e.target.value);
+                  toast.success("Section switched", { id: "switch-section" });
+                  window.location.reload();
+                } catch (error: any) {
+                  toast.error(error.message || "Failed to switch section", { id: "switch-section" });
+                }
+              }}
+              className="w-full bg-[var(--accent)]/50 border border-[var(--border)] text-[var(--foreground)] text-sm rounded-lg px-3 py-2.5 focus:outline-none focus:ring-2 focus:ring-indigo-500/50 appearance-none font-medium cursor-pointer"
+            >
+              <option value="" disabled>Select a section</option>
+              {assignedSections.map(s => (
+                <option key={s.id} value={s.id}>
+                  {s.programme} - {s.batch} - {s.label}
+                </option>
+              ))}
+            </select>
+          </div>
+        )}
+
         {/* Global Search / Command Trigger */}
         <div className="px-4 pb-4 shrink-0 mt-2">
           <button className="flex items-center gap-2 w-full px-3 py-2 text-sm text-[var(--muted-foreground)] bg-[var(--accent)]/50 hover:bg-[var(--accent)] rounded-lg transition-colors border border-[var(--border)]/50 shadow-sm">
@@ -348,7 +387,7 @@ export function AppShell({ children, session }: AppShellProps) {
             </div>
             <div className="flex-1 min-w-0">
               <p className="text-[13px] font-semibold truncate text-[var(--foreground)]">{session.name}</p>
-              <p className="text-[11px] font-medium text-[var(--muted-foreground)] truncate">{session.role.replace(/_/g, " ")}</p>
+              <p className="text-[11px] font-medium text-[var(--muted-foreground)] truncate">{ROLE_DISPLAY[session.role] ?? session.role.replace(/_/g, " ")}</p>
             </div>
             <ChevronRight className="w-4 h-4 text-[var(--muted-foreground)] opacity-0 group-hover:opacity-100 transition-opacity" />
           </div>

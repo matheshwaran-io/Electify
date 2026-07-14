@@ -21,11 +21,19 @@ const statusStyles: Record<string, string> = {
   STUDENT:            "bg-gray-500/15 text-gray-400 border-gray-500/25",
 };
 
+const ROLE_DISPLAY: Record<string, string> = {
+  SYSTEM_ADMIN: "System Administrator",
+  COURSE_COORDINATOR: "Course Coordinator",
+  CLASS_TUTOR: "Class Tutor",
+  STUDENT: "Student",
+};
+
 export function StatusBadge({ status }: { status: string }) {
   const style = statusStyles[status] ?? "bg-gray-500/15 text-gray-400 border-gray-500/25";
+  const label = ROLE_DISPLAY[status] ?? status.replace(/_/g, " ");
   return (
     <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium border ${style}`}>
-      {status.replace(/_/g, " ")}
+      {label}
     </span>
   );
 }

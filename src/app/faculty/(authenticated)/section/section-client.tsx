@@ -175,7 +175,7 @@ export function SectionClient({ reportData, session }: { reportData: ReportData;
 
       {!session.sectionId && (
         <div className="bg-orange-500/10 border border-orange-500/30 rounded-2xl p-6 text-sm text-orange-400">
-          ⚠ Your account doesn't have a section assigned. Please contact the System Admin.
+          ⚠ Your account doesn't have a section assigned. Please contact the System Administrator.
         </div>
       )}
 
