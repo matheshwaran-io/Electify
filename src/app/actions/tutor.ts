@@ -370,19 +370,20 @@ export async function importStudentsCSV(studentsData: { name: string; registerNu
     throw new Error("Missing assignment data");
   }
 
-  const hashed = await bcrypt.hash("Student@123", 12);
-
-  const valuesToInsert = studentsData.map(s => ({
-    name: s.name.trim(),
-    email: s.email.toLowerCase().trim(),
-    registerNumber: s.registerNumber.trim(),
-    passwordHash: hashed,
-    role: "STUDENT" as const,
-    sectionId: session.sectionId,
-    academicBatchId: session.academicBatchId,
-    departmentId: session.departmentId,
-    isActive: true,
-    isEligible: true,
+  const valuesToInsert = await Promise.all(studentsData.map(async (s) => {
+    const hashed = await bcrypt.hash(s.registerNumber.toUpperCase().trim(), 12);
+    return {
+      name: s.name.trim(),
+      email: s.email.toLowerCase().trim(),
+      registerNumber: s.registerNumber.trim(),
+      passwordHash: hashed,
+      role: "STUDENT" as const,
+      sectionId: session.sectionId,
+      academicBatchId: session.academicBatchId,
+      departmentId: session.departmentId,
+      isActive: true,
+      isEligible: true,
+    };
   }));
 
   // Simple loop or batch insert. Let's do a batch insert with ON CONFLICT DO NOTHING.
