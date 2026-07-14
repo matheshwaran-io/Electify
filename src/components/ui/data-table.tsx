@@ -2,7 +2,7 @@
 
 import React, { useState } from "react";
 import { Search, ChevronLeft, ChevronRight, Download, Filter } from "lucide-react";
-import { motion, AnimatePresence } from "framer-motion";
+import { useEffect } from "react";
 
 export interface Column<T> {
   header: string;
@@ -28,18 +28,28 @@ export function DataTable<T>({
   itemsPerPage = 10,
 }: DataTableProps<T>) {
   const [searchTerm, setSearchTerm] = useState("");
+  const [debouncedSearchTerm, setDebouncedSearchTerm] = useState("");
   const [currentPage, setCurrentPage] = useState(1);
+
+  // Debounce search
+  useEffect(() => {
+    const handler = setTimeout(() => {
+      setDebouncedSearchTerm(searchTerm);
+      setCurrentPage(1);
+    }, 300);
+    return () => clearTimeout(handler);
+  }, [searchTerm]);
 
   // Filter data
   const filteredData = React.useMemo(() => {
-    if (!searchTerm) return data;
-    const lowerSearch = searchTerm.toLowerCase();
+    if (!debouncedSearchTerm) return data;
+    const lowerSearch = debouncedSearchTerm.toLowerCase();
     return data.filter((row: any) => 
       Object.values(row).some(val => 
         String(val).toLowerCase().includes(lowerSearch)
       )
     );
-  }, [data, searchTerm]);
+  }, [data, debouncedSearchTerm]);
 
   // Pagination
   const totalPages = Math.ceil(filteredData.length / itemsPerPage);
@@ -115,7 +125,6 @@ export function DataTable<T>({
             </tr>
           </thead>
           <tbody className="divide-y divide-[var(--border)]">
-            <AnimatePresence>
               {currentData.length === 0 ? (
                 <tr>
                   <td colSpan={columns.length} className="px-6 py-12 text-center text-[var(--muted-foreground)]">
@@ -124,10 +133,7 @@ export function DataTable<T>({
                 </tr>
               ) : (
                 currentData.map((row, i) => (
-                  <motion.tr 
-                    initial={{ opacity: 0 }}
-                    animate={{ opacity: 1 }}
-                    exit={{ opacity: 0 }}
+                  <tr 
                     key={i} 
                     className="hover:bg-[var(--accent)]/30 transition-colors"
                   >
@@ -136,10 +142,9 @@ export function DataTable<T>({
                         {typeof col.accessor === 'function' ? col.accessor(row) : (row[col.accessor] as React.ReactNode)}
                       </td>
                     ))}
-                  </motion.tr>
+                  </tr>
                 ))
               )}
-            </AnimatePresence>
           </tbody>
         </table>
       </div>

@@ -6,7 +6,7 @@ import {
   studentRegistrations, eventSections, sections, programmes, academicBatches
 } from "@/lib/db/schema";
 import { getSession } from "@/lib/auth";
-import { eq, and, asc, count, desc } from "drizzle-orm";
+import { eq, and, asc, count, desc, inArray } from "drizzle-orm";
 
 async function assertTutor() {
   const session = await getSession();
@@ -96,10 +96,10 @@ export async function getTutorElectives() {
 
   if (sectionEvents.length === 0) return [];
 
-  const result = [];
-  for (const { eventId } of sectionEvents) {
-    const [event] = await db
-      .select({ 
+  const eventIds = sectionEvents.map(se => se.eventId);
+
+  const [events, allGroups, allElectives] = await Promise.all([
+    db.select({ 
         id: registrationEvents.id, 
         name: registrationEvents.name, 
         status: registrationEvents.status,
@@ -107,29 +107,27 @@ export async function getTutorElectives() {
         closeDate: registrationEvents.closeDate
       })
       .from(registrationEvents)
-      .where(eq(registrationEvents.id, eventId))
-      .limit(1);
-
-    if (!event) continue;
-
-    const groups = await db
-      .select()
+      .where(inArray(registrationEvents.id, eventIds)),
+    
+    db.select()
       .from(electiveGroups)
-      .where(eq(electiveGroups.eventId, eventId))
-      .orderBy(asc(electiveGroups.sortOrder));
+      .where(inArray(electiveGroups.eventId, eventIds))
+      .orderBy(asc(electiveGroups.sortOrder)),
+    
+    db.select()
+      .from(electives)
+      .where(inArray(electives.groupId, db.select({ id: electiveGroups.id }).from(electiveGroups).where(inArray(electiveGroups.eventId, eventIds))))
+      .orderBy(asc(electives.name))
+  ]);
 
-    const groupsWithElectives = [];
-    for (const group of groups) {
-      const groupElectives = await db
-        .select()
-        .from(electives)
-        .where(eq(electives.groupId, group.id))
-        .orderBy(asc(electives.name));
-      groupsWithElectives.push({ ...group, electives: groupElectives });
-    }
-    result.push({ event, groups: groupsWithElectives });
-  }
-  return result;
+  return events.map(event => {
+    const eventGroups = allGroups.filter(g => g.eventId === event.id);
+    const groupsWithElectives = eventGroups.map(group => ({
+      ...group,
+      electives: allElectives.filter(e => e.groupId === group.id)
+    }));
+    return { event, groups: groupsWithElectives };
+  });
 }
 
 // ── Tutor Reports ─────────────────────────────────────────────────────────
@@ -185,32 +183,30 @@ export async function getPortalWindow() {
 
   if (sectionEvents.length === 0) return [];
 
-  const result = [];
-  for (const { eventId } of sectionEvents) {
-    const [event] = await db
-      .select({
-        id: registrationEvents.id,
-        name: registrationEvents.name,
-        academicYear: registrationEvents.academicYear,
-        status: registrationEvents.status,
-        openDate: registrationEvents.openDate,
-        closeDate: registrationEvents.closeDate,
-        description: registrationEvents.description,
-      })
-      .from(registrationEvents)
-      .where(eq(registrationEvents.id, eventId))
-      .limit(1);
+  const eventIds = sectionEvents.map(se => se.eventId);
 
-    if (!event) continue;
-
-    const [{ total }] = await db
-      .select({ total: count() })
+  const [events, allGroups] = await Promise.all([
+    db.select({
+      id: registrationEvents.id,
+      name: registrationEvents.name,
+      academicYear: registrationEvents.academicYear,
+      status: registrationEvents.status,
+      openDate: registrationEvents.openDate,
+      closeDate: registrationEvents.closeDate,
+      description: registrationEvents.description,
+    })
+    .from(registrationEvents)
+    .where(inArray(registrationEvents.id, eventIds)),
+    
+    db.select({ eventId: electiveGroups.eventId })
       .from(electiveGroups)
-      .where(eq(electiveGroups.eventId, eventId));
+      .where(inArray(electiveGroups.eventId, eventIds))
+  ]);
 
-    result.push({ ...event, groupCount: total });
-  }
-  return result;
+  return events.map(event => {
+    const groupCount = allGroups.filter(g => g.eventId === event.id).length;
+    return { ...event, groupCount };
+  });
 }
 
 // ── CRUD Actions for Tutor ────────────────────────────────────────────────

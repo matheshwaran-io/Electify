@@ -20,33 +20,19 @@ export async function getSystemAdminMetrics() {
     throw new Error("Unauthorized");
   }
 
-  const [{ totalStudents }] = await db
-    .select({ totalStudents: count() })
-    .from(users)
-    .where(eq(users.role, "STUDENT"));
-
-  const [{ totalFaculty }] = await db
-    .select({ totalFaculty: count() })
-    .from(users)
-    .where(and(eq(users.isActive, true), eq(users.role, "COURSE_COORDINATOR")));
-
-  const [{ activeEvents }] = await db
-    .select({ activeEvents: count() })
-    .from(registrationEvents)
-    .where(eq(registrationEvents.status, "PUBLISHED"));
-
-  const recentLogs = await db
-    .select()
-    .from(auditLogs)
-    .orderBy(desc(auditLogs.createdAt))
-    .limit(5);
-
-  return {
-    totalStudents,
-    totalFaculty,
-    activeEvents,
+  const [
+    [{ totalStudents }],
+    [{ totalFaculty }],
+    [{ activeEvents }],
     recentLogs
-  };
+  ] = await Promise.all([
+    db.select({ totalStudents: count() }).from(users).where(eq(users.role, "STUDENT")),
+    db.select({ totalFaculty: count() }).from(users).where(and(eq(users.isActive, true), eq(users.role, "COURSE_COORDINATOR"))),
+    db.select({ activeEvents: count() }).from(registrationEvents).where(eq(registrationEvents.status, "PUBLISHED")),
+    db.select().from(auditLogs).orderBy(desc(auditLogs.createdAt)).limit(5)
+  ]);
+
+  return { totalStudents, totalFaculty, activeEvents, recentLogs };
 }
 
 export async function getCourseCoordinatorMetrics() {
@@ -55,18 +41,15 @@ export async function getCourseCoordinatorMetrics() {
     throw new Error("Unauthorized");
   }
 
-  const [{ totalTemplates }] = await db
-    .select({ totalTemplates: count() })
-    .from(eventTemplates);
+  const [
+    [{ totalTemplates }],
+    [{ totalEvents }]
+  ] = await Promise.all([
+    db.select({ totalTemplates: count() }).from(eventTemplates),
+    db.select({ totalEvents: count() }).from(registrationEvents)
+  ]);
 
-  const [{ totalEvents }] = await db
-    .select({ totalEvents: count() })
-    .from(registrationEvents);
-
-  return {
-    totalTemplates,
-    totalEvents,
-  };
+  return { totalTemplates, totalEvents };
 }
 
 export async function getClassTutorMetrics() {
@@ -77,25 +60,20 @@ export async function getClassTutorMetrics() {
 
   if (!session.sectionId) {
     return { 
-      totalStudents: 0, 
-      registeredCount: 0, 
-      courseOptionsCount: 0, 
-      allocationRate: 0,
-      activeEvent: null,
-      recentRegistrations: []
+      totalStudents: 0, registeredCount: 0, courseOptionsCount: 0, 
+      allocationRate: 0, activeEvent: null, recentRegistrations: []
     };
   }
 
-  const [{ totalStudents }] = await db
-    .select({ totalStudents: count() })
-    .from(users)
-    .where(and(eq(users.role, "STUDENT"), eq(users.sectionId, session.sectionId)));
+  const [
+    [{ totalStudents }],
+    eventLinks
+  ] = await Promise.all([
+    db.select({ totalStudents: count() }).from(users).where(and(eq(users.role, "STUDENT"), eq(users.sectionId, session.sectionId))),
+    db.select({ eventId: eventSections.eventId }).from(eventSections).where(eq(eventSections.sectionId, session.sectionId))
+  ]);
 
-  // Find the event for this section
-  const [eventLink] = await db
-    .select({ eventId: eventSections.eventId })
-    .from(eventSections)
-    .where(eq(eventSections.sectionId, session.sectionId));
+  const eventLink = eventLinks[0];
 
   let courseOptionsCount = 0;
   let allocationRate = 0;
@@ -104,9 +82,9 @@ export async function getClassTutorMetrics() {
   let registeredCount = 0;
 
   if (eventLink) {
-    // 1. Fetch Event Info
-    const [eventRecord] = await db
-      .select({
+    // Fetch Event, Groups, Registrations, and Recent Regs in parallel
+    const [eventRecords, groups, registeredStudents, recent] = await Promise.all([
+      db.select({
         id: registrationEvents.id,
         name: registrationEvents.name,
         status: registrationEvents.status,
@@ -115,14 +93,37 @@ export async function getClassTutorMetrics() {
       })
       .from(registrationEvents)
       .where(eq(registrationEvents.id, eventLink.eventId))
-      .limit(1);
-    activeEvent = eventRecord || null;
+      .limit(1),
 
-    // 2. Fetch Electives Stats
-    const groups = await db
-      .select({ id: electiveGroups.id })
+      db.select({ id: electiveGroups.id })
       .from(electiveGroups)
-      .where(eq(electiveGroups.eventId, eventLink.eventId));
+      .where(eq(electiveGroups.eventId, eventLink.eventId)),
+
+      db.select({ studentId: studentRegistrations.studentId })
+      .from(studentRegistrations)
+      .where(eq(studentRegistrations.eventId, eventLink.eventId)),
+
+      db.select({
+        id: studentRegistrations.id,
+        createdAt: studentRegistrations.submittedAt,
+        studentName: users.name,
+        studentRegNo: users.registerNumber,
+        electiveName: electives.name,
+      })
+      .from(studentRegistrations)
+      .innerJoin(users, eq(studentRegistrations.studentId, users.id))
+      .innerJoin(electives, eq(studentRegistrations.electiveId, electives.id))
+      .where(eq(studentRegistrations.eventId, eventLink.eventId))
+      .orderBy(desc(studentRegistrations.submittedAt))
+      .limit(5)
+    ]);
+
+    activeEvent = eventRecords[0] || null;
+    recentRegistrations = recent;
+    
+    // Unique students count
+    const uniqueStudents = new Set(registeredStudents.map(r => r.studentId));
+    registeredCount = uniqueStudents.size;
 
     if (groups.length > 0) {
       const groupIds = groups.map(g => g.id);
@@ -145,43 +146,10 @@ export async function getClassTutorMetrics() {
       const filled = totalMax - totalAvailable;
       allocationRate = totalMax > 0 ? Math.round((filled / totalMax) * 100) : 0;
     }
-
-    // 3. Fetch Registered Count
-    // To get registeredCount, we just need to count unique students in studentRegistrations for this event
-    const registeredStudents = await db
-      .select({ studentId: studentRegistrations.studentId })
-      .from(studentRegistrations)
-      .where(eq(studentRegistrations.eventId, eventLink.eventId));
-      
-    // Count unique students
-    const uniqueStudents = new Set(registeredStudents.map(r => r.studentId));
-    registeredCount = uniqueStudents.size;
-
-    // 4. Fetch Recent Registrations
-    const recent = await db
-      .select({
-        id: studentRegistrations.id,
-        createdAt: studentRegistrations.submittedAt,
-        studentName: users.name,
-        studentRegNo: users.registerNumber,
-        electiveName: electives.name,
-      })
-      .from(studentRegistrations)
-      .innerJoin(users, eq(studentRegistrations.studentId, users.id))
-      .innerJoin(electives, eq(studentRegistrations.electiveId, electives.id))
-      .where(eq(studentRegistrations.eventId, eventLink.eventId))
-      .orderBy(desc(studentRegistrations.submittedAt))
-      .limit(5);
-      
-    recentRegistrations = recent;
   }
 
   return {
-    totalStudents,
-    registeredCount,
-    courseOptionsCount,
-    allocationRate,
-    activeEvent,
-    recentRegistrations,
+    totalStudents, registeredCount, courseOptionsCount,
+    allocationRate, activeEvent, recentRegistrations,
   };
 }

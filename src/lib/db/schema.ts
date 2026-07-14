@@ -7,6 +7,7 @@ import {
   timestamp,
   jsonb,
   unique,
+  index,
 } from "drizzle-orm/pg-core";
 import { relations } from "drizzle-orm";
 
@@ -33,7 +34,8 @@ export const departments = pgTable("departments", {
   isActive: boolean("is_active").default(true).notNull(),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
-});
+},
+  (table) => [index("departments_faculty_idx").on(table.facultyId)]);
 
 export const programmes = pgTable("programmes", {
   id: uuid("id").defaultRandom().primaryKey(),
@@ -48,7 +50,8 @@ export const programmes = pgTable("programmes", {
   isActive: boolean("is_active").default(true).notNull(),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
-});
+},
+  (table) => [index("programmes_dept_idx").on(table.departmentId)]);
 
 export const academicBatches = pgTable(
   "academic_batches",
@@ -101,7 +104,8 @@ export const users = pgTable("users", {
   isEligible: boolean("is_eligible").default(true).notNull(),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
-});
+},
+  (table) => [index("users_role_idx").on(table.role), index("users_faculty_idx").on(table.facultyId), index("users_dept_idx").on(table.departmentId), index("users_prog_idx").on(table.programmeId), index("users_batch_idx").on(table.academicBatchId), index("users_section_idx").on(table.sectionId)]);
 
 // ────────────────────────────────────────────────────────────────────
 // INVITE SYSTEM
@@ -124,7 +128,8 @@ export const inviteCodes = pgTable("invite_codes", {
   usedCount: integer("used_count").default(0).notNull(),
   status: text("status").default("ACTIVE").notNull(), // ACTIVE | USED | EXPIRED | REVOKED
   createdAt: timestamp("created_at").defaultNow().notNull(),
-});
+},
+  (table) => [index("inviteCodes_faculty_idx").on(table.facultyId), index("inviteCodes_dept_idx").on(table.departmentId), index("inviteCodes_prog_idx").on(table.programmeId), index("inviteCodes_batch_idx").on(table.academicBatchId), index("inviteCodes_section_idx").on(table.sectionId), index("inviteCodes_created_idx").on(table.createdById)]);
 
 // ────────────────────────────────────────────────────────────────────
 // REGISTRATION EVENTS (Center of the system)
@@ -147,7 +152,8 @@ export const registrationEvents = pgTable("registration_events", {
   // DRAFT | PUBLISHED | OPEN | CLOSED | VERIFICATION | FINALIZED | ARCHIVED
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
-});
+},
+  (table) => [index("registrationEvents_batch_idx").on(table.academicBatchId), index("registrationEvents_created_idx").on(table.createdById), index("registrationEvents_status_idx").on(table.status)]);
 
 export const eventSections = pgTable(
   "event_sections",
@@ -160,7 +166,7 @@ export const eventSections = pgTable(
       .notNull()
       .references(() => sections.id),
   },
-  (table) => [unique("event_sections_unique").on(table.eventId, table.sectionId)]
+  (table) => [index("eventSections_event_idx").on(table.eventId), index("eventSections_section_idx").on(table.sectionId), unique("event_sections_unique").on(table.eventId, table.sectionId)]
 );
 
 export const eventStudents = pgTable(
@@ -174,7 +180,7 @@ export const eventStudents = pgTable(
       .notNull()
       .references(() => users.id),
   },
-  (table) => [unique("event_students_unique").on(table.eventId, table.studentId)]
+  (table) => [index("eventStudents_event_idx").on(table.eventId), index("eventStudents_student_idx").on(table.studentId), unique("event_students_unique").on(table.eventId, table.studentId)]
 );
 
 // ────────────────────────────────────────────────────────────────────
@@ -191,7 +197,8 @@ export const electiveGroups = pgTable("elective_groups", {
   maxChoices: integer("max_choices").default(1).notNull(),
   sortOrder: integer("sort_order").default(0).notNull(),
   createdAt: timestamp("created_at").defaultNow().notNull(),
-});
+},
+  (table) => [index("electiveGroups_event_idx").on(table.eventId)]);
 
 export const electives = pgTable("electives", {
   id: uuid("id").defaultRandom().primaryKey(),
@@ -208,7 +215,8 @@ export const electives = pgTable("electives", {
   isFull: boolean("is_full").default(false).notNull(),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
-});
+},
+  (table) => [index("electives_group_idx").on(table.groupId)]);
 
 // ────────────────────────────────────────────────────────────────────
 // STUDENT REGISTRATIONS
@@ -233,7 +241,7 @@ export const studentRegistrations = pgTable(
     submittedAt: timestamp("submitted_at").defaultNow().notNull(),
     updatedAt: timestamp("updated_at").defaultNow().notNull(),
   },
-  (table) => [
+  (table) => [index("studentRegistrations_student_idx").on(table.studentId), index("studentRegistrations_event_idx").on(table.eventId), index("studentRegistrations_group_idx").on(table.groupId), index("studentRegistrations_elective_idx").on(table.electiveId), 
     unique("student_registrations_unique").on(table.studentId, table.eventId, table.groupId),
   ]
 );
@@ -254,7 +262,8 @@ export const eventTemplates = pgTable("event_templates", {
     .references(() => users.id),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
-});
+},
+  (table) => [index("eventTemplates_prog_idx").on(table.programmeId), index("eventTemplates_created_idx").on(table.createdById)]);
 
 export const templateGroups = pgTable("template_groups", {
   id: uuid("id").defaultRandom().primaryKey(),
@@ -265,7 +274,8 @@ export const templateGroups = pgTable("template_groups", {
   minChoices: integer("min_choices").default(1).notNull(),
   maxChoices: integer("max_choices").default(1).notNull(),
   sortOrder: integer("sort_order").default(0).notNull(),
-});
+},
+  (table) => [index("templateGroups_template_idx").on(table.templateId)]);
 
 export const templateElectives = pgTable("template_electives", {
   id: uuid("id").defaultRandom().primaryKey(),
@@ -277,7 +287,8 @@ export const templateElectives = pgTable("template_electives", {
   credits: integer("credits").default(3).notNull(),
   description: text("description"),
   defaultMaxSeats: integer("default_max_seats").default(40).notNull(),
-});
+},
+  (table) => [index("templateElectives_group_idx").on(table.groupId)]);
 
 // ────────────────────────────────────────────────────────────────────
 // AUDIT & SECURITY
