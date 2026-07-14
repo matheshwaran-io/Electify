@@ -40,13 +40,13 @@ export function HeroGeometricBackground() {
   const parallaxX = useTransform(mouseX, [-0.5, 0.5], [-8, 8]);
   const parallaxY = useTransform(mouseY, [-0.5, 0.5], [-8, 8]);
 
+  const isDark = theme === "dark";
+
   // Mouse spotlight coordinates used in inline styling
   const spotlightStyle = useTransform(
     [mousePageX, mousePageY],
     ([x, y]) => `radial-gradient(600px circle at ${x}px ${y}px, ${isDark ? 'rgba(255,255,255,0.03)' : 'rgba(0,0,0,0.02)'}, transparent 80%)`
   );
-
-  const isDark = theme === "dark";
 
   // Pause animations when window is hidden
   const [isTabActive, setIsTabActive] = useState(true);
