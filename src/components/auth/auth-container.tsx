@@ -662,9 +662,9 @@ export function AuthContainer() {
                       disabled={authState !== "idle"}
                       {...registerStaffForm("section")}
                     >
-                      <option value="">Select Section</option>
+                      <option value="">Sec</option>
                       {currentSections.map(s => (
-                        <option key={s.id} value={s.label}>Section {s.label}</option>
+                        <option key={s.id} value={s.label}>{s.label}</option>
                       ))}
                     </select>
                     <div className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none text-slate-400 text-[10px]">▼</div>
