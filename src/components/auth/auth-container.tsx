@@ -611,7 +611,7 @@ export function AuthContainer() {
                     >
                       <option value="">Select Programme</option>
                       {currentProgs.map(p => (
-                        <option key={p.id} value={p.id}>{p.code}</option>
+                        <option key={p.id} value={p.id}>{p.name}</option>
                       ))}
                     </select>
                     <div className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none text-slate-400 text-[10px]">▼</div>
