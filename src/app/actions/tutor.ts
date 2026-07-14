@@ -722,7 +722,13 @@ export async function getAllAvailableSections() {
     .from(sections)
     .innerJoin(academicBatches, eq(sections.academicBatchId, academicBatches.id))
     .innerJoin(programmes, eq(academicBatches.programmeId, programmes.id))
-    .where(assignedIds.length > 0 ? notInArray(sections.id, assignedIds) : undefined)
+    .where(
+      and(
+        assignedIds.length > 0 ? notInArray(sections.id, assignedIds) : undefined,
+        session.programmeId ? eq(programmes.id, session.programmeId) : undefined,
+        session.departmentId && !session.programmeId ? eq(programmes.departmentId, session.departmentId) : undefined
+      )
+    )
     .orderBy(programmes.name, academicBatches.year, sections.label);
 
   return results;
@@ -763,7 +769,14 @@ export async function claimTutorSection(sectionIds: string[]) {
 
   await db.insert(tutorSections).values(valuesToInsert);
 
-  // Set the first one as active if the tutor had none
-  const { switchTutorSection } = await import("@/app/actions/auth");
-  await switchTutorSection(sectionIds[0]);
+  // Set the first assigned section as the active one
+  const { cookies } = await import("next/headers");
+  const cookieStore = await cookies();
+  cookieStore.set("electify_active_section", sectionIds[0], {
+    httpOnly: true,
+    secure: process.env.NODE_ENV === "production",
+    sameSite: "lax",
+    path: "/",
+    maxAge: 7200,
+  });
 }

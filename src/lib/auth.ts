@@ -49,7 +49,18 @@ export async function getSession(): Promise<UserSession | null> {
   const cookieStore = await cookies();
   const token = cookieStore.get("electify_session")?.value;
   if (!token) return null;
-  return await verifyJWT(token);
+  const session = await verifyJWT(token);
+  if (!session) return null;
+
+  // Override sectionId if there's an active section cookie
+  if (session.role === "CLASS_TUTOR") {
+    const activeSectionId = cookieStore.get("electify_active_section")?.value;
+    if (activeSectionId) {
+      session.sectionId = activeSectionId;
+    }
+  }
+
+  return session;
 }
 
 /**

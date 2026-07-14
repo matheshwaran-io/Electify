@@ -318,12 +318,20 @@ export function AppShell({ children, session, assignedSections = [] }: AppShellP
             <select
               value={session.sectionId || ""}
               onChange={async (e) => {
-                const { switchTutorSection } = await import("@/app/actions/auth");
+                const newSectionId = e.target.value;
                 try {
                   toast.loading("Switching section...", { id: "switch-section" });
-                  await switchTutorSection(e.target.value);
-                  toast.success("Section switched", { id: "switch-section" });
-                  window.location.reload();
+                  const res = await fetch("/api/switch-section", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ sectionId: newSectionId }),
+                  });
+                  if (!res.ok) {
+                    const data = await res.json();
+                    throw new Error(data.error || "Failed to switch section");
+                  }
+                  toast.success("Section switched!", { id: "switch-section" });
+                  window.location.href = window.location.pathname;
                 } catch (error: any) {
                   toast.error(error.message || "Failed to switch section", { id: "switch-section" });
                 }
