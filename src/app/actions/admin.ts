@@ -3,7 +3,7 @@
 import { db } from "@/lib/db";
 import {
   users, registrationEvents, faculties, departments,
-  programmes, sections, auditLogs, eventTemplates,
+  programmes, academicBatches, sections, auditLogs, eventTemplates,
   templateGroups, templateElectives, inviteCodes, systemSettings
 } from "@/lib/db/schema";
 import { getSession } from "@/lib/auth";
@@ -32,7 +32,8 @@ export async function getEvents() {
       programmeCode: programmes.code,
     })
     .from(registrationEvents)
-    .leftJoin(programmes, eq(registrationEvents.programmeId, programmes.id))
+    .leftJoin(academicBatches, eq(registrationEvents.academicBatchId, academicBatches.id))
+    .leftJoin(programmes, eq(academicBatches.programmeId, programmes.id))
     .orderBy(desc(registrationEvents.createdAt));
   return events;
 }
@@ -45,6 +46,7 @@ export async function getDepartmentsTree() {
   const allFaculties = await db.select().from(faculties).orderBy(asc(faculties.name));
   const allDepts = await db.select().from(departments).orderBy(asc(departments.name));
   const allProgs = await db.select().from(programmes).orderBy(asc(programmes.name));
+  const allBatches = await db.select().from(academicBatches).orderBy(asc(academicBatches.year));
   const allSections = await db.select().from(sections).orderBy(asc(sections.label));
 
   return {
@@ -58,7 +60,12 @@ export async function getDepartmentsTree() {
             .filter((p) => p.departmentId === d.id)
             .map((p) => ({
               ...p,
-              sections: allSections.filter((s) => s.programmeId === p.id),
+              batches: allBatches
+                .filter((b) => b.programmeId === p.id)
+                .map((b) => ({
+                  ...b,
+                  sections: allSections.filter((s) => s.academicBatchId === b.id),
+                })),
             })),
         })),
     })),

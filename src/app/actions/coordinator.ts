@@ -3,7 +3,7 @@
 import { db } from "@/lib/db";
 import {
   users, registrationEvents, programmes, sections,
-  electiveGroups, electives, studentRegistrations,
+  electiveGroups, electives, studentRegistrations, academicBatches, eventTemplates,
 } from "@/lib/db/schema";
 import { getSession } from "@/lib/auth";
 import { eq, and, count, desc, asc } from "drizzle-orm";
@@ -22,9 +22,10 @@ export async function getCoordinatorElectives() {
   const events = await db
     .select({ id: registrationEvents.id, name: registrationEvents.name, status: registrationEvents.status })
     .from(registrationEvents)
+    .leftJoin(academicBatches, eq(registrationEvents.academicBatchId, academicBatches.id))
     .where(
       session.programmeId
-        ? eq(registrationEvents.programmeId, session.programmeId)
+        ? eq(academicBatches.programmeId, session.programmeId)
         : undefined
     )
     .orderBy(desc(registrationEvents.createdAt));
@@ -76,13 +77,14 @@ export async function getCoordinatorStudents() {
       sectionLabel: sections.label,
     })
     .from(users)
+    .leftJoin(sections, eq(users.sectionId, sections.id))
+    .leftJoin(academicBatches, eq(sections.academicBatchId, academicBatches.id))
     .where(
       and(
         eq(users.role, "STUDENT"),
-        session.programmeId ? eq(users.programmeId, session.programmeId) : undefined
+        session.programmeId ? eq(academicBatches.programmeId, session.programmeId) : undefined
       )
     )
-    .leftJoin(sections, eq(users.sectionId, sections.id))
     .orderBy(asc(users.name));
 
   return students;
@@ -96,8 +98,9 @@ export async function getCoordinatorReports() {
   const allSections = await db
     .select({ id: sections.id, label: sections.label })
     .from(sections)
+    .leftJoin(academicBatches, eq(sections.academicBatchId, academicBatches.id))
     .where(
-      session.programmeId ? eq(sections.programmeId, session.programmeId) : undefined
+      session.programmeId ? eq(academicBatches.programmeId, session.programmeId) : undefined
     )
     .orderBy(asc(sections.label));
 

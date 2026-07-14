@@ -20,7 +20,8 @@ type InviteCode = {
 };
 
 type Section = { id: string; label: string };
-type Programme = { id: string; name: string; code: string; sections: Section[] };
+type Batch = { id: string; year: string; sections: Section[] };
+type Programme = { id: string; name: string; code: string; batches: Batch[] };
 type Department = { id: string; name: string; programmes: Programme[] };
 type Faculty = { id: string; name: string; departments: Department[] };
 
@@ -56,7 +57,7 @@ export function InvitesClient({
     : [];
   const allSections =
     role === "CLASS_TUTOR" && programmeId
-      ? allProgs.find((p) => p.id === programmeId)?.sections ?? []
+      ? allProgs.find((p) => p.id === programmeId)?.batches.flatMap((b) => b.sections) ?? []
       : [];
 
   const copyCode = (code: string, id: string) => {
@@ -317,7 +318,7 @@ export function InvitesClient({
                         className="w-full px-4 py-2.5 bg-[var(--background)] border border-[var(--border)] rounded-xl text-sm text-[var(--foreground)] focus:outline-none focus:ring-2 focus:ring-indigo-500/50"
                       >
                         <option value="">Select section</option>
-                        {allSections.map((s) => (
+                        {allSections.map((s: Section) => (
                           <option key={s.id} value={s.id}>Section {s.label}</option>
                         ))}
                       </select>

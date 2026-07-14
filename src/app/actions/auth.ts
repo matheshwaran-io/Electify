@@ -222,15 +222,15 @@ export async function registerStaff(formData: {
       if (!section) {
         return { success: false, error: "Class Tutors must select a section." };
       }
-      // Look up section by label + programmeId from the invite
-      if (invite.programmeId) {
+      // Look up section by label + academicBatchId from the invite
+      if (invite.academicBatchId) {
         const [sec] = await db
           .select()
           .from(sections)
           .where(
             and(
               eq(sections.label, section.toUpperCase().trim()),
-              eq(sections.programmeId, invite.programmeId)
+              eq(sections.academicBatchId, invite.academicBatchId)
             )
           )
           .limit(1);

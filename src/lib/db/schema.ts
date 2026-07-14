@@ -48,18 +48,33 @@ export const programmes = pgTable("programmes", {
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
 
-export const sections = pgTable(
-  "sections",
+export const academicBatches = pgTable(
+  "academic_batches",
   {
     id: uuid("id").defaultRandom().primaryKey(),
-    label: text("label").notNull(),
+    year: text("year").notNull(), // e.g. "2025", "2026"
     programmeId: uuid("programme_id")
       .notNull()
       .references(() => programmes.id, { onDelete: "cascade" }),
     isActive: boolean("is_active").default(true).notNull(),
     createdAt: timestamp("created_at").defaultNow().notNull(),
+    updatedAt: timestamp("updated_at").defaultNow().notNull(),
   },
-  (table) => [unique("sections_label_programme_unique").on(table.label, table.programmeId)]
+  (table) => [unique("academic_batches_year_programme_unique").on(table.year, table.programmeId)]
+);
+
+export const sections = pgTable(
+  "sections",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    label: text("label").notNull(), // e.g. "A", "B"
+    academicBatchId: uuid("academic_batch_id")
+      .notNull()
+      .references(() => academicBatches.id, { onDelete: "cascade" }),
+    isActive: boolean("is_active").default(true).notNull(),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+  },
+  (table) => [unique("sections_label_batch_unique").on(table.label, table.academicBatchId)]
 );
 
 // ────────────────────────────────────────────────────────────────────
@@ -78,6 +93,7 @@ export const users = pgTable("users", {
   facultyId: uuid("faculty_id").references(() => faculties.id),
   departmentId: uuid("department_id").references(() => departments.id),
   programmeId: uuid("programme_id").references(() => programmes.id),
+  academicBatchId: uuid("academic_batch_id").references(() => academicBatches.id),
   sectionId: uuid("section_id").references(() => sections.id),
   isActive: boolean("is_active").default(true).notNull(),
   isEligible: boolean("is_eligible").default(true).notNull(),
@@ -96,6 +112,7 @@ export const inviteCodes = pgTable("invite_codes", {
   facultyId: uuid("faculty_id").references(() => faculties.id),
   departmentId: uuid("department_id").references(() => departments.id),
   programmeId: uuid("programme_id").references(() => programmes.id),
+  academicBatchId: uuid("academic_batch_id").references(() => academicBatches.id),
   sectionId: uuid("section_id").references(() => sections.id),
   createdById: uuid("created_by_id")
     .notNull()
@@ -115,10 +132,10 @@ export const registrationEvents = pgTable("registration_events", {
   id: uuid("id").defaultRandom().primaryKey(),
   name: text("name").notNull(),
   description: text("description"),
-  academicYear: text("academic_year"), // "2026-2027" — just metadata
-  programmeId: uuid("programme_id")
+  academicYear: text("academic_year"), // e.g. "2026-2027" for the event period
+  academicBatchId: uuid("academic_batch_id")
     .notNull()
-    .references(() => programmes.id),
+    .references(() => academicBatches.id),
   createdById: uuid("created_by_id")
     .notNull()
     .references(() => users.id),
@@ -324,10 +341,18 @@ export const programmesRelations = relations(programmes, ({ one, many }) => ({
   eventTemplates: many(eventTemplates),
 }));
 
-export const sectionsRelations = relations(sections, ({ one }) => ({
+export const academicBatchesRelations = relations(academicBatches, ({ one, many }) => ({
   programme: one(programmes, {
-    fields: [sections.programmeId],
+    fields: [academicBatches.programmeId],
     references: [programmes.id],
+  }),
+  sections: many(sections),
+}));
+
+export const sectionsRelations = relations(sections, ({ one }) => ({
+  academicBatch: one(academicBatches, {
+    fields: [sections.academicBatchId],
+    references: [academicBatches.id],
   }),
 }));
 
@@ -344,6 +369,10 @@ export const usersRelations = relations(users, ({ one }) => ({
     fields: [users.programmeId],
     references: [programmes.id],
   }),
+  academicBatch: one(academicBatches, {
+    fields: [users.academicBatchId],
+    references: [academicBatches.id],
+  }),
   section: one(sections, {
     fields: [users.sectionId],
     references: [sections.id],
@@ -351,9 +380,9 @@ export const usersRelations = relations(users, ({ one }) => ({
 }));
 
 export const registrationEventsRelations = relations(registrationEvents, ({ one, many }) => ({
-  programme: one(programmes, {
-    fields: [registrationEvents.programmeId],
-    references: [programmes.id],
+  academicBatch: one(academicBatches, {
+    fields: [registrationEvents.academicBatchId],
+    references: [academicBatches.id],
   }),
   createdBy: one(users, {
     fields: [registrationEvents.createdById],

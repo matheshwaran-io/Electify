@@ -5,7 +5,8 @@ import { motion, AnimatePresence } from "framer-motion";
 import { ChevronRight, Building, BookOpen, Users, GraduationCap } from "lucide-react";
 
 type Section = { id: string; label: string; isActive: boolean };
-type Programme = { id: string; name: string; code: string; degreeType: string | null; sections: Section[] };
+type Batch = { id: string; year: string; sections: Section[] };
+type Programme = { id: string; name: string; code: string; degreeType: string | null; batches: Batch[] };
 type Department = { id: string; name: string; code: string; programmes: Programme[] };
 type Faculty = { id: string; name: string; code: string; departments: Department[] };
 
@@ -81,7 +82,7 @@ export function DepartmentsClient({ tree }: { tree: { faculties: Faculty[] } }) 
                                       </div>
                                       <div className="flex-1">
                                         <p className="font-medium text-[var(--foreground)] text-sm">{prog.name}</p>
-                                        <p className="text-xs text-[var(--muted-foreground)]">{prog.code} · {prog.degreeType ?? "—"} · {prog.sections.length} sections</p>
+                                        <p className="text-xs text-[var(--muted-foreground)]">{prog.code} · {prog.degreeType ?? "—"} · {prog.batches.length} batches</p>
                                       </div>
                                       <ChevronRight className={`w-4 h-4 text-[var(--muted-foreground)] transition-transform ${openProgs.has(prog.id) ? "rotate-90" : ""}`} />
                                     </button>
@@ -90,14 +91,14 @@ export function DepartmentsClient({ tree }: { tree: { faculties: Faculty[] } }) 
                                       {openProgs.has(prog.id) && (
                                         <motion.div initial={{ height: 0 }} animate={{ height: "auto" }} exit={{ height: 0 }} className="overflow-hidden">
                                           <div className="px-4 pb-3 pt-2 border-t border-[var(--border)] flex flex-wrap gap-2">
-                                            {prog.sections.map((sec) => (
+                                            {prog.batches.flatMap((b) => b.sections).map((sec) => (
                                               <div key={sec.id} className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-[var(--accent)] border border-[var(--border)] text-xs font-medium text-[var(--foreground)]">
                                                 <GraduationCap className="w-3 h-3 text-[var(--muted-foreground)]" />
                                                 Section {sec.label}
                                               </div>
                                             ))}
-                                            {prog.sections.length === 0 && (
-                                              <p className="text-xs text-[var(--muted-foreground)]">No sections defined.</p>
+                                            {prog.batches.length === 0 && (
+                                              <p className="text-xs text-[var(--muted-foreground)]">No batches or sections defined.</p>
                                             )}
                                           </div>
                                         </motion.div>

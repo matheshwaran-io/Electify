@@ -15,6 +15,7 @@ export interface UserSession {
   facultyId?: string;
   departmentId?: string;
   programmeId?: string;
+  academicBatchId?: string;
   sectionId?: string;
 }
 

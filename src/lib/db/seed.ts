@@ -93,17 +93,29 @@ async function seed() {
   if (!mcaProg) throw new Error("Programme MCA not found");
   console.log(`    ✓ ${programmeData.length} programmes seeded`);
 
-  // ── 4. Sections (A–J for MCA) ──────────────────────────────────
+  // ── 4. Academic Batches ──────────────────────────────────
+  console.log("  → Academic Batches...");
+  await db.insert(schema.academicBatches).values({
+    year: "2026",
+    programmeId: mcaProg.id,
+  }).onConflictDoNothing();
+
+  const batch2026 = await db.query.academicBatches.findFirst({
+    where: (b, { eq, and }) => and(eq(b.year, "2026"), eq(b.programmeId, mcaProg.id))
+  });
+  if (!batch2026) throw new Error("Batch 2026 not found");
+
+  // ── 5. Sections (A–J for MCA 2026) ──────────────────────────────────
   console.log("  → Sections...");
   const sectionLabels = ["A", "B", "C", "D", "E", "F", "G", "H", "I", "J"];
 
   for (const label of sectionLabels) {
     await db
       .insert(schema.sections)
-      .values({ label, programmeId: mcaProg.id })
+      .values({ label, academicBatchId: batch2026.id })
       .onConflictDoNothing();
   }
-  console.log(`    ✓ ${sectionLabels.length} sections (A–J) for MCA`);
+  console.log(`    ✓ ${sectionLabels.length} sections (A–J) for MCA 2026`);
 
   // ── 5. System Admin Account ────────────────────────────────────
   console.log("  → System Admin...");

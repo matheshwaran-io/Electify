@@ -3,7 +3,7 @@
 import { db } from "@/lib/db";
 import {
   users, electives, electiveGroups, registrationEvents,
-  studentRegistrations, eventSections, sections, programmes
+  studentRegistrations, eventSections, sections, programmes, academicBatches
 } from "@/lib/db/schema";
 import { getSession } from "@/lib/auth";
 import { eq, and, asc, count, desc } from "drizzle-orm";
@@ -13,17 +13,20 @@ async function assertTutor() {
   if (!session || session.role !== "CLASS_TUTOR") throw new Error("Unauthorized");
 
   // Fetch missing hierarchy details if the session token is incomplete
-  if (session.sectionId && (!session.programmeId || !session.departmentId)) {
+  if (session.sectionId && (!session.academicBatchId || !session.programmeId || !session.departmentId)) {
     const [sectionData] = await db
       .select({ 
-        programmeId: sections.programmeId, 
+        academicBatchId: sections.academicBatchId,
+        programmeId: academicBatches.programmeId, 
         departmentId: programmes.departmentId 
       })
       .from(sections)
-      .innerJoin(programmes, eq(sections.programmeId, programmes.id))
+      .innerJoin(academicBatches, eq(sections.academicBatchId, academicBatches.id))
+      .innerJoin(programmes, eq(academicBatches.programmeId, programmes.id))
       .where(eq(sections.id, session.sectionId));
 
     if (sectionData) {
+      session.academicBatchId = session.academicBatchId || sectionData.academicBatchId;
       session.programmeId = session.programmeId || sectionData.programmeId;
       session.departmentId = session.departmentId || sectionData.departmentId;
     }
@@ -214,7 +217,7 @@ export async function getPortalWindow() {
 
 export async function createRegistrationWindow(data: { name: string; academicYear: string; description?: string }) {
   const session = await assertTutor();
-  if (!session.sectionId || !session.programmeId || !session.departmentId) {
+  if (!session.sectionId || !session.academicBatchId || !session.programmeId || !session.departmentId) {
     throw new Error("Missing assignment data (section/programme/department)");
   }
 
@@ -234,7 +237,7 @@ export async function createRegistrationWindow(data: { name: string; academicYea
       name: data.name,
       academicYear: data.academicYear,
       description: data.description,
-      programmeId: session.programmeId,
+      academicBatchId: session.academicBatchId,
       createdById: session.userId,
       status: "DRAFT",
     })
@@ -276,7 +279,7 @@ import * as bcrypt from "bcryptjs";
 
 export async function createStudent(data: { name: string; registerNumber: string; email: string }) {
   const session = await assertTutor();
-  if (!session.sectionId || !session.programmeId || !session.departmentId) {
+  if (!session.sectionId || !session.academicBatchId || !session.programmeId || !session.departmentId) {
     throw new Error("Missing assignment data");
   }
 
@@ -297,7 +300,7 @@ export async function createStudent(data: { name: string; registerNumber: string
     passwordHash: hashed,
     role: "STUDENT",
     sectionId: session.sectionId,
-    programmeId: session.programmeId,
+    academicBatchId: session.academicBatchId,
     departmentId: session.departmentId,
     isActive: true,
     isEligible: true,
@@ -352,7 +355,7 @@ export async function createElective(groupId: string, data: { name: string; maxS
 
 export async function importStudentsCSV(studentsData: { name: string; registerNumber: string; email: string }[]) {
   const session = await assertTutor();
-  if (!session.sectionId || !session.programmeId || !session.departmentId) {
+  if (!session.sectionId || !session.academicBatchId || !session.programmeId || !session.departmentId) {
     throw new Error("Missing assignment data");
   }
 
@@ -365,7 +368,7 @@ export async function importStudentsCSV(studentsData: { name: string; registerNu
     passwordHash: hashed,
     role: "STUDENT" as const,
     sectionId: session.sectionId,
-    programmeId: session.programmeId,
+    academicBatchId: session.academicBatchId,
     departmentId: session.departmentId,
     isActive: true,
     isEligible: true,
