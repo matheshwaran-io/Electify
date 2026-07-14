@@ -8,7 +8,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
 import { login, registerStaff } from "@/app/actions/auth";
 import { toast } from "sonner";
-import { User, UserCog, Eye, EyeOff, Mail, Lock, Check, Layers, KeyRound, Barcode, Building, GraduationCap } from "lucide-react";
+import { User, UserCog, Eye, EyeOff, Mail, Lock, Check, Layers, KeyRound, Building, GraduationCap } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { motion, AnimatePresence } from "framer-motion";
 
@@ -26,7 +26,6 @@ const staffLoginSchema = z.object({
 const staffRegisterSchema = z
   .object({
     inviteCode: z.string().min(1, "Invite code is required"),
-    employeeId: z.string().min(1, "Employee ID is required"),
     name: z.string().min(2, "Full name is required"),
     email: z.string().min(1, "Email is required").email("Invalid email address")
       .refine(val => val.endsWith("@srmist.edu.in"), "Must be an official @srmist.edu.in email address"),
@@ -94,7 +93,6 @@ export function AuthContainer() {
     defaultValues: {
       role: "CLASS_TUTOR",
       inviteCode: "",
-      employeeId: "",
       name: "",
       email: "",
       faculty: "",
@@ -191,7 +189,6 @@ export function AuthContainer() {
     runAuthMockAnimation(() =>
       registerStaff({
         inviteCode: data.inviteCode,
-        employeeId: data.employeeId,
         name: data.name,
         email: data.email.toLowerCase().trim(),
         facultyId: data.faculty,
@@ -508,39 +505,21 @@ export function AuthContainer() {
                   )}
                 </div>
 
-                {/* Employee ID & Full Name (Grid) */}
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  <div className="space-y-1 relative group/input">
-                    <div className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within/input:text-[#6D5DFE] transition-colors z-10">
-                      <Barcode className="w-3.5 h-3.5" />
-                    </div>
-                    <input
-                      type="text"
-                      placeholder="Employee ID"
-                      className="w-full pl-10 pr-4 py-2.5 bg-slate-50/50 dark:bg-white/[0.01] border border-slate-200/60 dark:border-white/[0.06] rounded-xl text-xs text-slate-900 dark:text-slate-100 placeholder-slate-400 dark:placeholder-slate-500 focus:outline-none focus:border-[#6D5DFE]/50 focus:ring-2 focus:ring-[#6D5DFE]/5 dark:focus:ring-[#6D5DFE]/10 hover:border-slate-300 dark:hover:border-white/10 transition-all font-medium"
-                      disabled={authState !== "idle"}
-                      {...registerStaffForm("employeeId")}
-                    />
-                    {staffRegisterErrors.employeeId && (
-                      <p className="text-[10px] text-rose-500 mt-1 pl-2">{staffRegisterErrors.employeeId.message}</p>
-                    )}
+                {/* Full Name */}
+                <div className="space-y-1 relative group/input">
+                  <div className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within/input:text-[#6D5DFE] transition-colors z-10">
+                    <User className="w-3.5 h-3.5" />
                   </div>
-
-                  <div className="space-y-1 relative group/input">
-                     <div className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within/input:text-[#6D5DFE] transition-colors z-10">
-                       <User className="w-3.5 h-3.5" />
-                     </div>
-                     <input
-                       type="text"
-                       placeholder="Full Name"
-                       className="w-full pl-10 pr-4 py-2.5 bg-slate-50/50 dark:bg-white/[0.01] border border-slate-200/60 dark:border-white/[0.06] rounded-xl text-xs text-slate-900 dark:text-slate-100 placeholder-slate-400 dark:placeholder-slate-500 focus:outline-none focus:border-[#6D5DFE]/50 focus:ring-2 focus:ring-[#6D5DFE]/5 dark:focus:ring-[#6D5DFE]/10 hover:border-slate-300 dark:hover:border-white/10 transition-all font-medium"
-                       disabled={authState !== "idle"}
-                       {...registerStaffForm("name")}
-                     />
-                     {staffRegisterErrors.name && (
-                       <p className="text-[10px] text-rose-500 mt-1 pl-2">{staffRegisterErrors.name.message}</p>
-                     )}
-                  </div>
+                  <input
+                    type="text"
+                    placeholder="Full Name"
+                    className="w-full pl-10 pr-4 py-2.5 bg-slate-50/50 dark:bg-white/[0.01] border border-slate-200/60 dark:border-white/[0.06] rounded-xl text-xs text-slate-900 dark:text-slate-100 placeholder-slate-400 dark:placeholder-slate-500 focus:outline-none focus:border-[#6D5DFE]/50 focus:ring-2 focus:ring-[#6D5DFE]/5 dark:focus:ring-[#6D5DFE]/10 hover:border-slate-300 dark:hover:border-white/10 transition-all font-medium"
+                    disabled={authState !== "idle"}
+                    {...registerStaffForm("name")}
+                  />
+                  {staffRegisterErrors.name && (
+                    <p className="text-[10px] text-rose-500 mt-1 pl-2">{staffRegisterErrors.name.message}</p>
+                  )}
                 </div>
 
                 {/* SRM Email */}

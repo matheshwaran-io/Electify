@@ -188,7 +188,7 @@ export async function logout() {
 
 const registerStaffSchema = z.object({
   inviteCode: z.string().min(1, "Invite code is required"),
-  employeeId: z.string().min(1, "Employee ID is required"),
+  // employeeId: z.string().min(1, "Employee ID is required"),
   name: z.string().min(2, "Name must be at least 2 characters"),
   email: z.string().email("Invalid email format"),
   phone: z.string().optional(),
@@ -205,7 +205,6 @@ const registerStaffSchema = z.object({
 
 export async function registerStaff(formData: {
   inviteCode: string;
-  employeeId: string;
   name: string;
   email: string;
   phone?: string;
@@ -219,7 +218,7 @@ export async function registerStaff(formData: {
   if (!parsed.success) {
     return { success: false, error: parsed.error.issues[0].message };
   }
-  const { inviteCode, employeeId, name, email, phone, facultyId, departmentId, programmeId, section, password } = parsed.data;
+  const { inviteCode, name, email, phone, facultyId, departmentId, programmeId, section, password } = parsed.data;
 
   try {
     // 1. Validate invite code
@@ -284,15 +283,6 @@ export async function registerStaff(formData: {
       return { success: false, error: "An account with this email already exists." };
     }
 
-    const [existingEmp] = await db
-      .select()
-      .from(users)
-      .where(eq(users.employeeId, employeeId.trim()))
-      .limit(1);
-    if (existingEmp) {
-      return { success: false, error: "An account with this Employee ID already exists." };
-    }
-
     // 5. Hash password and create user
     const hashed = await bcrypt.hash(password, 12);
     const [newUser] = await db
@@ -302,7 +292,6 @@ export async function registerStaff(formData: {
         email: email.toLowerCase().trim(),
         passwordHash: hashed,
         role: invite.role,
-        employeeId: employeeId.trim(),
         phone: phone?.trim() || null,
         facultyId: facultyId,
         departmentId: departmentId,
@@ -341,7 +330,7 @@ export async function registerStaff(formData: {
       name: newUser.name,
       email: newUser.email,
       role: newUser.role as UserSession["role"],
-      employeeId: newUser.employeeId!,
+      ...(newUser.employeeId && { employeeId: newUser.employeeId }),
       ...(newUser.facultyId && { facultyId: newUser.facultyId }),
       ...(newUser.departmentId && { departmentId: newUser.departmentId }),
       ...(newUser.programmeId && { programmeId: newUser.programmeId }),

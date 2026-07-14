@@ -12,10 +12,8 @@ import {
   Settings, 
   BookOpen, 
   FileText, 
-  LogOut, 
   Menu, 
-  X,
-  Calendar,
+  Calendar, 
   Layers,
   GraduationCap,
   Building,
@@ -27,6 +25,7 @@ import {
   ChevronRight
 } from "lucide-react";
 import { logout } from "@/app/actions/auth";
+import { ThemeToggle } from "@/components/theme-toggle";
 
 interface UserSession {
   userId: string;
@@ -34,6 +33,15 @@ interface UserSession {
   email: string;
   role: "SYSTEM_ADMIN" | "COURSE_COORDINATOR" | "CLASS_TUTOR" | "STUDENT";
   employeeId?: string;
+}
+
+interface NotificationItem {
+  id: string;
+  title: string;
+  description: string;
+  time: string;
+  read: boolean;
+  type: "info" | "success" | "warning";
 }
 
 interface AppShellProps {
@@ -47,6 +55,128 @@ export function AppShell({ children, session }: AppShellProps) {
   
   const [isLoggingOut, setIsLoggingOut] = useState(false);
   const [scrolled, setScrolled] = useState(false);
+  const [notifications, setNotifications] = useState<NotificationItem[]>([]);
+  const [showNotifications, setShowNotifications] = useState(false);
+
+  useEffect(() => {
+    let initial: NotificationItem[] = [];
+    if (session.role === "SYSTEM_ADMIN") {
+      initial = [
+        {
+          id: "1",
+          title: "New Staff Registration",
+          description: "Angel Rubavathi registered as CLASS_TUTOR.",
+          time: "10m ago",
+          read: false,
+          type: "success",
+        },
+        {
+          id: "2",
+          title: "Database Synced",
+          description: "Drizzle migrations synced with Supabase production.",
+          time: "1h ago",
+          read: false,
+          type: "info",
+        },
+        {
+          id: "3",
+          title: "System Backup",
+          description: "Automated daily backup finished successfully.",
+          time: "4h ago",
+          read: true,
+          type: "info",
+        },
+      ];
+    } else if (session.role === "COURSE_COORDINATOR") {
+      initial = [
+        {
+          id: "1",
+          title: "Registration Live",
+          description: "Elective registration for 2026 Batch is now active.",
+          time: "30m ago",
+          read: false,
+          type: "success",
+        },
+        {
+          id: "2",
+          title: "High Registration Activity",
+          description: "Section A has achieved 85% completion rate.",
+          time: "2h ago",
+          read: false,
+          type: "info",
+        },
+        {
+          id: "3",
+          title: "Template Saved",
+          description: "New template 'ODD Semester 2026' was created.",
+          time: "1d ago",
+          read: true,
+          type: "info",
+        },
+      ];
+    } else if (session.role === "CLASS_TUTOR") {
+      initial = [
+        {
+          id: "1",
+          title: "Window Timing Update",
+          description: "The registration window was updated to match coordinator timelines.",
+          time: "15m ago",
+          read: false,
+          type: "info",
+        },
+        {
+          id: "2",
+          title: "Pending Registrations",
+          description: "9 students in your section have not completed registration.",
+          time: "3h ago",
+          read: false,
+          type: "warning",
+        },
+        {
+          id: "3",
+          title: "Class Profile Assigned",
+          description: "You have been assigned as Class Tutor for Section A.",
+          time: "1d ago",
+          read: true,
+          type: "success",
+        },
+      ];
+    } else {
+      initial = [
+        {
+          id: "1",
+          title: "Elective Seat Alert",
+          description: "Professional Elective I seats are filling up fast.",
+          time: "5m ago",
+          read: false,
+          type: "warning",
+        },
+        {
+          id: "2",
+          title: "Registration Open",
+          description: "Your batch registration window is now active.",
+          time: "1h ago",
+          read: false,
+          type: "success",
+        },
+      ];
+    }
+    setNotifications(initial);
+  }, [session.role]);
+
+  const hasUnread = notifications.some(n => !n.read);
+
+  const toggleRead = (id: string) => {
+    setNotifications(prev => prev.map(n => n.id === id ? { ...n, read: true } : n));
+  };
+
+  const markAllAsRead = () => {
+    setNotifications(prev => prev.map(n => ({ ...n, read: true })));
+  };
+
+  const clearAll = () => {
+    setNotifications([]);
+  };
 
   useEffect(() => {
     const handleScroll = () => {
@@ -231,10 +361,95 @@ export function AppShell({ children, session }: AppShellProps) {
         <header className={`hidden lg:flex items-center justify-between h-16 px-8 sticky top-0 z-30 transition-all duration-200 ${scrolled ? 'bg-[var(--background)]/80 backdrop-blur-md border-b border-[var(--border)]' : 'bg-transparent'}`}>
           <div className="flex-1" />
           <div className="flex items-center gap-4">
-            <button className="relative p-2 text-[var(--muted-foreground)] hover:bg-[var(--accent)] rounded-full transition-colors">
-              <Bell className="w-5 h-5" />
-              <span className="absolute top-1.5 right-1.5 w-2 h-2 bg-indigo-500 rounded-full border-2 border-[var(--background)]" />
-            </button>
+            <ThemeToggle />
+
+            <div className="relative">
+              <button 
+                onClick={() => setShowNotifications(!showNotifications)}
+                className="relative p-2 text-[var(--muted-foreground)] hover:bg-[var(--accent)] rounded-full transition-colors focus:outline-none"
+              >
+                <Bell className="w-5 h-5" />
+                {hasUnread && (
+                  <span className="absolute top-1.5 right-1.5 w-2 h-2 bg-indigo-500 rounded-full border-2 border-[var(--background)]" />
+                )}
+              </button>
+
+              <AnimatePresence>
+                {showNotifications && (
+                  <>
+                    <div 
+                      className="fixed inset-0 z-40 bg-transparent"
+                      onClick={() => setShowNotifications(false)}
+                    />
+                    
+                    <motion.div
+                      initial={{ opacity: 0, y: 10, scale: 0.95 }}
+                      animate={{ opacity: 1, y: 0, scale: 1 }}
+                      exit={{ opacity: 0, y: 10, scale: 0.95 }}
+                      transition={{ duration: 0.15, ease: "easeOut" }}
+                      className="absolute right-0 mt-2 w-80 bg-white dark:bg-slate-900 border border-slate-200 dark:border-white/[0.08] shadow-[0_10px_30px_rgba(0,0,0,0.1)] dark:shadow-[0_10px_30px_rgba(0,0,0,0.4)] rounded-2xl overflow-hidden z-50 backdrop-blur-xl"
+                    >
+                      <div className="p-4 border-b border-slate-100 dark:border-white/[0.05] flex items-center justify-between">
+                        <h3 className="font-semibold text-sm text-slate-900 dark:text-white">Notifications</h3>
+                        {hasUnread && (
+                          <button 
+                            onClick={markAllAsRead}
+                            className="text-[11px] text-indigo-500 hover:text-indigo-600 dark:hover:text-indigo-400 font-semibold"
+                          >
+                            Mark all as read
+                          </button>
+                        )}
+                      </div>
+
+                      <div className="max-h-[280px] overflow-y-auto divide-y divide-slate-50 dark:divide-white/[0.02]">
+                        {notifications.length === 0 ? (
+                          <div className="p-6 text-center text-slate-400 dark:text-slate-500 text-xs">
+                            No notifications yet
+                          </div>
+                        ) : (
+                          notifications.map((item) => (
+                            <div 
+                              key={item.id} 
+                              onClick={() => toggleRead(item.id)}
+                              className={`p-4 flex gap-3 hover:bg-slate-50 dark:hover:bg-white/[0.02] cursor-pointer transition-colors ${!item.read ? 'bg-indigo-50/20 dark:bg-indigo-950/10' : ''}`}
+                            >
+                              <div className="mt-0.5">
+                                {item.type === "success" && <div className="w-2 h-2 rounded-full bg-emerald-500 mt-1.5" />}
+                                {item.type === "warning" && <div className="w-2 h-2 rounded-full bg-amber-500 mt-1.5" />}
+                                {item.type === "info" && <div className="w-2 h-2 rounded-full bg-indigo-500 mt-1.5" />}
+                              </div>
+                              <div className="flex-1 min-w-0">
+                                <div className="flex items-center justify-between gap-2">
+                                  <p className={`text-xs font-semibold truncate ${!item.read ? 'text-slate-900 dark:text-white' : 'text-slate-600 dark:text-slate-400'}`}>
+                                    {item.title}
+                                  </p>
+                                  <span className="text-[10px] text-slate-400 dark:text-slate-500 shrink-0">{item.time}</span>
+                                </div>
+                                <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5 line-clamp-2 leading-relaxed">
+                                  {item.description}
+                                </p>
+                              </div>
+                            </div>
+                          ))
+                        )}
+                      </div>
+
+                      {notifications.length > 0 && (
+                        <div className="p-2 bg-slate-50 dark:bg-white/[0.01] border-t border-slate-100 dark:border-white/[0.05] text-center">
+                          <button 
+                            onClick={clearAll}
+                            className="text-[11px] text-slate-500 dark:text-slate-400 hover:text-rose-500 dark:hover:text-rose-400 font-semibold w-full py-1.5"
+                          >
+                            Clear all notifications
+                          </button>
+                        </div>
+                      )}
+                    </motion.div>
+                  </>
+                )}
+              </AnimatePresence>
+            </div>
+
             <button onClick={handleLogout} disabled={isLoggingOut} className="text-sm font-medium text-[var(--muted-foreground)] hover:text-red-500 transition-colors">
               {isLoggingOut ? "Logging out..." : "Log out"}
             </button>
@@ -250,9 +465,94 @@ export function AppShell({ children, session }: AppShellProps) {
             <span className="text-lg font-bold tracking-tight">Electify</span>
           </div>
           <div className="flex items-center gap-2">
-            <button className="p-2 text-[var(--muted-foreground)] hover:bg-[var(--accent)] rounded-full transition-colors">
-              <Bell className="w-5 h-5" />
-            </button>
+            <ThemeToggle />
+
+            <div className="relative">
+              <button 
+                onClick={() => setShowNotifications(!showNotifications)}
+                className="relative p-2 text-[var(--muted-foreground)] hover:bg-[var(--accent)] rounded-full transition-colors focus:outline-none"
+              >
+                <Bell className="w-5 h-5" />
+                {hasUnread && (
+                  <span className="absolute top-1.5 right-1.5 w-2 h-2 bg-indigo-500 rounded-full border-2 border-[var(--background)]" />
+                )}
+              </button>
+
+              <AnimatePresence>
+                {showNotifications && (
+                  <>
+                    <div 
+                      className="fixed inset-0 z-40 bg-transparent"
+                      onClick={() => setShowNotifications(false)}
+                    />
+                    
+                    <motion.div
+                      initial={{ opacity: 0, y: 10, scale: 0.95 }}
+                      animate={{ opacity: 1, y: 0, scale: 1 }}
+                      exit={{ opacity: 0, y: 10, scale: 0.95 }}
+                      transition={{ duration: 0.15, ease: "easeOut" }}
+                      className="absolute right-0 mt-2 w-72 bg-white dark:bg-slate-900 border border-slate-200 dark:border-white/[0.08] shadow-[0_10px_30px_rgba(0,0,0,0.1)] dark:shadow-[0_10px_30px_rgba(0,0,0,0.4)] rounded-2xl overflow-hidden z-50 backdrop-blur-xl"
+                    >
+                      <div className="p-4 border-b border-slate-100 dark:border-white/[0.05] flex items-center justify-between">
+                        <h3 className="font-semibold text-sm text-slate-900 dark:text-white">Notifications</h3>
+                        {hasUnread && (
+                          <button 
+                            onClick={markAllAsRead}
+                            className="text-[11px] text-indigo-500 hover:text-indigo-600 dark:hover:text-indigo-400 font-semibold"
+                          >
+                            Mark
+                          </button>
+                        )}
+                      </div>
+
+                      <div className="max-h-[240px] overflow-y-auto divide-y divide-slate-50 dark:divide-white/[0.02]">
+                        {notifications.length === 0 ? (
+                          <div className="p-6 text-center text-slate-400 dark:text-slate-500 text-xs">
+                            No notifications yet
+                          </div>
+                        ) : (
+                          notifications.map((item) => (
+                            <div 
+                              key={item.id} 
+                              onClick={() => toggleRead(item.id)}
+                              className={`p-3 flex gap-2.5 hover:bg-slate-50 dark:hover:bg-white/[0.02] cursor-pointer transition-colors ${!item.read ? 'bg-indigo-50/20 dark:bg-indigo-950/10' : ''}`}
+                            >
+                              <div className="mt-0.5">
+                                {item.type === "success" && <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 mt-1.5" />}
+                                {item.type === "warning" && <div className="w-1.5 h-1.5 rounded-full bg-amber-500 mt-1.5" />}
+                                {item.type === "info" && <div className="w-1.5 h-1.5 rounded-full bg-indigo-500 mt-1.5" />}
+                              </div>
+                              <div className="flex-1 min-w-0">
+                                <div className="flex items-center justify-between gap-1">
+                                  <p className={`text-[11px] font-semibold truncate ${!item.read ? 'text-slate-900 dark:text-white' : 'text-slate-600 dark:text-slate-400'}`}>
+                                    {item.title}
+                                  </p>
+                                  <span className="text-[9px] text-slate-400 dark:text-slate-500 shrink-0">{item.time}</span>
+                                </div>
+                                <p className="text-[10px] text-slate-500 dark:text-slate-400 mt-0.5 line-clamp-2 leading-relaxed">
+                                  {item.description}
+                                </p>
+                              </div>
+                            </div>
+                          ))
+                        )}
+                      </div>
+
+                      {notifications.length > 0 && (
+                        <div className="p-2 bg-slate-50 dark:bg-white/[0.01] border-t border-slate-100 dark:border-white/[0.05] text-center">
+                          <button 
+                            onClick={clearAll}
+                            className="text-[10px] text-slate-500 dark:text-slate-400 hover:text-rose-500 dark:hover:text-rose-400 font-semibold w-full py-1"
+                          >
+                            Clear all
+                          </button>
+                        </div>
+                      )}
+                    </motion.div>
+                  </>
+                )}
+              </AnimatePresence>
+            </div>
           </div>
         </header>
 

@@ -528,7 +528,19 @@ function OverviewTab({ students, groups, totalStudents, registeredCount, pending
                       <td className="py-3 px-3 text-[var(--muted-foreground)] font-mono text-xs">{s.registerNumber ?? "—"}</td>
                       <td className="py-3 px-3"><span className="text-xs font-mono bg-emerald-500/10 text-emerald-500 px-2 py-0.5 rounded-md">{s.receiptNumber ?? "—"}</span></td>
                       <td className="py-3 px-3 text-[var(--muted-foreground)] text-xs">{new Date(s.submittedAt!).toLocaleString("en-IN", { dateStyle: "medium", timeStyle: "short" })}</td>
-                      <td className="py-3 px-3 text-[var(--muted-foreground)] text-xs max-w-[200px] truncate">{s.registrations.map(r => r.electiveName).join(", ")}</td>
+                      <td className="py-3 px-3">
+                        <div className="space-y-1.5 max-w-[280px]">
+                          {s.registrations.map((r, j) => (
+                            <div key={j} className="flex items-start gap-1.5">
+                              <span className="text-[10px] font-semibold text-[var(--muted-foreground)] uppercase tracking-wider shrink-0 pt-0.5 min-w-[60px]">{r.groupName}:</span>
+                              <span className="text-xs text-[var(--foreground)] font-medium leading-tight">
+                                {r.courseCode ? <span className="text-indigo-400">{r.courseCode}</span> : null}
+                                {r.courseCode ? " — " : ""}{r.electiveName}
+                              </span>
+                            </div>
+                          ))}
+                        </div>
+                      </td>
                     </tr>
                   ))}
                 </tbody>
@@ -669,15 +681,15 @@ function StudentsTab({ filtered, search, setSearch, statusFilter, setStatusFilte
                       </td>
                       <td className="px-5 py-3.5">
                         {hasRegs ? (
-                          <div className="flex items-center gap-1.5 flex-wrap">
-                            {s.registrations.slice(0, 2).map((r, j) => (
-                              <span key={j} className="text-[11px] bg-indigo-500/10 text-indigo-400 px-2 py-0.5 rounded-md font-medium">
-                                {r.courseCode ?? r.electiveName.slice(0, 15)}
-                              </span>
+                          <div className="space-y-1">
+                            {s.registrations.map((r, j) => (
+                              <div key={j} className="flex items-center gap-1.5">
+                                <span className="text-[10px] font-medium text-[var(--muted-foreground)] shrink-0">{r.groupName}:</span>
+                                <span className="text-[11px] bg-indigo-500/10 text-indigo-400 px-2 py-0.5 rounded-md font-medium truncate max-w-[200px]">
+                                  {r.courseCode ? `${r.courseCode} — ` : ""}{r.electiveName}
+                                </span>
+                              </div>
                             ))}
-                            {s.registrations.length > 2 && (
-                              <span className="text-[11px] text-[var(--muted-foreground)]">+{s.registrations.length - 2}</span>
-                            )}
                           </div>
                         ) : (
                           <span className="text-xs text-[var(--muted-foreground)]">—</span>
