@@ -156,53 +156,51 @@ export function AppShell({ children, session }: AppShellProps) {
     <div className="flex h-screen w-full bg-[var(--background)] text-[var(--foreground)] overflow-hidden font-sans">
       
       {/* ── Desktop Sidebar ── */}
-      <aside className="hidden lg:flex w-72 shrink-0 flex-col bg-[var(--card)] border-r border-[var(--border)] relative z-20">
-        <div className="flex items-center gap-3 h-16 px-6 shrink-0">
-          <div className="flex items-center justify-center w-8 h-8 rounded-lg bg-indigo-500 text-white shadow-lg shadow-indigo-500/20">
-            <BookOpen className="w-4 h-4" />
-          </div>
-          <span className="text-xl font-bold tracking-tight">Electify</span>
+      <aside className="hidden lg:flex w-[260px] shrink-0 flex-col bg-[var(--background)] border-r border-[var(--border)] relative z-20">
+        <div className="flex items-center gap-3 h-16 px-6 shrink-0 mt-2">
+          <img src="/logo.png" alt="Electify Logo" className="w-8 h-8 rounded-lg" />
+          <span className="text-[17px] font-semibold tracking-tight text-[var(--foreground)]">Electify</span>
         </div>
 
         {/* Global Search / Command Trigger */}
-        <div className="px-4 pb-4 shrink-0">
-          <button className="flex items-center gap-2 w-full px-3 py-2 text-sm text-[var(--muted-foreground)] bg-[var(--accent)] hover:bg-[var(--accent)]/80 rounded-xl transition-colors border border-[var(--border)]">
-            <Search className="w-4 h-4" />
-            <span className="flex-1 text-left">Search...</span>
-            <kbd className="hidden md:inline-flex items-center gap-1 font-mono text-[10px] bg-[var(--background)] px-1.5 py-0.5 rounded border border-[var(--border)]">
+        <div className="px-4 pb-4 shrink-0 mt-2">
+          <button className="flex items-center gap-2 w-full px-3 py-2 text-sm text-[var(--muted-foreground)] bg-[var(--accent)]/50 hover:bg-[var(--accent)] rounded-lg transition-colors border border-[var(--border)]/50 shadow-sm">
+            <Search className="w-4 h-4 opacity-70" />
+            <span className="flex-1 text-left font-medium">Search...</span>
+            <kbd className="hidden md:inline-flex items-center gap-1 font-mono text-[10px] bg-[var(--background)] px-1.5 py-0.5 rounded border border-[var(--border)]/50 opacity-70">
               <Command className="w-3 h-3" /> K
             </kbd>
           </button>
         </div>
 
         {/* Navigation */}
-        <nav className="flex-1 px-4 py-2 space-y-6 overflow-y-auto custom-scrollbar">
+        <nav className="flex-1 px-3 py-2 space-y-6 overflow-y-auto custom-scrollbar">
           {navGroups.map((group, i) => (
             <div key={i}>
               {group.title && (
-                <h4 className="px-3 mb-2 text-xs font-semibold text-[var(--muted-foreground)] uppercase tracking-wider">
+                <h4 className="px-3 mb-1.5 text-[11px] font-medium text-[var(--muted-foreground)] uppercase tracking-wider">
                   {group.title}
                 </h4>
               )}
-              <div className="space-y-1">
+              <div className="space-y-0.5">
                 {group.items.map((item) => {
                   const isActive = pathname === item.href || pathname.startsWith(`${item.href}/`);
                   return (
                     <Link
                       key={item.href}
                       href={item.href}
-                      className={`flex items-center justify-between px-3 py-2.5 rounded-xl transition-all duration-200 group ${
+                      className={`flex items-center justify-between px-3 py-2 rounded-lg transition-all duration-200 group relative ${
                         isActive
-                          ? "bg-[var(--accent)] text-[var(--foreground)]"
+                          ? "bg-[var(--accent)] text-[var(--foreground)] font-medium"
                           : "text-[var(--muted-foreground)] hover:bg-[var(--accent)]/50 hover:text-[var(--foreground)]"
                       }`}
                     >
-                      <div className="flex items-center gap-3">
-                        <item.icon className={`w-5 h-5 shrink-0 ${isActive ? item.color : "opacity-70 group-hover:opacity-100 transition-opacity"}`} />
-                        <span className="font-medium text-sm">{item.name}</span>
+                      <div className="flex items-center gap-2.5">
+                        <item.icon className={`w-4 h-4 shrink-0 ${isActive ? item.color : "opacity-70 group-hover:opacity-100 transition-opacity"}`} />
+                        <span className="text-sm">{item.name}</span>
                       </div>
                       {isActive && (
-                        <motion.div layoutId="active-nav-indicator" className="w-1 h-4 bg-indigo-500 rounded-full" />
+                        <motion.div layoutId="active-nav-indicator" className="absolute left-0 top-1/2 -translate-y-1/2 w-[3px] h-4 bg-current rounded-r-full" style={{ color: "var(--foreground)" }} />
                       )}
                     </Link>
                   );
@@ -213,14 +211,14 @@ export function AppShell({ children, session }: AppShellProps) {
         </nav>
 
         {/* User Profile */}
-        <div className="p-4 shrink-0 border-t border-[var(--border)]">
-          <div className="flex items-center gap-3 px-3 py-2 rounded-xl hover:bg-[var(--accent)] transition-colors cursor-pointer group">
-            <div className="w-9 h-9 rounded-full bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center text-white font-bold text-sm shrink-0">
+        <div className="p-3 shrink-0 border-t border-[var(--border)]/50">
+          <div className="flex items-center gap-3 px-3 py-2.5 rounded-lg hover:bg-[var(--accent)]/50 transition-colors cursor-pointer group border border-transparent hover:border-[var(--border)]/50 shadow-sm">
+            <div className="w-8 h-8 rounded-full bg-[var(--accent)] flex items-center justify-center text-[var(--foreground)] font-semibold text-xs shrink-0 border border-[var(--border)]">
               {session.name.charAt(0)}
             </div>
             <div className="flex-1 min-w-0">
-              <p className="text-sm font-semibold truncate text-[var(--foreground)]">{session.name}</p>
-              <p className="text-xs text-[var(--muted-foreground)] truncate">{session.role.replace(/_/g, " ")}</p>
+              <p className="text-[13px] font-semibold truncate text-[var(--foreground)]">{session.name}</p>
+              <p className="text-[11px] font-medium text-[var(--muted-foreground)] truncate">{session.role.replace(/_/g, " ")}</p>
             </div>
             <ChevronRight className="w-4 h-4 text-[var(--muted-foreground)] opacity-0 group-hover:opacity-100 transition-opacity" />
           </div>

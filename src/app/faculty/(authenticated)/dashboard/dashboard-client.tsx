@@ -74,17 +74,15 @@ export function DashboardClient({ session, metrics }: DashboardClientProps) {
     <div className="space-y-8">
       {/* Welcome Section */}
       <motion.div 
-        initial={{ opacity: 0, y: -20 }}
+        initial={{ opacity: 0, y: -10 }}
         animate={{ opacity: 1, y: 0 }}
-        className="flex flex-col md:flex-row md:items-center justify-between gap-4 bg-[var(--card)] p-8 rounded-3xl border border-[var(--border)] shadow-sm relative overflow-hidden"
+        className="flex flex-col md:flex-row md:items-end justify-between gap-4 pb-6 border-b border-[var(--border)]/50 relative"
       >
-        <div className="absolute top-0 right-0 w-64 h-64 bg-gradient-to-br from-[var(--primary)]/10 to-transparent rounded-full blur-3xl -translate-y-1/2 translate-x-1/3" />
-        
-        <div className="space-y-2 relative z-10">
-          <h1 className="text-3xl font-bold tracking-tight text-[var(--foreground)]">
-            Welcome back, {session.name.split(" ")[0]}! 👋
+        <div className="space-y-1 relative z-10">
+          <h1 className="text-2xl font-semibold tracking-tight text-[var(--foreground)]">
+            Welcome back, {session.name.split(" ")[0]}
           </h1>
-          <p className="text-[var(--muted-foreground)]">
+          <p className="text-[13px] text-[var(--muted-foreground)]">
             Here's what's happening with Electify today.
           </p>
         </div>
@@ -97,123 +95,122 @@ export function DashboardClient({ session, metrics }: DashboardClientProps) {
           {/* Quick Links */}
           <motion.div 
             variants={containerVariants} initial="hidden" animate="show"
-            className="grid grid-cols-1 md:grid-cols-3 gap-6"
+            className="grid grid-cols-1 md:grid-cols-3 gap-4"
           >
             <Link href="/faculty/section" className="block group">
-              <div className="bg-gradient-to-br from-blue-600/10 to-transparent border border-blue-500/20 rounded-3xl p-6 relative overflow-hidden transition-all duration-300 hover:shadow-md hover:border-blue-500/40">
-                <div className="flex items-center gap-4 mb-4">
-                  <div className="w-12 h-12 rounded-full bg-blue-500/10 flex items-center justify-center">
-                    <Users className="w-6 h-6 text-blue-500" />
+              <div className="bg-[var(--background)] border border-[var(--border)]/50 rounded-xl p-5 relative overflow-hidden transition-all duration-300 hover:border-blue-500/30 hover:bg-blue-500/5 shadow-sm">
+                <div className="flex items-center gap-3 mb-2">
+                  <div className="w-8 h-8 rounded-lg bg-blue-500/10 flex items-center justify-center">
+                    <Users className="w-4 h-4 text-blue-500" />
                   </div>
                   <div>
-                    <h3 className="font-bold text-[var(--foreground)]">Student Directory</h3>
-                    <p className="text-xs text-[var(--muted-foreground)]">Manage your intake</p>
+                    <h3 className="font-medium text-[13px] text-[var(--foreground)]">Student Directory</h3>
                   </div>
                 </div>
-                <ArrowUpRight className="absolute top-6 right-6 w-5 h-5 text-blue-500 opacity-50 group-hover:opacity-100 transition-opacity" />
+                <p className="text-[11px] text-[var(--muted-foreground)]">Manage your intake and registrations</p>
+                <ArrowUpRight className="absolute top-5 right-5 w-4 h-4 text-blue-500 opacity-0 group-hover:opacity-100 transition-opacity" />
               </div>
             </Link>
 
             <Link href="/faculty/tutor-electives" className="block group">
-              <div className="bg-gradient-to-br from-indigo-600/10 to-transparent border border-indigo-500/20 rounded-3xl p-6 relative overflow-hidden transition-all duration-300 hover:shadow-md hover:border-indigo-500/40">
-                <div className="flex items-center gap-4 mb-4">
-                  <div className="w-12 h-12 rounded-full bg-indigo-500/10 flex items-center justify-center">
-                    <BookOpen className="w-6 h-6 text-indigo-500" />
+              <div className="bg-[var(--background)] border border-[var(--border)]/50 rounded-xl p-5 relative overflow-hidden transition-all duration-300 hover:border-purple-500/30 hover:bg-purple-500/5 shadow-sm">
+                <div className="flex items-center gap-3 mb-2">
+                  <div className="w-8 h-8 rounded-lg bg-purple-500/10 flex items-center justify-center">
+                    <BookOpen className="w-4 h-4 text-purple-500" />
                   </div>
                   <div>
-                    <h3 className="font-bold text-[var(--foreground)]">Course Catalog</h3>
-                    <p className="text-xs text-[var(--muted-foreground)]">Configure electives</p>
+                    <h3 className="font-medium text-[13px] text-[var(--foreground)]">Course Catalog</h3>
                   </div>
                 </div>
-                <ArrowUpRight className="absolute top-6 right-6 w-5 h-5 text-indigo-500 opacity-50 group-hover:opacity-100 transition-opacity" />
+                <p className="text-[11px] text-[var(--muted-foreground)]">Configure subjects and capacities</p>
+                <ArrowUpRight className="absolute top-5 right-5 w-4 h-4 text-purple-500 opacity-0 group-hover:opacity-100 transition-opacity" />
               </div>
             </Link>
 
             <Link href="/faculty/window" className="block group">
-              <div className="bg-gradient-to-br from-purple-600/10 to-transparent border border-purple-500/20 rounded-3xl p-6 relative overflow-hidden transition-all duration-300 hover:shadow-md hover:border-purple-500/40">
-                <div className="flex items-center gap-4 mb-4">
-                  <div className="w-12 h-12 rounded-full bg-purple-500/10 flex items-center justify-center">
-                    <Settings className="w-6 h-6 text-purple-500" />
+              <div className="bg-[var(--background)] border border-[var(--border)]/50 rounded-xl p-5 relative overflow-hidden transition-all duration-300 hover:border-amber-500/30 hover:bg-amber-500/5 shadow-sm">
+                <div className="flex items-center gap-3 mb-2">
+                  <div className="w-8 h-8 rounded-lg bg-amber-500/10 flex items-center justify-center">
+                    <Settings className="w-4 h-4 text-amber-500" />
                   </div>
                   <div>
-                    <h3 className="font-bold text-[var(--foreground)]">Portal Window</h3>
-                    <p className="text-xs text-[var(--muted-foreground)]">Adjust timers & rules</p>
+                    <h3 className="font-medium text-[13px] text-[var(--foreground)]">Portal Window</h3>
                   </div>
                 </div>
-                <ArrowUpRight className="absolute top-6 right-6 w-5 h-5 text-purple-500 opacity-50 group-hover:opacity-100 transition-opacity" />
+                <p className="text-[11px] text-[var(--muted-foreground)]">Adjust timers and registration rules</p>
+                <ArrowUpRight className="absolute top-5 right-5 w-4 h-4 text-amber-500 opacity-0 group-hover:opacity-100 transition-opacity" />
               </div>
             </Link>
           </motion.div>
 
-          <motion.div variants={containerVariants} initial="hidden" animate="show" className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-            <StatCard title="My Section Students" value={metrics.totalStudents} icon={Users} color="text-blue-500" bgColor="bg-blue-500/10" />
-            <StatCard title="Course Options" value={metrics.courseOptionsCount} icon={BookOpen} color="text-indigo-500" bgColor="bg-indigo-500/10" />
-            <StatCard title="Completed Regs" value={metrics.registeredCount} icon={CheckCircle2} color="text-emerald-500" bgColor="bg-emerald-500/10" />
-            <StatCard title="Seat Allocation" value={`${metrics.allocationRate}%`} icon={Percent} color="text-orange-500" bgColor="bg-orange-500/10" />
+          <motion.div variants={containerVariants} initial="hidden" animate="show" className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+            <StatCard title="My Section Students" value={metrics.totalStudents} icon={Users} color="text-blue-500" />
+            <StatCard title="Course Options" value={metrics.courseOptionsCount} icon={BookOpen} color="text-indigo-500" />
+            <StatCard title="Completed Regs" value={metrics.registeredCount} icon={CheckCircle2} color="text-emerald-500" />
+            <StatCard title="Seat Allocation" value={`${metrics.allocationRate}%`} icon={Percent} color="text-orange-500" />
           </motion.div>
 
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
             {/* Registration Window Widget */}
-            <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="lg:col-span-1 bg-[var(--card)] rounded-3xl border border-[var(--border)] shadow-sm p-6 flex flex-col">
-              <h2 className="text-lg font-bold flex items-center gap-2 mb-6">
-                <Clock className="w-5 h-5 text-[var(--muted-foreground)]" />
+            <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="lg:col-span-1 bg-[var(--background)] rounded-xl border border-[var(--border)]/50 shadow-sm p-5 flex flex-col relative overflow-hidden">
+              <div className="absolute top-0 right-0 w-32 h-32 bg-indigo-500/5 blur-3xl -translate-y-1/2 translate-x-1/2 rounded-full" />
+              <h2 className="text-[13px] font-semibold text-[var(--foreground)] flex items-center gap-2 mb-6">
+                <Clock className="w-4 h-4 text-[var(--muted-foreground)]" />
                 Portal Status
               </h2>
               {metrics.activeEvent ? (
                 <div className="flex-1 flex flex-col items-center justify-center text-center space-y-4">
-                  <span className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider ${
+                  <span className={`inline-flex items-center px-2 py-0.5 rounded text-[10px] font-semibold uppercase tracking-wider border ${
                     metrics.activeEvent.status === "ACTIVE" || metrics.activeEvent.status === "PUBLISHED" 
-                      ? "bg-emerald-500/10 text-emerald-500" 
-                      : "bg-orange-500/10 text-orange-500"
+                      ? "bg-emerald-500/10 text-emerald-500 border-emerald-500/20" 
+                      : "bg-orange-500/10 text-orange-500 border-orange-500/20"
                   }`}>
                     {metrics.activeEvent.status}
                   </span>
                   <div>
-                    <h3 className="text-xl font-bold text-[var(--foreground)]">{metrics.activeEvent.name}</h3>
-                    <p className="text-sm font-mono font-bold text-[var(--muted-foreground)] mt-2">
+                    <h3 className="text-xl font-semibold tracking-tight text-[var(--foreground)]">{metrics.activeEvent.name}</h3>
+                    <p className="text-[13px] font-mono text-[var(--muted-foreground)] mt-1.5 opacity-80">
                       {formatCountdown(metrics.activeEvent.closeDate)}
                     </p>
                   </div>
-                  <Link href="/faculty/window" className="text-sm text-indigo-500 hover:underline mt-4">Edit Timers</Link>
+                  <Link href="/faculty/window" className="text-[13px] font-medium text-indigo-500 hover:text-indigo-400 transition-colors mt-4 border-b border-indigo-500/30 pb-0.5">Edit Timers</Link>
                 </div>
               ) : (
                 <div className="flex-1 flex flex-col items-center justify-center text-center text-[var(--muted-foreground)] opacity-60 p-4">
-                  <Calendar className="w-10 h-10 mb-3" />
-                  <p className="text-sm">No Registration Window Created</p>
+                  <Calendar className="w-8 h-8 mb-3 stroke-[1.5]" />
+                  <p className="text-[13px]">No Registration Window</p>
                 </div>
               )}
             </motion.div>
 
             {/* Recent Submissions Feed */}
-            <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }} className="lg:col-span-2 bg-[var(--card)] rounded-3xl border border-[var(--border)] shadow-sm overflow-hidden">
-              <div className="flex items-center justify-between p-6 border-b border-[var(--border)]">
-                <h2 className="text-lg font-bold flex items-center gap-2">
-                  <ListPlus className="w-5 h-5 text-[var(--muted-foreground)]" />
+            <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }} className="lg:col-span-2 bg-[var(--background)] rounded-xl border border-[var(--border)]/50 shadow-sm overflow-hidden">
+              <div className="flex items-center justify-between p-5 border-b border-[var(--border)]/50">
+                <h2 className="text-[13px] font-semibold text-[var(--foreground)] flex items-center gap-2">
+                  <ListPlus className="w-4 h-4 text-[var(--muted-foreground)]" />
                   Recent Submissions
                 </h2>
               </div>
-              <div className="divide-y divide-[var(--border)]">
+              <div className="divide-y divide-[var(--border)]/50">
                 {metrics.recentRegistrations?.length > 0 ? (
                   metrics.recentRegistrations.map((reg: any) => (
-                    <div key={reg.id} className="p-6 flex items-start gap-4 hover:bg-[var(--accent)]/30 transition-colors">
-                      <div className="w-10 h-10 rounded-full bg-emerald-500/10 flex items-center justify-center shrink-0">
-                        <CheckCircle2 className="w-5 h-5 text-emerald-500" />
-                      </div>
+                    <div key={reg.id} className="p-4 flex items-start gap-4 hover:bg-[var(--accent)]/30 transition-colors group">
                       <div className="flex-1 min-w-0">
-                        <p className="text-sm font-medium text-[var(--foreground)]">
-                          {reg.studentName} <span className="text-[var(--muted-foreground)] font-mono text-xs">({reg.studentRegNo})</span>
+                        <p className="text-[13px] font-medium text-[var(--foreground)]">
+                          {reg.studentName} <span className="text-[var(--muted-foreground)] font-mono text-[11px] ml-1 opacity-70">({reg.studentRegNo})</span>
                         </p>
-                        <p className="text-xs text-[var(--muted-foreground)] mt-1 truncate">
-                          Registered for <strong className="text-[var(--foreground)]">{reg.electiveName}</strong>
+                        <p className="text-[13px] text-[var(--muted-foreground)] mt-0.5 truncate flex items-center gap-2">
+                          <span className="w-1 h-1 rounded-full bg-emerald-500/50" />
+                          Registered for <span className="text-[var(--foreground)] font-medium">{reg.electiveName}</span>
                         </p>
                       </div>
-                      <div className="text-xs font-mono text-[var(--muted-foreground)] whitespace-nowrap">
+                      <div className="text-[11px] font-mono text-[var(--muted-foreground)] whitespace-nowrap opacity-70">
                         {format(new Date(reg.createdAt), "MMM d, h:mm a")}
                       </div>
                     </div>
                   ))
                 ) : (
-                  <div className="p-12 text-center text-[var(--muted-foreground)]">
+                  <div className="p-10 text-center text-[13px] text-[var(--muted-foreground)]">
                     No submissions yet.
                   </div>
                 )}
@@ -298,16 +295,18 @@ export function DashboardClient({ session, metrics }: DashboardClientProps) {
     return (
       <motion.div 
         variants={itemVariants}
-        className="bg-[var(--card)] p-6 rounded-3xl border border-[var(--border)] shadow-sm group hover:shadow-md transition-all duration-300 relative overflow-hidden"
+        className="bg-[var(--background)] p-5 rounded-xl border border-[var(--border)]/50 shadow-sm group hover:border-[var(--border)] transition-all duration-300 relative overflow-hidden"
       >
-        <div className="flex justify-between items-start mb-4">
-          <div className={`w-12 h-12 rounded-2xl ${bgColor} flex items-center justify-center group-hover:scale-110 transition-transform duration-300`}>
-            <Icon className={`w-6 h-6 ${color}`} />
+        <div className="absolute top-0 right-0 w-24 h-24 bg-current opacity-[0.03] blur-2xl -translate-y-1/2 translate-x-1/2 rounded-full pointer-events-none" style={{ color: 'var(--foreground)' }} />
+        
+        <div className="flex justify-between items-start mb-6">
+          <div className="w-8 h-8 rounded-lg bg-[var(--accent)] flex items-center justify-center border border-[var(--border)]/50 group-hover:scale-105 transition-transform duration-300">
+            <Icon className={`w-4 h-4 ${color}`} />
           </div>
         </div>
         <div>
-          <h3 className="text-sm font-bold text-[var(--muted-foreground)] uppercase tracking-wider mb-1">{title}</h3>
-          <p className="text-3xl font-black text-[var(--foreground)] tracking-tight">
+          <h3 className="text-[11px] font-semibold text-[var(--muted-foreground)] uppercase tracking-wider mb-1">{title}</h3>
+          <p className="text-2xl font-semibold text-[var(--foreground)] tracking-tight">
             {value}
           </p>
         </div>
