@@ -3,7 +3,7 @@ import Image from "next/image";
 import { redirect } from "next/navigation";
 import { getSession } from "@/lib/auth";
 import { db } from "@/lib/db";
-import { users, systemSettings, registrationEvents, studentRegistrations } from "@/lib/db/schema";
+import { users, systemSettings, registrationEvents, registrations } from "@/lib/db/schema";
 import { eq, and, inArray, desc } from "drizzle-orm";
 import { CountdownTimer } from "./countdown-timer";
 import { ThemeToggle } from "@/components/theme-toggle";
@@ -63,7 +63,7 @@ export default async function CountdownPage() {
     .where(
       and(
         eq(registrationEvents.academicBatchId, student.academicBatchId),
-        inArray(registrationEvents.status, ["PUBLISHED", "OPEN", "CLOSED", "VERIFICATION", "FINALIZED"])
+        inArray(registrationEvents.status, ["PUBLISHED", "OPEN", "ACTIVE", "CLOSED", "VERIFICATION", "FINALIZED"])
       )
     ).orderBy(desc(registrationEvents.createdAt)).limit(1);
 
@@ -81,20 +81,33 @@ export default async function CountdownPage() {
     );
   }
 
-  const currentRegistrations = await db.select().from(studentRegistrations)
-    .where(and(eq(studentRegistrations.studentId, student.id), eq(studentRegistrations.eventId, event.id)));
+  // Check confirmed registration status from registrations table
+  const [userRegistration] = await db.select().from(registrations)
+    .where(and(eq(registrations.studentId, student.id), eq(registrations.eventId, event.id))).limit(1);
   
-  const hasSubmitted = currentRegistrations.length > 0;
+  const hasSubmitted = userRegistration?.status === "CONFIRMED";
 
   const now = new Date();
-  const isRegistrationStarted = event.status === "OPEN" || (event.openDate && now >= event.openDate);
-  const isRegistrationEnded = event.status === "CLOSED" || event.status === "VERIFICATION" || event.status === "FINALIZED" || (event.closeDate && now > event.closeDate);
 
+  // Time-based checks (openDate/closeDate are the source of truth)
+  const isRegistrationStarted =
+    (event.openDate && now >= event.openDate) ||
+    event.status === "OPEN" ||
+    event.status === "ACTIVE";
+
+  const isRegistrationEnded =
+    (event.closeDate && now > event.closeDate) ||
+    event.status === "CLOSED" ||
+    event.status === "VERIFICATION" ||
+    event.status === "FINALIZED";
+
+  // If registration is currently open, redirect to dashboard
   if (isRegistrationStarted && !isRegistrationEnded) {
     return <ClientRedirect to="/dashboard" />;
   }
 
-  if (hasSubmitted && (isRegistrationEnded || event.status === "OPEN")) {
+  // If already confirmed, go to success
+  if (hasSubmitted) {
     return <ClientRedirect to="/dashboard/success" />;
   }
 

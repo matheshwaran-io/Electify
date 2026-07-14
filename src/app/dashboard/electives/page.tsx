@@ -66,10 +66,19 @@ export default async function StudentElectivesPage() {
     return <ClientRedirect to="/dashboard/success" />;
   }
 
-  // Verify time boundaries
+  // Verify time boundaries (openDate/closeDate are the source of truth)
   const now = new Date();
-  const isRegistrationStarted = event.status === "OPEN" || event.status === "ACTIVE" || (event.openDate && now >= event.openDate);
-  const isRegistrationEnded = event.status === "CLOSED" || event.status === "VERIFICATION" || event.status === "FINALIZED" || (event.closeDate && now > event.closeDate);
+
+  const isRegistrationStarted =
+    (event.openDate && now >= event.openDate) ||
+    event.status === "OPEN" ||
+    event.status === "ACTIVE";
+
+  const isRegistrationEnded =
+    (event.closeDate && now > event.closeDate) ||
+    event.status === "CLOSED" ||
+    event.status === "VERIFICATION" ||
+    event.status === "FINALIZED";
 
   if (!isRegistrationStarted || isRegistrationEnded) {
     return <ClientRedirect to="/dashboard" />;

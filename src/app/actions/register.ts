@@ -66,8 +66,21 @@ export async function registerElectives(
       return { success: false, error: "Registration event not found." };
     }
 
+    // Time-based validation (openDate/closeDate are the source of truth)
     const now = new Date();
-    if (!["OPEN", "PUBLISHED", "ACTIVE"].includes(event.status) || (event.openDate && now < event.openDate) || (event.closeDate && now > event.closeDate)) {
+
+    const isStarted =
+      (event.openDate && now >= event.openDate) ||
+      event.status === "OPEN" ||
+      event.status === "ACTIVE";
+
+    const isEnded =
+      (event.closeDate && now > event.closeDate) ||
+      event.status === "CLOSED" ||
+      event.status === "VERIFICATION" ||
+      event.status === "FINALIZED";
+
+    if (!isStarted || isEnded) {
       return { success: false, error: "Registration is currently closed." };
     }
 

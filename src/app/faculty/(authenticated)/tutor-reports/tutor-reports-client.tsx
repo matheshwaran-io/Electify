@@ -1,166 +1,692 @@
 "use client";
 
-import { motion } from "framer-motion";
-import { FileText, Users, CheckCircle, Search, Download } from "lucide-react";
-import { useState } from "react";
+import { motion, AnimatePresence } from "framer-motion";
+import {
+  FileText, Users, CheckCircle, Search, Download, ChevronDown, ChevronRight,
+  BarChart3, Clock, BookOpen, Filter, TrendingUp, FileSpreadsheet,
+} from "lucide-react";
+import { useState, useMemo } from "react";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 
-type Registration = { studentId: string; electiveName: string; groupName: string; eventName: string };
-type Student = { id: string; name: string; registerNumber: string | null; isEligible: boolean; registrations: Registration[] };
-type ReportData = { students: Student[]; totalStudents: number; registeredCount: number };
+type Registration = {
+  studentId: string;
+  electiveName: string;
+  courseCode: string | null;
+  credits: number;
+  groupName: string;
+  eventName: string;
+};
+
+type Student = {
+  id: string;
+  name: string;
+  registerNumber: string | null;
+  isEligible: boolean;
+  email: string;
+  registrations: Registration[];
+  registrationStatus: string;
+  receiptNumber: string | null;
+  submittedAt: string | null;
+};
+
+type GroupSummary = {
+  groupName: string;
+  electiveName: string;
+  courseCode: string | null;
+  count: number;
+};
+
+type ReportData = {
+  students: Student[];
+  totalStudents: number;
+  registeredCount: number;
+  sectionLabel: string;
+  programmeName: string;
+  departmentName: string;
+  groups: GroupSummary[];
+};
+
+type TabId = "overview" | "students" | "subjects";
 
 export function TutorReportsClient({ reportData }: { reportData: ReportData }) {
-  const { students, totalStudents, registeredCount } = reportData;
+  const { students, totalStudents, registeredCount, sectionLabel, programmeName, departmentName, groups } = reportData;
+  const pendingCount = totalStudents - registeredCount;
   const overallPct = totalStudents > 0 ? Math.round((registeredCount / totalStudents) * 100) : 0;
 
   const [search, setSearch] = useState("");
-  const filtered = students.filter(
-    (s) =>
-      s.name.toLowerCase().includes(search.toLowerCase()) ||
-      (s.registerNumber ?? "").toLowerCase().includes(search.toLowerCase())
-  );
+  const [activeTab, setActiveTab] = useState<TabId>("overview");
+  const [statusFilter, setStatusFilter] = useState<"all" | "registered" | "pending">("all");
+  const [expandedStudents, setExpandedStudents] = useState<Set<string>>(new Set());
 
-  const exportCSV = () => {
-    const headers = ["Student Name", "Register No.", "Status", "Registrations"];
-    const rows = students.map(s => {
-      const isRegistered = s.registrations.length > 0;
-      const regs = s.registrations.map(r => r.electiveName).join("; ");
-      // Wrap strings with commas in quotes for CSV safety
-      return [`"${s.name}"`, s.registerNumber ?? "—", isRegistered ? "Registered" : "Pending", `"${regs}"`];
+  const filtered = useMemo(() => {
+    let list = students;
+    if (statusFilter === "registered") list = list.filter(s => s.registrationStatus === "CONFIRMED");
+    if (statusFilter === "pending") list = list.filter(s => s.registrationStatus !== "CONFIRMED");
+    if (search.trim()) {
+      const q = search.toLowerCase();
+      list = list.filter(s =>
+        s.name.toLowerCase().includes(q) ||
+        (s.registerNumber ?? "").toLowerCase().includes(q) ||
+        (s.receiptNumber ?? "").toLowerCase().includes(q)
+      );
+    }
+    return list;
+  }, [students, search, statusFilter]);
+
+  // Group the subjects by group name for the Subjects tab
+  const groupedSubjects = useMemo(() => {
+    const map = new Map<string, GroupSummary[]>();
+    for (const g of groups) {
+      const arr = map.get(g.groupName) || [];
+      arr.push(g);
+      map.set(g.groupName, arr);
+    }
+    return Array.from(map.entries());
+  }, [groups]);
+
+  const toggleExpanded = (id: string) => {
+    setExpandedStudents(prev => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id); else next.add(id);
+      return next;
     });
-    const csvContent = "data:text/csv;charset=utf-8," + [headers.join(","), ...rows.map(e => e.join(","))].join("\n");
-    const encodedUri = encodeURI(csvContent);
+  };
+
+  // ── Premium CSV Export ──────────────────────────────────────────────────
+  const exportCSV = () => {
+    const BOM = "\uFEFF";
+    const lines: string[] = [];
+
+    // Header section
+    lines.push(`"ELECTIFY - REGISTRATION REPORT"`);
+    lines.push(`"Generated","${new Date().toLocaleString("en-IN", { dateStyle: "long", timeStyle: "short" })}"`);
+    if (sectionLabel) lines.push(`"Section","${sectionLabel}"`);
+    if (programmeName) lines.push(`"Programme","${programmeName}"`);
+    if (departmentName) lines.push(`"Department","${departmentName}"`);
+    lines.push(`"Total Students","${totalStudents}"`);
+    lines.push(`"Registered","${registeredCount}"`);
+    lines.push(`"Pending","${pendingCount}"`);
+    lines.push(`"Completion Rate","${overallPct}%"`);
+    lines.push("");
+
+    // Student details
+    lines.push(`"S.No","Student Name","Register Number","Email","Status","Receipt No.","Submitted At","Elective Groups & Subjects"`);
+    students.forEach((s, idx) => {
+      const isRegistered = s.registrationStatus === "CONFIRMED";
+      const regs = s.registrations.map(r => `${r.groupName}: ${r.courseCode ? r.courseCode + " - " : ""}${r.electiveName}`).join(" | ");
+      const submittedAt = s.submittedAt ? new Date(s.submittedAt).toLocaleString("en-IN", { dateStyle: "medium", timeStyle: "short" }) : "—";
+      lines.push(`"${idx + 1}","${s.name}","${s.registerNumber ?? "—"}","${s.email}","${isRegistered ? "Confirmed" : "Pending"}","${s.receiptNumber ?? "—"}","${submittedAt}","${regs || "—"}"`);
+    });
+
+    lines.push("");
+    lines.push(`"SUBJECT DISTRIBUTION"`);
+    lines.push(`"Elective Group","Course Code","Subject Name","Students Enrolled"`);
+    groups.forEach(g => {
+      lines.push(`"${g.groupName}","${g.courseCode ?? "—"}","${g.electiveName}","${g.count}"`);
+    });
+
+    const blob = new Blob([BOM + lines.join("\n")], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
     const link = document.createElement("a");
-    link.setAttribute("href", encodedUri);
-    link.setAttribute("download", "tutor_registration_report.csv");
+    link.href = url;
+    link.download = `Electify_Report_Section_${sectionLabel || "All"}_${new Date().toISOString().split("T")[0]}.csv`;
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
+    URL.revokeObjectURL(url);
   };
 
+  // ── Premium PDF Export ─────────────────────────────────────────────────
   const exportPDF = () => {
-    const doc = new jsPDF();
-    doc.text("Class Registration Report", 14, 15);
-    
-    const tableData = students.map(s => {
-      const isRegistered = s.registrations.length > 0;
-      const regs = s.registrations.map(r => r.electiveName).join("; ");
-      return [s.name, s.registerNumber ?? "—", isRegistered ? "Registered" : "Pending", regs];
+    const doc = new jsPDF({ orientation: "landscape" });
+    const pageWidth = doc.internal.pageSize.getWidth();
+
+    // Header
+    doc.setFillColor(15, 23, 42);
+    doc.rect(0, 0, pageWidth, 32, "F");
+    doc.setTextColor(255, 255, 255);
+    doc.setFontSize(18);
+    doc.setFont("helvetica", "bold");
+    doc.text("ELECTIFY", 14, 15);
+    doc.setFontSize(10);
+    doc.setFont("helvetica", "normal");
+    doc.text("Elective Registration Report", 14, 23);
+    doc.setFontSize(8);
+    doc.text(`Generated: ${new Date().toLocaleString("en-IN", { dateStyle: "long", timeStyle: "short" })}`, pageWidth - 14, 15, { align: "right" });
+    if (sectionLabel) doc.text(`Section ${sectionLabel} • ${programmeName} • ${departmentName}`, pageWidth - 14, 22, { align: "right" });
+
+    // Summary boxes
+    const boxY = 38;
+    const boxW = (pageWidth - 56) / 4;
+    const summaryData = [
+      { label: "Total Students", value: String(totalStudents), color: [59, 130, 246] as [number, number, number] },
+      { label: "Registered", value: String(registeredCount), color: [16, 185, 129] as [number, number, number] },
+      { label: "Pending", value: String(pendingCount), color: [239, 68, 68] as [number, number, number] },
+      { label: "Completion", value: `${overallPct}%`, color: [139, 92, 246] as [number, number, number] },
+    ];
+    summaryData.forEach((item, i) => {
+      const x = 14 + i * (boxW + 8);
+      doc.setFillColor(248, 250, 252);
+      doc.roundedRect(x, boxY, boxW, 22, 3, 3, "F");
+      doc.setDrawColor(...item.color);
+      doc.setLineWidth(0.5);
+      doc.roundedRect(x, boxY, boxW, 22, 3, 3, "S");
+      doc.setTextColor(...item.color);
+      doc.setFontSize(16);
+      doc.setFont("helvetica", "bold");
+      doc.text(item.value, x + boxW / 2, boxY + 11, { align: "center" });
+      doc.setTextColor(100, 116, 139);
+      doc.setFontSize(7);
+      doc.setFont("helvetica", "normal");
+      doc.text(item.label, x + boxW / 2, boxY + 18, { align: "center" });
+    });
+
+    // Student table
+    let startY = boxY + 30;
+    doc.setTextColor(15, 23, 42);
+    doc.setFontSize(11);
+    doc.setFont("helvetica", "bold");
+    doc.text("Student Registration Details", 14, startY);
+    startY += 4;
+
+    const tableData = students.map((s, idx) => {
+      const isRegistered = s.registrationStatus === "CONFIRMED";
+      const regs = s.registrations.map(r => {
+        const code = r.courseCode ? `${r.courseCode} - ` : "";
+        return `[${r.groupName}] ${code}${r.electiveName}`;
+      }).join("\n");
+      const submittedAt = s.submittedAt ? new Date(s.submittedAt).toLocaleString("en-IN", { dateStyle: "short", timeStyle: "short" }) : "—";
+      return [
+        String(idx + 1),
+        s.name,
+        s.registerNumber ?? "—",
+        isRegistered ? "Confirmed" : "Pending",
+        s.receiptNumber ?? "—",
+        submittedAt,
+        regs || "—",
+      ];
     });
 
     autoTable(doc, {
-      head: [["Student Name", "Register No.", "Status", "Registrations"]],
+      head: [["#", "Student Name", "Register No.", "Status", "Receipt No.", "Submitted", "Elective Groups & Subjects"]],
       body: tableData,
-      startY: 20,
+      startY,
+      styles: { fontSize: 7, cellPadding: 3, lineWidth: 0.1, lineColor: [226, 232, 240] },
+      headStyles: { fillColor: [15, 23, 42], textColor: [255, 255, 255], fontStyle: "bold", fontSize: 7 },
+      alternateRowStyles: { fillColor: [248, 250, 252] },
+      columnStyles: {
+        0: { cellWidth: 10, halign: "center" },
+        3: { cellWidth: 22, halign: "center" },
+        4: { cellWidth: 30 },
+        5: { cellWidth: 28 },
+        6: { cellWidth: "auto" },
+      },
+      didParseCell: (data) => {
+        if (data.section === "body" && data.column.index === 3) {
+          const val = data.cell.raw as string;
+          if (val === "Confirmed") {
+            data.cell.styles.textColor = [16, 185, 129];
+            data.cell.styles.fontStyle = "bold";
+          } else {
+            data.cell.styles.textColor = [239, 68, 68];
+            data.cell.styles.fontStyle = "bold";
+          }
+        }
+      },
     });
-    
-    doc.save("tutor_registration_report.pdf");
+
+    // Subject Distribution Page
+    doc.addPage();
+    doc.setFillColor(15, 23, 42);
+    doc.rect(0, 0, pageWidth, 24, "F");
+    doc.setTextColor(255, 255, 255);
+    doc.setFontSize(14);
+    doc.setFont("helvetica", "bold");
+    doc.text("Subject Distribution Summary", 14, 16);
+
+    autoTable(doc, {
+      head: [["Elective Group", "Course Code", "Subject Name", "Students Enrolled"]],
+      body: groups.map(g => [g.groupName, g.courseCode ?? "—", g.electiveName, String(g.count)]),
+      startY: 30,
+      styles: { fontSize: 8, cellPadding: 4, lineWidth: 0.1, lineColor: [226, 232, 240] },
+      headStyles: { fillColor: [15, 23, 42], textColor: [255, 255, 255], fontStyle: "bold" },
+      alternateRowStyles: { fillColor: [248, 250, 252] },
+      columnStyles: {
+        3: { halign: "center", fontStyle: "bold" },
+      },
+    });
+
+    // Footer on all pages
+    const pageCount = doc.getNumberOfPages();
+    for (let i = 1; i <= pageCount; i++) {
+      doc.setPage(i);
+      const h = doc.internal.pageSize.getHeight();
+      doc.setFillColor(248, 250, 252);
+      doc.rect(0, h - 12, pageWidth, 12, "F");
+      doc.setFontSize(7);
+      doc.setTextColor(148, 163, 184);
+      doc.text(`Electify • Page ${i} of ${pageCount}`, 14, h - 5);
+      doc.text("Confidential - For Internal Use Only", pageWidth - 14, h - 5, { align: "right" });
+    }
+
+    doc.save(`Electify_Report_Section_${sectionLabel || "All"}_${new Date().toISOString().split("T")[0]}.pdf`);
   };
 
+  // ── Tab buttons ─────────────────────────────────────────────────────────
+  const tabs: { id: TabId; label: string; icon: typeof Users }[] = [
+    { id: "overview", label: "Overview", icon: BarChart3 },
+    { id: "students", label: "Students", icon: Users },
+    { id: "subjects", label: "Subjects", icon: BookOpen },
+  ];
+
   return (
-    <div className="space-y-8">
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        <div>
-          <h1 className="text-3xl font-bold text-[var(--foreground)]">Reports</h1>
-          <p className="text-[var(--muted-foreground)] mt-1">Registration completion statistics for your section.</p>
+    <div className="space-y-6">
+      {/* Page Header */}
+      <div className="flex flex-col md:flex-row md:items-start justify-between gap-5">
+        <div className="space-y-1">
+          <h1 className="text-2xl font-bold text-[var(--foreground)] tracking-tight">Registration Reports</h1>
+          <p className="text-sm text-[var(--muted-foreground)]">
+            {sectionLabel ? `Section ${sectionLabel}` : "Your section"}{programmeName ? ` • ${programmeName}` : ""}{departmentName ? ` • ${departmentName}` : ""}
+          </p>
         </div>
-        <div className="flex items-center gap-3">
-          <button onClick={exportCSV} className="flex items-center gap-2 px-4 py-2 bg-[var(--card)] hover:bg-[var(--accent)] border border-[var(--border)] rounded-xl text-sm font-medium transition-colors">
-            <Download className="w-4 h-4" /> CSV
+        <div className="flex items-center gap-2">
+          <button
+            onClick={exportCSV}
+            className="group relative flex items-center gap-2 px-4 py-2.5 bg-[var(--card)] hover:bg-[var(--accent)] border border-[var(--border)] rounded-lg text-sm font-medium transition-all duration-200 hover:shadow-md"
+          >
+            <FileSpreadsheet className="w-4 h-4 text-emerald-500" />
+            <span>CSV</span>
           </button>
-          <button onClick={exportPDF} className="flex items-center gap-2 px-4 py-2 bg-indigo-500 hover:bg-indigo-600 text-white rounded-xl text-sm font-medium transition-colors">
-            <Download className="w-4 h-4" /> PDF
+          <button
+            onClick={exportPDF}
+            className="group relative flex items-center gap-2 px-4 py-2.5 bg-gradient-to-r from-rose-500 to-orange-500 hover:from-rose-600 hover:to-orange-600 text-white rounded-lg text-sm font-medium transition-all duration-200 hover:shadow-lg hover:shadow-rose-500/25"
+          >
+            <Download className="w-4 h-4" />
+            <span>PDF</span>
           </button>
         </div>
       </div>
 
       {/* Summary Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-        <div className="bg-[var(--card)] border border-[var(--border)] rounded-2xl p-6">
-          <div className="flex items-center gap-3 mb-2">
-            <div className="w-9 h-9 rounded-xl bg-blue-500/10 flex items-center justify-center">
-              <Users className="w-5 h-5 text-blue-500" />
-            </div>
-            <p className="text-sm text-[var(--muted-foreground)]">Total Students</p>
-          </div>
-          <p className="text-3xl font-bold text-[var(--foreground)]">{totalStudents}</p>
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+        <SummaryCard icon={Users} label="Total Students" value={totalStudents} color="blue" />
+        <SummaryCard icon={CheckCircle} label="Confirmed" value={registeredCount} color="emerald" />
+        <SummaryCard icon={Clock} label="Pending" value={pendingCount} color="amber" />
+        <CompletionCard pct={overallPct} />
+      </div>
+
+      {/* Tab Navigation */}
+      <div className="flex items-center gap-1 bg-[var(--card)] border border-[var(--border)] rounded-xl p-1 w-fit">
+        {tabs.map(tab => (
+          <button
+            key={tab.id}
+            onClick={() => setActiveTab(tab.id)}
+            className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all duration-200 ${
+              activeTab === tab.id
+                ? "bg-[var(--foreground)] text-[var(--background)] shadow-sm"
+                : "text-[var(--muted-foreground)] hover:text-[var(--foreground)] hover:bg-[var(--accent)]"
+            }`}
+          >
+            <tab.icon className="w-4 h-4" />
+            {tab.label}
+          </button>
+        ))}
+      </div>
+
+      {/* Tab Content */}
+      <AnimatePresence mode="wait">
+        {activeTab === "overview" && (
+          <motion.div key="overview" initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }} transition={{ duration: 0.2 }}>
+            <OverviewTab
+              students={students}
+              groups={groups}
+              totalStudents={totalStudents}
+              registeredCount={registeredCount}
+              pendingCount={pendingCount}
+            />
+          </motion.div>
+        )}
+        {activeTab === "students" && (
+          <motion.div key="students" initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }} transition={{ duration: 0.2 }}>
+            <StudentsTab
+              filtered={filtered}
+              search={search}
+              setSearch={setSearch}
+              statusFilter={statusFilter}
+              setStatusFilter={setStatusFilter}
+              expandedStudents={expandedStudents}
+              toggleExpanded={toggleExpanded}
+            />
+          </motion.div>
+        )}
+        {activeTab === "subjects" && (
+          <motion.div key="subjects" initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }} transition={{ duration: 0.2 }}>
+            <SubjectsTab groupedSubjects={groupedSubjects} totalStudents={totalStudents} />
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </div>
+  );
+}
+
+// ── Summary Card ───────────────────────────────────────────────────────────
+function SummaryCard({ icon: Icon, label, value, color }: { icon: typeof Users; label: string; value: number; color: string }) {
+  const colorClasses: Record<string, { bg: string; text: string; ring: string }> = {
+    blue: { bg: "bg-blue-500/10", text: "text-blue-500", ring: "ring-blue-500/20" },
+    emerald: { bg: "bg-emerald-500/10", text: "text-emerald-500", ring: "ring-emerald-500/20" },
+    amber: { bg: "bg-amber-500/10", text: "text-amber-500", ring: "ring-amber-500/20" },
+  };
+  const c = colorClasses[color] || colorClasses.blue;
+
+  return (
+    <div className={`bg-[var(--card)] border border-[var(--border)] rounded-xl p-5 ring-1 ${c.ring}`}>
+      <div className="flex items-center gap-3 mb-3">
+        <div className={`w-9 h-9 rounded-lg ${c.bg} flex items-center justify-center`}>
+          <Icon className={`w-[18px] h-[18px] ${c.text}`} />
         </div>
-        <div className="bg-[var(--card)] border border-[var(--border)] rounded-2xl p-6">
-          <div className="flex items-center gap-3 mb-2">
-            <div className="w-9 h-9 rounded-xl bg-emerald-500/10 flex items-center justify-center">
-              <CheckCircle className="w-5 h-5 text-emerald-500" />
-            </div>
-            <p className="text-sm text-[var(--muted-foreground)]">Registered</p>
-          </div>
-          <p className="text-3xl font-bold text-[var(--foreground)]">{registeredCount}</p>
+        <p className="text-xs font-medium text-[var(--muted-foreground)] uppercase tracking-wider">{label}</p>
+      </div>
+      <p className="text-3xl font-bold text-[var(--foreground)] tabular-nums">{value}</p>
+    </div>
+  );
+}
+
+// ── Completion Ring Card ──────────────────────────────────────────────────
+function CompletionCard({ pct }: { pct: number }) {
+  const r = 28;
+  const circ = 2 * Math.PI * r;
+  const offset = circ - (pct / 100) * circ;
+
+  return (
+    <div className="bg-[var(--card)] border border-[var(--border)] rounded-xl p-5 ring-1 ring-violet-500/20 flex items-center gap-5">
+      <div className="relative w-16 h-16 shrink-0">
+        <svg className="w-full h-full -rotate-90" viewBox="0 0 64 64">
+          <circle cx="32" cy="32" r={r} fill="none" stroke="var(--border)" strokeWidth="5" />
+          <circle
+            cx="32" cy="32" r={r} fill="none"
+            stroke="url(#grad)" strokeWidth="5" strokeLinecap="round"
+            strokeDasharray={circ} strokeDashoffset={offset}
+            className="transition-all duration-1000 ease-out"
+          />
+          <defs>
+            <linearGradient id="grad" x1="0%" y1="0%" x2="100%" y2="100%">
+              <stop offset="0%" stopColor="#8b5cf6" />
+              <stop offset="100%" stopColor="#6366f1" />
+            </linearGradient>
+          </defs>
+        </svg>
+        <span className="absolute inset-0 flex items-center justify-center text-sm font-bold text-[var(--foreground)]">{pct}%</span>
+      </div>
+      <div>
+        <p className="text-xs font-medium text-[var(--muted-foreground)] uppercase tracking-wider">Completion</p>
+        <p className="text-lg font-bold text-[var(--foreground)] mt-1">Rate</p>
+      </div>
+    </div>
+  );
+}
+
+// ── Overview Tab ──────────────────────────────────────────────────────────
+function OverviewTab({ students, groups, totalStudents, registeredCount, pendingCount }: {
+  students: Student[];
+  groups: GroupSummary[];
+  totalStudents: number;
+  registeredCount: number;
+  pendingCount: number;
+}) {
+  const maxCount = Math.max(...groups.map(g => g.count), 1);
+
+  return (
+    <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+      {/* Registration Status Breakdown */}
+      <div className="bg-[var(--card)] border border-[var(--border)] rounded-xl p-6">
+        <h3 className="text-sm font-semibold text-[var(--foreground)] mb-5 flex items-center gap-2">
+          <TrendingUp className="w-4 h-4 text-[var(--muted-foreground)]" />
+          Registration Progress
+        </h3>
+        <div className="space-y-4">
+          <ProgressBar label="Confirmed" value={registeredCount} max={totalStudents} color="emerald" />
+          <ProgressBar label="Pending" value={pendingCount} max={totalStudents} color="amber" />
         </div>
-        <div className="bg-[var(--card)] border border-[var(--border)] rounded-2xl p-6">
-          <div className="flex items-center gap-3 mb-2">
-            <div className="w-9 h-9 rounded-xl bg-purple-500/10 flex items-center justify-center">
-              <FileText className="w-5 h-5 text-purple-500" />
-            </div>
-            <p className="text-sm text-[var(--muted-foreground)]">Completion Rate</p>
-          </div>
-          <p className="text-3xl font-bold text-[var(--foreground)]">{overallPct}%</p>
+        {/* Visual bar */}
+        <div className="mt-6 h-3 rounded-full bg-[var(--accent)] overflow-hidden flex">
+          {registeredCount > 0 && (
+            <div
+              className="h-full bg-gradient-to-r from-emerald-500 to-emerald-400 transition-all duration-700"
+              style={{ width: `${(registeredCount / totalStudents) * 100}%` }}
+            />
+          )}
+          {pendingCount > 0 && (
+            <div
+              className="h-full bg-gradient-to-r from-amber-500 to-amber-400 transition-all duration-700"
+              style={{ width: `${(pendingCount / totalStudents) * 100}%` }}
+            />
+          )}
         </div>
       </div>
 
-      <div className="relative">
-        <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-[var(--muted-foreground)]" />
-        <input
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-          placeholder="Search students..."
-          className="w-full pl-11 pr-4 py-3 bg-[var(--card)] border border-[var(--border)] rounded-xl text-sm text-[var(--foreground)] placeholder:text-[var(--muted-foreground)] focus:outline-none focus:ring-2 focus:ring-indigo-500/50"
-        />
+      {/* Top Elective Subjects */}
+      <div className="bg-[var(--card)] border border-[var(--border)] rounded-xl p-6">
+        <h3 className="text-sm font-semibold text-[var(--foreground)] mb-5 flex items-center gap-2">
+          <BookOpen className="w-4 h-4 text-[var(--muted-foreground)]" />
+          Subject Enrollment
+        </h3>
+        <div className="space-y-3 max-h-[280px] overflow-y-auto pr-1">
+          {groups.length === 0 ? (
+            <p className="text-sm text-[var(--muted-foreground)] text-center py-8">No registrations yet.</p>
+          ) : (
+            groups.slice(0, 10).map((g, i) => (
+              <div key={i} className="space-y-1.5">
+                <div className="flex items-center justify-between text-xs">
+                  <span className="text-[var(--foreground)] font-medium truncate max-w-[70%]">
+                    {g.courseCode ? `${g.courseCode} — ` : ""}{g.electiveName}
+                  </span>
+                  <span className="text-[var(--muted-foreground)] tabular-nums font-medium">{g.count}</span>
+                </div>
+                <div className="h-1.5 rounded-full bg-[var(--accent)] overflow-hidden">
+                  <motion.div
+                    className="h-full rounded-full bg-gradient-to-r from-indigo-500 to-violet-500"
+                    initial={{ width: 0 }}
+                    animate={{ width: `${(g.count / maxCount) * 100}%` }}
+                    transition={{ duration: 0.6, delay: i * 0.05 }}
+                  />
+                </div>
+              </div>
+            ))
+          )}
+        </div>
       </div>
 
-      <div className="bg-[var(--card)] rounded-2xl border border-[var(--border)] overflow-hidden">
+      {/* Recently Registered */}
+      <div className="bg-[var(--card)] border border-[var(--border)] rounded-xl p-6 lg:col-span-2">
+        <h3 className="text-sm font-semibold text-[var(--foreground)] mb-4 flex items-center gap-2">
+          <Clock className="w-4 h-4 text-[var(--muted-foreground)]" />
+          Recently Registered
+        </h3>
+        <div className="overflow-x-auto">
+          {(() => {
+            const recent = students
+              .filter(s => s.registrationStatus === "CONFIRMED" && s.submittedAt)
+              .sort((a, b) => new Date(b.submittedAt!).getTime() - new Date(a.submittedAt!).getTime())
+              .slice(0, 5);
+            if (recent.length === 0) return <p className="text-sm text-[var(--muted-foreground)] text-center py-6">No confirmed registrations yet.</p>;
+            return (
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="border-b border-[var(--border)]">
+                    <th className="text-left py-2.5 px-3 text-xs font-medium text-[var(--muted-foreground)]">Student</th>
+                    <th className="text-left py-2.5 px-3 text-xs font-medium text-[var(--muted-foreground)]">Register No.</th>
+                    <th className="text-left py-2.5 px-3 text-xs font-medium text-[var(--muted-foreground)]">Receipt</th>
+                    <th className="text-left py-2.5 px-3 text-xs font-medium text-[var(--muted-foreground)]">Submitted</th>
+                    <th className="text-left py-2.5 px-3 text-xs font-medium text-[var(--muted-foreground)]">Subjects</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-[var(--border)]">
+                  {recent.map(s => (
+                    <tr key={s.id} className="hover:bg-[var(--accent)]/30 transition-colors">
+                      <td className="py-3 px-3 font-medium text-[var(--foreground)]">{s.name}</td>
+                      <td className="py-3 px-3 text-[var(--muted-foreground)] font-mono text-xs">{s.registerNumber ?? "—"}</td>
+                      <td className="py-3 px-3"><span className="text-xs font-mono bg-emerald-500/10 text-emerald-500 px-2 py-0.5 rounded-md">{s.receiptNumber ?? "—"}</span></td>
+                      <td className="py-3 px-3 text-[var(--muted-foreground)] text-xs">{new Date(s.submittedAt!).toLocaleString("en-IN", { dateStyle: "medium", timeStyle: "short" })}</td>
+                      <td className="py-3 px-3 text-[var(--muted-foreground)] text-xs max-w-[200px] truncate">{s.registrations.map(r => r.electiveName).join(", ")}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            );
+          })()}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function ProgressBar({ label, value, max, color }: { label: string; value: number; max: number; color: string }) {
+  const pct = max > 0 ? Math.round((value / max) * 100) : 0;
+  const gradients: Record<string, string> = {
+    emerald: "from-emerald-500 to-emerald-400",
+    amber: "from-amber-500 to-amber-400",
+  };
+  return (
+    <div className="flex items-center gap-4">
+      <span className="text-xs font-medium text-[var(--muted-foreground)] w-20">{label}</span>
+      <div className="flex-1 h-2 rounded-full bg-[var(--accent)] overflow-hidden">
+        <motion.div className={`h-full rounded-full bg-gradient-to-r ${gradients[color]}`} initial={{ width: 0 }} animate={{ width: `${pct}%` }} transition={{ duration: 0.8 }} />
+      </div>
+      <span className="text-xs font-bold text-[var(--foreground)] tabular-nums w-12 text-right">{value} <span className="text-[var(--muted-foreground)] font-normal">/ {max}</span></span>
+    </div>
+  );
+}
+
+// ── Students Tab ──────────────────────────────────────────────────────────
+function StudentsTab({ filtered, search, setSearch, statusFilter, setStatusFilter, expandedStudents, toggleExpanded }: {
+  filtered: Student[];
+  search: string;
+  setSearch: (s: string) => void;
+  statusFilter: "all" | "registered" | "pending";
+  setStatusFilter: (f: "all" | "registered" | "pending") => void;
+  expandedStudents: Set<string>;
+  toggleExpanded: (id: string) => void;
+}) {
+  return (
+    <div className="space-y-4">
+      {/* Search & Filters */}
+      <div className="flex flex-col sm:flex-row gap-3">
+        <div className="relative flex-1">
+          <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-[var(--muted-foreground)]" />
+          <input
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            placeholder="Search by name, register number, or receipt..."
+            className="w-full pl-10 pr-4 py-2.5 bg-[var(--card)] border border-[var(--border)] rounded-lg text-sm text-[var(--foreground)] placeholder:text-[var(--muted-foreground)] focus:outline-none focus:ring-2 focus:ring-indigo-500/40 transition-shadow"
+          />
+        </div>
+        <div className="flex items-center gap-1 bg-[var(--card)] border border-[var(--border)] rounded-lg p-1">
+          {(["all", "registered", "pending"] as const).map(f => (
+            <button
+              key={f}
+              onClick={() => setStatusFilter(f)}
+              className={`px-3 py-1.5 rounded-md text-xs font-medium transition-all ${
+                statusFilter === f
+                  ? "bg-[var(--foreground)] text-[var(--background)]"
+                  : "text-[var(--muted-foreground)] hover:text-[var(--foreground)]"
+              }`}
+            >
+              {f === "all" ? "All" : f === "registered" ? "Confirmed" : "Pending"}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {/* Student table */}
+      <div className="bg-[var(--card)] rounded-xl border border-[var(--border)] overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
             <thead>
-              <tr className="border-b border-[var(--border)] bg-[var(--accent)]/30">
-                <th className="text-left px-6 py-4 font-semibold text-[var(--muted-foreground)]">Student</th>
-                <th className="text-left px-6 py-4 font-semibold text-[var(--muted-foreground)]">Register No.</th>
-                <th className="text-left px-6 py-4 font-semibold text-[var(--muted-foreground)]">Status</th>
-                <th className="text-left px-6 py-4 font-semibold text-[var(--muted-foreground)]">Registrations</th>
+              <tr className="border-b border-[var(--border)]">
+                <th className="text-left px-5 py-3.5 text-xs font-semibold text-[var(--muted-foreground)] uppercase tracking-wider">Student</th>
+                <th className="text-left px-5 py-3.5 text-xs font-semibold text-[var(--muted-foreground)] uppercase tracking-wider">Register No.</th>
+                <th className="text-left px-5 py-3.5 text-xs font-semibold text-[var(--muted-foreground)] uppercase tracking-wider">Status</th>
+                <th className="text-left px-5 py-3.5 text-xs font-semibold text-[var(--muted-foreground)] uppercase tracking-wider">Receipt</th>
+                <th className="text-left px-5 py-3.5 text-xs font-semibold text-[var(--muted-foreground)] uppercase tracking-wider">Electives</th>
+                <th className="w-10" />
               </tr>
             </thead>
             <tbody className="divide-y divide-[var(--border)]">
               {filtered.length === 0 ? (
                 <tr>
-                  <td colSpan={4} className="text-center py-16 text-[var(--muted-foreground)]">
+                  <td colSpan={6} className="text-center py-16 text-[var(--muted-foreground)]">
                     No students found.
                   </td>
                 </tr>
               ) : (
                 filtered.map((s, i) => {
-                  const isRegistered = s.registrations.length > 0;
+                  const isRegistered = s.registrationStatus === "CONFIRMED";
+                  const isExpanded = expandedStudents.has(s.id);
+                  const hasRegs = s.registrations.length > 0;
+
                   return (
                     <motion.tr
                       key={s.id}
                       initial={{ opacity: 0 }}
                       animate={{ opacity: 1 }}
-                      transition={{ delay: i * 0.02 }}
-                      className="hover:bg-[var(--accent)]/20 transition-colors"
+                      transition={{ delay: Math.min(i * 0.015, 0.3) }}
+                      className={`hover:bg-[var(--accent)]/30 transition-colors cursor-pointer ${isExpanded ? "bg-[var(--accent)]/20" : ""}`}
+                      onClick={() => hasRegs && toggleExpanded(s.id)}
                     >
-                      <td className="px-6 py-4">
+                      <td className="px-5 py-3.5">
                         <div className="flex items-center gap-3">
-                          <div className="w-8 h-8 rounded-full bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center text-white text-xs font-bold shrink-0">
+                          <div className={`w-8 h-8 rounded-full flex items-center justify-center text-white text-xs font-bold shrink-0 ${
+                            isRegistered
+                              ? "bg-gradient-to-br from-emerald-500 to-teal-600"
+                              : "bg-gradient-to-br from-slate-400 to-slate-500"
+                          }`}>
                             {s.name.charAt(0).toUpperCase()}
                           </div>
-                          <span className="font-medium text-[var(--foreground)]">{s.name}</span>
+                          <div>
+                            <span className="font-medium text-[var(--foreground)] block leading-tight">{s.name}</span>
+                            <span className="text-[10px] text-[var(--muted-foreground)]">{s.email}</span>
+                          </div>
                         </div>
                       </td>
-                      <td className="px-6 py-4 text-[var(--muted-foreground)] font-mono text-xs">{s.registerNumber ?? "—"}</td>
-                      <td className="px-6 py-4">
-                        <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium border ${isRegistered ? "bg-emerald-500/15 text-emerald-400 border-emerald-500/25" : "bg-red-500/15 text-red-400 border-red-500/25"}`}>
-                          {isRegistered ? "Registered" : "Pending"}
+                      <td className="px-5 py-3.5 text-[var(--muted-foreground)] font-mono text-xs">{s.registerNumber ?? "—"}</td>
+                      <td className="px-5 py-3.5">
+                        <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-semibold ${
+                          isRegistered
+                            ? "bg-emerald-500/10 text-emerald-500 ring-1 ring-emerald-500/20"
+                            : "bg-amber-500/10 text-amber-500 ring-1 ring-amber-500/20"
+                        }`}>
+                          <span className={`w-1.5 h-1.5 rounded-full ${isRegistered ? "bg-emerald-500" : "bg-amber-500"}`} />
+                          {isRegistered ? "Confirmed" : "Pending"}
                         </span>
                       </td>
-                      <td className="px-6 py-4 text-[var(--muted-foreground)] text-xs max-w-xs truncate">
-                        {isRegistered ? s.registrations.map(r => r.electiveName).join(", ") : "—"}
+                      <td className="px-5 py-3.5">
+                        {s.receiptNumber ? (
+                          <span className="text-xs font-mono bg-[var(--accent)] px-2 py-0.5 rounded-md text-[var(--foreground)]">{s.receiptNumber}</span>
+                        ) : (
+                          <span className="text-xs text-[var(--muted-foreground)]">—</span>
+                        )}
+                      </td>
+                      <td className="px-5 py-3.5">
+                        {hasRegs ? (
+                          <div className="flex items-center gap-1.5 flex-wrap">
+                            {s.registrations.slice(0, 2).map((r, j) => (
+                              <span key={j} className="text-[11px] bg-indigo-500/10 text-indigo-400 px-2 py-0.5 rounded-md font-medium">
+                                {r.courseCode ?? r.electiveName.slice(0, 15)}
+                              </span>
+                            ))}
+                            {s.registrations.length > 2 && (
+                              <span className="text-[11px] text-[var(--muted-foreground)]">+{s.registrations.length - 2}</span>
+                            )}
+                          </div>
+                        ) : (
+                          <span className="text-xs text-[var(--muted-foreground)]">—</span>
+                        )}
+                      </td>
+                      <td className="px-3 py-3.5">
+                        {hasRegs && (
+                          <ChevronDown className={`w-4 h-4 text-[var(--muted-foreground)] transition-transform duration-200 ${isExpanded ? "rotate-180" : ""}`} />
+                        )}
                       </td>
                     </motion.tr>
                   );
@@ -169,7 +695,136 @@ export function TutorReportsClient({ reportData }: { reportData: ReportData }) {
             </tbody>
           </table>
         </div>
+
+        {/* Expanded Student Details (rendered below table as overlapping rows) */}
+        {filtered.map(s => {
+          if (!expandedStudents.has(s.id) || s.registrations.length === 0) return null;
+          return (
+            <motion.div
+              key={`detail-${s.id}`}
+              initial={{ height: 0, opacity: 0 }}
+              animate={{ height: "auto", opacity: 1 }}
+              exit={{ height: 0, opacity: 0 }}
+              transition={{ duration: 0.2 }}
+              className="border-t border-[var(--border)] bg-[var(--accent)]/30 px-5 py-4"
+            >
+              <p className="text-xs font-semibold text-[var(--muted-foreground)] uppercase tracking-wider mb-3">
+                {s.name}&apos;s Elective Selections
+              </p>
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
+                {s.registrations.map((r, j) => (
+                  <div key={j} className="flex items-start gap-3 bg-[var(--card)] border border-[var(--border)] rounded-lg p-3">
+                    <div className="w-8 h-8 rounded-lg bg-indigo-500/10 flex items-center justify-center shrink-0 mt-0.5">
+                      <BookOpen className="w-4 h-4 text-indigo-500" />
+                    </div>
+                    <div className="min-w-0">
+                      <p className="text-[10px] font-medium text-[var(--muted-foreground)] uppercase tracking-wider">{r.groupName}</p>
+                      <p className="text-sm font-medium text-[var(--foreground)] mt-0.5 leading-tight">
+                        {r.courseCode ? <span className="text-indigo-400">{r.courseCode}</span> : null}
+                        {r.courseCode ? " — " : ""}{r.electiveName}
+                      </p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </motion.div>
+          );
+        })}
       </div>
+
+      <p className="text-xs text-[var(--muted-foreground)] text-right">Showing {filtered.length} student{filtered.length !== 1 ? "s" : ""}</p>
+    </div>
+  );
+}
+
+// ── Subjects Tab ─────────────────────────────────────────────────────────
+function SubjectsTab({ groupedSubjects, totalStudents }: { groupedSubjects: [string, GroupSummary[]][]; totalStudents: number }) {
+  const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set(groupedSubjects.map(([name]) => name)));
+
+  const toggleGroup = (name: string) => {
+    setExpandedGroups(prev => {
+      const next = new Set(prev);
+      if (next.has(name)) next.delete(name); else next.add(name);
+      return next;
+    });
+  };
+
+  if (groupedSubjects.length === 0) {
+    return (
+      <div className="bg-[var(--card)] border border-[var(--border)] rounded-xl p-12 text-center">
+        <BookOpen className="w-10 h-10 text-[var(--muted-foreground)] mx-auto mb-3 opacity-50" />
+        <p className="text-[var(--muted-foreground)]">No elective subjects have been selected yet.</p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-3">
+      {groupedSubjects.map(([groupName, subjects]) => {
+        const isOpen = expandedGroups.has(groupName);
+        const groupTotal = subjects.reduce((sum, s) => sum + s.count, 0);
+
+        return (
+          <div key={groupName} className="bg-[var(--card)] border border-[var(--border)] rounded-xl overflow-hidden">
+            <button
+              onClick={() => toggleGroup(groupName)}
+              className="w-full flex items-center justify-between p-5 hover:bg-[var(--accent)]/30 transition-colors"
+            >
+              <div className="flex items-center gap-3">
+                <div className="w-9 h-9 rounded-lg bg-indigo-500/10 flex items-center justify-center">
+                  <BookOpen className="w-[18px] h-[18px] text-indigo-500" />
+                </div>
+                <div className="text-left">
+                  <h3 className="text-sm font-semibold text-[var(--foreground)]">{groupName}</h3>
+                  <p className="text-xs text-[var(--muted-foreground)]">{subjects.length} subject{subjects.length !== 1 ? "s" : ""} • {groupTotal} enrollment{groupTotal !== 1 ? "s" : ""}</p>
+                </div>
+              </div>
+              <ChevronDown className={`w-4 h-4 text-[var(--muted-foreground)] transition-transform duration-200 ${isOpen ? "rotate-180" : ""}`} />
+            </button>
+            <AnimatePresence>
+              {isOpen && (
+                <motion.div
+                  initial={{ height: 0, opacity: 0 }}
+                  animate={{ height: "auto", opacity: 1 }}
+                  exit={{ height: 0, opacity: 0 }}
+                  transition={{ duration: 0.2 }}
+                  className="border-t border-[var(--border)]"
+                >
+                  <div className="p-4 space-y-2">
+                    {subjects.map((sub, idx) => {
+                      const pct = totalStudents > 0 ? Math.round((sub.count / totalStudents) * 100) : 0;
+                      return (
+                        <div key={idx} className="flex items-center gap-4 p-3 rounded-lg hover:bg-[var(--accent)]/20 transition-colors">
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center gap-2">
+                              {sub.courseCode && (
+                                <span className="text-[10px] font-mono font-semibold text-indigo-400 bg-indigo-500/10 px-1.5 py-0.5 rounded">{sub.courseCode}</span>
+                              )}
+                              <span className="text-sm font-medium text-[var(--foreground)] truncate">{sub.electiveName}</span>
+                            </div>
+                          </div>
+                          <div className="flex items-center gap-3 shrink-0">
+                            <div className="w-24 h-1.5 rounded-full bg-[var(--accent)] overflow-hidden">
+                              <motion.div
+                                className="h-full rounded-full bg-gradient-to-r from-indigo-500 to-violet-500"
+                                initial={{ width: 0 }}
+                                animate={{ width: `${pct}%` }}
+                                transition={{ duration: 0.5 }}
+                              />
+                            </div>
+                            <span className="text-xs font-bold text-[var(--foreground)] tabular-nums w-8 text-right">{sub.count}</span>
+                            <span className="text-[10px] text-[var(--muted-foreground)] tabular-nums w-8">({pct}%)</span>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </motion.div>
+              )}
+            </AnimatePresence>
+          </div>
+        );
+      })}
     </div>
   );
 }

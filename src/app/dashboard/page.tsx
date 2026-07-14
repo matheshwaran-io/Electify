@@ -100,10 +100,25 @@ export default async function StudentDashboardRouterPage() {
     return <ClientRedirect to="/dashboard/success" />;
   }
 
-  // Determine if registration has ended or not started yet
+  // ── Time-based checks (openDate/closeDate are the source of truth) ──
   const now = new Date();
-  const isRegistrationStarted = event.status === "OPEN" || event.status === "ACTIVE" || (event.openDate && now >= event.openDate);
-  const isRegistrationEnded = event.status === "CLOSED" || event.status === "VERIFICATION" || event.status === "FINALIZED" || (event.closeDate && now > event.closeDate);
+
+  // Registration has started if:
+  // 1. openDate exists and current time is past it, OR
+  // 2. status is explicitly OPEN or ACTIVE (manual override by coordinator)
+  const isRegistrationStarted =
+    (event.openDate && now >= event.openDate) ||
+    event.status === "OPEN" ||
+    event.status === "ACTIVE";
+
+  // Registration has ended if:
+  // 1. closeDate exists and current time is past it, OR
+  // 2. status is explicitly CLOSED/VERIFICATION/FINALIZED (manual override)
+  const isRegistrationEnded =
+    (event.closeDate && now > event.closeDate) ||
+    event.status === "CLOSED" ||
+    event.status === "VERIFICATION" ||
+    event.status === "FINALIZED";
 
   if (!isRegistrationStarted) {
     return <ClientRedirect to="/countdown" />;

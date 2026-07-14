@@ -3,7 +3,7 @@
 import { db } from "@/lib/db";
 import {
   users, electives, electiveGroups, registrationEvents,
-  studentRegistrations, eventSections, sections, programmes, academicBatches, auditLogs, registrations
+  studentRegistrations, eventSections, sections, programmes, academicBatches, auditLogs, registrations, departments
 } from "@/lib/db/schema";
 import { getSession } from "@/lib/auth";
 import { eq, and, asc, count, desc, inArray } from "drizzle-orm";
@@ -134,7 +134,21 @@ export async function getTutorElectives() {
 
 export async function getTutorReports() {
   const session = await assertTutor();
-  if (!session.sectionId) return { students: [], totalStudents: 0, registeredCount: 0 };
+  if (!session.sectionId) return { students: [], totalStudents: 0, registeredCount: 0, sectionLabel: "", programmeName: "", departmentName: "", groups: [] };
+
+  // Fetch section metadata for PDF header
+  const [sectionMeta] = await db
+    .select({
+      sectionLabel: sections.label,
+      programmeName: programmes.name,
+      departmentName: departments.name,
+    })
+    .from(sections)
+    .innerJoin(academicBatches, eq(sections.academicBatchId, academicBatches.id))
+    .innerJoin(programmes, eq(academicBatches.programmeId, programmes.id))
+    .innerJoin(departments, eq(programmes.departmentId, departments.id))
+    .where(eq(sections.id, session.sectionId))
+    .limit(1);
 
   const students = await db
     .select({ 
@@ -149,8 +163,15 @@ export async function getTutorReports() {
     .where(and(eq(users.role, "STUDENT"), eq(users.sectionId, session.sectionId)))
     .orderBy(asc(users.name));
 
-  const registrations = await db
-    .select({ studentId: studentRegistrations.studentId, electiveName: electives.name, groupName: electiveGroups.name, eventName: registrationEvents.name })
+  const studentRegs = await db
+    .select({
+      studentId: studentRegistrations.studentId,
+      electiveName: electives.name,
+      courseCode: electives.courseCode,
+      credits: electives.credits,
+      groupName: electiveGroups.name,
+      eventName: registrationEvents.name,
+    })
     .from(studentRegistrations)
     .innerJoin(users, eq(studentRegistrations.studentId, users.id))
     .innerJoin(electives, eq(studentRegistrations.electiveId, electives.id))
@@ -158,15 +179,52 @@ export async function getTutorReports() {
     .innerJoin(registrationEvents, eq(studentRegistrations.eventId, registrationEvents.id))
     .where(eq(users.sectionId, session.sectionId));
 
-  const enriched = students.map((s) => ({
-    ...s,
-    registrations: registrations.filter((r) => r.studentId === s.id),
-  }));
+  // Fetch confirmed status from registrations table
+  const confirmedRegs = await db
+    .select({
+      studentId: registrations.studentId,
+      status: registrations.status,
+      receiptNumber: registrations.receiptNumber,
+      submittedAt: registrations.submittedAt,
+    })
+    .from(registrations)
+    .innerJoin(users, eq(registrations.studentId, users.id))
+    .where(eq(users.sectionId, session.sectionId));
+
+  const confirmedMap = new Map(confirmedRegs.map(r => [r.studentId, r]));
+
+  // Build group summary: how many students chose each group/subject
+  const groupSummaryMap = new Map<string, { groupName: string; electiveName: string; courseCode: string | null; count: number }>();
+  for (const reg of studentRegs) {
+    const key = `${reg.groupName}::${reg.electiveName}`;
+    const existing = groupSummaryMap.get(key);
+    if (existing) {
+      existing.count++;
+    } else {
+      groupSummaryMap.set(key, { groupName: reg.groupName, electiveName: reg.electiveName, courseCode: reg.courseCode, count: 1 });
+    }
+  }
+  const groups = Array.from(groupSummaryMap.values()).sort((a, b) => a.groupName.localeCompare(b.groupName) || b.count - a.count);
+
+  const enriched = students.map((s) => {
+    const confirmed = confirmedMap.get(s.id);
+    return {
+      ...s,
+      registrations: studentRegs.filter((r) => r.studentId === s.id),
+      registrationStatus: confirmed?.status || "NOT_REGISTERED",
+      receiptNumber: confirmed?.receiptNumber || null,
+      submittedAt: confirmed?.submittedAt ? confirmed.submittedAt.toISOString() : null,
+    };
+  });
 
   return {
     students: enriched,
     totalStudents: students.length,
-    registeredCount: enriched.filter((s) => s.registrations.length > 0).length,
+    registeredCount: enriched.filter((s) => s.registrationStatus === "CONFIRMED").length,
+    sectionLabel: sectionMeta?.sectionLabel || "",
+    programmeName: sectionMeta?.programmeName || "",
+    departmentName: sectionMeta?.departmentName || "",
+    groups,
   };
 }
 
@@ -259,15 +317,23 @@ export async function updateWindowTimers(eventId: string, openDate: Date | null,
   if (!eventLink) throw new Error("Unauthorized to edit this window.");
 
   // Determine status based on dates relative to now
-  let status = "PUBLISHED";
   const now = new Date();
-  if (openDate && now >= openDate) status = "OPEN";
-  if (closeDate && now >= closeDate) status = "CLOSED";
-  if (!openDate && !closeDate) status = "DRAFT";
+  let status: string;
+
+  if (!openDate && !closeDate) {
+    status = "DRAFT";
+  } else if (closeDate && now >= closeDate) {
+    status = "CLOSED";
+  } else if (openDate && now >= openDate) {
+    status = "OPEN";
+  } else {
+    // openDate is in the future
+    status = "PUBLISHED";
+  }
 
   await db
     .update(registrationEvents)
-    .set({ openDate, closeDate, status })
+    .set({ openDate, closeDate, status, updatedAt: new Date() })
     .where(eq(registrationEvents.id, eventId));
 }
 
