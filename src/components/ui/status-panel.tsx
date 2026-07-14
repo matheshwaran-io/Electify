@@ -1,12 +1,13 @@
 "use client";
 
 import { motion } from "framer-motion";
+import { Info, Mail, ShieldCheck } from "lucide-react";
 
 export function StatusPanel() {
   return (
-    <div className="relative w-full max-w-[400px] bg-white/70 dark:bg-slate-900/40 backdrop-blur-[32px] rounded-2xl border border-white/40 dark:border-white/[0.08] p-6 shadow-[0_20px_60px_-15px_rgba(0,0,0,0.05)] dark:shadow-[0_20px_60px_-15px_rgba(0,0,0,0.4)] overflow-hidden group transition-all duration-300">
+    <div className="relative w-full max-w-[420px] bg-white/70 dark:bg-slate-900/40 backdrop-blur-[32px] rounded-2xl border border-white/40 dark:border-white/[0.08] p-6 shadow-[0_20px_60px_-15px_rgba(0,0,0,0.05)] dark:shadow-[0_20px_60px_-15px_rgba(0,0,0,0.4)] overflow-hidden group transition-all duration-300">
       
-      {/* ── Layer 8: Reflection Sweep Layer (animates every 15s) ──────────────── */}
+      {/* Background sweep animation kept for premium feel */}
       <div 
         className="absolute inset-0 pointer-events-none opacity-[0.05] dark:opacity-8 z-20"
         style={{
@@ -24,37 +25,42 @@ export function StatusPanel() {
         />
       </div>
 
-      <div className="space-y-5 relative z-10">
+      <div className="space-y-6 relative z-10">
         
-        {/* Header with Live indicator */}
-        <div className="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-white/[0.05]">
-          <span className="text-xs font-bold uppercase tracking-wider text-slate-400 dark:text-slate-500">Elective Registration</span>
-          <div className="flex items-center gap-1.5">
-            <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
-            <span className="text-[10px] font-bold text-emerald-500 dark:text-emerald-400 uppercase tracking-widest">LIVE</span>
+        <div className="flex items-center gap-2 pb-3 border-b border-slate-200 dark:border-white/[0.05]">
+          <Info className="w-4 h-4 text-slate-400 dark:text-slate-500" />
+          <span className="text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">Access Guidelines</span>
+        </div>
+
+        <div className="space-y-4">
+          <div className="flex items-start gap-3">
+            <div className="mt-0.5 p-1.5 rounded-md bg-slate-100 dark:bg-slate-800/50">
+              <Mail className="w-4 h-4 text-slate-600 dark:text-slate-400" />
+            </div>
+            <div>
+              <h4 className="text-xs font-bold text-slate-900 dark:text-slate-200 uppercase tracking-wider">Students</h4>
+              <p className="text-xs text-slate-600 dark:text-slate-400 mt-1 leading-relaxed">
+                Sign in with your official university <span className="font-medium text-slate-900 dark:text-slate-300">email</span> to participate in the elective bidding process.
+              </p>
+            </div>
+          </div>
+
+          <div className="flex items-start gap-3">
+            <div className="mt-0.5 p-1.5 rounded-md bg-slate-100 dark:bg-slate-800/50">
+              <ShieldCheck className="w-4 h-4 text-slate-600 dark:text-slate-400" />
+            </div>
+            <div>
+              <h4 className="text-xs font-bold text-slate-900 dark:text-slate-200 uppercase tracking-wider">Staff & Faculty</h4>
+              <p className="text-xs text-slate-600 dark:text-slate-400 mt-1 leading-relaxed">
+                Tutors and Coordinators must register using their assigned <span className="font-medium text-slate-900 dark:text-slate-300">secure invite code</span>.
+              </p>
+            </div>
           </div>
         </div>
 
-        {/* Phase Details */}
-        <div className="space-y-1">
-          <span className="text-[10px] uppercase tracking-wider text-slate-400 dark:text-slate-500 font-bold">Registration opens in</span>
-          <h4 className="text-xl font-extrabold text-slate-900 dark:text-white tracking-tight">
-            02 <span className="text-xs text-slate-500 dark:text-slate-400 font-semibold uppercase tracking-wider">Days</span> &middot; 14 <span className="text-xs text-slate-500 dark:text-slate-400 font-semibold uppercase tracking-wider">Hours</span>
-          </h4>
-        </div>
-
-        {/* Queue Count */}
-        <div className="space-y-1.5">
-          <span className="text-[10px] uppercase tracking-wider text-slate-400 dark:text-slate-500 font-bold">Current Queue</span>
-          <div className="text-sm font-semibold text-slate-800 dark:text-slate-300">
-            2,431 Students <span className="text-xs text-slate-500 font-normal">waiting</span>
-          </div>
-        </div>
-
-        {/* System status info */}
-        <div className="flex items-center justify-between pt-2">
-          <span className="text-[10px] uppercase tracking-wider text-slate-400 dark:text-slate-500 font-bold">System Status</span>
-          <span className="text-[11px] font-bold text-slate-800 dark:text-slate-300">Operational</span>
+        <div className="pt-3 flex items-center justify-between border-t border-slate-200 dark:border-white/[0.05]">
+          <span className="text-[10px] text-slate-500 dark:text-slate-500 font-medium">Having trouble?</span>
+          <a href="#" className="text-[11px] font-bold text-slate-900 dark:text-white hover:underline decoration-slate-400 underline-offset-2">Contact IT Support &rarr;</a>
         </div>
       </div>
     </div>
