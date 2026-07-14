@@ -136,7 +136,12 @@ export const srmData = {
             "name": "Computer Applications",
             "programmes": [
               "BCA",
+              "BCA(DS)",
+              "BCom",
+              "MSc(ADS)",
+              "MCom",
               "MCA",
+              "MCA GenAI",
               "M.Sc Computer Science",
               "Ph.D Computer Applications"
             ]
