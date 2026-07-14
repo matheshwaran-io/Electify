@@ -94,8 +94,8 @@ export function SectionClient({ reportData, session }: { reportData: ReportData;
   }
 
   function handleDownloadTemplate() {
-    const headers = ["Name", "Register Number", "Email"];
-    const csvContent = "data:text/csv;charset=utf-8," + headers.join(",") + "\n" + "John Doe,RA2211003010123,jd1234@srmist.edu.in";
+    const headers = ["Register Number", "Name", "Email"];
+    const csvContent = "data:text/csv;charset=utf-8," + headers.join(",") + "\n" + "RA2211003010123,John Doe,jd1234@srmist.edu.in";
     const encodedUri = encodeURI(csvContent);
     const link = document.createElement("a");
     link.setAttribute("href", encodedUri);
@@ -117,7 +117,7 @@ export function SectionClient({ reportData, session }: { reportData: ReportData;
       // Assume first line is header
       const dataLines = lines.slice(1);
       const parsedData = dataLines.map(line => {
-        const [name, registerNumber, email] = line.split(",").map(val => val.trim());
+        const [registerNumber, name, email] = line.split(",").map(val => val.trim());
         return { name, registerNumber, email };
       }).filter(s => s.name && s.registerNumber && s.email);
 
