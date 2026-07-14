@@ -114,6 +114,21 @@ export async function deleteMultipleStudents(ids: string[]) {
   });
 }
 
+export async function updateMultipleStudentsStatus(ids: string[], updates: { isActive?: boolean; isEligible?: boolean }) {
+  await assertCoordinator();
+  if (!ids || ids.length === 0) return;
+
+  const updatePayload: Partial<{ isActive: boolean; isEligible: boolean }> = {};
+  if (updates.isActive !== undefined) updatePayload.isActive = updates.isActive;
+  if (updates.isEligible !== undefined) updatePayload.isEligible = updates.isEligible;
+
+  if (Object.keys(updatePayload).length > 0) {
+    await db.update(users)
+      .set(updatePayload)
+      .where(inArray(users.id, ids));
+  }
+}
+
 // ── Reports ───────────────────────────────────────────────────────────────
 
 export async function getCoordinatorReports() {

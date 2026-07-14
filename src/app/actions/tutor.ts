@@ -14,21 +14,29 @@ async function assertTutor() {
 
   // Fetch missing hierarchy details if the session token is incomplete
   if (session.sectionId && (!session.academicBatchId || !session.programmeId || !session.departmentId)) {
-    const [sectionData] = await db
-      .select({ 
-        academicBatchId: sections.academicBatchId,
-        programmeId: academicBatches.programmeId, 
-        departmentId: programmes.departmentId 
-      })
-      .from(sections)
-      .innerJoin(academicBatches, eq(sections.academicBatchId, academicBatches.id))
-      .innerJoin(programmes, eq(academicBatches.programmeId, programmes.id))
-      .where(eq(sections.id, session.sectionId));
+    try {
+      const [sectionData] = await db
+        .select({ 
+          academicBatchId: sections.academicBatchId,
+          programmeId: academicBatches.programmeId, 
+          departmentId: programmes.departmentId 
+        })
+        .from(sections)
+        .innerJoin(academicBatches, eq(sections.academicBatchId, academicBatches.id))
+        .innerJoin(programmes, eq(academicBatches.programmeId, programmes.id))
+        .where(eq(sections.id, session.sectionId));
 
-    if (sectionData) {
-      session.academicBatchId = session.academicBatchId || sectionData.academicBatchId;
-      session.programmeId = session.programmeId || sectionData.programmeId;
-      session.departmentId = session.departmentId || sectionData.departmentId;
+      if (sectionData) {
+        session.academicBatchId = session.academicBatchId || sectionData.academicBatchId;
+        session.programmeId = session.programmeId || sectionData.programmeId;
+        session.departmentId = session.departmentId || sectionData.departmentId;
+      } else {
+        // Section ID from cookie doesn't exist in DB — clear it
+        session.sectionId = undefined;
+      }
+    } catch {
+      // Query failed (invalid UUID, DB issue, etc.) — clear the stale sectionId
+      session.sectionId = undefined;
     }
   }
 
@@ -549,6 +557,34 @@ export async function deleteElective(id: string) {
   await db.transaction(async (tx) => {
     await tx.delete(studentRegistrations).where(eq(studentRegistrations.electiveId, id));
     await tx.delete(electives).where(eq(electives.id, id));
+  });
+}
+
+export async function updateElectiveGroup(id: string, name: string) {
+  const session = await assertTutor();
+  const [group] = await db.select({ eventId: electiveGroups.eventId }).from(electiveGroups).where(eq(electiveGroups.id, id));
+  if (!group) throw new Error("Group not found.");
+
+  const [eventLink] = await db.select().from(eventSections).where(and(eq(eventSections.eventId, group.eventId), eq(eventSections.sectionId, session.sectionId!)));
+  if (!eventLink) throw new Error("Unauthorized");
+
+  await db.update(electiveGroups).set({ name: name.trim() }).where(eq(electiveGroups.id, id));
+}
+
+export async function deleteElectiveGroup(id: string) {
+  const session = await assertTutor();
+  const [group] = await db.select({ eventId: electiveGroups.eventId }).from(electiveGroups).where(eq(electiveGroups.id, id));
+  if (!group) throw new Error("Group not found.");
+
+  const [eventLink] = await db.select().from(eventSections).where(and(eq(eventSections.eventId, group.eventId), eq(eventSections.sectionId, session.sectionId!)));
+  if (!eventLink) throw new Error("Unauthorized");
+
+  // Cascade delete logic: electives have a foreign key to group. 
+  // However, we should also clean up registrations.
+  await db.transaction(async (tx) => {
+    await tx.delete(studentRegistrations).where(eq(studentRegistrations.groupId, id));
+    await tx.delete(electives).where(eq(electives.groupId, id));
+    await tx.delete(electiveGroups).where(eq(electiveGroups.id, id));
   });
 }
 

@@ -22,7 +22,9 @@ import {
   Search,
   Bell,
   Command,
-  ChevronRight
+  ChevronRight,
+  LogOut,
+  User
 } from "lucide-react";
 import { logout } from "@/app/actions/auth";
 import { ThemeToggle } from "@/components/theme-toggle";
@@ -66,6 +68,7 @@ export function AppShell({ children, session, assignedSections = [] }: AppShellP
   const [scrolled, setScrolled] = useState(false);
   const [notifications, setNotifications] = useState<NotificationItem[]>([]);
   const [showNotifications, setShowNotifications] = useState(false);
+  const [showProfileMenu, setShowProfileMenu] = useState(false);
 
   useEffect(() => {
     let initial: NotificationItem[] = [];
@@ -202,94 +205,42 @@ export function AppShell({ children, session, assignedSections = [] }: AppShellP
     router.push("/login");
   };
 
-  const navGroups = React.useMemo(() => {
-    const groups: { title?: string; items: { name: string; href: string; icon: React.ComponentType<{ className?: string }>; color: string }[] }[] = [];
+  const navItems = React.useMemo(() => {
+    const items: { name: string; href: string; icon: React.ComponentType<{ className?: string }>; color: string }[] = [];
 
-    // Dashboard - Indigo
-    groups.push({
-      items: [{ name: "Dashboard", href: "/faculty/dashboard", icon: LayoutDashboard, color: "text-indigo-500" }]
-    });
+    items.push({ name: "Dashboard", href: "/faculty/dashboard", icon: LayoutDashboard, color: "text-indigo-500" });
 
     if (session.role === "SYSTEM_ADMIN") {
-      groups.push({
-        title: "Registration",
-        items: [
-          { name: "Global Events", href: "/faculty/events", icon: Calendar, color: "text-purple-500" },
-          { name: "Event Templates", href: "/faculty/templates", icon: Layers, color: "text-purple-500" },
-        ]
-      });
-      groups.push({
-        title: "Students",
-        items: [
-          { name: "Users", href: "/faculty/users", icon: Users, color: "text-blue-500" },
-        ]
-      });
-      groups.push({
-        title: "Analytics",
-        items: [
-          { name: "Audit Logs", href: "/faculty/audit", icon: FileText, color: "text-emerald-500" },
-        ]
-      });
-      groups.push({
-        title: "Settings",
-        items: [
-          { name: "Departments", href: "/faculty/departments", icon: Building, color: "text-slate-500" },
-          { name: "Invite Codes", href: "/faculty/invites", icon: Mail, color: "text-slate-500" },
-          { name: "Settings", href: "/faculty/settings", icon: Settings, color: "text-slate-500" }
-        ]
-      });
+      items.push(
+        { name: "Global Events", href: "/faculty/events", icon: Calendar, color: "text-purple-500" },
+        { name: "Event Templates", href: "/faculty/templates", icon: Layers, color: "text-purple-500" },
+        { name: "Users", href: "/faculty/users", icon: Users, color: "text-blue-500" },
+        { name: "Audit Logs", href: "/faculty/audit", icon: FileText, color: "text-emerald-500" },
+        { name: "Departments", href: "/faculty/departments", icon: Building, color: "text-slate-500" },
+        { name: "Invite Codes", href: "/faculty/invites", icon: Mail, color: "text-slate-500" },
+        { name: "Settings", href: "/faculty/settings", icon: Settings, color: "text-slate-500" },
+      );
     } else if (session.role === "COURSE_COORDINATOR") {
-      groups.push({
-        title: "Registration",
-        items: [
-          { name: "Event Templates", href: "/faculty/templates", icon: Layers, color: "text-purple-500" },
-          { name: "Electives", href: "/faculty/electives", icon: BookOpen, color: "text-purple-500" },
-        ]
-      });
-      groups.push({
-        title: "Students",
-        items: [
-          { name: "Student Directory", href: "/faculty/students", icon: GraduationCap, color: "text-blue-500" },
-        ]
-      });
-      groups.push({
-        title: "Analytics",
-        items: [
-          { name: "Reports", href: "/faculty/reports", icon: FileText, color: "text-emerald-500" }
-        ]
-      });
+      items.push(
+        { name: "Event Templates", href: "/faculty/templates", icon: Layers, color: "text-purple-500" },
+        { name: "Electives", href: "/faculty/electives", icon: BookOpen, color: "text-purple-500" },
+        { name: "Student Directory", href: "/faculty/students", icon: GraduationCap, color: "text-blue-500" },
+        { name: "Reports", href: "/faculty/reports", icon: FileText, color: "text-emerald-500" },
+      );
     } else if (session.role === "CLASS_TUTOR") {
-      groups.push({
-        title: "Registration",
-        items: [
-          { name: "Subjects & Groups", href: "/faculty/tutor-electives", icon: BookOpen, color: "text-purple-500" },
-        ]
-      });
-      groups.push({
-        title: "Students",
-        items: [
-          { name: "Student Directory", href: "/faculty/section", icon: GraduationCap, color: "text-blue-500" },
-        ]
-      });
-      groups.push({
-        title: "Analytics",
-        items: [
-          { name: "Reports", href: "/faculty/tutor-reports", icon: FileText, color: "text-emerald-500" },
-        ]
-      });
-      groups.push({
-        title: "Settings",
-        items: [
-          { name: "Portal Window", href: "/faculty/window", icon: Clock, color: "text-amber-500" }
-        ]
-      });
+      items.push(
+        { name: "Subjects & Groups", href: "/faculty/tutor-electives", icon: BookOpen, color: "text-purple-500" },
+        { name: "Student Directory", href: "/faculty/section", icon: GraduationCap, color: "text-blue-500" },
+        { name: "Reports", href: "/faculty/tutor-reports", icon: FileText, color: "text-emerald-500" },
+        { name: "Portal Window", href: "/faculty/window", icon: Clock, color: "text-amber-500" },
+      );
     }
 
-    return groups;
+    return items;
   }, [session.role]);
 
-  // Mobile navigation uses the first 4 items from different groups to form the bottom bar
-  const mobileNavItems = navGroups.flatMap(g => g.items).slice(0, 4);
+  // Mobile navigation uses the first 4 items for the bottom bar
+  const mobileNavItems = navItems.slice(0, 4);
 
   return (
     <div className="flex h-screen w-full bg-[var(--background)] text-[var(--foreground)] overflow-hidden font-sans">
@@ -348,28 +299,11 @@ export function AppShell({ children, session, assignedSections = [] }: AppShellP
           </div>
         )}
 
-        {/* Global Search / Command Trigger */}
-        <div className="px-4 pb-4 shrink-0 mt-2">
-          <button className="flex items-center gap-2 w-full px-3 py-2 text-sm text-[var(--muted-foreground)] bg-[var(--accent)]/50 hover:bg-[var(--accent)] rounded-lg transition-colors border border-[var(--border)]/50 shadow-sm">
-            <Search className="w-4 h-4 opacity-70" />
-            <span className="flex-1 text-left font-medium">Search...</span>
-            <kbd className="hidden md:inline-flex items-center gap-1 font-mono text-[10px] bg-[var(--background)] px-1.5 py-0.5 rounded border border-[var(--border)]/50 opacity-70">
-              <Command className="w-3 h-3" /> K
-            </kbd>
-          </button>
-        </div>
+
 
         {/* Navigation */}
-        <nav className="flex-1 px-3 py-2 space-y-6 overflow-y-auto custom-scrollbar">
-          {navGroups.map((group, i) => (
-            <div key={i}>
-              {group.title && (
-                <h4 className="px-3 mb-1.5 text-[11px] font-medium text-[var(--muted-foreground)] uppercase tracking-wider">
-                  {group.title}
-                </h4>
-              )}
-              <div className="space-y-0.5">
-                {group.items.map((item) => {
+        <nav className="flex-1 px-3 py-2 space-y-0.5 overflow-y-auto custom-scrollbar">
+                {navItems.map((item) => {
                   const isActive = pathname === item.href || pathname.startsWith(`${item.href}/`);
                   return (
                     <Link
@@ -391,14 +325,14 @@ export function AppShell({ children, session, assignedSections = [] }: AppShellP
                     </Link>
                   );
                 })}
-              </div>
-            </div>
-          ))}
         </nav>
 
         {/* User Profile */}
-        <div className="p-3 shrink-0 border-t border-[var(--border)]/50">
-          <div className="flex items-center gap-3 px-3 py-2.5 rounded-lg hover:bg-[var(--accent)]/50 transition-colors cursor-pointer group border border-transparent hover:border-[var(--border)]/50 shadow-sm">
+        <div className="p-3 shrink-0 border-t border-[var(--border)]/50 relative">
+          <div 
+            onClick={() => setShowProfileMenu(!showProfileMenu)}
+            className="flex items-center gap-3 px-3 py-2.5 rounded-lg hover:bg-[var(--accent)]/50 transition-colors cursor-pointer group border border-transparent hover:border-[var(--border)]/50 shadow-sm"
+          >
             <div className="w-8 h-8 rounded-full bg-[var(--accent)] flex items-center justify-center text-[var(--foreground)] font-semibold text-xs shrink-0 border border-[var(--border)]">
               {session.name.charAt(0)}
             </div>
@@ -406,8 +340,45 @@ export function AppShell({ children, session, assignedSections = [] }: AppShellP
               <p className="text-[13px] font-semibold truncate text-[var(--foreground)]">{session.name}</p>
               <p className="text-[11px] font-medium text-[var(--muted-foreground)] truncate">{ROLE_DISPLAY[session.role] ?? session.role.replace(/_/g, " ")}</p>
             </div>
-            <ChevronRight className="w-4 h-4 text-[var(--muted-foreground)] opacity-0 group-hover:opacity-100 transition-opacity" />
+            <ChevronRight className={`w-4 h-4 text-[var(--muted-foreground)] transition-all duration-200 ${showProfileMenu ? 'rotate-90 opacity-100' : 'opacity-0 group-hover:opacity-100'}`} />
           </div>
+
+          <AnimatePresence>
+            {showProfileMenu && (
+              <>
+                <div 
+                  className="fixed inset-0 z-40" 
+                  onClick={() => setShowProfileMenu(false)} 
+                />
+                <motion.div
+                  initial={{ opacity: 0, y: 8, scale: 0.95 }}
+                  animate={{ opacity: 1, y: 0, scale: 1 }}
+                  exit={{ opacity: 0, y: 8, scale: 0.95 }}
+                  transition={{ duration: 0.15, ease: "easeOut" }}
+                  className="absolute bottom-full left-3 right-3 mb-2 bg-[var(--card)] border border-[var(--border)] rounded-xl shadow-xl shadow-black/10 overflow-hidden z-50"
+                >
+                  <div className="p-1.5">
+                    <Link
+                      href="/faculty/settings"
+                      onClick={() => setShowProfileMenu(false)}
+                      className="flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm text-[var(--foreground)] hover:bg-[var(--accent)] transition-colors"
+                    >
+                      <User className="w-4 h-4 text-[var(--muted-foreground)]" />
+                      Edit Profile
+                    </Link>
+                    <button
+                      onClick={handleLogout}
+                      disabled={isLoggingOut}
+                      className="flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm text-red-500 hover:bg-red-500/10 transition-colors w-full text-left"
+                    >
+                      <LogOut className="w-4 h-4" />
+                      {isLoggingOut ? "Logging out..." : "Log out"}
+                    </button>
+                  </div>
+                </motion.div>
+              </>
+            )}
+          </AnimatePresence>
         </div>
       </aside>
 

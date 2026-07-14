@@ -14,7 +14,8 @@ import {
   Percent,
   Clock,
   CheckCircle2,
-  ListPlus
+  ListPlus,
+  UserMinus
 } from "lucide-react";
 import { format, differenceInSeconds } from "date-fns";
 import { useEffect, useState } from "react";
@@ -179,14 +180,14 @@ export function DashboardClient({ session, metrics }: DashboardClientProps) {
             </motion.div>
 
             {/* Recent Submissions Feed */}
-            <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }} className="lg:col-span-2 bg-[var(--background)] rounded-xl border border-[var(--border)]/50 shadow-sm overflow-hidden">
+            <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }} className="lg:col-span-1 bg-[var(--background)] rounded-xl border border-[var(--border)]/50 shadow-sm overflow-hidden flex flex-col h-[400px]">
               <div className="flex items-center justify-between p-5 border-b border-[var(--border)]/50">
                 <h2 className="text-[13px] font-semibold text-[var(--foreground)] flex items-center gap-2">
                   <ListPlus className="w-4 h-4 text-[var(--muted-foreground)]" />
                   Recent Submissions
                 </h2>
               </div>
-              <div className="divide-y divide-[var(--border)]/50">
+              <div className="divide-y divide-[var(--border)]/50 overflow-y-auto custom-scrollbar">
                 {metrics.recentRegistrations?.length > 0 ? (
                   metrics.recentRegistrations.map((reg: any) => (
                     <div key={reg.id} className="p-4 flex items-start gap-4 hover:bg-[var(--accent)]/30 transition-colors group">
@@ -207,6 +208,44 @@ export function DashboardClient({ session, metrics }: DashboardClientProps) {
                 ) : (
                   <div className="p-10 text-center text-[13px] text-[var(--muted-foreground)]">
                     No submissions yet.
+                  </div>
+                )}
+              </div>
+            </motion.div>
+
+            {/* Pending Students */}
+            <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2 }} className="lg:col-span-1 bg-[var(--background)] rounded-xl border border-[var(--border)]/50 shadow-sm overflow-hidden flex flex-col h-[400px]">
+              <div className="flex items-center justify-between p-5 border-b border-[var(--border)]/50">
+                <h2 className="text-[13px] font-semibold text-[var(--foreground)] flex items-center gap-2">
+                  <UserMinus className="w-4 h-4 text-orange-500" />
+                  Pending Students
+                  <span className="ml-2 px-2 py-0.5 bg-orange-500/10 text-orange-500 rounded text-[10px] font-mono">
+                    {metrics.pendingStudents?.length || 0}
+                  </span>
+                </h2>
+              </div>
+              <div className="divide-y divide-[var(--border)]/50 overflow-y-auto custom-scrollbar">
+                {metrics.pendingStudents?.length > 0 ? (
+                  metrics.pendingStudents.map((student: any) => (
+                    <div key={student.id} className="p-4 flex items-center gap-4 hover:bg-[var(--accent)]/30 transition-colors group">
+                      <div className="flex-1 min-w-0">
+                        <p className="text-[13px] font-medium text-[var(--foreground)] truncate">
+                          {student.name}
+                        </p>
+                        <p className="text-[11px] font-mono text-[var(--muted-foreground)] mt-0.5">
+                          {student.registerNumber}
+                        </p>
+                      </div>
+                      <div className="text-[10px] font-medium text-orange-500 bg-orange-500/10 px-2 py-1 rounded">
+                        Not Registered
+                      </div>
+                    </div>
+                  ))
+                ) : (
+                  <div className="p-10 flex flex-col items-center text-center text-[var(--muted-foreground)]">
+                    <CheckCircle2 className="w-8 h-8 mb-3 text-emerald-500/50" />
+                    <p className="text-[13px] font-medium text-[var(--foreground)]">All students registered!</p>
+                    <p className="text-[11px] mt-1 opacity-70">100% completion rate</p>
                   </div>
                 )}
               </div>

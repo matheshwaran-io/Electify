@@ -1,7 +1,8 @@
 "use client";
 
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
+import { supabase } from "@/lib/supabase";
 import { Users, Search, ShieldCheck, CheckCircle2, Clock, Plus, X, Download, Upload, Pencil, Trash2 } from "lucide-react";
 import { createStudent, importStudentsCSV, updateStudent, deleteStudent, unlockStudentRegistration, deleteMultipleStudentsTutor } from "@/app/actions/tutor";
 import { useRouter } from "next/navigation";
@@ -37,6 +38,27 @@ export function SectionClient({ reportData, session }: { reportData: ReportData;
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [isDeletingBulk, setIsDeletingBulk] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const [onlineUserIds, setOnlineUserIds] = useState<Set<string>>(new Set());
+
+  useEffect(() => {
+    const channel = supabase.channel('online-users');
+
+    channel.on('presence', { event: 'sync' }, () => {
+      const state = channel.presenceState();
+      const onlineIds = new Set<string>();
+      for (const id in state) {
+        onlineIds.add(id);
+      }
+      setOnlineUserIds(onlineIds);
+    });
+
+    channel.subscribe();
+
+    return () => {
+      channel.unsubscribe();
+    };
+  }, []);
 
   const filtered = students.filter(
     (s) =>
@@ -185,7 +207,7 @@ export function SectionClient({ reportData, session }: { reportData: ReportData;
       )}
 
       {/* Top Statistic Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         <div className="bg-[var(--card)] border border-[var(--border)] rounded-2xl p-6 flex items-center justify-between shadow-sm">
           <div>
             <div className="w-10 h-10 rounded-full bg-blue-500/10 flex items-center justify-center mb-3">
@@ -193,26 +215,6 @@ export function SectionClient({ reportData, session }: { reportData: ReportData;
             </div>
             <p className="text-xs font-semibold text-[var(--muted-foreground)] uppercase tracking-wider">Intake Count</p>
             <p className="text-3xl font-bold text-[var(--foreground)] mt-1">{totalStudents}</p>
-          </div>
-        </div>
-
-        <div className="bg-[var(--card)] border border-[var(--border)] rounded-2xl p-6 flex items-center justify-between shadow-sm">
-          <div>
-            <div className="w-10 h-10 rounded-full bg-purple-500/10 flex items-center justify-center mb-3">
-              <ShieldCheck className="w-5 h-5 text-purple-500" />
-            </div>
-            <p className="text-xs font-semibold text-[var(--muted-foreground)] uppercase tracking-wider">Eligible Count</p>
-            <p className="text-3xl font-bold text-[var(--foreground)] mt-1">{eligibleCount}</p>
-          </div>
-        </div>
-
-        <div className="bg-[var(--card)] border border-[var(--border)] rounded-2xl p-6 flex items-center justify-between shadow-sm">
-          <div>
-            <div className="w-10 h-10 rounded-full bg-emerald-500/10 flex items-center justify-center mb-3">
-              <CheckCircle2 className="w-5 h-5 text-emerald-500" />
-            </div>
-            <p className="text-xs font-semibold text-[var(--muted-foreground)] uppercase tracking-wider">Active Logins</p>
-            <p className="text-3xl font-bold text-[var(--foreground)] mt-1">{activeCount}</p>
           </div>
         </div>
 
@@ -310,8 +312,6 @@ export function SectionClient({ reportData, session }: { reportData: ReportData;
                 <th className="px-6 py-4 font-semibold text-[var(--muted-foreground)] text-xs tracking-wider uppercase">Name</th>
                 <th className="px-6 py-4 font-semibold text-[var(--muted-foreground)] text-xs tracking-wider uppercase">Register Number</th>
                 <th className="px-6 py-4 font-semibold text-[var(--muted-foreground)] text-xs tracking-wider uppercase">SRM Email</th>
-                <th className="px-6 py-4 font-semibold text-[var(--muted-foreground)] text-xs tracking-wider uppercase">Eligible</th>
-                <th className="px-6 py-4 font-semibold text-[var(--muted-foreground)] text-xs tracking-wider uppercase">Login Active</th>
                 <th className="px-6 py-4 font-semibold text-[var(--muted-foreground)] text-xs tracking-wider uppercase">Submitted</th>
                 <th className="px-6 py-4 font-semibold text-[var(--muted-foreground)] text-xs tracking-wider uppercase text-right">Actions</th>
               </tr>
@@ -348,23 +348,18 @@ export function SectionClient({ reportData, session }: { reportData: ReportData;
                         />
                       </td>
                       <td className="px-6 py-4 text-[var(--foreground)] font-medium">
-                        {s.name}
+                        <div className="flex items-center gap-2">
+                          {s.name}
+                          {onlineUserIds.has(s.id) && (
+                            <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse shadow-[0_0_8px_rgba(16,185,129,0.8)]" title="Online now" />
+                          )}
+                        </div>
                       </td>
                       <td className="px-6 py-4 font-medium text-[var(--foreground)]">
                         {s.registerNumber ?? "—"}
                       </td>
                       <td className="px-6 py-4 text-[var(--muted-foreground)]">
                         {s.email ?? "—"}
-                      </td>
-                      <td className="px-6 py-4">
-                        <span className={`inline-flex px-2 py-1 rounded-md text-xs font-bold ${s.isEligible ? "text-emerald-500 bg-emerald-500/10" : "text-red-500 bg-red-500/10"}`}>
-                          {s.isEligible ? "YES" : "NO"}
-                        </span>
-                      </td>
-                      <td className="px-6 py-4">
-                        <span className={`inline-flex px-2 py-1 rounded-md text-xs font-bold ${s.isActive ? "text-emerald-500 bg-emerald-500/10" : "text-red-500 bg-red-500/10"}`}>
-                          {s.isActive ? "YES" : "NO"}
-                        </span>
                       </td>
                       <td className="px-6 py-4">
                         <span className={`inline-flex px-2 py-1 rounded-md text-xs font-bold ${isRegistered ? "text-emerald-500 bg-emerald-500/10" : "text-red-500 bg-red-500/10"}`}>

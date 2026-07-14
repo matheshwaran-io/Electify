@@ -148,8 +148,33 @@ export async function getClassTutorMetrics() {
     }
   }
 
+  // Get list of pending students
+  const allStudents = await db
+    .select({
+      id: users.id,
+      name: users.name,
+      registerNumber: users.registerNumber,
+    })
+    .from(users)
+    .where(and(eq(users.role, "STUDENT"), eq(users.sectionId, session.sectionId)));
+    
+  let pendingStudents = [];
+  if (activeEvent) {
+    const registeredIds = new Set(
+      (await db
+        .select({ studentId: studentRegistrations.studentId })
+        .from(studentRegistrations)
+        .where(eq(studentRegistrations.eventId, activeEvent.id)))
+        .map(r => r.studentId)
+    );
+    pendingStudents = allStudents.filter(s => !registeredIds.has(s.id));
+  } else {
+    pendingStudents = allStudents;
+  }
+
   return {
     totalStudents, registeredCount, courseOptionsCount,
     allocationRate, activeEvent, recentRegistrations,
+    pendingStudents
   };
 }
