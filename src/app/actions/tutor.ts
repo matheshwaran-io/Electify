@@ -3,7 +3,7 @@
 import { db } from "@/lib/db";
 import {
   users, electives, electiveGroups, registrationEvents,
-  studentRegistrations, eventSections, sections
+  studentRegistrations, eventSections, sections, programmes
 } from "@/lib/db/schema";
 import { getSession } from "@/lib/auth";
 import { eq, and, asc, count, desc } from "drizzle-orm";
@@ -11,6 +11,24 @@ import { eq, and, asc, count, desc } from "drizzle-orm";
 async function assertTutor() {
   const session = await getSession();
   if (!session || session.role !== "CLASS_TUTOR") throw new Error("Unauthorized");
+
+  // Fetch missing hierarchy details if the session token is incomplete
+  if (session.sectionId && (!session.programmeId || !session.departmentId)) {
+    const [sectionData] = await db
+      .select({ 
+        programmeId: sections.programmeId, 
+        departmentId: programmes.departmentId 
+      })
+      .from(sections)
+      .innerJoin(programmes, eq(sections.programmeId, programmes.id))
+      .where(eq(sections.id, session.sectionId));
+
+    if (sectionData) {
+      session.programmeId = session.programmeId || sectionData.programmeId;
+      session.departmentId = session.departmentId || sectionData.departmentId;
+    }
+  }
+
   return session;
 }
 
