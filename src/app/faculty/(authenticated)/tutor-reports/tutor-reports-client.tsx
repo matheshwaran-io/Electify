@@ -1,8 +1,10 @@
 "use client";
 
 import { motion } from "framer-motion";
-import { FileText, Users, CheckCircle, Search } from "lucide-react";
+import { FileText, Users, CheckCircle, Search, Download } from "lucide-react";
 import { useState } from "react";
+import jsPDF from "jspdf";
+import autoTable from "jspdf-autotable";
 
 type Registration = { studentId: string; electiveName: string; groupName: string; eventName: string };
 type Student = { id: string; name: string; registerNumber: string | null; isEligible: boolean; registrations: Registration[] };
@@ -19,11 +21,58 @@ export function TutorReportsClient({ reportData }: { reportData: ReportData }) {
       (s.registerNumber ?? "").toLowerCase().includes(search.toLowerCase())
   );
 
+  const exportCSV = () => {
+    const headers = ["Student Name", "Register No.", "Status", "Registrations"];
+    const rows = students.map(s => {
+      const isRegistered = s.registrations.length > 0;
+      const regs = s.registrations.map(r => r.electiveName).join("; ");
+      // Wrap strings with commas in quotes for CSV safety
+      return [`"${s.name}"`, s.registerNumber ?? "—", isRegistered ? "Registered" : "Pending", `"${regs}"`];
+    });
+    const csvContent = "data:text/csv;charset=utf-8," + [headers.join(","), ...rows.map(e => e.join(","))].join("\n");
+    const encodedUri = encodeURI(csvContent);
+    const link = document.createElement("a");
+    link.setAttribute("href", encodedUri);
+    link.setAttribute("download", "tutor_registration_report.csv");
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
+  const exportPDF = () => {
+    const doc = new jsPDF();
+    doc.text("Class Registration Report", 14, 15);
+    
+    const tableData = students.map(s => {
+      const isRegistered = s.registrations.length > 0;
+      const regs = s.registrations.map(r => r.electiveName).join("; ");
+      return [s.name, s.registerNumber ?? "—", isRegistered ? "Registered" : "Pending", regs];
+    });
+
+    autoTable(doc, {
+      head: [["Student Name", "Register No.", "Status", "Registrations"]],
+      body: tableData,
+      startY: 20,
+    });
+    
+    doc.save("tutor_registration_report.pdf");
+  };
+
   return (
     <div className="space-y-8">
-      <div>
-        <h1 className="text-3xl font-bold text-[var(--foreground)]">Reports</h1>
-        <p className="text-[var(--muted-foreground)] mt-1">Registration completion statistics for your section.</p>
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <div>
+          <h1 className="text-3xl font-bold text-[var(--foreground)]">Reports</h1>
+          <p className="text-[var(--muted-foreground)] mt-1">Registration completion statistics for your section.</p>
+        </div>
+        <div className="flex items-center gap-3">
+          <button onClick={exportCSV} className="flex items-center gap-2 px-4 py-2 bg-[var(--card)] hover:bg-[var(--accent)] border border-[var(--border)] rounded-xl text-sm font-medium transition-colors">
+            <Download className="w-4 h-4" /> CSV
+          </button>
+          <button onClick={exportPDF} className="flex items-center gap-2 px-4 py-2 bg-indigo-500 hover:bg-indigo-600 text-white rounded-xl text-sm font-medium transition-colors">
+            <Download className="w-4 h-4" /> PDF
+          </button>
+        </div>
       </div>
 
       {/* Summary Cards */}

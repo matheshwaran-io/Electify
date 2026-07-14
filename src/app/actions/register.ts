@@ -55,7 +55,7 @@ export async function registerElectives(
     }
 
     const now = new Date();
-    if (!["OPEN", "PUBLISHED"].includes(event.status) || (event.openDate && now < event.openDate) || (event.closeDate && now > event.closeDate)) {
+    if (!["OPEN", "PUBLISHED", "ACTIVE"].includes(event.status) || (event.openDate && now < event.openDate) || (event.closeDate && now > event.closeDate)) {
       return { success: false, error: "Registration is currently closed." };
     }
 

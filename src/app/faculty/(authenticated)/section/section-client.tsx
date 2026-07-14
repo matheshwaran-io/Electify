@@ -3,7 +3,7 @@
 import { useState, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Users, Search, ShieldCheck, CheckCircle2, Clock, Plus, X, Download, Upload, Pencil, Trash2 } from "lucide-react";
-import { createStudent, importStudentsCSV, updateStudent, deleteStudent, unlockStudentRegistration } from "@/app/actions/tutor";
+import { createStudent, importStudentsCSV, updateStudent, deleteStudent, unlockStudentRegistration, deleteMultipleStudentsTutor } from "@/app/actions/tutor";
 import { useRouter } from "next/navigation";
 
 type Registration = { studentId: string; electiveName: string; groupName: string; eventName: string };
@@ -33,6 +33,8 @@ export function SectionClient({ reportData, session }: { reportData: ReportData;
   
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [editingStudentId, setEditingStudentId] = useState<string | null>(null);
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [isDeletingBulk, setIsDeletingBulk] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const filtered = students.filter(
@@ -104,9 +106,26 @@ export function SectionClient({ reportData, session }: { reportData: ReportData;
     }
   }
 
+  async function handleDeleteSelected() {
+    if (selectedIds.size === 0) return;
+    if (!confirm(`Are you sure you want to delete ${selectedIds.size} selected students?`)) return;
+    
+    setIsDeletingBulk(true);
+    try {
+      await deleteMultipleStudentsTutor(Array.from(selectedIds));
+      setSelectedIds(new Set());
+      router.refresh();
+      alert("Students deleted successfully.");
+    } catch (err: any) {
+      alert(err.message || "Failed to delete students");
+    } finally {
+      setIsDeletingBulk(false);
+    }
+  }
+
   function handleDownloadTemplate() {
-    const headers = ["Register Number", "Name", "Email"];
-    const csvContent = "data:text/csv;charset=utf-8," + headers.join(",") + "\n" + "RA2211003010123,John Doe,jd1234@srmist.edu.in";
+    const headers = ["Name", "Register Number", "Email"];
+    const csvContent = "data:text/csv;charset=utf-8," + headers.join(",") + "\n" + "John Doe,RA2211003010123,jd1234@srmist.edu.in";
     const encodedUri = encodeURI(csvContent);
     const link = document.createElement("a");
     link.setAttribute("href", encodedUri);
@@ -128,7 +147,7 @@ export function SectionClient({ reportData, session }: { reportData: ReportData;
       // Assume first line is header
       const dataLines = lines.slice(1);
       const parsedData = dataLines.map(line => {
-        const [registerNumber, name, email] = line.split(",").map(val => val.trim());
+        const [name, registerNumber, email] = line.split(",").map(val => val.trim());
         return { name, registerNumber, email };
       }).filter(s => s.name && s.registerNumber && s.email);
 
@@ -255,6 +274,16 @@ export function SectionClient({ reportData, session }: { reportData: ReportData;
             >
               <Plus className="w-4 h-4" /> Add Student
             </button>
+            
+            {selectedIds.size > 0 && (
+              <button 
+                onClick={handleDeleteSelected}
+                disabled={isDeletingBulk}
+                className="bg-red-500 text-white px-4 py-2 rounded-xl text-sm font-medium hover:bg-red-600 transition flex items-center gap-2 disabled:opacity-50"
+              >
+                <Trash2 className="w-4 h-4" /> {isDeletingBulk ? "Deleting..." : `Delete (${selectedIds.size})`}
+              </button>
+            )}
           </div>
         </div>
 
@@ -262,8 +291,19 @@ export function SectionClient({ reportData, session }: { reportData: ReportData;
           <table className="w-full text-sm text-left">
             <thead>
               <tr className="bg-[var(--background)]/50 border-b border-[var(--border)]">
-                <th className="px-6 py-4 font-semibold text-[var(--muted-foreground)] text-xs tracking-wider uppercase">Register Number</th>
+                <th className="px-6 py-4 w-12">
+                  <input 
+                    type="checkbox" 
+                    className="w-4 h-4 rounded border-[var(--border)] text-indigo-600 focus:ring-indigo-500/50 cursor-pointer"
+                    checked={filtered.length > 0 && selectedIds.size === filtered.length}
+                    onChange={(e) => {
+                      if (e.target.checked) setSelectedIds(new Set(filtered.map(s => s.id)));
+                      else setSelectedIds(new Set());
+                    }}
+                  />
+                </th>
                 <th className="px-6 py-4 font-semibold text-[var(--muted-foreground)] text-xs tracking-wider uppercase">Name</th>
+                <th className="px-6 py-4 font-semibold text-[var(--muted-foreground)] text-xs tracking-wider uppercase">Register Number</th>
                 <th className="px-6 py-4 font-semibold text-[var(--muted-foreground)] text-xs tracking-wider uppercase">SRM Email</th>
                 <th className="px-6 py-4 font-semibold text-[var(--muted-foreground)] text-xs tracking-wider uppercase">Eligible</th>
                 <th className="px-6 py-4 font-semibold text-[var(--muted-foreground)] text-xs tracking-wider uppercase">Login Active</th>
@@ -274,7 +314,7 @@ export function SectionClient({ reportData, session }: { reportData: ReportData;
             <tbody className="divide-y divide-[var(--border)]">
               {filtered.length === 0 ? (
                 <tr>
-                  <td colSpan={6} className="text-center py-16 text-[var(--muted-foreground)]">
+                  <td colSpan={8} className="text-center py-16 text-[var(--muted-foreground)]">
                     No students match your search.
                   </td>
                 </tr>
@@ -289,11 +329,24 @@ export function SectionClient({ reportData, session }: { reportData: ReportData;
                       transition={{ delay: i * 0.02 }}
                       className="hover:bg-[var(--accent)]/10 transition-colors"
                     >
-                      <td className="px-6 py-4 font-medium text-[var(--foreground)]">
-                        {s.registerNumber ?? "—"}
+                      <td className="px-6 py-4">
+                        <input 
+                          type="checkbox" 
+                          className="w-4 h-4 rounded border-[var(--border)] text-indigo-600 focus:ring-indigo-500/50 cursor-pointer"
+                          checked={selectedIds.has(s.id)}
+                          onChange={(e) => {
+                            const newSet = new Set(selectedIds);
+                            if (e.target.checked) newSet.add(s.id);
+                            else newSet.delete(s.id);
+                            setSelectedIds(newSet);
+                          }}
+                        />
                       </td>
                       <td className="px-6 py-4 text-[var(--foreground)] font-medium">
                         {s.name}
+                      </td>
+                      <td className="px-6 py-4 font-medium text-[var(--foreground)]">
+                        {s.registerNumber ?? "—"}
                       </td>
                       <td className="px-6 py-4 text-[var(--muted-foreground)]">
                         {s.email ?? "—"}

@@ -1,10 +1,10 @@
 "use client";
 
-import { motion } from "framer-motion";
-import { Clock, Calendar as CalendarIcon, CheckCircle2, CalendarDays, Plus, Save } from "lucide-react";
+import { motion, AnimatePresence } from "framer-motion";
+import { Clock, Calendar as CalendarIcon, CheckCircle2, CalendarDays, Plus, Save, AlertTriangle } from "lucide-react";
 import { format, differenceInSeconds } from "date-fns";
 import { useEffect, useState } from "react";
-import { createRegistrationWindow, updateWindowTimers } from "@/app/actions/tutor";
+import { createRegistrationWindow, updateWindowTimers, resetSectionRegistrationEvent } from "@/app/actions/tutor";
 import { useRouter } from "next/navigation";
 
 type WindowEvent = {
@@ -39,6 +39,10 @@ export function WindowClient({ events }: { events: WindowEvent[] }) {
   const [newName, setNewName] = useState("");
   const [newYear, setNewYear] = useState(new Date().getFullYear() + "-" + (new Date().getFullYear() + 1));
   const [isSaving, setIsSaving] = useState(false);
+
+  const [resetEventId, setResetEventId] = useState<string | null>(null);
+  const [resetEventName, setResetEventName] = useState<string>("");
+  const [resetConfirmText, setResetConfirmText] = useState("");
 
   // Form states for the first event
   const firstEvent = events[0];
@@ -79,6 +83,33 @@ export function WindowClient({ events }: { events: WindowEvent[] }) {
     } finally {
       setIsSaving(false);
     }
+  }
+
+  async function executeResetData() {
+    if (!resetEventId) return;
+    if (resetConfirmText !== "RESET") {
+      alert("Please type RESET to confirm.");
+      return;
+    }
+    
+    setIsSaving(true);
+    try {
+      await resetSectionRegistrationEvent(resetEventId);
+      alert(`Successfully reset all student registrations for ${resetEventName}.`);
+      setResetEventId(null);
+      setResetConfirmText("");
+      router.refresh();
+    } catch (err: any) {
+      alert(err.message || "Failed to reset data");
+    } finally {
+      setIsSaving(false);
+    }
+  }
+
+  function handleResetData(eventId: string, eventName: string) {
+    setResetEventId(eventId);
+    setResetEventName(eventName);
+    setResetConfirmText("");
   }
 
   if (events.length === 0) {
@@ -144,7 +175,7 @@ export function WindowClient({ events }: { events: WindowEvent[] }) {
   return (
     <div className="space-y-8">
       {events.map((event, i) => {
-        const isOpen = event.status === "PUBLISHED" || event.status === "ACTIVE"; 
+        const isOpen = event.status === "PUBLISHED" || event.status === "OPEN"; 
         const countdown = formatCountdown(event.closeDate ? new Date(event.closeDate) : null);
 
         return (
@@ -242,7 +273,16 @@ export function WindowClient({ events }: { events: WindowEvent[] }) {
                 </div>
               </div>
               
-              <div className="flex justify-end">
+              <div className="flex justify-between items-center mt-6">
+                <button
+                  onClick={() => handleResetData(event.id, event.name)}
+                  disabled={isSaving}
+                  className="bg-red-500/10 text-red-500 hover:bg-red-500 hover:text-white px-6 py-3 rounded-xl font-medium transition-colors disabled:opacity-50"
+                  title="Wipe all registrations and refund seats"
+                >
+                  Reset Section Data
+                </button>
+
                 <button
                   onClick={() => handleUpdateTimers(event.id)}
                   disabled={isSaving}
@@ -256,6 +296,70 @@ export function WindowClient({ events }: { events: WindowEvent[] }) {
           </motion.div>
         );
       })}
+
+      {/* Custom Reset Modal */}
+      <AnimatePresence>
+        {resetEventId && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95, y: 20 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95, y: 20 }}
+              className="bg-[var(--card)] border border-[var(--border)] rounded-3xl w-full max-w-lg shadow-2xl overflow-hidden"
+            >
+              <div className="bg-red-500/10 p-6 flex items-center gap-4 border-b border-red-500/20">
+                <div className="w-12 h-12 rounded-full bg-red-500/20 flex items-center justify-center shrink-0">
+                  <AlertTriangle className="w-6 h-6 text-red-500" />
+                </div>
+                <div>
+                  <h3 className="text-xl font-bold text-red-500">Reset Section Data</h3>
+                  <p className="text-sm text-red-400 mt-1">This is a highly destructive action.</p>
+                </div>
+              </div>
+
+              <div className="p-8">
+                <p className="text-[var(--foreground)] mb-6 leading-relaxed">
+                  You are about to permanently wipe <strong>all student registrations</strong> in your section for <strong className="text-indigo-400">{resetEventName}</strong>. 
+                  All taken seats will be refunded. This cannot be undone.
+                </p>
+
+                <div className="mb-8">
+                  <label className="block text-xs font-bold text-[var(--muted-foreground)] uppercase tracking-wider mb-2">
+                    Type "RESET" to confirm
+                  </label>
+                  <input 
+                    type="text" 
+                    value={resetConfirmText}
+                    onChange={(e) => setResetConfirmText(e.target.value)}
+                    placeholder="RESET"
+                    className="w-full px-4 py-3 bg-[var(--background)] border border-[var(--border)] rounded-xl text-[var(--foreground)] focus:outline-none focus:ring-2 focus:ring-red-500/50"
+                  />
+                </div>
+
+                <div className="flex justify-end gap-3">
+                  <button 
+                    onClick={() => {
+                      setResetEventId(null);
+                      setResetConfirmText("");
+                    }}
+                    disabled={isSaving}
+                    className="px-6 py-2 rounded-xl font-medium text-[var(--muted-foreground)] hover:bg-[var(--accent)] transition-colors"
+                  >
+                    Cancel
+                  </button>
+                  <button 
+                    onClick={executeResetData}
+                    disabled={isSaving || resetConfirmText !== "RESET"}
+                    className="bg-red-500 text-white px-6 py-2 rounded-xl font-medium shadow-md shadow-red-500/20 hover:bg-red-600 transition-colors disabled:opacity-50"
+                  >
+                    {isSaving ? "Resetting..." : "Confirm Reset"}
+                  </button>
+                </div>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }

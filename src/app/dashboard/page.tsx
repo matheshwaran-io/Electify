@@ -63,7 +63,7 @@ export default async function StudentDashboardPage() {
     .where(
       and(
         eq(registrationEvents.academicBatchId, student.academicBatchId),
-        inArray(registrationEvents.status, ["PUBLISHED", "OPEN", "CLOSED", "VERIFICATION", "FINALIZED"])
+        inArray(registrationEvents.status, ["PUBLISHED", "OPEN", "ACTIVE", "CLOSED", "VERIFICATION", "FINALIZED"])
       )
     ).orderBy(desc(registrationEvents.createdAt)).limit(1);
 
@@ -82,7 +82,7 @@ export default async function StudentDashboardPage() {
   }
 
   const now = new Date();
-  const isRegistrationStarted = event.status === "OPEN" || (event.openDate && now >= event.openDate);
+  const isRegistrationStarted = event.status === "OPEN" || event.status === "ACTIVE" || (event.openDate && now >= event.openDate);
   const isRegistrationEnded = event.status === "CLOSED" || event.status === "VERIFICATION" || event.status === "FINALIZED" || (event.closeDate && now > event.closeDate);
 
   const currentRegistrations = await db.select().from(studentRegistrations)
@@ -99,7 +99,7 @@ export default async function StudentDashboardPage() {
     return <ClientRedirect to="/countdown" />;
   }
 
-  if (hasSubmitted && (isLocked || (event.status !== "OPEN" && event.status !== "PUBLISHED"))) {
+  if (hasSubmitted && (isLocked || (event.status !== "OPEN" && event.status !== "ACTIVE" && event.status !== "PUBLISHED"))) {
     return <ClientRedirect to="/dashboard/success" />;
   }
 

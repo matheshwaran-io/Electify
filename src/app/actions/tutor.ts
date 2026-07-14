@@ -261,7 +261,7 @@ export async function updateWindowTimers(eventId: string, openDate: Date | null,
   // Determine status based on dates relative to now
   let status = "PUBLISHED";
   const now = new Date();
-  if (openDate && now >= openDate) status = "ACTIVE";
+  if (openDate && now >= openDate) status = "OPEN";
   if (closeDate && now >= closeDate) status = "CLOSED";
   if (!openDate && !closeDate) status = "DRAFT";
 
@@ -534,5 +534,92 @@ export async function deleteStudent(id: string) {
 
     await tx.delete(studentRegistrations).where(eq(studentRegistrations.studentId, id));
     await tx.delete(users).where(eq(users.id, id));
+  });
+}
+
+export async function deleteMultipleStudentsTutor(ids: string[]) {
+  const session = await assertTutor();
+  if (!ids || ids.length === 0) return;
+
+  const validStudents = await db.select({ id: users.id }).from(users).where(and(inArray(users.id, ids), eq(users.sectionId, session.sectionId!), eq(users.role, "STUDENT")));
+  const validIds = validStudents.map(s => s.id);
+  
+  if (validIds.length === 0) return;
+
+  await db.transaction(async (tx) => {
+    // We should refund seats before deleting registrations
+    const existing = await tx.select().from(studentRegistrations).where(inArray(studentRegistrations.studentId, validIds));
+    
+    for (const reg of existing) {
+      const [elective] = await tx.select({ availableSeats: electives.availableSeats }).from(electives).where(eq(electives.id, reg.electiveId));
+      if (elective) {
+        await tx.update(electives).set({ 
+          availableSeats: elective.availableSeats + 1,
+          isFull: false 
+        }).where(eq(electives.id, reg.electiveId));
+      }
+    }
+
+    await tx.delete(studentRegistrations).where(inArray(studentRegistrations.studentId, validIds));
+    await tx.delete(users).where(inArray(users.id, validIds));
+  });
+}
+
+export async function resetSectionRegistrationEvent(eventId: string) {
+  const session = await assertTutor();
+
+  const [event] = await db.select().from(registrationEvents).where(eq(registrationEvents.id, eventId));
+  if (!event) throw new Error("Event not found.");
+
+  await db.transaction(async (tx) => {
+    // 1. Fetch all registrations for this event by students in this tutor's section
+    const existingRegistrations = await tx
+      .select({ 
+        studentId: studentRegistrations.studentId, 
+        electiveId: studentRegistrations.electiveId 
+      })
+      .from(studentRegistrations)
+      .innerJoin(users, eq(studentRegistrations.studentId, users.id))
+      .where(and(
+        eq(studentRegistrations.eventId, eventId),
+        eq(users.sectionId, session.sectionId!)
+      ));
+
+    if (existingRegistrations.length === 0) return; // Nothing to reset
+
+    const validStudentIds = existingRegistrations.map(r => r.studentId);
+
+    // 2. Refund all seats for these electives
+    const counts: Record<string, number> = {};
+    for (const reg of existingRegistrations) {
+      counts[reg.electiveId] = (counts[reg.electiveId] || 0) + 1;
+    }
+
+    for (const [electiveId, countToRefund] of Object.entries(counts)) {
+      const [elective] = await tx.select({ availableSeats: electives.availableSeats }).from(electives).where(eq(electives.id, electiveId));
+      if (elective) {
+        await tx.update(electives).set({ 
+          availableSeats: elective.availableSeats + countToRefund,
+          isFull: false 
+        }).where(eq(electives.id, electiveId));
+      }
+    }
+
+    // 3. Delete all registrations for these valid students
+    await tx.delete(studentRegistrations).where(inArray(studentRegistrations.studentId, validStudentIds));
+
+    // 4. Create an audit log
+    await tx.insert(auditLogs).values({
+      action: "RESET_SECTION_REGISTRATION_EVENT",
+      userId: session.userId,
+      userEmail: session.email,
+      userRole: session.role,
+      metadata: {
+        eventId,
+        eventName: event.name,
+        sectionId: session.sectionId,
+        clearedRegistrationsCount: existingRegistrations.length,
+      },
+    });
   });
 }
