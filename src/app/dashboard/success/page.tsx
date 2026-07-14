@@ -2,11 +2,28 @@ import * as React from "react";
 import { redirect } from "next/navigation";
 import { getSession } from "@/lib/auth";
 import { db } from "@/lib/db";
-import { users, registrationEvents, studentRegistrations, electives, electiveGroups, systemSettings } from "@/lib/db/schema";
+import { users, registrationEvents, registrations, systemSettings } from "@/lib/db/schema";
 import { eq, and, inArray, desc } from "drizzle-orm";
 import { SuccessView } from "./success-view";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { ClientRedirect } from "@/components/client-redirect";
+
+interface ReceiptSnapshot {
+  receiptNumber: string;
+  submittedAt: string;
+  student: {
+    name: string;
+    registerNumber: string;
+    email: string;
+    department?: string;
+    degree?: string;
+    section?: string;
+  };
+  electives: {
+    groupName: string;
+    electiveName: string;
+  }[];
+}
 
 export default async function RegistrationSuccessPage() {
   const session = await getSession();
@@ -47,31 +64,30 @@ export default async function RegistrationSuccessPage() {
     return <ClientRedirect to="/dashboard" />;
   }
 
-  const registrations = await db.select({
-    registration: studentRegistrations,
-    elective: electives,
-    group: electiveGroups,
-  })
-    .from(studentRegistrations)
-    .leftJoin(electives, eq(studentRegistrations.electiveId, electives.id))
-    .leftJoin(electiveGroups, eq(studentRegistrations.groupId, electiveGroups.id))
-    .where(and(eq(studentRegistrations.studentId, student.id), eq(studentRegistrations.eventId, event.id)))
-    .orderBy(electiveGroups.sortOrder);
+  // Fetch from the registrations table
+  const [userRegistration] = await db.select().from(registrations)
+    .where(
+      and(
+        eq(registrations.studentId, student.id),
+        eq(registrations.eventId, event.id)
+      )
+    ).limit(1);
 
-  if (registrations.length === 0) {
-    return <ClientRedirect to="/dashboard" />;
+  if (!userRegistration || userRegistration.status !== "CONFIRMED") {
+    return <ClientRedirect to="/dashboard/electives" />;
   }
 
-  // Determine if editing is allowed based on event status and lock
-  const now = new Date();
-  const isLocked = registrations.some(r => r.registration.isLocked);
-  const allowRegistrationEdit = !isLocked && (event.status === "OPEN" || event.status === "ACTIVE") && (!event.closeDate || now <= event.closeDate);
-
-  const formattedRegistrations = registrations.map(r => ({
-    groupName: r.group?.name || "Unknown Group",
-    electiveName: r.elective?.courseCode ? `${r.elective.courseCode} - ${r.elective.name}` : r.elective?.name || "Unknown Elective",
-    submittedAt: r.registration.submittedAt,
+  // Render directly from the immutable snapshot
+  const snapshot = userRegistration.receiptSnapshot as unknown as ReceiptSnapshot;
+  
+  const formattedRegistrations = (snapshot?.electives || []).map(e => ({
+    groupName: e.groupName,
+    electiveName: e.electiveName,
+    submittedAt: new Date(snapshot.submittedAt || userRegistration.submittedAt || new Date()),
   }));
+
+  // No editing allowed once confirmed
+  const allowRegistrationEdit = false;
 
   return (
     <main className="flex min-h-screen flex-col items-center justify-center relative bg-slate-50 dark:bg-slate-950 p-4 overflow-hidden print:bg-white print:dark:bg-white print:p-0">
@@ -85,15 +101,19 @@ export default async function RegistrationSuccessPage() {
 
       <SuccessView
         student={{
-          name: student.name,
-          registerNumber: student.registerNumber || "N/A",
-          email: student.email,
+          name: snapshot?.student?.name || student.name,
+          registerNumber: snapshot?.student?.registerNumber || student.registerNumber || "N/A",
+          email: snapshot?.student?.email || student.email,
+          department: snapshot?.student?.department,
+          degree: snapshot?.student?.degree,
+          section: snapshot?.student?.section,
         }}
         event={{
           name: event.name,
         }}
         registrations={formattedRegistrations}
         allowRegistrationEdit={allowRegistrationEdit}
+        receiptNumber={snapshot?.receiptNumber || userRegistration.receiptNumber || "N/A"}
       />
     </main>
   );

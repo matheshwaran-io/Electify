@@ -1,8 +1,20 @@
 "use server";
 
 import { db } from "@/lib/db";
-import { users, registrationEvents, studentRegistrations, electives, systemSettings } from "@/lib/db/schema";
-import { eq, and, sql } from "drizzle-orm";
+import {
+  users,
+  registrationEvents,
+  studentRegistrations,
+  electives,
+  systemSettings,
+  registrations,
+  sections,
+  programmes,
+  departments,
+  academicBatches,
+  electiveGroups
+} from "@/lib/db/schema";
+import { eq, and, sql, inArray } from "drizzle-orm";
 import { getSession } from "@/lib/auth";
 
 interface RegisterResult {
@@ -61,34 +73,61 @@ export async function registerElectives(
 
     // 5. Execute Transaction
     await db.transaction(async (tx) => {
-      // Find existing registrations for this event
-      const existing = await tx.select().from(studentRegistrations)
-        .where(and(eq(studentRegistrations.studentId, studentId), eq(studentRegistrations.eventId, eventId)));
+      // Check existing registrations in the main registrations table
+      const [existingReg] = await tx
+        .select()
+        .from(registrations)
+        .where(and(eq(registrations.studentId, studentId), eq(registrations.eventId, eventId)))
+        .limit(1);
 
-      // Enforce Lock
-      if (existing.some(r => r.isLocked)) {
-        throw new Error("Your registration for this event has been locked and cannot be modified.");
+      if (existingReg && existingReg.status === "CONFIRMED") {
+        throw new Error("Registration already completed.");
       }
 
-      if (existing.length > 0) {
-        // Unregister existing: increment seats
-        for (const reg of existing) {
-          await tx.update(electives)
-            .set({ 
-              availableSeats: sql`${electives.availableSeats} + 1`,
-              isFull: false
-            })
-            .where(eq(electives.id, reg.electiveId));
-        }
-        // Delete old registrations
-        await tx.delete(studentRegistrations)
-          .where(and(eq(studentRegistrations.studentId, studentId), eq(studentRegistrations.eventId, eventId)));
-      }
+      // Fetch student details with names for snapshot
+      const [studentInfo] = await tx
+        .select({
+          name: users.name,
+          registerNumber: users.registerNumber,
+          email: users.email,
+          sectionName: sections.label,
+          programmeName: programmes.name,
+          departmentName: departments.name,
+        })
+        .from(users)
+        .leftJoin(sections, eq(users.sectionId, sections.id))
+        .leftJoin(academicBatches, eq(users.academicBatchId, academicBatches.id))
+        .leftJoin(programmes, eq(academicBatches.programmeId, programmes.id))
+        .leftJoin(departments, eq(programmes.departmentId, departments.id))
+        .where(eq(users.id, studentId))
+        .limit(1);
 
-      // Process new selections
+      const studentDetails = {
+        name: studentInfo?.name || student.name,
+        registerNumber: studentInfo?.registerNumber || student.registerNumber || "N/A",
+        email: studentInfo?.email || student.email,
+        department: studentInfo?.departmentName || "N/A",
+        degree: studentInfo?.programmeName || "N/A",
+        section: studentInfo?.sectionName || "N/A",
+      };
+
+      const selectedElectiveIds = selections.map((s) => s.electiveId);
+
+      // Lock chosen electives using SELECT FOR UPDATE
+      const lockedElectives = await tx
+        .select()
+        .from(electives)
+        .where(inArray(electives.id, selectedElectiveIds))
+        .for("update");
+
+      const lockedElectivesMap = new Map(lockedElectives.map((e) => [e.id, e]));
+
+      // Validate selections, seats, and capture detailed snapshot data
+      const electiveSnapshots: { groupName: string; electiveName: string }[] = [];
+
       for (const sel of selections) {
-        const [elective] = await tx.select().from(electives).where(eq(electives.id, sel.electiveId)).limit(1);
-        
+        const elective = lockedElectivesMap.get(sel.electiveId);
+
         if (!elective || !elective.isActive) {
           throw new Error("Selected elective is invalid or inactive.");
         }
@@ -99,32 +138,88 @@ export async function registerElectives(
           throw new Error(`Seats are fully booked for elective: ${elective.name}`);
         }
 
-        // Decrement seat
-        const [updated] = await tx.update(electives)
-          .set({ 
+        // Fetch group details for snapshot
+        const [group] = await tx
+          .select({ name: electiveGroups.name })
+          .from(electiveGroups)
+          .where(eq(electiveGroups.id, sel.groupId))
+          .limit(1);
+
+        electiveSnapshots.push({
+          groupName: group?.name || "Unknown Group",
+          electiveName: elective.courseCode ? `${elective.courseCode} - ${elective.name}` : elective.name,
+        });
+
+        // Decrement seats
+        await tx
+          .update(electives)
+          .set({
             availableSeats: sql`${electives.availableSeats} - 1`,
+            isFull: sql`CASE WHEN ${electives.availableSeats} - 1 <= 0 THEN true ELSE false END`,
           })
-          .where(eq(electives.id, sel.electiveId))
-          .returning({ availableSeats: electives.availableSeats });
+          .where(eq(electives.id, sel.electiveId));
 
-        if (updated.availableSeats <= 0) {
-           await tx.update(electives).set({ isFull: true }).where(eq(electives.id, sel.electiveId));
-        }
-
-        // Insert new registration
+        // Insert selection choice
         await tx.insert(studentRegistrations).values({
           studentId,
           eventId,
           groupId: sel.groupId,
           electiveId: sel.electiveId,
-          isLocked: true, // Lock immediately upon confirmation
+          isLocked: true,
+        });
+      }
+
+      // Generate sequence number for receipt
+      const isOdd = event.name.toLowerCase().includes("odd");
+      const semester = isOdd ? "ODD" : "EVEN";
+      const year = new Date().getFullYear();
+
+      const [seqRow] = await tx
+        .select({
+          maxSeq: sql<number>`COALESCE(MAX(CAST(SUBSTRING(${registrations.receiptNumber} FROM 14) AS INTEGER)), 0)`,
+        })
+        .from(registrations);
+
+      const nextSeq = (seqRow?.maxSeq || 0) + 1;
+      const receiptNumber = `ELC-${year}-${semester}-${String(nextSeq).padStart(6, "0")}`;
+
+      const receiptSnapshot = {
+        receiptNumber,
+        submittedAt: new Date().toISOString(),
+        student: studentDetails,
+        electives: electiveSnapshots,
+      };
+
+      // Insert/Update registrations table setting to CONFIRMED
+      if (existingReg) {
+        await tx
+          .update(registrations)
+          .set({
+            status: "CONFIRMED",
+            receiptNumber,
+            receiptSnapshot,
+            submittedAt: new Date(),
+            updatedAt: new Date(),
+          })
+          .where(eq(registrations.id, existingReg.id));
+      } else {
+        await tx.insert(registrations).values({
+          studentId,
+          eventId,
+          status: "CONFIRMED",
+          receiptNumber,
+          receiptSnapshot,
+          submittedAt: new Date(),
         });
       }
     });
 
     return { success: true };
   } catch (error: unknown) {
-    const errorMessage = error instanceof Error ? error.message : "Failed to complete registration due to database error. Please try again.";
+    const errorMessage =
+      error instanceof Error
+        ? error.message
+        : "Failed to complete registration due to database error. Please try again.";
     console.error("Registration transaction error:", errorMessage);
     return {
       success: false,

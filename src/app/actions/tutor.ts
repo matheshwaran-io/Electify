@@ -3,7 +3,7 @@
 import { db } from "@/lib/db";
 import {
   users, electives, electiveGroups, registrationEvents,
-  studentRegistrations, eventSections, sections, programmes, academicBatches, auditLogs
+  studentRegistrations, eventSections, sections, programmes, academicBatches, auditLogs, registrations
 } from "@/lib/db/schema";
 import { getSession } from "@/lib/auth";
 import { eq, and, asc, count, desc, inArray } from "drizzle-orm";
@@ -533,6 +533,7 @@ export async function deleteStudent(id: string) {
     }
 
     await tx.delete(studentRegistrations).where(eq(studentRegistrations.studentId, id));
+    await tx.delete(registrations).where(eq(registrations.studentId, id));
     await tx.delete(users).where(eq(users.id, id));
   });
 }
@@ -561,6 +562,7 @@ export async function deleteMultipleStudentsTutor(ids: string[]) {
     }
 
     await tx.delete(studentRegistrations).where(inArray(studentRegistrations.studentId, validIds));
+    await tx.delete(registrations).where(inArray(registrations.studentId, validIds));
     await tx.delete(users).where(inArray(users.id, validIds));
   });
 }
@@ -605,8 +607,18 @@ export async function resetSectionRegistrationEvent(eventId: string) {
       }
     }
 
-    // 3. Delete all registrations for these valid students
+    // 3. Delete all registrations (individual selections) and preserve status
     await tx.delete(studentRegistrations).where(inArray(studentRegistrations.studentId, validStudentIds));
+
+    await tx
+      .update(registrations)
+      .set({
+        status: "RESET_BY_COORDINATOR",
+        receiptNumber: null,
+        receiptSnapshot: null,
+        updatedAt: new Date(),
+      })
+      .where(and(eq(registrations.eventId, eventId), inArray(registrations.studentId, validStudentIds)));
 
     // 4. Create an audit log
     await tx.insert(auditLogs).values({

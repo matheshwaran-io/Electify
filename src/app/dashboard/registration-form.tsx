@@ -66,6 +66,52 @@ export function RegistrationForm({
 }: RegistrationFormProps) {
   const router = useRouter();
 
+  // Live seat counts state
+  const [localElectives, setLocalElectives] = React.useState<Elective[]>(electives);
+
+  // Setup Supabase Realtime subscription
+  React.useEffect(() => {
+    let channel: any;
+    import("@/lib/supabase").then((mod) => {
+      channel = mod.supabase
+        .channel("table-db-changes")
+        .on(
+          "postgres_changes",
+          {
+            event: "UPDATE",
+            schema: "public",
+            table: "electives",
+          },
+          (payload) => {
+            const newRow = payload.new as any;
+            if (newRow && newRow.id) {
+              setLocalElectives((prev) =>
+                prev.map((e) =>
+                  e.id === newRow.id
+                    ? {
+                        ...e,
+                        availableSeats: Number(newRow.available_seats),
+                        isFull: Number(newRow.available_seats) <= 0,
+                        isActive: newRow.is_active,
+                      }
+                    : e
+                )
+              );
+            }
+          }
+        )
+        .subscribe();
+    });
+
+    return () => {
+      if (channel) {
+        import("@/lib/supabase").then((mod) => {
+          mod.supabase.removeChannel(channel);
+        });
+      }
+    };
+  }, []);
+
   // State: mapping from groupId to an array of selected electiveIds
   const [selections, setSelections] = React.useState<Record<string, string[]>>(() => {
     const initial: Record<string, string[]> = {};
@@ -199,7 +245,7 @@ export function RegistrationForm({
   return (
     <div className="space-y-12">
       {groups.map((group) => {
-        const groupElectives = electives.filter((e) => e.groupId === group.id);
+        const groupElectives = localElectives.filter((e) => e.groupId === group.id);
         const selectedForGroup = selections[group.id] || [];
 
         return (
@@ -263,7 +309,7 @@ export function RegistrationForm({
               Confirm Registration
             </DialogTitle>
             <DialogDescription className="text-sm text-slate-500 pt-2">
-              You are about to register for the following electives. You can modify this later while the registration window is open.
+              Once submitted you cannot modify your electives.
             </DialogDescription>
           </DialogHeader>
 
@@ -277,7 +323,7 @@ export function RegistrationForm({
                   <p className="text-xs font-medium text-slate-500 mb-2">{group.name}</p>
                   <ul className="space-y-1.5">
                     {sel.map(eid => {
-                      const elective = electives.find(e => e.id === eid);
+                      const elective = localElectives.find(e => e.id === eid);
                       return (
                         <li key={eid} className="font-medium text-slate-900 dark:text-slate-200 text-sm">
                           {elective?.courseCode ? `${elective.courseCode} - ` : ""}{elective?.name}

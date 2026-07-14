@@ -3,7 +3,7 @@
 import { db } from "@/lib/db";
 import {
   users, registrationEvents, programmes, sections,
-  electiveGroups, electives, studentRegistrations, academicBatches, eventTemplates, auditLogs
+  electiveGroups, electives, studentRegistrations, academicBatches, eventTemplates, auditLogs, registrations
 } from "@/lib/db/schema";
 import { getSession } from "@/lib/auth";
 import { eq, and, count, desc, asc, inArray } from "drizzle-orm";
@@ -109,6 +109,7 @@ export async function deleteMultipleStudents(ids: string[]) {
     }
 
     await tx.delete(studentRegistrations).where(inArray(studentRegistrations.studentId, ids));
+    await tx.delete(registrations).where(inArray(registrations.studentId, ids));
     await tx.delete(users).where(inArray(users.id, ids));
   });
 }
@@ -207,8 +208,18 @@ export async function resetRegistrationEvent(eventId: string) {
       }
     }
 
-    // 3. Delete all registrations
+    // 3. Delete all registrations (individual selections) and preserve status
     await tx.delete(studentRegistrations).where(eq(studentRegistrations.eventId, eventId));
+
+    await tx
+      .update(registrations)
+      .set({
+        status: "RESET_BY_COORDINATOR",
+        receiptNumber: null,
+        receiptSnapshot: null,
+        updatedAt: new Date(),
+      })
+      .where(eq(registrations.eventId, eventId));
 
     // 4. Create an audit log
     await tx.insert(auditLogs).values({

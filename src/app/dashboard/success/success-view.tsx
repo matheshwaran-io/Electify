@@ -13,6 +13,9 @@ interface SuccessViewProps {
     name: string;
     registerNumber: string;
     email: string;
+    department?: string;
+    degree?: string;
+    section?: string;
   };
   event: {
     name: string;
@@ -23,6 +26,7 @@ interface SuccessViewProps {
     submittedAt: Date;
   }[];
   allowRegistrationEdit: boolean;
+  receiptNumber?: string;
 }
 
 export function SuccessView({
@@ -30,6 +34,7 @@ export function SuccessView({
   event,
   registrations,
   allowRegistrationEdit,
+  receiptNumber,
 }: SuccessViewProps) {
   const router = useRouter();
 
@@ -99,7 +104,14 @@ export function SuccessView({
           
           {/* Official Document Title */}
           <div>
-            <h2 className="text-xl font-medium mb-1">Official Registration Receipt</h2>
+            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2">
+              <h2 className="text-xl font-medium mb-1">Official Registration Receipt</h2>
+              {receiptNumber && (
+                <span className="text-xs font-mono bg-slate-100 dark:bg-white/5 border border-slate-200 dark:border-white/10 px-2.5 py-1 rounded-md text-[var(--muted-foreground)]">
+                  {receiptNumber}
+                </span>
+              )}
+            </div>
             <p className="text-sm text-slate-500 print:text-slate-600">Event: {event.name}</p>
           </div>
 
@@ -121,6 +133,24 @@ export function SuccessView({
                 <p className="text-[10px] text-slate-500 uppercase tracking-wider mb-1">Email Address</p>
                 <p className="text-sm font-medium">{student.email}</p>
               </div>
+              {student.department && (
+                <div>
+                  <p className="text-[10px] text-slate-500 uppercase tracking-wider mb-1">Department</p>
+                  <p className="text-sm font-medium">{student.department}</p>
+                </div>
+              )}
+              {student.degree && (
+                <div>
+                  <p className="text-[10px] text-slate-500 uppercase tracking-wider mb-1">Degree</p>
+                  <p className="text-sm font-medium">{student.degree}</p>
+                </div>
+              )}
+              {student.section && (
+                <div>
+                  <p className="text-[10px] text-slate-500 uppercase tracking-wider mb-1">Section</p>
+                  <p className="text-sm font-medium">{student.section}</p>
+                </div>
+              )}
             </div>
           </div>
 

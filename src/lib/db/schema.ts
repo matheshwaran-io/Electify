@@ -8,6 +8,7 @@ import {
   jsonb,
   unique,
   index,
+  pgEnum,
 } from "drizzle-orm/pg-core";
 import { relations } from "drizzle-orm";
 
@@ -329,6 +330,30 @@ export const systemSettings = pgTable("system_settings", {
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
 
+// Registrations Enum and Table
+export const registrationStatusEnum = pgEnum("registration_status", [
+  "NOT_REGISTERED",
+  "CONFIRMED",
+  "CANCELLED",
+  "RESET_BY_COORDINATOR"
+]);
+
+export const registrations = pgTable("registrations", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  studentId: uuid("student_id").notNull().references(() => users.id),
+  eventId: uuid("event_id").notNull().references(() => registrationEvents.id),
+  status: registrationStatusEnum("status").default("NOT_REGISTERED").notNull(),
+  receiptNumber: text("receipt_number").unique(),
+  receiptSnapshot: jsonb("receipt_snapshot"),
+  submittedAt: timestamp("submitted_at"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+}, (table) => [
+  unique("student_event_registration_unique").on(table.studentId, table.eventId),
+  index("registrations_student_idx").on(table.studentId),
+  index("registrations_event_idx").on(table.eventId),
+]);
+
 // ────────────────────────────────────────────────────────────────────
 // RELATIONS (for Drizzle relational queries)
 // ────────────────────────────────────────────────────────────────────
@@ -511,5 +536,16 @@ export const inviteCodesRelations = relations(inviteCodes, ({ one }) => ({
   createdBy: one(users, {
     fields: [inviteCodes.createdById],
     references: [users.id],
+  }),
+}));
+
+export const registrationsRelations = relations(registrations, ({ one }) => ({
+  student: one(users, {
+    fields: [registrations.studentId],
+    references: [users.id],
+  }),
+  event: one(registrationEvents, {
+    fields: [registrations.eventId],
+    references: [registrationEvents.id],
   }),
 }));
