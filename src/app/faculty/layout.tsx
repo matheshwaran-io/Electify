@@ -1,6 +1,6 @@
 import { redirect } from "next/navigation";
 import { getSession } from "@/lib/auth";
-import { FacultyLayoutClient } from "@/components/layout/faculty-layout-client";
+import { AppShell } from "@/components/layout/app-shell";
 
 export default async function FacultyLayout({
   children,
@@ -18,5 +18,5 @@ export default async function FacultyLayout({
     redirect("/dashboard");
   }
 
-  return <FacultyLayoutClient session={session}>{children}</FacultyLayoutClient>;
+  return <AppShell session={session}>{children}</AppShell>;
 }
