@@ -10,10 +10,13 @@ interface UserSession {
   userId: string;
   name: string;
   email: string;
-  role: "STUDENT" | "FACULTY" | "SUPER_ADMIN";
+  role: "SYSTEM_ADMIN" | "COURSE_COORDINATOR" | "CLASS_TUTOR" | "STUDENT";
+  employeeId?: string;
   registerNumber?: string;
-  facultyType?: "COURSE_COORDINATOR" | "CLASS_TUTOR";
-  className?: string;
+  facultyId?: string;
+  departmentId?: string;
+  programmeId?: string;
+  sectionId?: string;
 }
 
 export async function middleware(request: NextRequest) {
@@ -28,7 +31,6 @@ export async function middleware(request: NextRequest) {
       const { payload } = await jwtVerify(token, SECRET);
       session = payload as unknown as UserSession;
     } catch {
-      // Token is invalid/expired
       session = null;
     }
   }
@@ -57,32 +59,23 @@ export async function middleware(request: NextRequest) {
 
   // Guard Faculty Dashboard routes (/faculty/*)
   if (pathname.startsWith("/faculty")) {
-    // Exclude the login page itself to avoid infinite loops
-    if (pathname === "/faculty/login") {
-      if (session && (session.role === "FACULTY" || session.role === "SUPER_ADMIN")) {
-        return NextResponse.redirect(new URL("/faculty/dashboard", request.url));
-      }
-      return NextResponse.next();
-    }
-
     if (!session) {
-      return NextResponse.redirect(new URL("/faculty/login", request.url));
+      return NextResponse.redirect(new URL("/login", request.url));
     }
 
-    if (session.role !== "FACULTY" && session.role !== "SUPER_ADMIN") {
+    if (session.role === "STUDENT") {
       return NextResponse.redirect(new URL("/dashboard", request.url));
     }
 
-    // Super Admin specific route guarding
-    if (pathname.startsWith("/faculty/settings")) {
-      if (session.role !== "SUPER_ADMIN") {
-        // Redirect non-superadmins back to dashboard
+    // System Admin specific route guarding
+    if (pathname.startsWith("/faculty/settings") || pathname.startsWith("/faculty/audit")) {
+      if (session.role !== "SYSTEM_ADMIN") {
         return NextResponse.redirect(new URL("/faculty/dashboard", request.url));
       }
     }
   }
 
-  // Guard Student Login page (/login)
+  // Guard Login page (/login)
   if (pathname === "/login") {
     if (session) {
       if (session.role === "STUDENT") {
