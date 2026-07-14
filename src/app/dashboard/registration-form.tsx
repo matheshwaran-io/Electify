@@ -226,7 +226,7 @@ export function RegistrationForm({
               </div>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4">
               {groupElectives.map((elective) =>
                 renderElectiveCard(elective, selectedForGroup.includes(elective.id))
               )}
@@ -235,8 +235,8 @@ export function RegistrationForm({
         );
       })}
 
-      <div className="sticky bottom-6 z-30 pt-6">
-        <div className="bg-white dark:bg-[#111] border border-slate-200 dark:border-white/10 rounded-md p-4 shadow-sm flex flex-col sm:flex-row items-center justify-between gap-4">
+      <div className="sticky bottom-0 sm:bottom-6 z-30 pt-4 sm:pt-6">
+        <div className="bg-white dark:bg-[#111] border-t sm:border border-slate-200 dark:border-white/10 sm:rounded-xl p-4 sm:p-5 shadow-[0_-8px_16px_-4px_rgba(0,0,0,0.05)] sm:shadow-sm flex flex-col sm:flex-row items-center justify-between gap-4 -mx-4 sm:mx-0 pb-8 sm:pb-5">
           <div>
             <h3 className="font-medium text-sm text-slate-900 dark:text-white">Ready to submit?</h3>
             <p className="text-xs text-slate-500">
@@ -267,7 +267,7 @@ export function RegistrationForm({
             </DialogDescription>
           </DialogHeader>
 
-          <div className="space-y-4 my-6">
+          <div className="space-y-4 my-6 max-h-[60vh] overflow-y-auto pr-2">
             {groups.map(group => {
               const sel = selections[group.id] || [];
               if (sel.length === 0) return null;
@@ -290,7 +290,7 @@ export function RegistrationForm({
             })}
           </div>
 
-          <DialogFooter className="gap-2 sm:gap-0 mt-6 border-t border-slate-100 dark:border-white/5 pt-4">
+          <DialogFooter className="flex-col-reverse sm:flex-row gap-3 sm:gap-2 mt-6 border-t border-slate-100 dark:border-white/5 pt-4">
             <PremiumButton variant="outline" onClick={() => setIsConfirmOpen(false)} disabled={isSubmitting}>
               Cancel
             </PremiumButton>

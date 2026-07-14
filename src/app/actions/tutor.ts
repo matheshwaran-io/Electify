@@ -399,3 +399,106 @@ export async function importStudentsCSV(studentsData: { name: string; registerNu
   
   return { imported: newUsers.length, skipped: valuesToInsert.length - newUsers.length };
 }
+
+export async function updateElective(id: string, data: { name: string; maxSeats: number; credits: number; courseCode?: string }) {
+  const session = await assertTutor();
+  // Ensure the elective belongs to a group managed by the tutor's section event
+  const [elective] = await db.select({ groupId: electives.groupId }).from(electives).where(eq(electives.id, id));
+  if (!elective) throw new Error("Elective not found.");
+
+  const [group] = await db.select({ eventId: electiveGroups.eventId }).from(electiveGroups).where(eq(electiveGroups.id, elective.groupId));
+  if (!group) throw new Error("Group not found.");
+
+  const [eventLink] = await db.select().from(eventSections).where(and(eq(eventSections.eventId, group.eventId), eq(eventSections.sectionId, session.sectionId!)));
+  if (!eventLink) throw new Error("Unauthorized");
+
+  // Adjust availableSeats based on the new maxSeats
+  // We need to know how many seats are already taken.
+  const [current] = await db.select({ maxSeats: electives.maxSeats, availableSeats: electives.availableSeats }).from(electives).where(eq(electives.id, id));
+  const bookedSeats = current.maxSeats - current.availableSeats;
+  const newAvailable = data.maxSeats - bookedSeats;
+
+  if (newAvailable < 0) {
+    throw new Error("Cannot reduce seats below the number of currently booked seats.");
+  }
+
+  await db.update(electives).set({
+    name: data.name.trim(),
+    courseCode: data.courseCode || null,
+    maxSeats: data.maxSeats,
+    credits: data.credits,
+    availableSeats: newAvailable,
+    isFull: newAvailable === 0,
+    updatedAt: new Date(),
+  }).where(eq(electives.id, id));
+}
+
+export async function deleteElective(id: string) {
+  const session = await assertTutor();
+  
+  const [elective] = await db.select({ groupId: electives.groupId }).from(electives).where(eq(electives.id, id));
+  if (!elective) throw new Error("Elective not found.");
+
+  const [group] = await db.select({ eventId: electiveGroups.eventId }).from(electiveGroups).where(eq(electiveGroups.id, elective.groupId));
+  if (!group) throw new Error("Group not found.");
+
+  const [eventLink] = await db.select().from(eventSections).where(and(eq(eventSections.eventId, group.eventId), eq(eventSections.sectionId, session.sectionId!)));
+  if (!eventLink) throw new Error("Unauthorized");
+
+  // Delete registrations associated with this elective first
+  await db.transaction(async (tx) => {
+    await tx.delete(studentRegistrations).where(eq(studentRegistrations.electiveId, id));
+    await tx.delete(electives).where(eq(electives.id, id));
+  });
+}
+
+export async function updateStudent(id: string, data: { name: string; registerNumber: string; email: string }) {
+  const session = await assertTutor();
+  
+  // Verify student belongs to tutor's section
+  const [student] = await db.select({ sectionId: users.sectionId }).from(users).where(and(eq(users.id, id), eq(users.role, "STUDENT")));
+  if (!student || student.sectionId !== session.sectionId) {
+    throw new Error("Unauthorized or student not found.");
+  }
+
+  // Check if email already exists on another user
+  const [existing] = await db.select().from(users).where(and(eq(users.email, data.email.toLowerCase().trim())));
+  if (existing && existing.id !== id) {
+    throw new Error("A user with this email already exists.");
+  }
+
+  await db.update(users).set({
+    name: data.name.trim(),
+    registerNumber: data.registerNumber.trim(),
+    email: data.email.toLowerCase().trim(),
+    updatedAt: new Date(),
+  }).where(eq(users.id, id));
+}
+
+export async function deleteStudent(id: string) {
+  const session = await assertTutor();
+  
+  const [student] = await db.select({ sectionId: users.sectionId }).from(users).where(and(eq(users.id, id), eq(users.role, "STUDENT")));
+  if (!student || student.sectionId !== session.sectionId) {
+    throw new Error("Unauthorized or student not found.");
+  }
+
+  // Use a transaction to refund seats and delete registrations before deleting student
+  await db.transaction(async (tx) => {
+    const existing = await tx.select().from(studentRegistrations).where(eq(studentRegistrations.studentId, id));
+    
+    // Refund seats
+    for (const reg of existing) {
+      const [elective] = await tx.select({ availableSeats: electives.availableSeats }).from(electives).where(eq(electives.id, reg.electiveId));
+      if (elective) {
+        await tx.update(electives).set({ 
+          availableSeats: elective.availableSeats + 1,
+          isFull: false 
+        }).where(eq(electives.id, reg.electiveId));
+      }
+    }
+
+    await tx.delete(studentRegistrations).where(eq(studentRegistrations.studentId, id));
+    await tx.delete(users).where(eq(users.id, id));
+  });
+}

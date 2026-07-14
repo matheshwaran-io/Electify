@@ -66,7 +66,7 @@ export function SuccessView({
           <PremiumButton variant="primary" onClick={handlePrint} className="flex-1 sm:flex-none">
             <Printer className="w-4 h-4 mr-2" /> Print
           </PremiumButton>
-          <PremiumButton variant="ghost" onClick={handleLogout} className="text-slate-500 flex-1 sm:flex-none">
+          <PremiumButton variant="ghost" onClick={handleLogout} className="text-slate-500 shrink-0 sm:flex-none">
             <LogOut className="w-4 h-4" />
           </PremiumButton>
         </div>
@@ -76,7 +76,7 @@ export function SuccessView({
       <div className="bg-white dark:bg-[#111] border border-slate-200 dark:border-white/10 rounded-md overflow-hidden shadow-sm print:shadow-none print:border-none print:bg-white text-slate-900 dark:text-slate-200 print:text-black">
         
         {/* Document Header */}
-        <div className="p-8 border-b border-slate-200 dark:border-white/10 print:border-black/20 flex items-start justify-between">
+        <div className="p-6 sm:p-8 border-b border-slate-200 dark:border-white/10 print:border-black/20 flex flex-col sm:flex-row items-start justify-between gap-4">
           <div className="flex items-center gap-4">
             <div className="w-12 h-12 rounded-md bg-slate-900 dark:bg-white text-white dark:text-slate-900 p-2 print:bg-black print:text-white print:border print:border-black">
               <Image src="/logo.png" alt="Electify Logo" width={32} height={32} className="w-full h-full object-contain invert dark:invert-0 print:invert" />
@@ -86,7 +86,7 @@ export function SuccessView({
               <p className="text-sm text-slate-500 dark:text-slate-400 print:text-slate-600">SRMIST Elective Management</p>
             </div>
           </div>
-          <div className="text-right flex flex-col items-end">
+          <div className="text-left sm:text-right flex flex-col items-start sm:items-end w-full sm:w-auto mt-4 sm:mt-0 pt-4 sm:pt-0 border-t sm:border-0 border-slate-100 dark:border-white/5 print:border-0">
             <div className="flex items-center gap-1.5 text-emerald-600 dark:text-emerald-500 print:text-emerald-700 font-medium">
               <CheckCircle2 className="w-5 h-5" />
               <span>Confirmed</span>
@@ -95,7 +95,7 @@ export function SuccessView({
           </div>
         </div>
 
-        <div className="p-8 space-y-10">
+        <div className="p-6 sm:p-8 space-y-8 sm:space-y-10">
           
           {/* Official Document Title */}
           <div>

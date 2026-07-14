@@ -2,8 +2,8 @@
 
 import { useState, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Users, Search, ShieldCheck, CheckCircle2, Clock, Plus, X, Download, Upload } from "lucide-react";
-import { createStudent, importStudentsCSV } from "@/app/actions/tutor";
+import { Users, Search, ShieldCheck, CheckCircle2, Clock, Plus, X, Download, Upload, Pencil, Trash2 } from "lucide-react";
+import { createStudent, importStudentsCSV, updateStudent, deleteStudent } from "@/app/actions/tutor";
 import { useRouter } from "next/navigation";
 
 type Registration = { studentId: string; electiveName: string; groupName: string; eventName: string };
@@ -30,6 +30,9 @@ export function SectionClient({ reportData, session }: { reportData: ReportData;
   const [newEmail, setNewEmail] = useState("");
   const [isSaving, setIsSaving] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
+  
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+  const [editingStudentId, setEditingStudentId] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const filtered = students.filter(
@@ -55,6 +58,38 @@ export function SectionClient({ reportData, session }: { reportData: ReportData;
       alert(err.message);
     } finally {
       setIsSaving(false);
+    }
+  }
+
+  function openEditModal(student: Student) {
+    setEditingStudentId(student.id);
+    setNewName(student.name);
+    setNewRegNo(student.registerNumber || "");
+    setNewEmail(student.email || "");
+    setIsEditModalOpen(true);
+  }
+
+  async function handleEditSave() {
+    if (!newName || !newRegNo || !newEmail || !editingStudentId) return;
+    setIsSaving(true);
+    try {
+      await updateStudent(editingStudentId, { name: newName, registerNumber: newRegNo, email: newEmail });
+      setIsEditModalOpen(false);
+      router.refresh();
+    } catch (err: any) {
+      alert(err.message);
+    } finally {
+      setIsSaving(false);
+    }
+  }
+
+  async function handleDeleteStudent(id: string) {
+    if (!confirm("Are you sure you want to delete this student? Their registration selections will also be deleted permanently.")) return;
+    try {
+      await deleteStudent(id);
+      router.refresh();
+    } catch (err: any) {
+      alert(err.message);
     }
   }
 
@@ -222,6 +257,7 @@ export function SectionClient({ reportData, session }: { reportData: ReportData;
                 <th className="px-6 py-4 font-semibold text-[var(--muted-foreground)] text-xs tracking-wider uppercase">Eligible</th>
                 <th className="px-6 py-4 font-semibold text-[var(--muted-foreground)] text-xs tracking-wider uppercase">Login Active</th>
                 <th className="px-6 py-4 font-semibold text-[var(--muted-foreground)] text-xs tracking-wider uppercase">Submitted</th>
+                <th className="px-6 py-4 font-semibold text-[var(--muted-foreground)] text-xs tracking-wider uppercase text-right">Actions</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-[var(--border)]">
@@ -265,6 +301,16 @@ export function SectionClient({ reportData, session }: { reportData: ReportData;
                         <span className={`inline-flex px-2 py-1 rounded-md text-xs font-bold ${isRegistered ? "text-emerald-500 bg-emerald-500/10" : "text-red-500 bg-red-500/10"}`}>
                           {isRegistered ? "YES" : "NO"}
                         </span>
+                      </td>
+                      <td className="px-6 py-4 text-right">
+                        <div className="flex items-center justify-end gap-2">
+                          <button onClick={() => openEditModal(s)} className="p-1.5 text-blue-500 hover:bg-blue-500/10 rounded-md transition-colors" title="Edit">
+                            <Pencil className="w-4 h-4" />
+                          </button>
+                          <button onClick={() => handleDeleteStudent(s.id)} className="p-1.5 text-red-500 hover:bg-red-500/10 rounded-md transition-colors" title="Delete">
+                            <Trash2 className="w-4 h-4" />
+                          </button>
+                        </div>
                       </td>
                     </motion.tr>
                   );
@@ -330,6 +376,68 @@ export function SectionClient({ reportData, session }: { reportData: ReportData;
                   className="bg-indigo-600 text-white px-6 py-2 rounded-xl text-sm font-medium hover:bg-indigo-500 transition-colors shadow-md disabled:opacity-50"
                 >
                   {isSaving ? "Saving..." : "Add Student"}
+                </button>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
+      {/* Edit Student Modal */}
+      <AnimatePresence>
+        {isEditModalOpen && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95, y: 20 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95, y: 20 }}
+              className="bg-[var(--card)] border border-[var(--border)] rounded-2xl w-full max-w-md shadow-xl overflow-hidden"
+            >
+              <div className="flex justify-between items-center p-6 border-b border-[var(--border)]">
+                <h3 className="text-xl font-bold text-[var(--foreground)]">Edit Student</h3>
+                <button onClick={() => setIsEditModalOpen(false)} className="text-[var(--muted-foreground)] hover:text-[var(--foreground)] transition-colors">
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+              <div className="p-6 space-y-4">
+                <div>
+                  <label className="block text-xs font-bold text-[var(--muted-foreground)] mb-1 uppercase">Full Name</label>
+                  <input 
+                    value={newName} onChange={e => setNewName(e.target.value)}
+                    placeholder="e.g. John Doe"
+                    className="w-full px-4 py-2 bg-[var(--background)] border border-[var(--border)] rounded-xl text-sm focus:ring-2 focus:ring-blue-500/50 outline-none"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-bold text-[var(--muted-foreground)] mb-1 uppercase">Register Number</label>
+                  <input 
+                    value={newRegNo} onChange={e => setNewRegNo(e.target.value)}
+                    placeholder="e.g. RA2211003010xxx"
+                    className="w-full px-4 py-2 bg-[var(--background)] border border-[var(--border)] rounded-xl text-sm focus:ring-2 focus:ring-blue-500/50 outline-none"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-bold text-[var(--muted-foreground)] mb-1 uppercase">SRM Email</label>
+                  <input 
+                    value={newEmail} onChange={e => setNewEmail(e.target.value)}
+                    placeholder="e.g. jd1234@srmist.edu.in"
+                    className="w-full px-4 py-2 bg-[var(--background)] border border-[var(--border)] rounded-xl text-sm focus:ring-2 focus:ring-blue-500/50 outline-none"
+                  />
+                </div>
+              </div>
+              <div className="p-6 bg-[var(--background)] border-t border-[var(--border)] flex justify-end gap-3">
+                <button 
+                  onClick={() => setIsEditModalOpen(false)}
+                  className="px-4 py-2 rounded-xl text-sm font-medium hover:bg-[var(--accent)] transition-colors"
+                >
+                  Cancel
+                </button>
+                <button 
+                  onClick={handleEditSave}
+                  disabled={isSaving}
+                  className="bg-blue-600 text-white px-6 py-2 rounded-xl text-sm font-medium hover:bg-blue-500 transition-colors shadow-md disabled:opacity-50"
+                >
+                  {isSaving ? "Saving..." : "Save Changes"}
                 </button>
               </div>
             </motion.div>

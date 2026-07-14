@@ -2,8 +2,8 @@
 
 import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { BookOpen, Users, CheckCircle2, Percent, Search, Plus, X, Layers } from "lucide-react";
-import { createElective, createElectiveGroup, createRegistrationWindow } from "@/app/actions/tutor";
+import { BookOpen, Users, CheckCircle2, Percent, Search, Plus, X, Layers, Pencil, Trash2 } from "lucide-react";
+import { createElective, createElectiveGroup, createRegistrationWindow, updateElective, deleteElective } from "@/app/actions/tutor";
 import { useRouter } from "next/navigation";
 
 type Elective = { 
@@ -42,6 +42,9 @@ export function TutorElectivesClient({ electivesData }: { electivesData: EventDa
   const [selectedGroupId, setSelectedGroupId] = useState("");
   const [newGroupName, setNewGroupName] = useState("");
   
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+  const [editingElectiveId, setEditingElectiveId] = useState<string | null>(null);
+
   const [isSaving, setIsSaving] = useState(false);
 
   // States for creating a window directly from empty state
@@ -109,6 +112,44 @@ export function TutorElectivesClient({ electivesData }: { electivesData: EventDa
       alert(err.message);
     } finally {
       setIsSaving(false);
+    }
+  }
+
+  function openEditModal(elective: Elective) {
+    setEditingElectiveId(elective.id);
+    setNewElectiveName(elective.name);
+    setNewCourseCode(elective.courseCode || "");
+    setNewMaxSeats(elective.maxSeats.toString());
+    setNewCredits(elective.credits.toString());
+    setIsEditModalOpen(true);
+  }
+
+  async function handleEditSave() {
+    if (!newElectiveName || !newMaxSeats || !editingElectiveId) return alert("Please fill required fields (Name, Seats)");
+    setIsSaving(true);
+    try {
+      await updateElective(editingElectiveId, {
+        name: newElectiveName,
+        courseCode: newCourseCode || undefined,
+        maxSeats: parseInt(newMaxSeats),
+        credits: parseInt(newCredits)
+      });
+      setIsEditModalOpen(false);
+      router.refresh();
+    } catch (err: any) {
+      alert(err.message);
+    } finally {
+      setIsSaving(false);
+    }
+  }
+
+  async function handleDeleteElective(id: string) {
+    if (!confirm("Are you sure you want to delete this subject? All associated student registrations will also be removed.")) return;
+    try {
+      await deleteElective(id);
+      router.refresh();
+    } catch (err: any) {
+      alert(err.message);
     }
   }
 
@@ -281,6 +322,7 @@ export function TutorElectivesClient({ electivesData }: { electivesData: EventDa
                         <th className="px-6 py-4 font-semibold text-[var(--muted-foreground)] text-xs tracking-wider uppercase">Filled</th>
                         <th className="px-6 py-4 font-semibold text-[var(--muted-foreground)] text-xs tracking-wider uppercase">Available</th>
                         <th className="px-6 py-4 font-semibold text-[var(--muted-foreground)] text-xs tracking-wider uppercase">Status</th>
+                        <th className="px-6 py-4 font-semibold text-[var(--muted-foreground)] text-xs tracking-wider uppercase text-right">Actions</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-[var(--border)]">
@@ -306,6 +348,16 @@ export function TutorElectivesClient({ electivesData }: { electivesData: EventDa
                                 <span className={`inline-flex px-2 py-1 rounded-md text-xs font-bold uppercase tracking-wider ${e.isFull ? "text-red-500 bg-red-500/10" : "text-emerald-500 bg-emerald-500/10"}`}>
                                   {e.isFull ? "FULL" : "OPEN"}
                                 </span>
+                              </td>
+                              <td className="px-6 py-4 text-right">
+                                <div className="flex items-center justify-end gap-2">
+                                  <button onClick={() => openEditModal(e)} className="p-1.5 text-blue-500 hover:bg-blue-500/10 rounded-md transition-colors" title="Edit">
+                                    <Pencil className="w-4 h-4" />
+                                  </button>
+                                  <button onClick={() => handleDeleteElective(e.id)} className="p-1.5 text-red-500 hover:bg-red-500/10 rounded-md transition-colors" title="Delete">
+                                    <Trash2 className="w-4 h-4" />
+                                  </button>
+                                </div>
                               </td>
                             </tr>
                           );
@@ -411,6 +463,79 @@ export function TutorElectivesClient({ electivesData }: { electivesData: EventDa
                   className="bg-indigo-600 text-white px-6 py-2.5 rounded-xl text-sm font-medium hover:bg-indigo-500 transition-colors shadow-md disabled:opacity-50"
                 >
                   {isSaving ? "Saving..." : "Save Subject"}
+                </button>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
+      {/* Edit Modal */}
+      <AnimatePresence>
+        {isEditModalOpen && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95, y: 20 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95, y: 20 }}
+              className="bg-[var(--card)] border border-[var(--border)] rounded-3xl w-full max-w-lg shadow-xl overflow-hidden"
+            >
+              <div className="flex justify-between items-center p-6 border-b border-[var(--border)]">
+                <h3 className="text-xl font-bold text-[var(--foreground)]">Edit Subject</h3>
+                <button onClick={() => setIsEditModalOpen(false)} className="text-[var(--muted-foreground)] hover:text-[var(--foreground)] transition-colors">
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+              <div className="p-6 space-y-5">
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="col-span-2">
+                    <label className="block text-xs font-bold text-[var(--muted-foreground)] mb-1 uppercase">Course Name <span className="text-red-500">*</span></label>
+                    <input 
+                      value={newElectiveName} onChange={e => setNewElectiveName(e.target.value)}
+                      placeholder="e.g. Machine Learning"
+                      className="w-full px-4 py-2 bg-[var(--background)] border border-[var(--border)] rounded-xl text-sm focus:ring-2 focus:ring-blue-500/50 outline-none"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-bold text-[var(--muted-foreground)] mb-1 uppercase">Course Code</label>
+                    <input 
+                      value={newCourseCode} onChange={e => setNewCourseCode(e.target.value)}
+                      placeholder="e.g. ML101"
+                      className="w-full px-4 py-2 bg-[var(--background)] border border-[var(--border)] rounded-xl text-sm focus:ring-2 focus:ring-blue-500/50 outline-none"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-bold text-[var(--muted-foreground)] mb-1 uppercase">Seat Quota <span className="text-red-500">*</span></label>
+                    <input 
+                      type="number"
+                      value={newMaxSeats} onChange={e => setNewMaxSeats(e.target.value)}
+                      placeholder="e.g. 60"
+                      className="w-full px-4 py-2 bg-[var(--background)] border border-[var(--border)] rounded-xl text-sm focus:ring-2 focus:ring-blue-500/50 outline-none"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-bold text-[var(--muted-foreground)] mb-1 uppercase">Credits</label>
+                    <input 
+                      type="number"
+                      value={newCredits} onChange={e => setNewCredits(e.target.value)}
+                      className="w-full px-4 py-2 bg-[var(--background)] border border-[var(--border)] rounded-xl text-sm focus:ring-2 focus:ring-blue-500/50 outline-none"
+                    />
+                  </div>
+                </div>
+              </div>
+              <div className="p-6 bg-[var(--background)] border-t border-[var(--border)] flex justify-end gap-3">
+                <button 
+                  onClick={() => setIsEditModalOpen(false)}
+                  className="px-5 py-2.5 rounded-xl text-sm font-medium hover:bg-[var(--accent)] transition-colors"
+                >
+                  Cancel
+                </button>
+                <button 
+                  onClick={handleEditSave}
+                  disabled={isSaving}
+                  className="bg-blue-600 text-white px-6 py-2.5 rounded-xl text-sm font-medium hover:bg-blue-500 transition-colors shadow-md disabled:opacity-50"
+                >
+                  {isSaving ? "Saving..." : "Save Changes"}
                 </button>
               </div>
             </motion.div>

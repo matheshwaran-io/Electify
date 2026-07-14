@@ -141,7 +141,7 @@ export default async function StudentDashboardPage() {
         </div>
       </header>
 
-      <main className="flex-1 max-w-5xl w-full mx-auto px-4 py-10 space-y-8 relative z-10">
+      <main className="flex-1 max-w-5xl w-full mx-auto px-4 py-6 sm:py-10 space-y-6 sm:space-y-8 relative z-10">
         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-6">
           <div className="space-y-1">
             <h1 className="text-2xl font-semibold tracking-tight text-slate-900 dark:text-white">{student.name}</h1>
@@ -150,7 +150,7 @@ export default async function StudentDashboardPage() {
             </p>
           </div>
 
-          <div className="w-full sm:w-auto bg-white dark:bg-[#111] rounded-md p-4 border border-slate-200 dark:border-white/10 flex items-center gap-4 shadow-sm">
+          <div className="w-full sm:w-auto bg-white dark:bg-[#111] rounded-xl sm:rounded-md p-4 border border-slate-200 dark:border-white/10 flex items-center gap-4 shadow-sm">
             <div className="w-10 h-10 rounded-full bg-slate-100 dark:bg-white/5 text-slate-900 dark:text-white flex items-center justify-center border border-slate-200 dark:border-white/10">
               <FileCheck className="w-5 h-5" />
             </div>
