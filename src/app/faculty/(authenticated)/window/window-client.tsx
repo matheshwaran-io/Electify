@@ -1,9 +1,11 @@
 "use client";
 
 import { motion } from "framer-motion";
-import { Clock, Calendar as CalendarIcon, CheckCircle2, CalendarDays } from "lucide-react";
+import { Clock, Calendar as CalendarIcon, CheckCircle2, CalendarDays, Plus, Save } from "lucide-react";
 import { format, differenceInSeconds } from "date-fns";
 import { useEffect, useState } from "react";
+import { createRegistrationWindow, updateWindowTimers } from "@/app/actions/tutor";
+import { useRouter } from "next/navigation";
 
 type WindowEvent = {
   id: string;
@@ -31,12 +33,53 @@ function formatCountdown(closeDate: Date | null) {
 }
 
 export function WindowClient({ events }: { events: WindowEvent[] }) {
+  const router = useRouter();
   const [tick, setTick] = useState(0);
+  const [isCreating, setIsCreating] = useState(false);
+  const [newName, setNewName] = useState("");
+  const [newYear, setNewYear] = useState(new Date().getFullYear() + "-" + (new Date().getFullYear() + 1));
+  const [isSaving, setIsSaving] = useState(false);
+
+  // Form states for the first event
+  const firstEvent = events[0];
+  const [openDate, setOpenDate] = useState(firstEvent?.openDate ? new Date(firstEvent.openDate).toISOString().slice(0, 16) : "");
+  const [closeDate, setCloseDate] = useState(firstEvent?.closeDate ? new Date(firstEvent.closeDate).toISOString().slice(0, 16) : "");
 
   useEffect(() => {
     const timer = setInterval(() => setTick(t => t + 1), 1000);
     return () => clearInterval(timer);
   }, []);
+
+  async function handleCreateWindow() {
+    if (!newName) return;
+    setIsSaving(true);
+    try {
+      await createRegistrationWindow({ name: newName, academicYear: newYear });
+      setIsCreating(false);
+      router.refresh();
+    } catch (err: any) {
+      alert(err.message);
+    } finally {
+      setIsSaving(false);
+    }
+  }
+
+  async function handleUpdateTimers(eventId: string) {
+    setIsSaving(true);
+    try {
+      await updateWindowTimers(
+        eventId, 
+        openDate ? new Date(openDate) : null,
+        closeDate ? new Date(closeDate) : null
+      );
+      alert("Window timers updated successfully!");
+      router.refresh();
+    } catch (err: any) {
+      alert(err.message);
+    } finally {
+      setIsSaving(false);
+    }
+  }
 
   if (events.length === 0) {
     return (
@@ -45,10 +88,55 @@ export function WindowClient({ events }: { events: WindowEvent[] }) {
           <h1 className="text-3xl font-bold text-[var(--foreground)]">Portal Window</h1>
           <p className="text-[var(--muted-foreground)] mt-1">Active registration windows for your section.</p>
         </div>
-        <div className="text-center py-20 text-[var(--muted-foreground)] bg-[var(--card)] rounded-2xl border border-[var(--border)]">
-          <Clock className="w-10 h-10 mx-auto mb-3 opacity-30" />
-          <p>No registration windows currently open for your section.</p>
-        </div>
+        
+        {!isCreating ? (
+          <div className="text-center py-20 text-[var(--muted-foreground)] bg-[var(--card)] rounded-2xl border border-[var(--border)]">
+            <Clock className="w-10 h-10 mx-auto mb-3 opacity-30" />
+            <p className="mb-6">No registration windows currently open for your section.</p>
+            <button 
+              onClick={() => setIsCreating(true)}
+              className="bg-indigo-600 text-white px-6 py-2 rounded-xl font-medium shadow-md shadow-indigo-500/20 hover:bg-indigo-500 transition-colors inline-flex items-center gap-2"
+            >
+              <Plus className="w-4 h-4" />
+              Create Registration Window
+            </button>
+          </div>
+        ) : (
+          <div className="bg-[var(--card)] border border-[var(--border)] rounded-2xl p-8 max-w-lg shadow-sm">
+            <h2 className="text-xl font-bold text-[var(--foreground)] mb-6">Create New Window</h2>
+            <div className="space-y-4">
+              <div>
+                <label className="block text-xs font-bold text-[var(--muted-foreground)] mb-1 uppercase">Window Name</label>
+                <input 
+                  value={newName} onChange={e => setNewName(e.target.value)}
+                  placeholder="e.g. Fall 2026 Registration"
+                  className="w-full px-4 py-2 bg-[var(--background)] border border-[var(--border)] rounded-xl text-sm"
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-bold text-[var(--muted-foreground)] mb-1 uppercase">Academic Year</label>
+                <input 
+                  value={newYear} onChange={e => setNewYear(e.target.value)}
+                  className="w-full px-4 py-2 bg-[var(--background)] border border-[var(--border)] rounded-xl text-sm"
+                />
+              </div>
+              <div className="pt-4 flex gap-3">
+                <button 
+                  onClick={handleCreateWindow} disabled={isSaving}
+                  className="bg-indigo-600 text-white px-6 py-2 rounded-xl font-medium shadow-md hover:bg-indigo-500 transition-colors disabled:opacity-50"
+                >
+                  {isSaving ? "Saving..." : "Create"}
+                </button>
+                <button 
+                  onClick={() => setIsCreating(false)}
+                  className="bg-[var(--accent)] text-[var(--foreground)] px-6 py-2 rounded-xl font-medium hover:bg-black/10 transition-colors"
+                >
+                  Cancel
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     );
   }
@@ -56,7 +144,7 @@ export function WindowClient({ events }: { events: WindowEvent[] }) {
   return (
     <div className="space-y-8">
       {events.map((event, i) => {
-        const isOpen = event.status === "PUBLISHED" || event.status === "ACTIVE"; // Adjust based on your actual statuses
+        const isOpen = event.status === "PUBLISHED" || event.status === "ACTIVE"; 
         const countdown = formatCountdown(event.closeDate ? new Date(event.closeDate) : null);
 
         return (
@@ -126,28 +214,43 @@ export function WindowClient({ events }: { events: WindowEvent[] }) {
               </div>
             </div>
 
-            {/* Timers Config Card (Read Only) */}
+            {/* Timers Config Card */}
             <div className="bg-[var(--card)] border border-[var(--border)] rounded-3xl p-8 shadow-sm">
               <h3 className="text-sm font-bold text-[var(--muted-foreground)] uppercase tracking-wider flex items-center gap-2 mb-6">
                 <CalendarIcon className="w-4 h-4" />
                 Scheduled Window Timers
               </h3>
 
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
                 <div>
                   <label className="block text-xs font-bold text-[var(--muted-foreground)] uppercase tracking-wider mb-2">Portal Opens At</label>
-                  <div className="w-full px-4 py-3 bg-[var(--background)]/50 border border-[var(--border)] rounded-xl text-sm text-[var(--foreground)] flex justify-between items-center opacity-70">
-                    <span>{event.openDate ? format(new Date(event.openDate), "dd/MM/yyyy, hh:mm a") : "Not Set"}</span>
-                    <CalendarIcon className="w-4 h-4 text-[var(--muted-foreground)]" />
-                  </div>
+                  <input
+                    type="datetime-local"
+                    value={openDate}
+                    onChange={(e) => setOpenDate(e.target.value)}
+                    className="w-full px-4 py-3 bg-[var(--background)] border border-[var(--border)] rounded-xl text-sm text-[var(--foreground)]"
+                  />
                 </div>
                 <div>
                   <label className="block text-xs font-bold text-[var(--muted-foreground)] uppercase tracking-wider mb-2">Portal Closes At</label>
-                  <div className="w-full px-4 py-3 bg-[var(--background)]/50 border border-[var(--border)] rounded-xl text-sm text-[var(--foreground)] flex justify-between items-center opacity-70">
-                    <span>{event.closeDate ? format(new Date(event.closeDate), "dd/MM/yyyy, hh:mm a") : "Not Set"}</span>
-                    <CalendarIcon className="w-4 h-4 text-[var(--muted-foreground)]" />
-                  </div>
+                  <input
+                    type="datetime-local"
+                    value={closeDate}
+                    onChange={(e) => setCloseDate(e.target.value)}
+                    className="w-full px-4 py-3 bg-[var(--background)] border border-[var(--border)] rounded-xl text-sm text-[var(--foreground)]"
+                  />
                 </div>
+              </div>
+              
+              <div className="flex justify-end">
+                <button
+                  onClick={() => handleUpdateTimers(event.id)}
+                  disabled={isSaving}
+                  className="bg-indigo-600 text-white px-6 py-3 rounded-xl font-medium shadow-md shadow-indigo-500/20 hover:bg-indigo-500 transition-colors inline-flex items-center gap-2 disabled:opacity-50"
+                >
+                  <Save className="w-4 h-4" />
+                  {isSaving ? "Saving..." : "Save System Properties"}
+                </button>
               </div>
             </div>
           </motion.div>

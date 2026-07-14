@@ -191,3 +191,142 @@ export async function getPortalWindow() {
   }
   return result;
 }
+
+// ── CRUD Actions for Tutor ────────────────────────────────────────────────
+
+export async function createRegistrationWindow(data: { name: string; academicYear: string; description?: string }) {
+  const session = await assertTutor();
+  if (!session.sectionId || !session.programmeId || !session.departmentId) {
+    throw new Error("Missing assignment data (section/programme/department)");
+  }
+
+  // Check if a window already exists for this section to prevent duplicates
+  const existing = await db
+    .select({ id: eventSections.eventId })
+    .from(eventSections)
+    .where(eq(eventSections.sectionId, session.sectionId));
+
+  if (existing.length > 0) {
+    throw new Error("A registration window already exists for your section.");
+  }
+
+  const [newEvent] = await db
+    .insert(registrationEvents)
+    .values({
+      name: data.name,
+      academicYear: data.academicYear,
+      description: data.description,
+      programmeId: session.programmeId,
+      createdById: session.userId,
+      status: "DRAFT",
+    })
+    .returning();
+
+  await db.insert(eventSections).values({
+    eventId: newEvent.id,
+    sectionId: session.sectionId,
+  });
+
+  return newEvent;
+}
+
+export async function updateWindowTimers(eventId: string, openDate: Date | null, closeDate: Date | null) {
+  const session = await assertTutor();
+
+  // Basic authorization: Verify the event belongs to this tutor's section
+  const [eventLink] = await db
+    .select()
+    .from(eventSections)
+    .where(and(eq(eventSections.eventId, eventId), eq(eventSections.sectionId, session.sectionId!)));
+
+  if (!eventLink) throw new Error("Unauthorized to edit this window.");
+
+  // Determine status based on dates relative to now
+  let status = "PUBLISHED";
+  const now = new Date();
+  if (openDate && now >= openDate) status = "ACTIVE";
+  if (closeDate && now >= closeDate) status = "CLOSED";
+  if (!openDate && !closeDate) status = "DRAFT";
+
+  await db
+    .update(registrationEvents)
+    .set({ openDate, closeDate, status })
+    .where(eq(registrationEvents.id, eventId));
+}
+
+import * as bcrypt from "bcryptjs";
+
+export async function createStudent(data: { name: string; registerNumber: string; email: string }) {
+  const session = await assertTutor();
+  if (!session.sectionId || !session.programmeId || !session.departmentId) {
+    throw new Error("Missing assignment data");
+  }
+
+  const [existing] = await db
+    .select()
+    .from(users)
+    .where(eq(users.email, data.email.toLowerCase().trim()))
+    .limit(1);
+
+  if (existing) throw new Error("A user with this email already exists.");
+
+  const hashed = await bcrypt.hash("Student@123", 12); // Default password
+
+  await db.insert(users).values({
+    name: data.name.trim(),
+    email: data.email.toLowerCase().trim(),
+    registerNumber: data.registerNumber.trim(),
+    passwordHash: hashed,
+    role: "STUDENT",
+    sectionId: session.sectionId,
+    programmeId: session.programmeId,
+    departmentId: session.departmentId,
+    isActive: true,
+    isEligible: true,
+  });
+}
+
+export async function createElectiveGroup(eventId: string, name: string) {
+  const session = await assertTutor();
+  const [eventLink] = await db
+    .select()
+    .from(eventSections)
+    .where(and(eq(eventSections.eventId, eventId), eq(eventSections.sectionId, session.sectionId!)));
+  if (!eventLink) throw new Error("Unauthorized");
+
+  const existingGroups = await db.select().from(electiveGroups).where(eq(electiveGroups.eventId, eventId));
+  const sortOrder = existingGroups.length;
+
+  await db.insert(electiveGroups).values({
+    eventId,
+    name: name.trim(),
+    sortOrder,
+  });
+}
+
+export async function createElective(groupId: string, data: { name: string; maxSeats: number; credits: number; courseCode?: string }) {
+  const session = await assertTutor();
+  
+  // Verify group belongs to tutor's section event
+  const [group] = await db
+    .select({ eventId: electiveGroups.eventId })
+    .from(electiveGroups)
+    .where(eq(electiveGroups.id, groupId));
+  if (!group) throw new Error("Group not found");
+
+  const [eventLink] = await db
+    .select()
+    .from(eventSections)
+    .where(and(eq(eventSections.eventId, group.eventId), eq(eventSections.sectionId, session.sectionId!)));
+  if (!eventLink) throw new Error("Unauthorized");
+
+  await db.insert(electives).values({
+    groupId,
+    name: data.name.trim(),
+    courseCode: data.courseCode || null,
+    maxSeats: data.maxSeats,
+    availableSeats: data.maxSeats,
+    credits: data.credits,
+    isFull: false,
+  });
+}

@@ -1,8 +1,10 @@
 "use client";
 
 import { useState } from "react";
-import { motion } from "framer-motion";
-import { Users, Search, ShieldCheck, CheckCircle2, Clock } from "lucide-react";
+import { motion, AnimatePresence } from "framer-motion";
+import { Users, Search, ShieldCheck, CheckCircle2, Clock, Plus, X } from "lucide-react";
+import { createStudent } from "@/app/actions/tutor";
+import { useRouter } from "next/navigation";
 
 type Registration = { studentId: string; electiveName: string; groupName: string; eventName: string };
 type Student = { 
@@ -18,8 +20,16 @@ type ReportData = { students: Student[]; totalStudents: number; registeredCount:
 type Session = { name: string; sectionId?: string };
 
 export function SectionClient({ reportData, session }: { reportData: ReportData; session: Session }) {
+  const router = useRouter();
   const { students, totalStudents, registeredCount } = reportData;
   const [search, setSearch] = useState("");
+  
+  // Modal state
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [newName, setNewName] = useState("");
+  const [newRegNo, setNewRegNo] = useState("");
+  const [newEmail, setNewEmail] = useState("");
+  const [isSaving, setIsSaving] = useState(false);
 
   const filtered = students.filter(
     (s) =>
@@ -30,8 +40,25 @@ export function SectionClient({ reportData, session }: { reportData: ReportData;
   const eligibleCount = students.filter((s) => s.isEligible).length;
   const activeCount = students.filter((s) => s.isActive).length;
 
+  async function handleAddStudent() {
+    if (!newName || !newRegNo || !newEmail) return;
+    setIsSaving(true);
+    try {
+      await createStudent({ name: newName, registerNumber: newRegNo, email: newEmail });
+      setIsModalOpen(false);
+      setNewName("");
+      setNewRegNo("");
+      setNewEmail("");
+      router.refresh();
+    } catch (err: any) {
+      alert(err.message);
+    } finally {
+      setIsSaving(false);
+    }
+  }
+
   return (
-    <div className="space-y-8">
+    <div className="space-y-8 relative">
       <div>
         <h1 className="text-3xl font-bold text-[var(--foreground)]">Student Directory</h1>
         <p className="text-[var(--muted-foreground)] mt-1">Review student registrations and eligibility for your section.</p>
@@ -99,14 +126,22 @@ export function SectionClient({ reportData, session }: { reportData: ReportData;
             </p>
           </div>
           
-          <div className="relative w-full sm:w-64 shrink-0">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[var(--muted-foreground)]" />
-            <input
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              placeholder="Search students..."
-              className="w-full pl-9 pr-4 py-2 bg-[var(--background)] border border-[var(--border)] rounded-xl text-sm text-[var(--foreground)] placeholder:text-[var(--muted-foreground)] focus:outline-none focus:ring-2 focus:ring-indigo-500/50"
-            />
+          <div className="flex items-center gap-3 w-full sm:w-auto shrink-0">
+            <div className="relative w-full sm:w-64">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[var(--muted-foreground)]" />
+              <input
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                placeholder="Search students..."
+                className="w-full pl-9 pr-4 py-2 bg-[var(--background)] border border-[var(--border)] rounded-xl text-sm text-[var(--foreground)] placeholder:text-[var(--muted-foreground)] focus:outline-none focus:ring-2 focus:ring-indigo-500/50"
+              />
+            </div>
+            <button 
+              onClick={() => setIsModalOpen(true)}
+              className="bg-indigo-600 text-white px-4 py-2 rounded-xl text-sm font-medium hover:bg-indigo-500 transition shadow-md shadow-indigo-500/20 whitespace-nowrap flex items-center gap-2"
+            >
+              <Plus className="w-4 h-4" /> Add Student
+            </button>
           </div>
         </div>
 
@@ -172,6 +207,68 @@ export function SectionClient({ reportData, session }: { reportData: ReportData;
           </table>
         </div>
       </div>
+
+      {/* Add Student Modal */}
+      <AnimatePresence>
+        {isModalOpen && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95, y: 20 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95, y: 20 }}
+              className="bg-[var(--card)] border border-[var(--border)] rounded-2xl w-full max-w-md shadow-xl overflow-hidden"
+            >
+              <div className="flex justify-between items-center p-6 border-b border-[var(--border)]">
+                <h3 className="text-xl font-bold text-[var(--foreground)]">Add New Student</h3>
+                <button onClick={() => setIsModalOpen(false)} className="text-[var(--muted-foreground)] hover:text-[var(--foreground)] transition-colors">
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+              <div className="p-6 space-y-4">
+                <div>
+                  <label className="block text-xs font-bold text-[var(--muted-foreground)] mb-1 uppercase">Full Name</label>
+                  <input 
+                    value={newName} onChange={e => setNewName(e.target.value)}
+                    placeholder="e.g. John Doe"
+                    className="w-full px-4 py-2 bg-[var(--background)] border border-[var(--border)] rounded-xl text-sm"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-bold text-[var(--muted-foreground)] mb-1 uppercase">Register Number</label>
+                  <input 
+                    value={newRegNo} onChange={e => setNewRegNo(e.target.value)}
+                    placeholder="e.g. RA2211003010xxx"
+                    className="w-full px-4 py-2 bg-[var(--background)] border border-[var(--border)] rounded-xl text-sm"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-bold text-[var(--muted-foreground)] mb-1 uppercase">SRM Email</label>
+                  <input 
+                    value={newEmail} onChange={e => setNewEmail(e.target.value)}
+                    placeholder="e.g. jd1234@srmist.edu.in"
+                    className="w-full px-4 py-2 bg-[var(--background)] border border-[var(--border)] rounded-xl text-sm"
+                  />
+                </div>
+              </div>
+              <div className="p-6 bg-[var(--background)] border-t border-[var(--border)] flex justify-end gap-3">
+                <button 
+                  onClick={() => setIsModalOpen(false)}
+                  className="px-4 py-2 rounded-xl text-sm font-medium hover:bg-black/10 transition-colors"
+                >
+                  Cancel
+                </button>
+                <button 
+                  onClick={handleAddStudent}
+                  disabled={isSaving}
+                  className="bg-indigo-600 text-white px-6 py-2 rounded-xl text-sm font-medium hover:bg-indigo-500 transition-colors shadow-md disabled:opacity-50"
+                >
+                  {isSaving ? "Saving..." : "Add Student"}
+                </button>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }

@@ -1,9 +1,10 @@
 "use client";
 
 import { useState } from "react";
-import { motion } from "framer-motion";
-import { BookOpen, Users, CheckCircle2, Percent, Search } from "lucide-react";
-import { StatusBadge } from "@/components/ui/status-badge";
+import { motion, AnimatePresence } from "framer-motion";
+import { BookOpen, Users, CheckCircle2, Percent, Search, Plus, X } from "lucide-react";
+import { createElective, createElectiveGroup } from "@/app/actions/tutor";
+import { useRouter } from "next/navigation";
 
 type Elective = { 
   id: string; 
@@ -19,8 +20,7 @@ type EventInfo = { id: string; name: string; status: string; openDate: Date | nu
 type EventData = { event: EventInfo; groups: Group[] };
 
 export function TutorElectivesClient({ electivesData }: { electivesData: EventData[] }) {
-  // If there are multiple events, we just show the first one for the dashboard view, 
-  // or we could add a dropdown. Let's just flat map for the stats, and use the first event for the table.
+  const router = useRouter();
   const allGroups = electivesData.flatMap(e => e.groups);
   const allElectives = allGroups.flatMap(g => g.electives);
 
@@ -39,6 +39,57 @@ export function TutorElectivesClient({ electivesData }: { electivesData: EventDa
     (e.courseCode && e.courseCode.toLowerCase().includes(search.toLowerCase()))
   ) || [];
 
+  const [isGroupModalOpen, setIsGroupModalOpen] = useState(false);
+  const [newGroupName, setNewGroupName] = useState("");
+  
+  const [isElectiveModalOpen, setIsElectiveModalOpen] = useState(false);
+  const [newElectiveName, setNewElectiveName] = useState("");
+  const [newCourseCode, setNewCourseCode] = useState("");
+  const [newMaxSeats, setNewMaxSeats] = useState("");
+  const [newCredits, setNewCredits] = useState("3");
+  const [newElectiveGroupId, setNewElectiveGroupId] = useState(activeGroupId || "");
+  
+  const [isSaving, setIsSaving] = useState(false);
+
+  const firstEventId = electivesData[0]?.event.id;
+
+  async function handleAddGroup() {
+    if (!newGroupName || !firstEventId) return;
+    setIsSaving(true);
+    try {
+      await createElectiveGroup(firstEventId, newGroupName);
+      setIsGroupModalOpen(false);
+      setNewGroupName("");
+      router.refresh();
+    } catch (err: any) {
+      alert(err.message);
+    } finally {
+      setIsSaving(false);
+    }
+  }
+
+  async function handleAddElective() {
+    if (!newElectiveName || !newMaxSeats || !newElectiveGroupId) return;
+    setIsSaving(true);
+    try {
+      await createElective(newElectiveGroupId, {
+        name: newElectiveName,
+        courseCode: newCourseCode || undefined,
+        maxSeats: parseInt(newMaxSeats),
+        credits: parseInt(newCredits)
+      });
+      setIsElectiveModalOpen(false);
+      setNewElectiveName("");
+      setNewCourseCode("");
+      setNewMaxSeats("");
+      router.refresh();
+    } catch (err: any) {
+      alert(err.message);
+    } finally {
+      setIsSaving(false);
+    }
+  }
+
   if (electivesData.length === 0) {
     return (
       <div className="space-y-6">
@@ -48,17 +99,17 @@ export function TutorElectivesClient({ electivesData }: { electivesData: EventDa
         </div>
         <div className="text-center py-20 text-[var(--muted-foreground)] bg-[var(--card)] rounded-2xl border border-[var(--border)]">
           <BookOpen className="w-10 h-10 mx-auto mb-3 opacity-30" />
-          <p>No electives configured for your section yet.</p>
+          <p>No registration event exists. Create a Registration Window first to start adding electives.</p>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="space-y-8">
+    <div className="space-y-8 relative">
       <div>
         <h1 className="text-3xl font-bold text-[var(--foreground)]">Course Configurations</h1>
-        <p className="text-[var(--muted-foreground)] mt-1">Review elective listings and seat quotas.</p>
+        <p className="text-[var(--muted-foreground)] mt-1">Review elective listings and customize seat quotas.</p>
       </div>
 
       {/* Top Statistic Cards */}
@@ -108,7 +159,7 @@ export function TutorElectivesClient({ electivesData }: { electivesData: EventDa
       <div className="bg-[var(--card)] border border-[var(--border)] rounded-3xl shadow-sm overflow-hidden flex flex-col md:flex-row">
         
         {/* Left Tabs panel */}
-        <div className="w-full md:w-64 border-b md:border-b-0 md:border-r border-[var(--border)] bg-[var(--background)]/50 p-6 shrink-0">
+        <div className="w-full md:w-64 border-b md:border-b-0 md:border-r border-[var(--border)] bg-[var(--background)]/50 p-6 shrink-0 flex flex-col">
           <div className="mb-6">
             <h2 className="text-lg font-bold text-[var(--foreground)] flex items-center gap-2">
               <BookOpen className="w-4 h-4 text-[var(--muted-foreground)]" />
@@ -119,11 +170,14 @@ export function TutorElectivesClient({ electivesData }: { electivesData: EventDa
             </p>
           </div>
 
-          <div className="flex md:flex-col gap-2 overflow-x-auto pb-2 md:pb-0">
+          <div className="flex md:flex-col gap-2 overflow-x-auto pb-2 md:pb-0 flex-1">
             {allGroups.map(group => (
               <button
                 key={group.id}
-                onClick={() => setActiveGroupId(group.id)}
+                onClick={() => {
+                  setActiveGroupId(group.id);
+                  setNewElectiveGroupId(group.id);
+                }}
                 className={`px-4 py-3 rounded-xl text-sm font-medium transition-all text-left flex items-center justify-between whitespace-nowrap ${
                   activeGroupId === group.id 
                     ? "bg-indigo-500 text-white shadow-md shadow-indigo-500/20" 
@@ -137,11 +191,18 @@ export function TutorElectivesClient({ electivesData }: { electivesData: EventDa
               </button>
             ))}
           </div>
+
+          <button 
+            onClick={() => setIsGroupModalOpen(true)}
+            className="mt-6 flex items-center justify-center gap-2 w-full py-3 rounded-xl border border-dashed border-[var(--border)] text-sm font-medium text-[var(--muted-foreground)] hover:bg-[var(--accent)] hover:text-[var(--foreground)] transition-colors"
+          >
+            <Plus className="w-4 h-4" /> Add Group
+          </button>
         </div>
 
         {/* Right Table panel */}
         <div className="flex-1 p-6 overflow-hidden flex flex-col min-w-0">
-          <div className="flex items-center justify-between gap-4 mb-6">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
             <div className="relative w-full max-w-sm">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[var(--muted-foreground)]" />
               <input
@@ -151,7 +212,16 @@ export function TutorElectivesClient({ electivesData }: { electivesData: EventDa
                 className="w-full pl-9 pr-4 py-2 bg-[var(--background)] border border-[var(--border)] rounded-xl text-sm text-[var(--foreground)] placeholder:text-[var(--muted-foreground)] focus:outline-none focus:ring-2 focus:ring-indigo-500/50"
               />
             </div>
-            {/* The "Add Elective" button would go here for Admin, omitted for Tutor */}
+            
+            <button 
+              onClick={() => {
+                if (allGroups.length === 0) return alert("Create a group first!");
+                setIsElectiveModalOpen(true);
+              }}
+              className="bg-indigo-600 text-white px-4 py-2 rounded-xl text-sm font-medium hover:bg-indigo-500 transition shadow-md shadow-indigo-500/20 whitespace-nowrap flex items-center gap-2"
+            >
+              <Plus className="w-4 h-4" /> Add Elective
+            </button>
           </div>
 
           <div className="overflow-x-auto border border-[var(--border)] rounded-2xl">
@@ -204,6 +274,138 @@ export function TutorElectivesClient({ electivesData }: { electivesData: EventDa
           </div>
         </div>
       </div>
+
+      {/* Add Group Modal */}
+      <AnimatePresence>
+        {isGroupModalOpen && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95, y: 20 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95, y: 20 }}
+              className="bg-[var(--card)] border border-[var(--border)] rounded-2xl w-full max-w-sm shadow-xl overflow-hidden"
+            >
+              <div className="flex justify-between items-center p-6 border-b border-[var(--border)]">
+                <h3 className="text-xl font-bold text-[var(--foreground)]">Add New Group</h3>
+                <button onClick={() => setIsGroupModalOpen(false)} className="text-[var(--muted-foreground)] hover:text-[var(--foreground)] transition-colors">
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+              <div className="p-6 space-y-4">
+                <div>
+                  <label className="block text-xs font-bold text-[var(--muted-foreground)] mb-1 uppercase">Group Name</label>
+                  <input 
+                    value={newGroupName} onChange={e => setNewGroupName(e.target.value)}
+                    placeholder="e.g. Group 1"
+                    className="w-full px-4 py-2 bg-[var(--background)] border border-[var(--border)] rounded-xl text-sm"
+                  />
+                </div>
+              </div>
+              <div className="p-6 bg-[var(--background)] border-t border-[var(--border)] flex justify-end gap-3">
+                <button 
+                  onClick={() => setIsGroupModalOpen(false)}
+                  className="px-4 py-2 rounded-xl text-sm font-medium hover:bg-black/10 transition-colors"
+                >
+                  Cancel
+                </button>
+                <button 
+                  onClick={handleAddGroup}
+                  disabled={isSaving}
+                  className="bg-indigo-600 text-white px-6 py-2 rounded-xl text-sm font-medium hover:bg-indigo-500 transition-colors shadow-md disabled:opacity-50"
+                >
+                  {isSaving ? "Saving..." : "Add Group"}
+                </button>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
+      {/* Add Elective Modal */}
+      <AnimatePresence>
+        {isElectiveModalOpen && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95, y: 20 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95, y: 20 }}
+              className="bg-[var(--card)] border border-[var(--border)] rounded-2xl w-full max-w-md shadow-xl overflow-hidden"
+            >
+              <div className="flex justify-between items-center p-6 border-b border-[var(--border)]">
+                <h3 className="text-xl font-bold text-[var(--foreground)]">Add New Elective</h3>
+                <button onClick={() => setIsElectiveModalOpen(false)} className="text-[var(--muted-foreground)] hover:text-[var(--foreground)] transition-colors">
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+              <div className="p-6 space-y-4">
+                <div>
+                  <label className="block text-xs font-bold text-[var(--muted-foreground)] mb-1 uppercase">Course Name</label>
+                  <input 
+                    value={newElectiveName} onChange={e => setNewElectiveName(e.target.value)}
+                    placeholder="e.g. Machine Learning"
+                    className="w-full px-4 py-2 bg-[var(--background)] border border-[var(--border)] rounded-xl text-sm"
+                  />
+                </div>
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-xs font-bold text-[var(--muted-foreground)] mb-1 uppercase">Course Code</label>
+                    <input 
+                      value={newCourseCode} onChange={e => setNewCourseCode(e.target.value)}
+                      placeholder="e.g. ML101"
+                      className="w-full px-4 py-2 bg-[var(--background)] border border-[var(--border)] rounded-xl text-sm"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-bold text-[var(--muted-foreground)] mb-1 uppercase">Total Seat Quota</label>
+                    <input 
+                      type="number"
+                      value={newMaxSeats} onChange={e => setNewMaxSeats(e.target.value)}
+                      placeholder="e.g. 60"
+                      className="w-full px-4 py-2 bg-[var(--background)] border border-[var(--border)] rounded-xl text-sm"
+                    />
+                  </div>
+                </div>
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-xs font-bold text-[var(--muted-foreground)] mb-1 uppercase">Credits</label>
+                    <input 
+                      type="number"
+                      value={newCredits} onChange={e => setNewCredits(e.target.value)}
+                      className="w-full px-4 py-2 bg-[var(--background)] border border-[var(--border)] rounded-xl text-sm"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-bold text-[var(--muted-foreground)] mb-1 uppercase">Cluster Group</label>
+                    <select 
+                      value={newElectiveGroupId} onChange={e => setNewElectiveGroupId(e.target.value)}
+                      className="w-full px-4 py-2 bg-[var(--background)] border border-[var(--border)] rounded-xl text-sm"
+                    >
+                      {allGroups.map(g => (
+                        <option key={g.id} value={g.id}>{g.name}</option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+              </div>
+              <div className="p-6 bg-[var(--background)] border-t border-[var(--border)] flex justify-end gap-3">
+                <button 
+                  onClick={() => setIsElectiveModalOpen(false)}
+                  className="px-4 py-2 rounded-xl text-sm font-medium hover:bg-black/10 transition-colors"
+                >
+                  Cancel
+                </button>
+                <button 
+                  onClick={handleAddElective}
+                  disabled={isSaving}
+                  className="bg-indigo-600 text-white px-6 py-2 rounded-xl text-sm font-medium hover:bg-indigo-500 transition-colors shadow-md disabled:opacity-50"
+                >
+                  {isSaving ? "Saving..." : "Save Course"}
+                </button>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }
