@@ -192,6 +192,9 @@ const registerStaffSchema = z.object({
   name: z.string().min(2, "Name must be at least 2 characters"),
   email: z.string().email("Invalid email format"),
   phone: z.string().optional(),
+  facultyId: z.string().min(1, "Faculty is required"),
+  departmentId: z.string().min(1, "Department is required"),
+  programmeId: z.string().min(1, "Programme is required"),
   section: z.string().optional(),
   password: z.string().min(6, "Password must be at least 6 characters"),
 });
@@ -206,6 +209,9 @@ export async function registerStaff(formData: {
   name: string;
   email: string;
   phone?: string;
+  facultyId: string;
+  departmentId: string;
+  programmeId: string;
   section?: string; // Only for CLASS_TUTOR
   password: string;
 }): Promise<LoginResult> {
@@ -213,7 +219,7 @@ export async function registerStaff(formData: {
   if (!parsed.success) {
     return { success: false, error: parsed.error.issues[0].message };
   }
-  const { inviteCode, employeeId, name, email, phone, section, password } = parsed.data;
+  const { inviteCode, employeeId, name, email, phone, facultyId, departmentId, programmeId, section, password } = parsed.data;
 
   try {
     // 1. Validate invite code
@@ -240,31 +246,24 @@ export async function registerStaff(formData: {
     }
 
     // 2. Section validation for CLASS_TUTOR
-    let resolvedSectionId: string | null = invite.sectionId || null;
+    let resolvedSectionId: string | null = null;
+    let resolvedBatchId: string | null = null;
     
-    if (invite.role === "CLASS_TUTOR" && !resolvedSectionId) {
+    if (invite.role === "CLASS_TUTOR") {
       if (!section) {
         return { success: false, error: "Class Tutors must select a section." };
       }
-      // Look up section by label + academicBatchId from the invite
-      if (invite.academicBatchId) {
-        const [sec] = await db
-          .select()
-          .from(sections)
-          .where(
-            and(
-              eq(sections.label, section.toUpperCase().trim()),
-              eq(sections.academicBatchId, invite.academicBatchId)
-            )
-          )
-          .limit(1);
-        if (!sec) {
-          return { success: false, error: "Invalid section. Please select A–J." };
-        }
-        resolvedSectionId = sec.id;
-      } else {
-        return { success: false, error: "Cannot assign section without a programme in the invite code. Contact Admin." };
+      // Validate that the section ID exists
+      const [sec] = await db
+        .select()
+        .from(sections)
+        .where(eq(sections.id, section))
+        .limit(1);
+      if (!sec) {
+        return { success: false, error: "Invalid section selected." };
       }
+      resolvedSectionId = sec.id;
+      resolvedBatchId = sec.academicBatchId;
     }
 
     // 3. Email domain check
@@ -305,9 +304,10 @@ export async function registerStaff(formData: {
         role: invite.role,
         employeeId: employeeId.trim(),
         phone: phone?.trim() || null,
-        facultyId: invite.facultyId,
-        departmentId: invite.departmentId,
-        programmeId: invite.programmeId,
+        facultyId: facultyId,
+        departmentId: departmentId,
+        programmeId: programmeId,
+        academicBatchId: resolvedBatchId,
         sectionId: resolvedSectionId,
       })
       .returning();
