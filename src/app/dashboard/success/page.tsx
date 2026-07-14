@@ -39,7 +39,7 @@ export default async function RegistrationSuccessPage() {
     .where(
       and(
         eq(registrationEvents.academicBatchId, student.academicBatchId),
-        inArray(registrationEvents.status, ["PUBLISHED", "OPEN", "CLOSED", "VERIFICATION", "FINALIZED"])
+        inArray(registrationEvents.status, ["PUBLISHED", "OPEN", "ACTIVE", "CLOSED", "VERIFICATION", "FINALIZED"])
       )
     ).orderBy(desc(registrationEvents.createdAt)).limit(1);
 
@@ -65,7 +65,7 @@ export default async function RegistrationSuccessPage() {
   // Determine if editing is allowed based on event status and lock
   const now = new Date();
   const isLocked = registrations.some(r => r.registration.isLocked);
-  const allowRegistrationEdit = !isLocked && event.status === "OPEN" && (!event.closeDate || now <= event.closeDate);
+  const allowRegistrationEdit = !isLocked && (event.status === "OPEN" || event.status === "ACTIVE") && (!event.closeDate || now <= event.closeDate);
 
   const formattedRegistrations = registrations.map(r => ({
     groupName: r.group?.name || "Unknown Group",
