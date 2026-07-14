@@ -20,7 +20,8 @@ import {
   GraduationCap,
   ShieldAlert,
   Building,
-  Mail
+  Mail,
+  Clock
 } from "lucide-react";
 import { logout } from "@/app/actions/auth";
 
@@ -79,8 +80,10 @@ export function FacultyLayoutClient({ children, session }: FacultyLayoutClientPr
       );
     } else if (session.role === "CLASS_TUTOR") {
       items.push(
-        { name: "My Section", href: "/faculty/section", icon: Users },
-        { name: "Approvals", href: "/faculty/approvals", icon: FileText }
+        { name: "Electives", href: "/faculty/tutor-electives", icon: BookOpen },
+        { name: "Students", href: "/faculty/section", icon: GraduationCap },
+        { name: "Reports", href: "/faculty/tutor-reports", icon: FileText },
+        { name: "Portal Window", href: "/faculty/window", icon: Clock }
       );
     }
 
