@@ -190,3 +190,64 @@ export async function toggleMaintenanceMode(enabled: boolean) {
     .set({ maintenanceMode: enabled })
     .where(eq(systemSettings.id, "system"));
 }
+
+// ── Invite Codes (Create / Revoke) ───────────────────────────────────────────
+
+export async function createInviteCode(formData: {
+  role: "COURSE_COORDINATOR" | "CLASS_TUTOR";
+  facultyId?: string;
+  departmentId?: string;
+  programmeId?: string;
+  sectionId?: string;
+  maxUses: number;
+  expiresInDays: number;
+}) {
+  const session = await assertAdmin();
+
+  // Generate a random 8-char alphanumeric code
+  const code = Math.random().toString(36).substring(2, 10).toUpperCase();
+
+  const expiresAt = new Date();
+  expiresAt.setDate(expiresAt.getDate() + formData.expiresInDays);
+
+  await db.insert(inviteCodes).values({
+    code,
+    role: formData.role,
+    facultyId: formData.facultyId || null,
+    departmentId: formData.departmentId || null,
+    programmeId: formData.programmeId || null,
+    sectionId: formData.sectionId || null,
+    createdById: session.userId,
+    expiresAt,
+    maxUses: formData.maxUses,
+  });
+
+  // Audit log
+  await db.insert(auditLogs).values({
+    action: "INVITE_CODE_CREATED",
+    userId: session.userId,
+    userEmail: session.email,
+    userRole: session.role,
+    newValue: { code, role: formData.role },
+  });
+
+  return { code };
+}
+
+export async function revokeInviteCode(id: string) {
+  const session = await assertAdmin();
+
+  await db
+    .update(inviteCodes)
+    .set({ status: "REVOKED" })
+    .where(eq(inviteCodes.id, id));
+
+  await db.insert(auditLogs).values({
+    action: "INVITE_CODE_REVOKED",
+    userId: session.userId,
+    userEmail: session.email,
+    userRole: session.role,
+    metadata: { id },
+  });
+}
+

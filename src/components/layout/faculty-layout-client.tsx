@@ -19,7 +19,8 @@ import {
   Layers,
   GraduationCap,
   ShieldAlert,
-  Building
+  Building,
+  Mail
 } from "lucide-react";
 import { logout } from "@/app/actions/auth";
 
@@ -65,6 +66,7 @@ export function FacultyLayoutClient({ children, session }: FacultyLayoutClientPr
         { name: "Departments", href: "/faculty/departments", icon: Building },
         { name: "Event Templates", href: "/faculty/templates", icon: Layers },
         { name: "Users", href: "/faculty/users", icon: Users },
+        { name: "Invite Codes", href: "/faculty/invites", icon: Mail },
         { name: "Audit Logs", href: "/faculty/audit", icon: ShieldAlert },
         { name: "Settings", href: "/faculty/settings", icon: Settings }
       );
