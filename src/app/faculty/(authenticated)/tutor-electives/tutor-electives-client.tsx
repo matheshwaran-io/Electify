@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { BookOpen, Users, CheckCircle2, Percent, Search, Plus, X } from "lucide-react";
-import { createElective, createElectiveGroup } from "@/app/actions/tutor";
+import { createElective, createElectiveGroup, createRegistrationWindow } from "@/app/actions/tutor";
 import { useRouter } from "next/navigation";
 
 type Elective = { 
@@ -33,7 +33,7 @@ export function TutorElectivesClient({ electivesData }: { electivesData: EventDa
   const [activeGroupId, setActiveGroupId] = useState<string | null>(allGroups.length > 0 ? allGroups[0].id : null);
   const [search, setSearch] = useState("");
 
-  const activeGroup = allGroups.find(g => g.id === activeGroupId);
+  const activeGroup = allGroups.find(g => g.id === activeGroupId) || allGroups[0];
   const filteredElectives = activeGroup?.electives.filter(e => 
     e.name.toLowerCase().includes(search.toLowerCase()) || 
     (e.courseCode && e.courseCode.toLowerCase().includes(search.toLowerCase()))
@@ -51,7 +51,25 @@ export function TutorElectivesClient({ electivesData }: { electivesData: EventDa
   
   const [isSaving, setIsSaving] = useState(false);
 
+  // States for creating a window directly from empty state
+  const [isWindowCreating, setIsWindowCreating] = useState(false);
+  const [newWindowName, setNewWindowName] = useState("");
+  const [newWindowYear, setNewWindowYear] = useState(new Date().getFullYear() + "-" + (new Date().getFullYear() + 1));
+
   const firstEventId = electivesData[0]?.event.id;
+
+  async function handleCreateWindow() {
+    if (!newWindowName) return;
+    setIsWindowCreating(true);
+    try {
+      await createRegistrationWindow({ name: newWindowName, academicYear: newWindowYear });
+      router.refresh();
+    } catch (err: any) {
+      alert(err.message);
+    } finally {
+      setIsWindowCreating(false);
+    }
+  }
 
   async function handleAddGroup() {
     if (!newGroupName || !firstEventId) return;
@@ -97,9 +115,33 @@ export function TutorElectivesClient({ electivesData }: { electivesData: EventDa
           <h1 className="text-3xl font-bold text-[var(--foreground)]">Course Configurations</h1>
           <p className="text-[var(--muted-foreground)] mt-1">Review elective listings and seat quotas.</p>
         </div>
-        <div className="text-center py-20 text-[var(--muted-foreground)] bg-[var(--card)] rounded-2xl border border-[var(--border)]">
-          <BookOpen className="w-10 h-10 mx-auto mb-3 opacity-30" />
-          <p>No registration event exists. Create a Registration Window first to start adding electives.</p>
+        <div className="flex flex-col items-center justify-center py-20 text-[var(--muted-foreground)] bg-[var(--card)] rounded-2xl border border-[var(--border)]">
+          <BookOpen className="w-10 h-10 mb-4 opacity-30" />
+          <p className="mb-6">No registration event exists. Create a Registration Window first to start adding electives.</p>
+          
+          <div className="bg-[var(--background)] p-6 rounded-2xl border border-[var(--border)] max-w-sm w-full space-y-4 shadow-sm text-left">
+            <div>
+              <label className="block text-xs font-bold uppercase tracking-wider mb-1">Window Name</label>
+              <input 
+                value={newWindowName} onChange={e => setNewWindowName(e.target.value)}
+                placeholder="e.g. Fall 2026 Registration"
+                className="w-full px-4 py-2 bg-[var(--card)] border border-[var(--border)] rounded-xl text-sm text-[var(--foreground)] focus:ring-2 focus:ring-indigo-500/50 outline-none"
+              />
+            </div>
+            <div>
+              <label className="block text-xs font-bold uppercase tracking-wider mb-1">Academic Year</label>
+              <input 
+                value={newWindowYear} onChange={e => setNewWindowYear(e.target.value)}
+                className="w-full px-4 py-2 bg-[var(--card)] border border-[var(--border)] rounded-xl text-sm text-[var(--foreground)] focus:ring-2 focus:ring-indigo-500/50 outline-none"
+              />
+            </div>
+            <button 
+              onClick={handleCreateWindow} disabled={isWindowCreating}
+              className="w-full bg-indigo-600 text-white px-4 py-2 rounded-xl text-sm font-medium hover:bg-indigo-500 transition shadow-md shadow-indigo-500/20 flex items-center justify-center gap-2 mt-2 disabled:opacity-50"
+            >
+              <Plus className="w-4 h-4" /> {isWindowCreating ? "Creating..." : "Create Registration Window"}
+            </button>
+          </div>
         </div>
       </div>
     );
@@ -179,7 +221,7 @@ export function TutorElectivesClient({ electivesData }: { electivesData: EventDa
                   setNewElectiveGroupId(group.id);
                 }}
                 className={`px-4 py-3 rounded-xl text-sm font-medium transition-all text-left flex items-center justify-between whitespace-nowrap ${
-                  activeGroupId === group.id 
+                  (activeGroupId === group.id || (!activeGroupId && allGroups[0].id === group.id))
                     ? "bg-indigo-500 text-white shadow-md shadow-indigo-500/20" 
                     : "bg-[var(--card)] text-[var(--muted-foreground)] hover:bg-[var(--accent)] hover:text-[var(--foreground)]"
                 }`}
@@ -190,6 +232,9 @@ export function TutorElectivesClient({ electivesData }: { electivesData: EventDa
                 </span>
               </button>
             ))}
+            {allGroups.length === 0 && (
+              <div className="text-sm text-[var(--muted-foreground)] py-4 text-center">No groups yet.</div>
+            )}
           </div>
 
           <button 
