@@ -40,7 +40,7 @@ export default function UnifiedLoginPage() {
             <div className="space-y-4">
               <h1 className="text-4xl sm:text-7xl font-bold text-slate-900 dark:text-white tracking-[-0.05em] leading-[0.9]">
                 Electify Portal <br />
-                <span className="bg-clip-text text-transparent bg-gradient-to-r from-blue-500 via-indigo-500 to-purple-600 dark:from-blue-400 dark:via-indigo-400 dark:to-purple-500 animate-gradient">
+                <span className="text-slate-800 dark:text-slate-200">
                   Authentication.
                 </span>
               </h1>

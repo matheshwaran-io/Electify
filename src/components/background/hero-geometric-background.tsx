@@ -43,7 +43,7 @@ export function HeroGeometricBackground() {
   // Mouse spotlight coordinates used in inline styling
   const spotlightStyle = useTransform(
     [mousePageX, mousePageY],
-    ([x, y]) => `radial-gradient(600px circle at ${x}px ${y}px, rgba(79, 140, 255, 0.04), transparent 80%)`
+    ([x, y]) => `radial-gradient(600px circle at ${x}px ${y}px, ${isDark ? 'rgba(255,255,255,0.03)' : 'rgba(0,0,0,0.02)'}, transparent 80%)`
   );
 
   const isDark = theme === "dark";
@@ -117,30 +117,30 @@ export function HeroGeometricBackground() {
         style={{ x: parallaxX, y: parallaxY }}
         className="absolute inset-0 w-full h-full mix-blend-screen dark:mix-blend-screen z-10 opacity-80"
       >
-        {/* Top Left: Blue (Translate 15px over 35 seconds) */}
+        {/* Top Left: Slate */}
         <motion.div
           animate={shouldReduceMotion || !isTabActive ? {} : { x: [0, 15, 0], y: [0, -15, 0] }}
           transition={{ duration: 35, repeat: Infinity, ease: "easeInOut" }}
           className={`absolute top-[-25%] left-[-20%] w-[70%] h-[70%] rounded-full blur-[250px] ${
-            isDark ? "bg-[#4F8CFF]/8" : "bg-[#4F8CFF]/4"
+            isDark ? "bg-[#334155]/10" : "bg-[#94A3B8]/10"
           }`}
         />
 
-        {/* Center Right: Purple */}
+        {/* Center Right: Slate */}
         <motion.div
           animate={shouldReduceMotion || !isTabActive ? {} : { x: [0, -15, 0], y: [0, 15, 0] }}
           transition={{ duration: 38, repeat: Infinity, ease: "easeInOut" }}
           className={`absolute top-[15%] right-[-20%] w-[60%] h-[60%] rounded-full blur-[250px] ${
-            isDark ? "bg-[#8B5CF6]/8" : "bg-[#8B5CF6]/4"
+            isDark ? "bg-[#1E293B]/10" : "bg-[#CBD5E1]/10"
           }`}
         />
 
-        {/* Bottom Left: Cyan */}
+        {/* Bottom Left: Slate */}
         <motion.div
           animate={shouldReduceMotion || !isTabActive ? {} : { x: [0, 15, 0], y: [0, 15, 0] }}
           transition={{ duration: 42, repeat: Infinity, ease: "easeInOut" }}
           className={`absolute bottom-[-20%] left-[-15%] w-[65%] h-[65%] rounded-full blur-[250px] ${
-            isDark ? "bg-[#00CFFF]/8" : "bg-[#00CFFF]/4"
+            isDark ? "bg-[#475569]/10" : "bg-[#E2E8F0]/10"
           }`}
         />
       </motion.div>
@@ -153,16 +153,16 @@ export function HeroGeometricBackground() {
             : {
                 background: isDark
                   ? [
-                      "radial-gradient(circle at 50% 50%, rgba(109, 93, 254, 0.02) 0%, transparent 60%)",
-                      "radial-gradient(circle at 60% 40%, rgba(0, 207, 255, 0.02) 0%, transparent 60%)",
-                      "radial-gradient(circle at 40% 60%, rgba(79, 140, 255, 0.02) 0%, transparent 60%)",
-                      "radial-gradient(circle at 50% 50%, rgba(109, 93, 254, 0.02) 0%, transparent 60%)",
+                      "radial-gradient(circle at 50% 50%, rgba(51, 65, 85, 0.05) 0%, transparent 60%)",
+                      "radial-gradient(circle at 60% 40%, rgba(30, 41, 59, 0.05) 0%, transparent 60%)",
+                      "radial-gradient(circle at 40% 60%, rgba(71, 85, 105, 0.05) 0%, transparent 60%)",
+                      "radial-gradient(circle at 50% 50%, rgba(51, 65, 85, 0.05) 0%, transparent 60%)",
                     ]
                   : [
-                      "radial-gradient(circle at 50% 50%, rgba(109, 93, 254, 0.04) 0%, transparent 60%)",
-                      "radial-gradient(circle at 60% 40%, rgba(0, 207, 255, 0.03) 0%, transparent 60%)",
-                      "radial-gradient(circle at 40% 60%, rgba(79, 140, 255, 0.03) 0%, transparent 60%)",
-                      "radial-gradient(circle at 50% 50%, rgba(109, 93, 254, 0.04) 0%, transparent 60%)",
+                      "radial-gradient(circle at 50% 50%, rgba(148, 163, 184, 0.05) 0%, transparent 60%)",
+                      "radial-gradient(circle at 60% 40%, rgba(203, 213, 225, 0.05) 0%, transparent 60%)",
+                      "radial-gradient(circle at 40% 60%, rgba(226, 232, 240, 0.05) 0%, transparent 60%)",
+                      "radial-gradient(circle at 50% 50%, rgba(148, 163, 184, 0.05) 0%, transparent 60%)",
                     ],
               }
         }

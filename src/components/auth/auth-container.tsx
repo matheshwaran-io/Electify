@@ -735,7 +735,7 @@ function AuthSubmitButton({
     <motion.button
       type="submit"
       disabled={authState !== "idle"}
-      className="w-full relative py-3 px-6 rounded-xl bg-gradient-to-r from-[#4F8CFF] to-[#6D5DFE] text-slate-100 text-xs font-bold shadow-[0_10px_35px_rgba(99,102,241,0.25)] hover:shadow-[0_15px_40px_rgba(99,102,241,0.4)] disabled:opacity-90 overflow-hidden select-none transition-all flex items-center justify-center"
+      className="w-full relative py-3 px-6 rounded-xl bg-slate-900 dark:bg-white text-white dark:text-slate-900 hover:bg-slate-800 dark:hover:bg-slate-100 text-xs font-bold shadow-[0_4px_14px_0_rgb(0,0,0,0.1)] dark:shadow-[0_4px_14px_0_rgb(255,255,255,0.05)] disabled:opacity-90 overflow-hidden select-none transition-all flex items-center justify-center ring-1 ring-slate-900/5 dark:ring-white/10"
       whileHover={{ scale: authState === "idle" ? 1.01 : 1 }}
       whileTap={{ scale: authState === "idle" ? 0.98 : 1 }}
     >
@@ -760,7 +760,7 @@ function AuthSubmitButton({
             exit={{ opacity: 0 }}
             className="flex flex-col items-center w-full gap-1.5"
           >
-            <div className="text-[10px] font-extrabold uppercase tracking-wider text-blue-200">
+            <div className="text-[10px] font-extrabold uppercase tracking-wider text-slate-500 dark:text-slate-400">
               Authenticating...
             </div>
             {/* SaaS Progress Bar design: [■■■■■■░░░░] */}
@@ -774,13 +774,13 @@ function AuthSubmitButton({
                     key={idx}
                     className={cn(
                       "inline-block w-1.5 h-2.5 transition-colors",
-                      isFilled ? "bg-cyan-400" : "bg-white/10"
+                      isFilled ? "bg-slate-900 dark:bg-white" : "bg-slate-300 dark:bg-slate-700"
                     )}
                   />
                 );
               })}
               <span>]</span>
-              <span className="ml-1 text-cyan-400 font-bold">{Math.min(100, progress)}%</span>
+              <span className="ml-1 text-slate-900 dark:text-white font-bold">{Math.min(100, progress)}%</span>
             </div>
           </motion.div>
         )}
