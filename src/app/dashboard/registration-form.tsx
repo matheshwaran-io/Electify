@@ -2,10 +2,8 @@
 
 import * as React from "react";
 import { useRouter } from "next/navigation";
-import { motion, AnimatePresence } from "framer-motion";
 import { registerElectives } from "@/app/actions/register";
 import { PremiumButton } from "@/components/premium/premium-button";
-import { OccupancyRing } from "@/components/premium/occupancy-ring";
 import {
   Dialog,
   DialogContent,
@@ -15,17 +13,24 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { toast } from "sonner";
-import { Check, CheckCircle2, AlertTriangle, ArrowRight, Loader2, BookOpen, Sparkles } from "lucide-react";
-import { Component as Loader } from "@/components/ui/loader-2";
+import { Check, CheckCircle2, ArrowRight } from "lucide-react";
 
 interface Elective {
   id: string;
-  groupNumber: number;
+  groupId: string;
+  courseCode: string | null;
   name: string;
-  totalSeats: number;
+  maxSeats: number;
   availableSeats: number;
   isActive: boolean;
   isFull: boolean;
+}
+
+interface Group {
+  id: string;
+  name: string;
+  minChoices: number;
+  maxChoices: number;
 }
 
 interface Student {
@@ -36,60 +41,97 @@ interface Student {
   hasSubmitted: boolean;
 }
 
-interface Settings {
-  showLiveSeats: boolean;
-  allowRegistrationEdit: boolean;
+interface Event {
+  id: string;
+  name: string;
+  status: string;
+  openDate: Date | null;
+  closeDate: Date | null;
 }
 
 interface RegistrationFormProps {
+  event: Event;
   student: Student;
+  groups: Group[];
   electives: Elective[];
-  settings: Settings;
-  initialRegistration?: {
-    electiveGroup1Id: string;
-    electiveGroup2Id: string;
-  } | null;
+  initialRegistrations: { electiveId: string; groupId: string }[];
 }
 
 export function RegistrationForm({
+  event,
   student,
+  groups,
   electives,
-  settings,
-  initialRegistration,
+  initialRegistrations,
 }: RegistrationFormProps) {
   const router = useRouter();
 
-  // Selected elective IDs
-  const [selectedG1, setSelectedG1] = React.useState<string>(
-    initialRegistration?.electiveGroup1Id || ""
-  );
-  const [selectedG2, setSelectedG2] = React.useState<string>(
-    initialRegistration?.electiveGroup2Id || ""
-  );
+  // State: mapping from groupId to an array of selected electiveIds
+  const [selections, setSelections] = React.useState<Record<string, string[]>>(() => {
+    const initial: Record<string, string[]> = {};
+    for (const group of groups) {
+      initial[group.id] = initialRegistrations
+        .filter((r) => r.groupId === group.id)
+        .map((r) => r.electiveId);
+    }
+    return initial;
+  });
 
   const [isConfirmOpen, setIsConfirmOpen] = React.useState(false);
   const [isSubmitting, setIsSubmitting] = React.useState(false);
 
-  // Group electives
-  const g1Electives = React.useMemo(() => electives.filter((e) => e.groupNumber === 1), [electives]);
-  const g2Electives = React.useMemo(() => electives.filter((e) => e.groupNumber === 2), [electives]);
+  const canSubmit = React.useMemo(() => {
+    return groups.every(
+      (g) =>
+        (selections[g.id]?.length || 0) >= g.minChoices &&
+        (selections[g.id]?.length || 0) <= g.maxChoices
+    ) && student.isEligible;
+  }, [groups, selections, student.isEligible]);
 
-  // Selected elective objects
-  const selectedG1Object = React.useMemo(() => electives.find((e) => e.id === selectedG1), [electives, selectedG1]);
-  const selectedG2Object = React.useMemo(() => electives.find((e) => e.id === selectedG2), [electives, selectedG2]);
+  const handleSelect = (groupId: string, electiveId: string) => {
+    const group = groups.find((g) => g.id === groupId);
+    if (!group) return;
 
-  const canSubmit = selectedG1 !== "" && selectedG2 !== "" && student.isEligible;
+    setSelections((prev) => {
+      const current = prev[groupId] || [];
+      
+      // If already selected, deselect it
+      if (current.includes(electiveId)) {
+        return { ...prev, [groupId]: current.filter((id) => id !== electiveId) };
+      }
+
+      // If maxChoices is 1, just replace
+      if (group.maxChoices === 1) {
+        return { ...prev, [groupId]: [electiveId] };
+      }
+
+      // If we haven't reached maxChoices, add it
+      if (current.length < group.maxChoices) {
+        return { ...prev, [groupId]: [...current, electiveId] };
+      }
+
+      // Otherwise do nothing
+      return prev;
+    });
+  };
 
   const handleRegister = async () => {
     setIsSubmitting(true);
     setIsConfirmOpen(false);
 
     try {
-      const response = await registerElectives(selectedG1, selectedG2);
+      const payload = groups.flatMap((g) =>
+        (selections[g.id] || []).map((eid) => ({
+          groupId: g.id,
+          electiveId: eid,
+        }))
+      );
+
+      const response = await registerElectives(event.id, payload);
+      
       if (response.success) {
-        toast.success("Electives registered successfully!");
+        toast.success("Registration confirmed successfully.");
         router.push("/dashboard/success");
-        router.refresh();
       } else {
         toast.error(response.error || "Failed to register. Please check seat availability.");
         setIsSubmitting(false);
@@ -100,257 +142,160 @@ export function RegistrationForm({
     }
   };
 
-  const renderElectiveCard = (elective: Elective, isSelected: boolean, onSelect: () => void) => {
+  const renderElectiveCard = (elective: Elective, isSelected: boolean) => {
     const isFull = elective.availableSeats <= 0;
-    const isInitiallySelected =
-      initialRegistration?.electiveGroup1Id === elective.id ||
-      initialRegistration?.electiveGroup2Id === elective.id;
-
+    const isInitiallySelected = initialRegistrations.some(r => r.electiveId === elective.id);
     const isDisabled = isFull && !isInitiallySelected;
-    const takenSeats = elective.totalSeats - elective.availableSeats;
-    const occupancyPercentage = (takenSeats / elective.totalSeats) * 100;
 
     return (
-      <motion.div
+      <div
         key={elective.id}
-        layout
-        initial={{ opacity: 0, scale: 0.98 }}
-        animate={{ opacity: 1, scale: 1 }}
-        exit={{ opacity: 0, scale: 0.98 }}
-        whileTap={!isDisabled && student.isEligible ? { scale: 0.985 } : undefined}
-        transition={{ type: "spring", stiffness: 350, damping: 25 }}
         onClick={() => {
-          if (!isDisabled && student.isEligible) onSelect();
+          if (!isDisabled && student.isEligible) handleSelect(elective.groupId, elective.id);
         }}
-        className={`relative overflow-hidden cursor-pointer rounded-cards border-2 p-4 sm:p-6 flex flex-col justify-between min-h-[160px] sm:min-h-[200px] transition-all duration-300 ${
+        className={`relative overflow-hidden cursor-pointer rounded-md p-5 flex flex-col justify-between min-h-[140px] transition-colors border ${
           isSelected
-            ? "border-indigo-600 dark:border-indigo-500 bg-gradient-to-b from-indigo-50/50 to-indigo-100/30 dark:from-indigo-950/20 dark:to-indigo-950/40 shadow-lg shadow-indigo-500/10 dark:shadow-indigo-500/5 ring-1 ring-indigo-500/25"
+            ? "border-slate-900 bg-slate-50 dark:border-white dark:bg-[#1a1a1a]"
             : isDisabled
-            ? "opacity-50 bg-slate-100/50 dark:bg-slate-900/20 border-slate-200 dark:border-slate-900 cursor-not-allowed"
-            : "border-slate-200/60 dark:border-slate-800/60 bg-white/70 dark:bg-slate-900/40 hover:border-slate-300 dark:hover:border-slate-700 hover:shadow-md active:scale-[0.98]"
+            ? "opacity-50 bg-slate-50 dark:bg-[#0a0a0a] border-slate-200 dark:border-white/5 cursor-not-allowed"
+            : "border-slate-200 dark:border-white/10 bg-white dark:bg-[#111] hover:border-slate-300 dark:hover:border-white/20"
         }`}
       >
-        {/* Glow behind selected card */}
-        <AnimatePresence>
-          {isSelected && (
-            <motion.div
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 0.15 }}
-              exit={{ opacity: 0 }}
-              className="absolute inset-0 bg-gradient-to-r from-indigo-500 to-violet-500 blur-xl pointer-events-none"
-            />
-          )}
-        </AnimatePresence>
-
         <div className="space-y-3 relative z-10">
           <div className="flex justify-between items-start gap-4">
-            <div className="flex items-center gap-2">
-              <div className={`p-2 rounded-buttons ${isSelected ? 'bg-indigo-500/10 text-indigo-600 dark:text-indigo-400' : 'bg-slate-100 dark:bg-slate-800 text-slate-500'}`}>
-                <BookOpen className="w-4 h-4" />
-              </div>
-              <span className="text-[10px] font-bold tracking-widest text-slate-400 dark:text-slate-500 uppercase">
-                COURSE
-              </span>
+            <div>
+              {elective.courseCode && (
+                <p className="text-[10px] font-semibold tracking-widest text-slate-500 mb-1">{elective.courseCode}</p>
+              )}
+              <h3 className={`font-medium text-sm leading-tight ${isSelected ? 'text-slate-900 dark:text-white' : 'text-slate-700 dark:text-slate-200'}`}>
+                {elective.name}
+              </h3>
             </div>
             {isSelected && (
-              <motion.span
-                initial={{ scale: 0 }}
-                animate={{ scale: 1 }}
-                className="inline-flex items-center gap-1 text-[10px] font-extrabold uppercase tracking-wider bg-indigo-600 dark:bg-indigo-500 text-white px-2.5 py-0.5 rounded-full shadow-md shadow-indigo-500/20"
-              >
-                <Check className="w-3 h-3" /> Selected
-              </motion.span>
-            )}
-            {isDisabled && (
-              <span className="text-[10px] font-extrabold uppercase tracking-wider bg-rose-500 dark:bg-rose-600 text-white px-2.5 py-0.5 rounded-full shadow-md shadow-rose-500/20">
-                Full
-              </span>
+              <div className="bg-slate-900 dark:bg-white text-white dark:text-black rounded-full p-0.5 shrink-0">
+                <Check className="w-3 h-3" strokeWidth={3} />
+              </div>
             )}
           </div>
-
-          <h3 className="font-extrabold text-slate-900 dark:text-white text-base sm:text-lg leading-snug line-clamp-2">
-            {elective.name}
-          </h3>
         </div>
 
-        {/* Dynamic occupancy layout */}
-        <div className="flex justify-between items-end relative z-10 border-t border-slate-200/50 dark:border-slate-800/50 pt-4 mt-2">
-          {settings.showLiveSeats ? (
-            <div className="space-y-1.5 flex-1 pr-4">
-              <div className="flex justify-between text-[11px] font-bold">
-                <span className="text-slate-400 dark:text-slate-500 uppercase tracking-wider">Seats Taken</span>
-                <span className={isFull ? "text-rose-500" : "text-slate-700 dark:text-slate-300"}>
-                  {takenSeats} / {elective.totalSeats}
-                </span>
-              </div>
-              {/* Dynamic progress track */}
-              <div className="h-2 w-full rounded-full bg-slate-100 dark:bg-slate-800 overflow-hidden">
-                <motion.div
-                  initial={{ width: 0 }}
-                  animate={{ width: `${occupancyPercentage}%` }}
-                  transition={{ duration: 1, ease: "easeOut" }}
-                  className={`h-full rounded-full bg-gradient-to-r ${
-                    isFull
-                      ? "from-rose-500 to-rose-600"
-                      : occupancyPercentage >= 75
-                      ? "from-amber-500 to-amber-600"
-                      : "from-indigo-500 to-cyan-500"
-                  }`}
-                />
-              </div>
-            </div>
-          ) : (
-            <div className="flex-1">
-              <span className="text-xs font-semibold text-slate-400">Availability Status</span>
-              <span className={`block font-bold mt-0.5 ${isFull ? "text-rose-500" : "text-emerald-500"}`}>
-                {isFull ? "Registration Closed" : "Open for Registration"}
-              </span>
-            </div>
-          )}
-
-          {settings.showLiveSeats && (
-            <div className="shrink-0">
-              <OccupancyRing value={occupancyPercentage} size={42} strokeWidth={4} />
-            </div>
+        <div className="mt-6 flex items-center justify-between">
+          <div className="text-xs">
+            <span className="text-slate-500 mr-1">Available:</span>
+            <span className={`font-medium ${isFull ? 'text-rose-500' : 'text-slate-900 dark:text-white'}`}>
+              {elective.availableSeats} / {elective.maxSeats}
+            </span>
+          </div>
+          {isFull && !isInitiallySelected && (
+            <span className="text-[10px] font-medium text-rose-500 bg-rose-500/10 px-2 py-0.5 rounded-sm">
+              Full
+            </span>
           )}
         </div>
-      </motion.div>
+      </div>
     );
   };
 
   return (
-    <div className="space-y-10">
-      {/* Loading Overlay */}
-      {isSubmitting && (
-        <div className="fixed inset-0 z-50 flex flex-col items-center justify-center bg-background/80 backdrop-blur-md">
-          <Loader />
-          <p className="text-sm font-bold text-slate-600 dark:text-slate-400 mt-4 animate-pulse">
-            Securing your seats. Please wait...
-          </p>
-        </div>
-      )}
+    <div className="space-y-12">
+      {groups.map((group) => {
+        const groupElectives = electives.filter((e) => e.groupId === group.id);
+        const selectedForGroup = selections[group.id] || [];
 
-      {!student.isEligible && (
-        <motion.div
-          initial={{ opacity: 0, y: -10 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="flex items-start gap-4 bg-rose-500/10 border border-rose-500/20 p-5 rounded-cards text-rose-800 dark:text-rose-400 shadow-lg"
-        >
-          <div className="p-2 bg-rose-500/15 border border-rose-500/30 rounded-buttons text-rose-600 shrink-0">
-            <AlertTriangle className="w-5 h-5" />
+        return (
+          <div key={group.id} className="space-y-4">
+            <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-2 pb-4 border-b border-slate-200 dark:border-white/10">
+              <div>
+                <h2 className="text-lg font-medium text-slate-900 dark:text-white">
+                  {group.name}
+                </h2>
+                <p className="text-sm text-slate-500 mt-1">
+                  Select {group.minChoices === group.maxChoices ? group.minChoices : `${group.minChoices} to ${group.maxChoices}`} elective{group.maxChoices !== 1 && 's'}.
+                </p>
+              </div>
+              <div className="flex items-center">
+                {selectedForGroup.length >= group.minChoices && selectedForGroup.length <= group.maxChoices ? (
+                  <span className="flex items-center gap-1.5 text-xs font-medium text-emerald-600 dark:text-emerald-500">
+                    <CheckCircle2 className="w-4 h-4" /> Valid Selection
+                  </span>
+                ) : (
+                  <span className="text-xs font-medium text-slate-400">
+                    Selection Required
+                  </span>
+                )}
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              {groupElectives.map((elective) =>
+                renderElectiveCard(elective, selectedForGroup.includes(elective.id))
+              )}
+            </div>
           </div>
+        );
+      })}
+
+      <div className="sticky bottom-6 z-30 pt-6">
+        <div className="bg-white dark:bg-[#111] border border-slate-200 dark:border-white/10 rounded-md p-4 shadow-sm flex flex-col sm:flex-row items-center justify-between gap-4">
           <div>
-            <h4 className="font-extrabold text-slate-900 dark:text-white">Registration Blocked</h4>
-            <p className="text-xs font-semibold text-slate-500 dark:text-slate-400 mt-1 leading-relaxed">
-              Your account is marked as not eligible for registration. Please clear pending requirements or contact the MCA elective coordinator to restore eligibility.
+            <h3 className="font-medium text-sm text-slate-900 dark:text-white">Ready to submit?</h3>
+            <p className="text-xs text-slate-500">
+              Please review your choices before confirming.
             </p>
           </div>
-        </motion.div>
-      )}
-
-      {/* Group 1 Electives */}
-      <div className="space-y-4">
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-1 border-b border-slate-200/60 dark:border-slate-800/60 pb-3">
-          <div className="flex items-center gap-2">
-            <h2 className="text-lg font-extrabold tracking-tight text-slate-900 dark:text-white">
-              Elective Group 1
-            </h2>
-            <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 border border-indigo-500/10 uppercase tracking-widest">
-              Required
+          <PremiumButton
+            onClick={() => setIsConfirmOpen(true)}
+            disabled={!canSubmit || isSubmitting || !student.isEligible}
+            className="w-full sm:w-auto"
+          >
+            <span className="flex items-center gap-2">
+              {isSubmitting ? "Processing..." : student.hasSubmitted ? "Update Selections" : "Confirm Selections"}
+              <ArrowRight className="w-4 h-4" />
             </span>
-          </div>
-          <span className="text-xs text-slate-400 dark:text-slate-500 font-bold uppercase tracking-wider">Choose One Course</span>
-        </div>
-        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4 sm:gap-6">
-          {g1Electives.map((e) =>
-            renderElectiveCard(e, selectedG1 === e.id, () => setSelectedG1(e.id))
-          )}
+          </PremiumButton>
         </div>
       </div>
 
-      {/* Group 2 Electives */}
-      <div className="space-y-4">
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-1 border-b border-slate-200/60 dark:border-slate-800/60 pb-3">
-          <div className="flex items-center gap-2">
-            <h2 className="text-lg font-extrabold tracking-tight text-slate-900 dark:text-white">
-              Elective Group 2
-            </h2>
-            <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 border border-indigo-500/10 uppercase tracking-widest">
-              Required
-            </span>
-          </div>
-          <span className="text-xs text-slate-400 dark:text-slate-500 font-bold uppercase tracking-wider">Choose One Course</span>
-        </div>
-        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4 sm:gap-6">
-          {g2Electives.map((e) =>
-            renderElectiveCard(e, selectedG2 === e.id, () => setSelectedG2(e.id))
-          )}
-        </div>
-      </div>
-
-      {/* Submit Section */}
-      <div className="flex flex-col gap-4 pt-6 border-t border-slate-200/60 dark:border-slate-800/60">
-        <div className="flex items-start sm:items-center gap-2 text-slate-500 text-xs font-semibold">
-          <Sparkles className="w-4 h-4 text-indigo-500 animate-pulse shrink-0 mt-0.5 sm:mt-0" />
-          <span>Double check your selections. You cannot change them after submission.</span>
-        </div>
-        <PremiumButton
-          size="lg"
-          variant={canSubmit ? "primary" : "secondary"}
-          disabled={!canSubmit || isSubmitting}
-          className="w-full sm:w-auto sm:self-end min-h-[52px] px-8 flex items-center justify-center gap-2 shadow-lg"
-          onClick={() => setIsConfirmOpen(true)}
-        >
-          {isSubmitting ? (
-            <>
-              <Loader2 className="w-4 h-4 animate-spin" /> Submitting Choices...
-            </>
-          ) : (
-            <>
-              Verify and Register <ArrowRight className="w-4 h-4" />
-            </>
-          )}
-        </PremiumButton>
-      </div>
-
-      {/* Confirmation Dialog */}
       <Dialog open={isConfirmOpen} onOpenChange={setIsConfirmOpen}>
-        <DialogContent className="w-[calc(100vw-2rem)] max-w-[450px] rounded-cards p-6 border border-white/10 bg-white/90 dark:bg-slate-950/90 backdrop-blur-md shadow-2xl">
-          <DialogHeader className="flex flex-col items-center text-center">
-            <div className="w-12 h-12 rounded-full bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 flex items-center justify-center mb-3 border border-indigo-500/20">
-              <CheckCircle2 className="w-7 h-7" />
-            </div>
-            <DialogTitle className="text-xl font-extrabold text-slate-900 dark:text-white tracking-tight">Confirm Electives</DialogTitle>
-            <DialogDescription className="mt-1.5 text-xs text-slate-500 dark:text-slate-400 max-w-sm">
-              Please confirm your final choices. Once submitted, your registration is locked and editing is disabled.
+        <DialogContent className="sm:max-w-[425px] p-6 bg-white dark:bg-[#111] border border-slate-200 dark:border-white/10 shadow-lg rounded-md">
+          <DialogHeader className="mb-4">
+            <DialogTitle className="text-lg font-medium text-slate-900 dark:text-white">
+              Confirm Registration
+            </DialogTitle>
+            <DialogDescription className="text-sm text-slate-500 pt-2">
+              You are about to register for the following electives. You can modify this later while the registration window is open.
             </DialogDescription>
           </DialogHeader>
 
-          <div className="space-y-4 py-4">
-            <div className="p-4 border border-indigo-500/15 bg-indigo-500/5 rounded-cards">
-              <span className="text-[10px] font-bold text-indigo-500 dark:text-indigo-400 uppercase tracking-widest">Group 1 Elective</span>
-              <p className="font-extrabold text-sm text-slate-800 dark:text-slate-200 mt-1">{selectedG1Object?.name}</p>
-            </div>
-            <div className="p-4 border border-indigo-500/15 bg-indigo-500/5 rounded-cards">
-              <span className="text-[10px] font-bold text-indigo-500 dark:text-indigo-400 uppercase tracking-widest">Group 2 Elective</span>
-              <p className="font-extrabold text-sm text-slate-800 dark:text-slate-200 mt-1">{selectedG2Object?.name}</p>
-            </div>
+          <div className="space-y-4 my-6">
+            {groups.map(group => {
+              const sel = selections[group.id] || [];
+              if (sel.length === 0) return null;
+              
+              return (
+                <div key={group.id} className="border-l-2 border-slate-200 dark:border-white/10 pl-3">
+                  <p className="text-xs font-medium text-slate-500 mb-2">{group.name}</p>
+                  <ul className="space-y-1.5">
+                    {sel.map(eid => {
+                      const elective = electives.find(e => e.id === eid);
+                      return (
+                        <li key={eid} className="font-medium text-slate-900 dark:text-slate-200 text-sm">
+                          {elective?.courseCode ? `${elective.courseCode} - ` : ""}{elective?.name}
+                        </li>
+                      );
+                    })}
+                  </ul>
+                </div>
+              );
+            })}
           </div>
 
-          <DialogFooter className="flex flex-col gap-3">
-            <PremiumButton
-              variant="primary"
-              className="w-full justify-center shadow-lg shadow-indigo-500/20 min-h-[48px]"
-              onClick={handleRegister}
-            >
-              Submit Choices
-            </PremiumButton>
-            <PremiumButton
-              variant="outline"
-              className="w-full justify-center min-h-[48px]"
-              onClick={() => setIsConfirmOpen(false)}
-            >
+          <DialogFooter className="gap-2 sm:gap-0 mt-6 border-t border-slate-100 dark:border-white/5 pt-4">
+            <PremiumButton variant="outline" onClick={() => setIsConfirmOpen(false)} disabled={isSubmitting}>
               Cancel
+            </PremiumButton>
+            <PremiumButton onClick={handleRegister} disabled={isSubmitting} isLoading={isSubmitting}>
+              {!isSubmitting && "Confirm"}
             </PremiumButton>
           </DialogFooter>
         </DialogContent>

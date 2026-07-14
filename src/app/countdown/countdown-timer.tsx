@@ -53,7 +53,6 @@ export function CountdownTimer({ startDateStr, registrationEnabled }: CountdownT
     if (isOver) {
       if (registrationEnabled) {
         router.push("/dashboard");
-        router.refresh();
       } else {
         // Just refresh to get the latest settings
         router.refresh();
@@ -68,7 +67,6 @@ export function CountdownTimer({ startDateStr, registrationEnabled }: CountdownT
         if (registrationEnabled) {
           toast.success("Registration is now open! Navigating...");
           router.push("/dashboard");
-          router.refresh();
         } else {
           router.refresh();
         }

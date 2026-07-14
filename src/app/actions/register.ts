@@ -1,6 +1,8 @@
 "use server";
 
-import db from "@/lib/db";
+import { db } from "@/lib/db";
+import { users, registrationEvents, studentRegistrations, electives, systemSettings } from "@/lib/db/schema";
+import { eq, and, sql } from "drizzle-orm";
 import { getSession } from "@/lib/auth";
 
 interface RegisterResult {
@@ -12,8 +14,8 @@ interface RegisterResult {
  * Handles the registration of electives for the logged-in student.
  */
 export async function registerElectives(
-  electiveGroup1Id: string,
-  electiveGroup2Id: string
+  eventId: string,
+  selections: { groupId: string; electiveId: string }[]
 ): Promise<RegisterResult> {
   try {
     // 1. Authenticate user
@@ -22,17 +24,17 @@ export async function registerElectives(
       return { success: false, error: "Unauthorized. Please log in as a student." };
     }
 
-    // 2. Fetch student and system settings
-    const [student, settings] = await Promise.all([
-      db.student.findUnique({
-        where: { id: session.userId },
-        include: { registration: true },
-      }),
-      db.settings.findUnique({
-        where: { id: "system" },
-      }),
-    ]);
+    const studentId = session.userId;
 
+    // 2. Fetch system settings
+    const [settings] = await db.select().from(systemSettings).where(eq(systemSettings.id, "system")).limit(1);
+    if (settings?.maintenanceMode) {
+      return { success: false, error: "System is currently undergoing maintenance." };
+    }
+
+    // 3. Fetch student
+    const [student] = await db.select().from(users).where(eq(users.id, studentId)).limit(1);
+    
     if (!student) {
       return { success: false, error: "Student record not found." };
     }
@@ -45,141 +47,73 @@ export async function registerElectives(
       return { success: false, error: "You are not eligible for registration. Please contact faculty." };
     }
 
-    if (!settings) {
-      return { success: false, error: "System settings not configured." };
+    // 4. Fetch Registration Event
+    const [event] = await db.select().from(registrationEvents).where(eq(registrationEvents.id, eventId)).limit(1);
+    
+    if (!event) {
+      return { success: false, error: "Registration event not found." };
     }
 
-    if (settings.maintenanceMode) {
-      return { success: false, error: "System is currently undergoing maintenance." };
-    }
-
-    // 3. Verify Registration Window
     const now = new Date();
-    if (!settings.registrationEnabled || now < settings.registrationStart || now > settings.registrationEnd) {
+    if (!["OPEN", "PUBLISHED"].includes(event.status) || (event.openDate && now < event.openDate) || (event.closeDate && now > event.closeDate)) {
       return { success: false, error: "Registration is currently closed." };
     }
 
-    // 4. Verify Student Submission State
-    if (student.hasSubmitted && !settings.allowRegistrationEdit) {
-      return { success: false, error: "You have already submitted your registration and editing is disabled." };
-    }
+    // 5. Execute Transaction
+    await db.transaction(async (tx) => {
+      // Find existing registrations for this event
+      const existing = await tx.select().from(studentRegistrations)
+        .where(and(eq(studentRegistrations.studentId, studentId), eq(studentRegistrations.eventId, eventId)));
 
-    // 5. Verify selected electives belong to correct groups and are active
-    const [electiveG1, electiveG2] = await Promise.all([
-      db.elective.findUnique({ where: { id: electiveGroup1Id } }),
-      db.elective.findUnique({ where: { id: electiveGroup2Id } }),
-    ]);
-
-    if (!electiveG1 || electiveG1.groupNumber !== 1 || !electiveG1.isActive) {
-      return { success: false, error: "Invalid selection for Group 1 elective." };
-    }
-
-    if (!electiveG2 || electiveG2.groupNumber !== 2 || !electiveG2.isActive) {
-      return { success: false, error: "Invalid selection for Group 2 elective." };
-    }
-
-    // 6. Execute Transaction
-    await db.$transaction(async (tx) => {
-      const existingRegistration = await tx.registration.findUnique({
-        where: { studentId: student.id },
-      });
-
-      // If updating, release old seats
-      if (existingRegistration) {
-        // Increment seat for old Group 1 elective
-        const oldG1 = await tx.elective.update({
-          where: { id: existingRegistration.electiveGroup1Id },
-          data: {
-            availableSeats: { increment: 1 },
-          },
-        });
-        await tx.elective.update({
-          where: { id: existingRegistration.electiveGroup1Id },
-          data: {
-            isFull: oldG1.availableSeats <= 0,
-          },
-        });
-
-        // Increment seat for old Group 2 elective
-        const oldG2 = await tx.elective.update({
-          where: { id: existingRegistration.electiveGroup2Id },
-          data: {
-            availableSeats: { increment: 1 },
-          },
-        });
-        await tx.elective.update({
-          where: { id: existingRegistration.electiveGroup2Id },
-          data: {
-            isFull: oldG2.availableSeats <= 0,
-          },
-        });
+      if (existing.length > 0) {
+        // Unregister existing: increment seats
+        for (const reg of existing) {
+          await tx.update(electives)
+            .set({ 
+              availableSeats: sql`${electives.availableSeats} + 1`,
+              isFull: false
+            })
+            .where(eq(electives.id, reg.electiveId));
+        }
+        // Delete old registrations
+        await tx.delete(studentRegistrations)
+          .where(and(eq(studentRegistrations.studentId, studentId), eq(studentRegistrations.eventId, eventId)));
       }
 
-      // Decrement and check for new Group 1 elective
-      const updatedG1 = await tx.elective.update({
-        where: { id: electiveGroup1Id },
-        data: {
-          availableSeats: { decrement: 1 },
-        },
-      });
+      // Process new selections
+      for (const sel of selections) {
+        const [elective] = await tx.select().from(electives).where(eq(electives.id, sel.electiveId)).limit(1);
+        
+        if (!elective || !elective.isActive) {
+          throw new Error("Selected elective is invalid or inactive.");
+        }
+        if (elective.groupId !== sel.groupId) {
+          throw new Error("Elective does not belong to the correct group.");
+        }
+        if (elective.availableSeats <= 0) {
+          throw new Error(`Seats are fully booked for elective: ${elective.name}`);
+        }
 
-      if (updatedG1.availableSeats < 0) {
-        throw new Error(`Seats are fully booked for Group 1 elective: ${electiveG1.name}`);
-      }
+        // Decrement seat
+        const [updated] = await tx.update(electives)
+          .set({ 
+            availableSeats: sql`${electives.availableSeats} - 1`,
+          })
+          .where(eq(electives.id, sel.electiveId))
+          .returning({ availableSeats: electives.availableSeats });
 
-      await tx.elective.update({
-        where: { id: electiveGroup1Id },
-        data: {
-          isFull: updatedG1.availableSeats === 0,
-        },
-      });
+        if (updated.availableSeats <= 0) {
+           await tx.update(electives).set({ isFull: true }).where(eq(electives.id, sel.electiveId));
+        }
 
-      // Decrement and check for new Group 2 elective
-      const updatedG2 = await tx.elective.update({
-        where: { id: electiveGroup2Id },
-        data: {
-          availableSeats: { decrement: 1 },
-        },
-      });
-
-      if (updatedG2.availableSeats < 0) {
-        throw new Error(`Seats are fully booked for Group 2 elective: ${electiveG2.name}`);
-      }
-
-      await tx.elective.update({
-        where: { id: electiveGroup2Id },
-        data: {
-          isFull: updatedG2.availableSeats === 0,
-        },
-      });
-
-      // Create or update registration entry
-      if (existingRegistration) {
-        await tx.registration.update({
-          where: { studentId: student.id },
-          data: {
-            electiveGroup1Id,
-            electiveGroup2Id,
-            submittedAt: new Date(),
-          },
-        });
-      } else {
-        await tx.registration.create({
-          data: {
-            studentId: student.id,
-            electiveGroup1Id,
-            electiveGroup2Id,
-          },
+        // Insert new registration
+        await tx.insert(studentRegistrations).values({
+          studentId,
+          eventId,
+          groupId: sel.groupId,
+          electiveId: sel.electiveId,
         });
       }
-
-      // Mark student as submitted
-      await tx.student.update({
-        where: { id: student.id },
-        data: {
-          hasSubmitted: true,
-        },
-      });
     });
 
     return { success: true };

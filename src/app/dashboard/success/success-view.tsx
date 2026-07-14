@@ -2,12 +2,11 @@
 
 import * as React from "react";
 import { useRouter } from "next/navigation";
-import { motion } from "framer-motion";
 import { PremiumButton } from "@/components/premium/premium-button";
-import { GlassCard } from "@/components/premium/glass-card";
-import { Check, Printer, Edit, LogOut, FileCheck2, Calendar, User, Mail, Hash } from "lucide-react";
+import { Printer, Edit, LogOut, CheckCircle2 } from "lucide-react";
 import { logout } from "@/app/actions/auth";
 import { toast } from "sonner";
+import Image from "next/image";
 
 interface SuccessViewProps {
   student: {
@@ -15,17 +14,21 @@ interface SuccessViewProps {
     registerNumber: string;
     email: string;
   };
-  registration: {
-    submittedAt: Date;
-    electiveGroup1: { name: string };
-    electiveGroup2: { name: string };
+  event: {
+    name: string;
   };
+  registrations: {
+    groupName: string;
+    electiveName: string;
+    submittedAt: Date;
+  }[];
   allowRegistrationEdit: boolean;
 }
 
 export function SuccessView({
   student,
-  registration,
+  event,
+  registrations,
   allowRegistrationEdit,
 }: SuccessViewProps) {
   const router = useRouter();
@@ -38,148 +41,133 @@ export function SuccessView({
     await logout();
     toast.success("Successfully logged out.");
     router.push("/login");
-    router.refresh();
   };
 
   const formattedDate = React.useMemo(() => {
-    return new Date(registration.submittedAt).toLocaleString("en-US", {
-      dateStyle: "medium",
+    if (registrations.length === 0) return "";
+    const latest = new Date(Math.max(...registrations.map(r => new Date(r.submittedAt).getTime())));
+    return latest.toLocaleString("en-US", {
+      dateStyle: "long",
       timeStyle: "short",
     });
-  }, [registration.submittedAt]);
+  }, [registrations]);
 
   return (
-    <div className="w-full max-w-xl z-10 print:shadow-none print:max-w-full print:p-0">
-      <GlassCard
-        glow="indigo"
-        hoverEffect={false}
-        className="p-0 border-white/10 dark:border-slate-800 bg-white/70 dark:bg-slate-950/40 rounded-cards overflow-hidden print:bg-white print:text-black print:border-none print:shadow-none"
-      >
-        {/* Confirmed Banner */}
-        <div className="bg-gradient-to-r from-indigo-600 to-violet-600 dark:from-indigo-950/40 dark:to-violet-950/40 p-8 text-center border-b border-indigo-500/10 print:bg-none print:text-black print:border-b-2 print:border-slate-300">
-          <motion.div
-            initial={{ scale: 0, rotate: -45 }}
-            animate={{ scale: 1, rotate: 0 }}
-            transition={{ type: "spring", stiffness: 200, damping: 15, delay: 0.1 }}
-            className="inline-flex items-center justify-center w-14 h-14 rounded-full bg-white/15 dark:bg-indigo-500/20 text-white mb-3 border border-white/20 shadow-lg"
-          >
-            <Check className="w-7 h-7 print:text-black" />
-          </motion.div>
-          <motion.h1
-            initial={{ opacity: 0, y: 10 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.2 }}
-            className="text-2xl sm:text-3xl font-extrabold text-white dark:text-indigo-400 tracking-tight print:text-black"
-          >
-            Registration Confirmed
-          </motion.h1>
-          <motion.p
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 0.8 }}
-            transition={{ delay: 0.3 }}
-            className="text-white/80 dark:text-indigo-300 text-[10px] font-bold uppercase tracking-widest mt-1.5 print:text-black print:font-bold"
-          >
-            Official SRMIST MCA Registration Receipt
-          </motion.p>
+    <div className="w-full max-w-2xl mx-auto z-10 print:max-w-full print:w-full">
+      {/* Web Controls Header - Hidden on Print */}
+      <div className="flex flex-col sm:flex-row justify-between items-center gap-4 mb-6 print:hidden">
+        <h1 className="text-xl font-medium text-slate-900 dark:text-white">Registration Receipt</h1>
+        <div className="flex items-center gap-3 w-full sm:w-auto">
+          {allowRegistrationEdit && (
+            <PremiumButton variant="outline" onClick={() => router.push("/dashboard")} className="flex-1 sm:flex-none">
+              <Edit className="w-4 h-4 mr-2" /> Edit
+            </PremiumButton>
+          )}
+          <PremiumButton variant="primary" onClick={handlePrint} className="flex-1 sm:flex-none">
+            <Printer className="w-4 h-4 mr-2" /> Print
+          </PremiumButton>
+          <PremiumButton variant="ghost" onClick={handleLogout} className="text-slate-500 flex-1 sm:flex-none">
+            <LogOut className="w-4 h-4" />
+          </PremiumButton>
+        </div>
+      </div>
+
+      {/* Printable Document Container */}
+      <div className="bg-white dark:bg-[#111] border border-slate-200 dark:border-white/10 rounded-md overflow-hidden shadow-sm print:shadow-none print:border-none print:bg-white text-slate-900 dark:text-slate-200 print:text-black">
+        
+        {/* Document Header */}
+        <div className="p-8 border-b border-slate-200 dark:border-white/10 print:border-black/20 flex items-start justify-between">
+          <div className="flex items-center gap-4">
+            <div className="w-12 h-12 rounded-md bg-slate-900 dark:bg-white text-white dark:text-slate-900 p-2 print:bg-black print:text-white print:border print:border-black">
+              <Image src="/logo.png" alt="Electify Logo" width={32} height={32} className="w-full h-full object-contain invert dark:invert-0 print:invert" />
+            </div>
+            <div>
+              <h1 className="text-2xl font-semibold tracking-tight text-slate-900 dark:text-white print:text-black">Electify</h1>
+              <p className="text-sm text-slate-500 dark:text-slate-400 print:text-slate-600">SRMIST Elective Management</p>
+            </div>
+          </div>
+          <div className="text-right flex flex-col items-end">
+            <div className="flex items-center gap-1.5 text-emerald-600 dark:text-emerald-500 print:text-emerald-700 font-medium">
+              <CheckCircle2 className="w-5 h-5" />
+              <span>Confirmed</span>
+            </div>
+            <p className="text-xs text-slate-500 mt-1 print:text-slate-600">{formattedDate}</p>
+          </div>
         </div>
 
-        <div className="p-6 sm:p-8 space-y-6 print:p-0 print:mt-6">
-          {/* Student details */}
-          <div className="pb-5 border-b border-slate-200/60 dark:border-slate-800/60 print:border-slate-300">
-            <h3 className="text-xs font-bold text-slate-400 dark:text-slate-500 uppercase tracking-widest mb-3 print:text-slate-600">
-              Student Profile
+        <div className="p-8 space-y-10">
+          
+          {/* Official Document Title */}
+          <div>
+            <h2 className="text-xl font-medium mb-1">Official Registration Receipt</h2>
+            <p className="text-sm text-slate-500 print:text-slate-600">Event: {event.name}</p>
+          </div>
+
+          {/* Student Information */}
+          <div className="space-y-4">
+            <h3 className="text-xs font-semibold text-slate-400 dark:text-slate-500 uppercase tracking-wider print:text-slate-500 border-b border-slate-100 dark:border-white/5 print:border-slate-200 pb-2">
+              Student Details
             </h3>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <div className="flex items-center gap-2.5 p-3 rounded-buttons bg-slate-100/50 dark:bg-slate-900/30 border border-slate-200/40 dark:border-slate-800/30 print:bg-none print:border-none print:p-0">
-                <User className="w-4 h-4 text-indigo-500 shrink-0 print:hidden" />
-                <div>
-                  <span className="text-[10px] block text-slate-400 uppercase font-bold tracking-wider leading-none">Full Name</span>
-                  <span className="font-extrabold text-sm text-slate-800 dark:text-slate-200 mt-1 block print:text-black">{student.name}</span>
-                </div>
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-6">
+              <div>
+                <p className="text-[10px] text-slate-500 uppercase tracking-wider mb-1">Full Name</p>
+                <p className="text-sm font-medium">{student.name}</p>
               </div>
-
-              <div className="flex items-center gap-2.5 p-3 rounded-buttons bg-slate-100/50 dark:bg-slate-900/30 border border-slate-200/40 dark:border-slate-800/30 print:bg-none print:border-none print:p-0">
-                <Hash className="w-4 h-4 text-indigo-500 shrink-0 print:hidden" />
-                <div>
-                  <span className="text-[10px] block text-slate-400 uppercase font-bold tracking-wider leading-none">Register Number</span>
-                  <span className="font-extrabold text-sm text-slate-800 dark:text-slate-200 mt-1 block print:text-black">{student.registerNumber}</span>
-                </div>
+              <div>
+                <p className="text-[10px] text-slate-500 uppercase tracking-wider mb-1">Register Number</p>
+                <p className="text-sm font-medium">{student.registerNumber}</p>
               </div>
-
-              <div className="col-span-1 sm:col-span-2 flex items-center gap-2.5 p-3 rounded-buttons bg-slate-100/50 dark:bg-slate-900/30 border border-slate-200/40 dark:border-slate-800/30 print:bg-none print:border-none print:p-0">
-                <Mail className="w-4 h-4 text-indigo-500 shrink-0 print:hidden" />
-                <div>
-                  <span className="text-[10px] block text-slate-400 uppercase font-bold tracking-wider leading-none">SRM Email Address</span>
-                  <span className="font-extrabold text-sm text-slate-800 dark:text-slate-200 mt-1 block print:text-black">{student.email}</span>
-                </div>
+              <div className="col-span-2 sm:col-span-1">
+                <p className="text-[10px] text-slate-500 uppercase tracking-wider mb-1">Email Address</p>
+                <p className="text-sm font-medium">{student.email}</p>
               </div>
             </div>
           </div>
 
-          {/* Registered electives details */}
-          <div className="space-y-4 pb-5 border-b border-slate-200/60 dark:border-slate-800/60 print:border-slate-300">
-            <h3 className="text-xs font-bold text-slate-400 dark:text-slate-500 uppercase tracking-widest mb-1 print:text-slate-600">
+          {/* Registered Electives */}
+          <div className="space-y-4">
+            <h3 className="text-xs font-semibold text-slate-400 dark:text-slate-500 uppercase tracking-wider print:text-slate-500 border-b border-slate-100 dark:border-white/5 print:border-slate-200 pb-2">
               Selected Electives
             </h3>
             
-            <div className="flex gap-3.5 items-start p-4 bg-indigo-500/5 dark:bg-indigo-950/10 border border-indigo-500/15 rounded-cards print:bg-none print:border-slate-200">
-              <div className="p-2 bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 rounded-buttons print:hidden border border-indigo-500/10">
-                <FileCheck2 className="w-4 h-4" />
-              </div>
-              <div>
-                <span className="text-[10px] font-extrabold text-indigo-500 dark:text-indigo-400 uppercase tracking-wider">Elective Group 1</span>
-                <p className="font-extrabold text-base text-slate-800 dark:text-slate-200 mt-1 print:text-black">{registration.electiveGroup1.name}</p>
-              </div>
-            </div>
-
-            <div className="flex gap-3.5 items-start p-4 bg-indigo-500/5 dark:bg-indigo-950/10 border border-indigo-500/15 rounded-cards print:bg-none print:border-slate-200">
-              <div className="p-2 bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 rounded-buttons print:hidden border border-indigo-500/10">
-                <FileCheck2 className="w-4 h-4" />
-              </div>
-              <div>
-                <span className="text-[10px] font-extrabold text-indigo-500 dark:text-indigo-400 uppercase tracking-wider">Elective Group 2</span>
-                <p className="font-extrabold text-base text-slate-800 dark:text-slate-200 mt-1 print:text-black">{registration.electiveGroup2.name}</p>
-              </div>
-            </div>
+            <table className="w-full text-left border-collapse mt-2">
+              <thead>
+                <tr>
+                  <th className="py-2 text-[10px] text-slate-500 uppercase tracking-wider font-normal border-b border-slate-100 dark:border-white/5 print:border-slate-200 w-1/3">Elective Group</th>
+                  <th className="py-2 text-[10px] text-slate-500 uppercase tracking-wider font-normal border-b border-slate-100 dark:border-white/5 print:border-slate-200">Course Selection</th>
+                </tr>
+              </thead>
+              <tbody>
+                {registrations.map((reg, index) => (
+                  <tr key={index}>
+                    <td className="py-3 text-sm font-medium text-slate-700 dark:text-slate-300 print:text-slate-700 border-b border-slate-50 dark:border-white/5 print:border-slate-100 align-top">
+                      {reg.groupName}
+                    </td>
+                    <td className="py-3 text-sm font-semibold text-slate-900 dark:text-white print:text-black border-b border-slate-50 dark:border-white/5 print:border-slate-100">
+                      {reg.electiveName}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
           </div>
 
-          {/* Submitted date */}
-          <div className="flex items-center gap-2 text-xs text-slate-500 dark:text-slate-400 font-bold uppercase">
-            <Calendar className="w-4 h-4 text-indigo-500 print:text-black" /> Submitted On: <span className="text-slate-800 dark:text-slate-200 print:text-black">{formattedDate}</span>
+          {/* Signatures (Print Only) */}
+          <div className="hidden print:flex justify-between items-end mt-24 pt-8">
+            <div className="w-48 text-center border-t border-black/40 pt-2">
+              <p className="text-xs text-slate-600">Student Signature</p>
+            </div>
+            <div className="w-48 text-center border-t border-black/40 pt-2">
+              <p className="text-xs text-slate-600">Authorized Signatory</p>
+            </div>
           </div>
         </div>
 
-        {/* Footer controls */}
-        <div className="bg-slate-50/50 dark:bg-slate-900/30 px-6 py-4 flex flex-col sm:flex-row gap-3 border-t border-slate-200/60 dark:border-slate-800/60 print:hidden">
-          <PremiumButton
-            onClick={handlePrint}
-            variant="primary"
-            className="w-full sm:w-auto shadow-md shadow-indigo-500/10"
-          >
-            <Printer className="w-4 h-4 mr-2" /> Print Receipt
-          </PremiumButton>
-
-          {allowRegistrationEdit && (
-            <PremiumButton
-              variant="outline"
-              onClick={() => router.push("/dashboard")}
-              className="w-full sm:w-auto"
-            >
-              <Edit className="w-4 h-4 mr-2" /> Edit Selection
-            </PremiumButton>
-          )}
-
-          <div className="sm:ml-auto w-full sm:w-auto">
-            <PremiumButton
-              variant="ghost"
-              onClick={handleLogout}
-              className="w-full sm:w-auto text-slate-500 hover:text-rose-500 hover:bg-rose-500/10"
-            >
-              <LogOut className="w-4 h-4 mr-2" /> Sign Out
-            </PremiumButton>
-          </div>
+        {/* Footer */}
+        <div className="p-6 bg-slate-50 dark:bg-[#0a0a0a] border-t border-slate-200 dark:border-white/10 print:bg-white print:border-black/20 text-center text-xs text-slate-500 print:text-slate-500">
+          This document is computer generated and valid for the <strong>{event.name}</strong> registration event.
         </div>
-      </GlassCard>
+      </div>
     </div>
   );
 }
