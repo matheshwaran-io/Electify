@@ -12,7 +12,8 @@ import {
   programmes,
   departments,
   academicBatches,
-  electiveGroups
+  electiveGroups,
+  replayEvents
 } from "@/lib/db/schema";
 import { eq, and, sql, inArray } from "drizzle-orm";
 import { getSession } from "@/lib/auth";
@@ -179,6 +180,18 @@ export async function registerElectives(
           groupId: sel.groupId,
           electiveId: sel.electiveId,
           isLocked: true,
+        });
+
+        // Insert replay event
+        await tx.insert(replayEvents).values({
+          registrationEventId: eventId,
+          studentId,
+          studentName: studentDetails.name,
+          eventType: "STUDENT_REGISTERED",
+          subjectId: sel.electiveId,
+          subjectName: elective.courseCode ? `${elective.courseCode} - ${elective.name}` : elective.name,
+          seatBefore: elective.availableSeats,
+          seatAfter: elective.availableSeats - 1,
         });
       }
 

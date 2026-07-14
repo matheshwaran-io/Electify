@@ -3,7 +3,8 @@
 import { db } from "@/lib/db";
 import {
   users, electives, electiveGroups, registrationEvents, tutorSections,
-  studentRegistrations, eventSections, sections, programmes, academicBatches, auditLogs, registrations, departments
+  studentRegistrations, eventSections, sections, programmes, academicBatches, auditLogs, registrations, departments,
+  replayEvents
 } from "@/lib/db/schema";
 import { getSession } from "@/lib/auth";
 import { eq, and, asc, count, desc, inArray, notInArray } from "drizzle-orm";
@@ -138,6 +139,12 @@ export async function getTutorElectives() {
   });
 }
 
+export async function deleteAllSectionStudents() {
+  const session = await assertTutor();
+  if (!session.sectionId) throw new Error("No section assigned.");
+  await db.delete(users).where(and(eq(users.role, "STUDENT"), eq(users.sectionId, session.sectionId)));
+}
+
 // ── Tutor Reports ─────────────────────────────────────────────────────────
 
 export async function getTutorReports() {
@@ -236,7 +243,7 @@ export async function getTutorReports() {
   };
 }
 
-// ── Portal Window ─────────────────────────────────────────────────────────
+// ── Reg Control Center ─────────────────────────────────────────────────────────
 
 export async function getPortalWindow() {
   const session = await assertTutor();
@@ -273,6 +280,112 @@ export async function getPortalWindow() {
     const groupCount = allGroups.filter(g => g.eventId === event.id).length;
     return { ...event, groupCount };
   });
+}
+
+export async function getRegistrationMetrics(eventId: string) {
+  const session = await assertTutor();
+  if (!session.sectionId) return null;
+
+  // 1. Total students in section vs registered
+  const totalStudentsRes = await db.select({ count: count() }).from(users).where(and(eq(users.sectionId, session.sectionId), eq(users.role, "STUDENT"), eq(users.isActive, true)));
+  const registeredStudentsRes = await db.select({ count: count() }).from(registrations).where(and(eq(registrations.eventId, eventId), eq(registrations.status, "CONFIRMED")));
+
+  const totalStudents = totalStudentsRes[0].count;
+  const registeredStudents = registeredStudentsRes[0].count;
+
+  // 2. Seats filled vs total
+  const electivesList = await db
+    .select({
+      id: electives.id,
+      name: electives.name,
+      courseCode: electives.courseCode,
+      maxSeats: electives.maxSeats,
+      availableSeats: electives.availableSeats,
+      isFull: electives.isFull,
+    })
+    .from(electives)
+    .innerJoin(electiveGroups, eq(electives.groupId, electiveGroups.id))
+    .where(eq(electiveGroups.eventId, eventId));
+
+  let totalSeats = 0;
+  let filledSeats = 0;
+  let fullSubjects = 0;
+
+  for (const el of electivesList) {
+    totalSeats += el.maxSeats;
+    filledSeats += (el.maxSeats - el.availableSeats);
+    if (el.isFull || el.availableSeats <= 0) fullSubjects++;
+  }
+
+  // 3. Analytics (Peak Registration, Popular/Least Subject)
+  const allRegistrations = await db
+    .select({
+      submittedAt: registrations.submittedAt,
+      receiptSnapshot: registrations.receiptSnapshot,
+    })
+    .from(registrations)
+    .where(and(eq(registrations.eventId, eventId), eq(registrations.status, "CONFIRMED")));
+
+  const subjectCounts: Record<string, number> = {};
+  const hourCounts: Record<string, number> = {};
+
+  for (const reg of allRegistrations) {
+    if (reg.submittedAt) {
+      const hour = new Date(reg.submittedAt).getHours();
+      hourCounts[hour] = (hourCounts[hour] || 0) + 1;
+    }
+
+    if (reg.receiptSnapshot && typeof reg.receiptSnapshot === 'object') {
+      const snap = reg.receiptSnapshot as any;
+      if (snap.electives && Array.isArray(snap.electives)) {
+        for (const el of snap.electives) {
+          subjectCounts[el.electiveName] = (subjectCounts[el.electiveName] || 0) + 1;
+        }
+      }
+    }
+  }
+
+  let peakHour = "N/A";
+  let maxHourCount = 0;
+  for (const [hour, c] of Object.entries(hourCounts)) {
+    if (c > maxHourCount) {
+      maxHourCount = c;
+      const h = parseInt(hour);
+      const ampm = h >= 12 ? 'PM' : 'AM';
+      const h12 = h % 12 || 12;
+      peakHour = `${h12}:00 ${ampm}`;
+    }
+  }
+
+  let popularSubject = "N/A";
+  let leastSubject = "N/A";
+  let maxSubCount = -1;
+  let minSubCount = Infinity;
+
+  for (const el of electivesList) {
+    const name = el.courseCode ? `${el.courseCode} - ${el.name}` : el.name;
+    const c = subjectCounts[name] || 0;
+    if (c > maxSubCount) {
+      maxSubCount = c;
+      popularSubject = el.name;
+    }
+    if (c < minSubCount) {
+      minSubCount = c;
+      leastSubject = el.name;
+    }
+  }
+
+  return {
+    totalStudents,
+    registeredStudents,
+    totalSeats,
+    filledSeats,
+    fullSubjects,
+    peakHour,
+    popularSubject,
+    leastSubject,
+    subjectCounts: Object.entries(subjectCounts).map(([name, val]) => ({ name, value: val })),
+  };
 }
 
 // ── CRUD Actions for Tutor ────────────────────────────────────────────────
@@ -423,6 +536,13 @@ export async function unlockStudentRegistration(studentId: string, eventId?: str
       },
     });
   });
+}
+
+export async function resetSectionSubjects(eventId: string) {
+  const session = await assertTutor();
+  const [eventLink] = await db.select().from(eventSections).where(and(eq(eventSections.eventId, eventId), eq(eventSections.sectionId, session.sectionId!)));
+  if (!eventLink) throw new Error("Unauthorized");
+  await db.delete(electiveGroups).where(eq(electiveGroups.eventId, eventId));
 }
 
 export async function createElectiveGroup(eventId: string, name: string) {
@@ -669,43 +789,53 @@ export async function deleteMultipleStudentsTutor(ids: string[]) {
   });
 }
 
-export async function resetSectionRegistrationEvent(eventId: string) {
+export async function resetSectionRegistrationEvent() {
   const session = await assertTutor();
-
-  const [event] = await db.select().from(registrationEvents).where(eq(registrationEvents.id, eventId));
-  if (!event) throw new Error("Event not found.");
+  if (!session.sectionId) throw new Error("No section assigned.");
 
   await db.transaction(async (tx) => {
-    // 1. Fetch all registrations for this event by students in this tutor's section
+    // 1. Fetch all registrations for students in this tutor's section
     const existingRegistrations = await tx
       .select({ 
         studentId: studentRegistrations.studentId, 
-        electiveId: studentRegistrations.electiveId 
+        electiveId: studentRegistrations.electiveId,
+        eventId: studentRegistrations.eventId 
       })
       .from(studentRegistrations)
       .innerJoin(users, eq(studentRegistrations.studentId, users.id))
-      .where(and(
-        eq(studentRegistrations.eventId, eventId),
-        eq(users.sectionId, session.sectionId!)
-      ));
+      .where(eq(users.sectionId, session.sectionId!));
 
     if (existingRegistrations.length === 0) return; // Nothing to reset
 
     const validStudentIds = existingRegistrations.map(r => r.studentId);
 
     // 2. Refund all seats for these electives
-    const counts: Record<string, number> = {};
+    const counts: Record<string, { count: number; eventId: string }> = {};
     for (const reg of existingRegistrations) {
-      counts[reg.electiveId] = (counts[reg.electiveId] || 0) + 1;
+      if (!counts[reg.electiveId]) counts[reg.electiveId] = { count: 0, eventId: reg.eventId };
+      counts[reg.electiveId].count += 1;
     }
 
-    for (const [electiveId, countToRefund] of Object.entries(counts)) {
-      const [elective] = await tx.select({ availableSeats: electives.availableSeats }).from(electives).where(eq(electives.id, electiveId));
+    for (const [electiveId, data] of Object.entries(counts)) {
+      const countToRefund = data.count;
+      const eventId = data.eventId;
+      const [elective] = await tx.select({ availableSeats: electives.availableSeats, courseCode: electives.courseCode, name: electives.name }).from(electives).where(eq(electives.id, electiveId));
       if (elective) {
         await tx.update(electives).set({ 
           availableSeats: elective.availableSeats + countToRefund,
           isFull: false 
         }).where(eq(electives.id, electiveId));
+
+        await tx.insert(replayEvents).values({
+          registrationEventId: eventId,
+          eventType: "REGISTRATION_RESET",
+          subjectId: electiveId,
+          subjectName: elective.courseCode ? `${elective.courseCode} - ${elective.name}` : elective.name,
+          seatBefore: elective.availableSeats,
+          seatAfter: elective.availableSeats + countToRefund,
+          performedBy: session.userId,
+          metadata: { countRefunded: countToRefund }
+        });
       }
     }
 

@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { BookOpen, Users, CheckCircle2, Percent, Search, Plus, X, Layers, Pencil, Trash2, ChevronDown } from "lucide-react";
-import { createElective, createElectiveGroup, createRegistrationWindow, updateElective, deleteElective, updateElectiveGroup, deleteElectiveGroup } from "@/app/actions/tutor";
+import { createElective, createElectiveGroup, createRegistrationWindow, updateElective, deleteElective, updateElectiveGroup, deleteElectiveGroup, resetSectionSubjects } from "@/app/actions/tutor";
 import { useRouter } from "next/navigation";
 import { TutorSectionOnboarding } from "@/components/tutor-section-onboarding";
 import { toast } from "sonner";
@@ -34,9 +34,11 @@ export function TutorElectivesClient({ electivesData, hasActiveSection = true }:
 
   const [search, setSearch] = useState("");
 
+  const [isAddingGroup, setIsAddingGroup] = useState(false);
+  const [isResetting, setIsResetting] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
-
-  // Group Creation States
+  
+  // -- Elective Modal State --
   const [isAddGroupModalOpen, setIsAddGroupModalOpen] = useState(false);
   const [newGroupOnlyName, setNewGroupOnlyName] = useState("");
 
@@ -214,6 +216,20 @@ export function TutorElectivesClient({ electivesData, hasActiveSection = true }:
     }
   }
 
+  async function handleResetAllSubjects(eventId: string) {
+    if (!confirm("Type 'CONFIRM' to delete ALL subjects and groups for this section. This action cannot be undone.")) return;
+    setIsResetting(true);
+    try {
+      await resetSectionSubjects(eventId);
+      toast.success("All subjects and groups reset successfully.");
+      router.refresh();
+    } catch (err: any) {
+      toast.error(err.message || "Failed to reset subjects.");
+    } finally {
+      setIsResetting(false);
+    }
+  }
+
   if (electivesData.length === 0) {
     if (!hasActiveSection) {
       return <TutorSectionOnboarding />;
@@ -281,6 +297,13 @@ export function TutorElectivesClient({ electivesData, hasActiveSection = true }:
           <p className="text-[var(--muted-foreground)] mt-1">Manage elective groups, subjects, and seat allocations.</p>
         </div>
         <div className="flex items-center gap-3">
+          <button 
+            onClick={() => handleResetAllSubjects(firstEventId)}
+            disabled={isResetting || allGroups.length === 0 || !firstEventId}
+            className="bg-red-500/10 text-red-500 px-4 py-2.5 rounded-xl text-sm font-medium hover:bg-red-500/20 transition whitespace-nowrap flex items-center gap-2 disabled:opacity-50"
+          >
+            <Trash2 className="w-4 h-4" /> {isResetting ? "Resetting..." : "Reset All"}
+          </button>
           <button 
             onClick={() => openAddGroupModal()}
             className="bg-indigo-600 text-white px-5 py-2.5 rounded-xl text-sm font-medium hover:bg-indigo-700 transition shadow-md shadow-indigo-500/20 whitespace-nowrap flex items-center gap-2 focus:ring-2 focus:ring-indigo-500/50 outline-none"

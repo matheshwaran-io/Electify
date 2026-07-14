@@ -130,7 +130,7 @@ export function DashboardClient({ session, metrics }: DashboardClientProps) {
                     <Settings className="w-4 h-4 text-amber-500" />
                   </div>
                   <div>
-                    <h3 className="font-medium text-[13px] text-[var(--foreground)]">Portal Window</h3>
+                    <h3 className="font-medium text-[13px] text-[var(--foreground)]">Reg Control Center</h3>
                   </div>
                 </div>
                 <p className="text-[11px] text-[var(--muted-foreground)]">Adjust timers and registration rules</p>

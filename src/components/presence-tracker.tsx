@@ -26,9 +26,7 @@ export function PresenceTracker({ userId }: { userId: string }) {
     });
 
     return () => {
-      channel.untrack().then(() => {
-        supabase.removeChannel(channel);
-      });
+      supabase.removeChannel(channel);
     };
   }, [userId]);
 

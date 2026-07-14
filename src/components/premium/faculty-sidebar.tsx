@@ -76,7 +76,7 @@ export function FacultySidebar({ session, isSuperAdmin }: SidebarProps) {
     ...(isSuperAdmin
       ? [
           { href: "/faculty/audit", label: "Audit Logs", icon: ClipboardList },
-          { href: "/faculty/window", label: "Portal Window", icon: CalendarRange },
+          { href: "/faculty/window", label: "Reg Control Center", icon: CalendarRange },
           { href: "/faculty/settings", label: "Settings", icon: SettingsIcon },
         ]
       : []),

@@ -4,9 +4,10 @@ import { useState, useRef, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { supabase } from "@/lib/supabase";
 import { Users, Search, ShieldCheck, CheckCircle2, Clock, Plus, X, Download, Upload, Pencil, Trash2 } from "lucide-react";
-import { createStudent, importStudentsCSV, updateStudent, deleteStudent, unlockStudentRegistration, deleteMultipleStudentsTutor } from "@/app/actions/tutor";
+import { createStudent, importStudentsCSV, updateStudent, deleteStudent, unlockStudentRegistration, deleteMultipleStudentsTutor, deleteAllSectionStudents } from "@/app/actions/tutor";
 import { useRouter } from "next/navigation";
 import { TutorSectionOnboarding } from "@/components/tutor-section-onboarding";
+import { toast } from "sonner";
 
 type Registration = { studentId: string; electiveName: string; groupName: string; eventName: string };
 type Student = { 
@@ -38,7 +39,7 @@ export function SectionClient({ reportData, session }: { reportData: ReportData;
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [isDeletingBulk, setIsDeletingBulk] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
-
+  const [isDeletingAll, setIsDeletingAll] = useState(false);
   const [onlineUserIds, setOnlineUserIds] = useState<Set<string>>(new Set());
 
   useEffect(() => {
@@ -56,7 +57,7 @@ export function SectionClient({ reportData, session }: { reportData: ReportData;
     channel.subscribe();
 
     return () => {
-      channel.unsubscribe();
+      supabase.removeChannel(channel);
     };
   }, []);
 
@@ -147,6 +148,21 @@ export function SectionClient({ reportData, session }: { reportData: ReportData;
       alert(err.message || "Failed to delete students");
     } finally {
       setIsDeletingBulk(false);
+    }
+  }
+
+  async function handleDeleteAll() {
+    const confirmDelete = window.prompt("Type 'CONFIRM' to delete ALL students in your section. This will also erase their registrations. This action cannot be undone.");
+    if (confirmDelete !== "CONFIRM") return;
+    setIsDeletingAll(true);
+    try {
+      await deleteAllSectionStudents();
+      toast.success("All students have been deleted.");
+      router.refresh();
+    } catch (err: any) {
+      toast.error(err.message || "Failed to delete students");
+    } finally {
+      setIsDeletingAll(false);
     }
   }
 
@@ -282,6 +298,14 @@ export function SectionClient({ reportData, session }: { reportData: ReportData;
               <Plus className="w-4 h-4" /> Add Student
             </button>
             
+            <button 
+              onClick={handleDeleteAll}
+              disabled={isDeletingAll || students.length === 0}
+              className="bg-red-500/10 text-red-500 px-4 py-2 rounded-xl text-sm font-medium hover:bg-red-500/20 transition whitespace-nowrap flex items-center gap-2 disabled:opacity-50"
+            >
+              <Trash2 className="w-4 h-4" /> {isDeletingAll ? "Deleting..." : "Delete All"}
+            </button>
+
             {selectedIds.size > 0 && (
               <button 
                 onClick={handleDeleteSelected}

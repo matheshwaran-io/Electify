@@ -8,6 +8,13 @@
       "when": 1784003242163,
       "tag": "0000_huge_nebula",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1784057322571,
+      "tag": "0001_kind_mandarin",
+      "breakpoints": true
     }
   ]
 }

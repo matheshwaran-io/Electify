@@ -24,7 +24,9 @@ import {
   Command,
   ChevronRight,
   LogOut,
-  User
+  User,
+  History,
+  Database
 } from "lucide-react";
 import { logout } from "@/app/actions/auth";
 import { ThemeToggle } from "@/components/theme-toggle";
@@ -71,109 +73,9 @@ export function AppShell({ children, session, assignedSections = [] }: AppShellP
   const [showProfileMenu, setShowProfileMenu] = useState(false);
 
   useEffect(() => {
-    let initial: NotificationItem[] = [];
-    if (session.role === "SYSTEM_ADMIN") {
-      initial = [
-        {
-          id: "1",
-          title: "New Staff Registration",
-          description: "Angel Rubavathi registered as CLASS_TUTOR.",
-          time: "10m ago",
-          read: false,
-          type: "success",
-        },
-        {
-          id: "2",
-          title: "Database Synced",
-          description: "Drizzle migrations synced with Supabase production.",
-          time: "1h ago",
-          read: false,
-          type: "info",
-        },
-        {
-          id: "3",
-          title: "System Backup",
-          description: "Automated daily backup finished successfully.",
-          time: "4h ago",
-          read: true,
-          type: "info",
-        },
-      ];
-    } else if (session.role === "COURSE_COORDINATOR") {
-      initial = [
-        {
-          id: "1",
-          title: "Registration Live",
-          description: "Elective registration for 2026 Batch is now active.",
-          time: "30m ago",
-          read: false,
-          type: "success",
-        },
-        {
-          id: "2",
-          title: "High Registration Activity",
-          description: "Section A has achieved 85% completion rate.",
-          time: "2h ago",
-          read: false,
-          type: "info",
-        },
-        {
-          id: "3",
-          title: "Template Saved",
-          description: "New template 'ODD Semester 2026' was created.",
-          time: "1d ago",
-          read: true,
-          type: "info",
-        },
-      ];
-    } else if (session.role === "CLASS_TUTOR") {
-      initial = [
-        {
-          id: "1",
-          title: "Window Timing Update",
-          description: "The registration window was updated to match coordinator timelines.",
-          time: "15m ago",
-          read: false,
-          type: "info",
-        },
-        {
-          id: "2",
-          title: "Pending Registrations",
-          description: "9 students in your section have not completed registration.",
-          time: "3h ago",
-          read: false,
-          type: "warning",
-        },
-        {
-          id: "3",
-          title: "Class Profile Assigned",
-          description: "You have been assigned as Class Tutor for Section A.",
-          time: "1d ago",
-          read: true,
-          type: "success",
-        },
-      ];
-    } else {
-      initial = [
-        {
-          id: "1",
-          title: "Elective Seat Alert",
-          description: "Professional Elective I seats are filling up fast.",
-          time: "5m ago",
-          read: false,
-          type: "warning",
-        },
-        {
-          id: "2",
-          title: "Registration Open",
-          description: "Your batch registration window is now active.",
-          time: "1h ago",
-          read: false,
-          type: "success",
-        },
-      ];
-    }
-    setNotifications(initial);
+    // In a real application, you would fetch real notifications here or set up a realtime subscription.
+    // For now, it will just be empty as we are not using mock data.
+    setNotifications([]);
   }, [session.role]);
 
   const hasUnread = notifications.some(n => !n.read);
@@ -218,6 +120,8 @@ export function AppShell({ children, session, assignedSections = [] }: AppShellP
         { name: "Audit Logs", href: "/faculty/audit", icon: FileText, color: "text-emerald-500" },
         { name: "Departments", href: "/faculty/departments", icon: Building, color: "text-slate-500" },
         { name: "Invite Codes", href: "/faculty/invites", icon: Mail, color: "text-slate-500" },
+        { name: "Registration Replay", href: "/faculty/replay", icon: History, color: "text-indigo-500" },
+        { name: "Database", href: "/faculty/database", icon: Database, color: "text-red-500" },
         { name: "Settings", href: "/faculty/settings", icon: Settings, color: "text-slate-500" },
       );
     } else if (session.role === "COURSE_COORDINATOR") {
@@ -226,13 +130,17 @@ export function AppShell({ children, session, assignedSections = [] }: AppShellP
         { name: "Electives", href: "/faculty/electives", icon: BookOpen, color: "text-purple-500" },
         { name: "Student Directory", href: "/faculty/students", icon: GraduationCap, color: "text-blue-500" },
         { name: "Reports", href: "/faculty/reports", icon: FileText, color: "text-emerald-500" },
+        { name: "Registration Replay", href: "/faculty/replay", icon: History, color: "text-indigo-500" },
+        { name: "Database", href: "/faculty/database", icon: Database, color: "text-red-500" },
       );
     } else if (session.role === "CLASS_TUTOR") {
       items.push(
         { name: "Subjects & Groups", href: "/faculty/tutor-electives", icon: BookOpen, color: "text-purple-500" },
         { name: "Student Directory", href: "/faculty/section", icon: GraduationCap, color: "text-blue-500" },
         { name: "Reports", href: "/faculty/tutor-reports", icon: FileText, color: "text-emerald-500" },
-        { name: "Portal Window", href: "/faculty/window", icon: Clock, color: "text-amber-500" },
+        { name: "Reg Control Center", href: "/faculty/window", icon: Clock, color: "text-amber-500" },
+        { name: "Registration Replay", href: "/faculty/replay", icon: History, color: "text-indigo-500" },
+        { name: "Database", href: "/faculty/database", icon: Database, color: "text-red-500" },
       );
     }
 

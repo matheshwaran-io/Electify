@@ -1,11 +1,18 @@
 "use client";
 
-import { motion, AnimatePresence } from "framer-motion";
-import { Clock, Calendar as CalendarIcon, CheckCircle2, CalendarDays, Plus, Save, AlertTriangle } from "lucide-react";
-import { format, differenceInSeconds } from "date-fns";
-import { useEffect, useState } from "react";
-import { createRegistrationWindow, updateWindowTimers, resetSectionRegistrationEvent } from "@/app/actions/tutor";
+import { motion } from "framer-motion";
+import { Plus, Clock } from "lucide-react";
+import { useState } from "react";
+import { createRegistrationWindow } from "@/app/actions/tutor";
 import { useRouter } from "next/navigation";
+import { toast } from "sonner";
+
+import { HeroStatus } from "@/components/window/hero-status";
+import { LiveMetrics } from "@/components/window/live-metrics";
+import { RegistrationProgress } from "@/components/window/registration-progress";
+import { RegistrationTimeline } from "@/components/window/registration-timeline";
+import { ConfigurationCard } from "@/components/window/configuration-card";
+import { AnalyticsWidget } from "@/components/window/analytics-widget";
 
 type WindowEvent = {
   id: string;
@@ -18,41 +25,12 @@ type WindowEvent = {
   groupCount: number;
 };
 
-function formatCountdown(closeDate: Date | null) {
-  if (!closeDate) return "No deadline";
-  const now = new Date();
-  const diff = differenceInSeconds(closeDate, now);
-  if (diff <= 0) return "Closed";
-  
-  const d = Math.floor(diff / (3600 * 24));
-  const h = Math.floor((diff % (3600 * 24)) / 3600);
-  const m = Math.floor((diff % 3600) / 60);
-  const s = diff % 60;
-  
-  return `${d}d ${h}h ${m}m ${s}s`;
-}
-
-export function WindowClient({ events }: { events: WindowEvent[] }) {
+export function WindowClient({ events, initialMetrics }: { events: WindowEvent[], initialMetrics?: any }) {
   const router = useRouter();
-  const [tick, setTick] = useState(0);
   const [isCreating, setIsCreating] = useState(false);
   const [newName, setNewName] = useState("");
   const [newYear, setNewYear] = useState(new Date().getFullYear() + "-" + (new Date().getFullYear() + 1));
   const [isSaving, setIsSaving] = useState(false);
-
-  const [resetEventId, setResetEventId] = useState<string | null>(null);
-  const [resetEventName, setResetEventName] = useState<string>("");
-  const [resetConfirmText, setResetConfirmText] = useState("");
-
-  // Form states for the first event
-  const firstEvent = events[0];
-  const [openDate, setOpenDate] = useState(firstEvent?.openDate ? new Date(firstEvent.openDate).toISOString().slice(0, 16) : "");
-  const [closeDate, setCloseDate] = useState(firstEvent?.closeDate ? new Date(firstEvent.closeDate).toISOString().slice(0, 16) : "");
-
-  useEffect(() => {
-    const timer = setInterval(() => setTick(t => t + 1), 1000);
-    return () => clearInterval(timer);
-  }, []);
 
   async function handleCreateWindow() {
     if (!newName) return;
@@ -61,67 +39,24 @@ export function WindowClient({ events }: { events: WindowEvent[] }) {
       await createRegistrationWindow({ name: newName, academicYear: newYear });
       setIsCreating(false);
       router.refresh();
+      toast.success("Registration window created successfully!");
     } catch (err: any) {
-      alert(err.message);
+      toast.error(err.message);
     } finally {
       setIsSaving(false);
     }
-  }
-
-  async function handleUpdateTimers(eventId: string) {
-    setIsSaving(true);
-    try {
-      await updateWindowTimers(
-        eventId, 
-        openDate ? new Date(openDate) : null,
-        closeDate ? new Date(closeDate) : null
-      );
-      alert("Window timers updated successfully!");
-      router.refresh();
-    } catch (err: any) {
-      alert(err.message);
-    } finally {
-      setIsSaving(false);
-    }
-  }
-
-  async function executeResetData() {
-    if (!resetEventId) return;
-    if (resetConfirmText !== "RESET") {
-      alert("Please type RESET to confirm.");
-      return;
-    }
-    
-    setIsSaving(true);
-    try {
-      await resetSectionRegistrationEvent(resetEventId);
-      alert(`Successfully reset all student registrations for ${resetEventName}.`);
-      setResetEventId(null);
-      setResetConfirmText("");
-      router.refresh();
-    } catch (err: any) {
-      alert(err.message || "Failed to reset data");
-    } finally {
-      setIsSaving(false);
-    }
-  }
-
-  function handleResetData(eventId: string, eventName: string) {
-    setResetEventId(eventId);
-    setResetEventName(eventName);
-    setResetConfirmText("");
   }
 
   if (events.length === 0) {
     return (
       <div className="space-y-6">
         <div>
-          <h1 className="text-3xl font-bold text-[var(--foreground)]">Portal Window</h1>
+          <h1 className="text-3xl font-bold text-[var(--foreground)] tracking-tight">Registration Control Center</h1>
           <p className="text-[var(--muted-foreground)] mt-1">Active registration windows for your section.</p>
         </div>
         
         {!isCreating ? (
-          <div className="text-center py-20 text-[var(--muted-foreground)] bg-[var(--card)] rounded-2xl border border-[var(--border)]">
+          <div className="text-center py-20 text-[var(--muted-foreground)] bg-[var(--card)] rounded-3xl border border-[var(--border)] shadow-sm">
             <Clock className="w-10 h-10 mx-auto mb-3 opacity-30" />
             <p className="mb-6">No registration windows currently open for your section.</p>
             <button 
@@ -133,11 +68,11 @@ export function WindowClient({ events }: { events: WindowEvent[] }) {
             </button>
           </div>
         ) : (
-          <div className="bg-[var(--card)] border border-[var(--border)] rounded-2xl p-8 max-w-lg shadow-sm">
+          <div className="bg-[var(--card)] border border-[var(--border)] rounded-3xl p-8 max-w-lg shadow-sm">
             <h2 className="text-xl font-bold text-[var(--foreground)] mb-6">Create New Window</h2>
             <div className="space-y-4">
               <div>
-                <label className="block text-xs font-bold text-[var(--muted-foreground)] mb-1 uppercase">Window Name</label>
+                <label className="block text-xs font-bold text-[var(--muted-foreground)] mb-1 uppercase tracking-wider">Window Name</label>
                 <input 
                   value={newName} onChange={e => setNewName(e.target.value)}
                   placeholder="e.g. Fall 2026 Registration"
@@ -145,7 +80,7 @@ export function WindowClient({ events }: { events: WindowEvent[] }) {
                 />
               </div>
               <div>
-                <label className="block text-xs font-bold text-[var(--muted-foreground)] mb-1 uppercase">Academic Year</label>
+                <label className="block text-xs font-bold text-[var(--muted-foreground)] mb-1 uppercase tracking-wider">Academic Year</label>
                 <input 
                   value={newYear} onChange={e => setNewYear(e.target.value)}
                   className="w-full px-4 py-2 bg-[var(--background)] border border-[var(--border)] rounded-xl text-sm"
@@ -172,194 +107,24 @@ export function WindowClient({ events }: { events: WindowEvent[] }) {
     );
   }
 
+  // We only show the UI for the primary (first) event, but this could be extended to a selector if multiple exist
+  const event = events[0];
+
   return (
-    <div className="space-y-8">
-      {events.map((event, i) => {
-        const isOpen = event.status === "PUBLISHED" || event.status === "OPEN"; 
-        const countdown = formatCountdown(event.closeDate ? new Date(event.closeDate) : null);
+    <div className="space-y-6 pb-20">
+      <div>
+        <h1 className="text-3xl font-bold text-[var(--foreground)] tracking-tight">Registration Control Center</h1>
+        <p className="text-[var(--muted-foreground)] mt-1">Monitor and configure the live registration session.</p>
+      </div>
 
-        return (
-          <motion.div
-            key={event.id}
-            initial={{ opacity: 0, y: 10 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: i * 0.05 }}
-            className="space-y-6"
-          >
-            {/* Hero Card */}
-            <div className="bg-[var(--card)] border border-[var(--border)] rounded-3xl p-8 shadow-sm">
-              <div className="flex flex-col md:flex-row md:items-start justify-between gap-6 mb-10">
-                <div className="space-y-4">
-                  <span className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider ${isOpen ? "bg-emerald-500/10 text-emerald-500" : "bg-orange-500/10 text-orange-500"}`}>
-                    {isOpen ? "Registration Live" : event.status}
-                  </span>
-                  <div>
-                    <h2 className="text-3xl font-bold text-[var(--foreground)]">{event.name}</h2>
-                    <p className="text-[var(--muted-foreground)] mt-2 max-w-xl">
-                      {event.description || "The registration gate is currently open and students are submitting course selections."}
-                    </p>
-                  </div>
-                </div>
-
-                <div className="flex items-center gap-6 bg-[var(--background)]/50 border border-[var(--border)] p-4 rounded-2xl shrink-0">
-                  <div>
-                    <p className="text-xs font-bold text-[var(--muted-foreground)] uppercase tracking-wider mb-1">
-                      {isOpen ? "Closing In" : "Status"}
-                    </p>
-                    <p className="text-2xl font-bold font-mono text-[var(--foreground)]">
-                      {countdown}
-                    </p>
-                  </div>
-                  <div className="w-12 h-12 rounded-full bg-emerald-500/10 flex items-center justify-center shrink-0">
-                    <Clock className="w-6 h-6 text-emerald-500" />
-                  </div>
-                </div>
-              </div>
-
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-6 pt-8 border-t border-[var(--border)]">
-                <div className="text-center">
-                  <div className="w-12 h-12 rounded-full bg-emerald-500/10 flex items-center justify-center mx-auto mb-3">
-                    <CheckCircle2 className="w-6 h-6 text-emerald-500" />
-                  </div>
-                  <p className="text-sm font-bold text-[var(--foreground)] uppercase tracking-wider">Schedule Configured</p>
-                  <p className="text-xs text-[var(--muted-foreground)] mt-1">Ready</p>
-                </div>
-                <div className="text-center">
-                  <div className="w-12 h-12 rounded-full bg-emerald-500/10 flex items-center justify-center mx-auto mb-3">
-                    <CheckCircle2 className="w-6 h-6 text-emerald-500" />
-                  </div>
-                  <p className="text-sm font-bold text-[var(--foreground)] uppercase tracking-wider">Opens At</p>
-                  <p className="text-xs text-[var(--muted-foreground)] mt-1">
-                    {event.openDate ? format(new Date(event.openDate), "MMM d, yyyy") : "TBD"}
-                  </p>
-                </div>
-                <div className="text-center">
-                  <div className="w-12 h-12 rounded-full bg-purple-500/10 flex items-center justify-center mx-auto mb-3">
-                    <CalendarDays className="w-6 h-6 text-purple-500" />
-                  </div>
-                  <p className="text-sm font-bold text-[var(--foreground)] uppercase tracking-wider">Closes At</p>
-                  <p className="text-xs text-[var(--muted-foreground)] mt-1">
-                    {event.closeDate ? format(new Date(event.closeDate), "MMM d, yyyy") : "TBD"}
-                  </p>
-                </div>
-              </div>
-            </div>
-
-            {/* Timers Config Card */}
-            <div className="bg-[var(--card)] border border-[var(--border)] rounded-3xl p-8 shadow-sm">
-              <h3 className="text-sm font-bold text-[var(--muted-foreground)] uppercase tracking-wider flex items-center gap-2 mb-6">
-                <CalendarIcon className="w-4 h-4" />
-                Scheduled Window Timers
-              </h3>
-
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
-                <div>
-                  <label className="block text-xs font-bold text-[var(--muted-foreground)] uppercase tracking-wider mb-2">Portal Opens At</label>
-                  <input
-                    type="datetime-local"
-                    value={openDate}
-                    onChange={(e) => setOpenDate(e.target.value)}
-                    className="w-full px-4 py-3 bg-[var(--background)] border border-[var(--border)] rounded-xl text-sm text-[var(--foreground)]"
-                  />
-                </div>
-                <div>
-                  <label className="block text-xs font-bold text-[var(--muted-foreground)] uppercase tracking-wider mb-2">Portal Closes At</label>
-                  <input
-                    type="datetime-local"
-                    value={closeDate}
-                    onChange={(e) => setCloseDate(e.target.value)}
-                    className="w-full px-4 py-3 bg-[var(--background)] border border-[var(--border)] rounded-xl text-sm text-[var(--foreground)]"
-                  />
-                </div>
-              </div>
-              
-              <div className="flex justify-between items-center mt-6">
-                <button
-                  onClick={() => handleResetData(event.id, event.name)}
-                  disabled={isSaving}
-                  className="bg-red-500/10 text-red-500 hover:bg-red-500 hover:text-white px-6 py-3 rounded-xl font-medium transition-colors disabled:opacity-50"
-                  title="Wipe all registrations and refund seats"
-                >
-                  Reset Section Data
-                </button>
-
-                <button
-                  onClick={() => handleUpdateTimers(event.id)}
-                  disabled={isSaving}
-                  className="bg-indigo-600 text-white px-6 py-3 rounded-xl font-medium shadow-md shadow-indigo-500/20 hover:bg-indigo-500 transition-colors inline-flex items-center gap-2 disabled:opacity-50"
-                >
-                  <Save className="w-4 h-4" />
-                  {isSaving ? "Saving..." : "Save System Properties"}
-                </button>
-              </div>
-            </div>
-          </motion.div>
-        );
-      })}
-
-      {/* Custom Reset Modal */}
-      <AnimatePresence>
-        {resetEventId && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
-            <motion.div
-              initial={{ opacity: 0, scale: 0.95, y: 20 }}
-              animate={{ opacity: 1, scale: 1, y: 0 }}
-              exit={{ opacity: 0, scale: 0.95, y: 20 }}
-              className="bg-[var(--card)] border border-[var(--border)] rounded-3xl w-full max-w-lg shadow-2xl overflow-hidden"
-            >
-              <div className="bg-red-500/10 p-6 flex items-center gap-4 border-b border-red-500/20">
-                <div className="w-12 h-12 rounded-full bg-red-500/20 flex items-center justify-center shrink-0">
-                  <AlertTriangle className="w-6 h-6 text-red-500" />
-                </div>
-                <div>
-                  <h3 className="text-xl font-bold text-red-500">Reset Section Data</h3>
-                  <p className="text-sm text-red-400 mt-1">This is a highly destructive action.</p>
-                </div>
-              </div>
-
-              <div className="p-8">
-                <p className="text-[var(--foreground)] mb-6 leading-relaxed">
-                  You are about to permanently wipe <strong>all student registrations</strong> in your section for <strong className="text-indigo-400">{resetEventName}</strong>. 
-                  All taken seats will be refunded. This cannot be undone.
-                </p>
-
-                <div className="mb-8">
-                  <label className="block text-xs font-bold text-[var(--muted-foreground)] uppercase tracking-wider mb-2">
-                    Type "RESET" to confirm
-                  </label>
-                  <input 
-                    type="text" 
-                    value={resetConfirmText}
-                    onChange={(e) => setResetConfirmText(e.target.value)}
-                    placeholder="RESET"
-                    className="w-full px-4 py-3 bg-[var(--background)] border border-[var(--border)] rounded-xl text-[var(--foreground)] focus:outline-none focus:ring-2 focus:ring-red-500/50"
-                  />
-                </div>
-
-                <div className="flex justify-end gap-3">
-                  <button 
-                    onClick={() => {
-                      setResetEventId(null);
-                      setResetConfirmText("");
-                    }}
-                    disabled={isSaving}
-                    className="px-6 py-2 rounded-xl font-medium text-[var(--muted-foreground)] hover:bg-[var(--accent)] transition-colors"
-                  >
-                    Cancel
-                  </button>
-                  <button 
-                    onClick={executeResetData}
-                    disabled={isSaving || resetConfirmText !== "RESET"}
-                    className="bg-red-500 text-white px-6 py-2 rounded-xl font-medium shadow-md shadow-red-500/20 hover:bg-red-600 transition-colors disabled:opacity-50"
-                  >
-                    {isSaving ? "Resetting..." : "Confirm Reset"}
-                  </button>
-                </div>
-              </div>
-            </motion.div>
-          </div>
-        )}
-      </AnimatePresence>
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+        <HeroStatus event={event} />
+        <LiveMetrics metrics={initialMetrics} />
+        <RegistrationProgress metrics={initialMetrics} />
+        <AnalyticsWidget metrics={initialMetrics} />
+        <ConfigurationCard event={event} />
+        <RegistrationTimeline event={event} />
+      </div>
     </div>
   );
 }

@@ -5,10 +5,14 @@ import {
   FileText, Users, CheckCircle, Search, Download, ChevronDown, ChevronRight,
   BarChart3, Clock, BookOpen, Filter, TrendingUp, FileSpreadsheet,
 } from "lucide-react";
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect, Fragment } from "react";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 import { TutorSectionOnboarding } from "@/components/tutor-section-onboarding";
+import { supabase } from "@/lib/supabase";
+import { useRouter } from "next/navigation";
+import { toast } from "sonner";
+import { resetSectionRegistrationEvent } from "@/app/actions/tutor";
 
 type Registration = {
   studentId: string;
@@ -51,6 +55,7 @@ type ReportData = {
 type TabId = "overview" | "students" | "subjects";
 
 export function TutorReportsClient({ reportData, hasActiveSection = true }: { reportData: ReportData, hasActiveSection?: boolean }) {
+  const router = useRouter();
   const { students, totalStudents, registeredCount, sectionLabel, programmeName, departmentName, groups } = reportData;
   const pendingCount = totalStudents - registeredCount;
   const overallPct = totalStudents > 0 ? Math.round((registeredCount / totalStudents) * 100) : 0;
@@ -59,6 +64,27 @@ export function TutorReportsClient({ reportData, hasActiveSection = true }: { re
   const [activeTab, setActiveTab] = useState<TabId>("overview");
   const [statusFilter, setStatusFilter] = useState<"all" | "registered" | "pending">("all");
   const [expandedStudents, setExpandedStudents] = useState<Set<string>>(new Set());
+  const [onlineUserIds, setOnlineUserIds] = useState<Set<string>>(new Set());
+  const [isResetting, setIsResetting] = useState(false);
+
+  useEffect(() => {
+    const channel = supabase.channel('online-users');
+
+    channel.on('presence', { event: 'sync' }, () => {
+      const state = channel.presenceState();
+      const onlineIds = new Set<string>();
+      for (const id in state) {
+        onlineIds.add(id);
+      }
+      setOnlineUserIds(onlineIds);
+    });
+
+    channel.subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, []);
 
   const filtered = useMemo(() => {
     let list = students;
@@ -93,6 +119,21 @@ export function TutorReportsClient({ reportData, hasActiveSection = true }: { re
       else next.add(id);
       return next;
     });
+  };
+
+  const handleReset = async () => {
+    const confirmReset = window.prompt("Type 'CONFIRM' to reset all registrations for this section. This action cannot be undone.");
+    if (confirmReset !== "CONFIRM") return;
+    setIsResetting(true);
+    try {
+      await resetSectionRegistrationEvent();
+      toast.success("Registrations reset successfully");
+      router.refresh();
+    } catch (err: any) {
+      toast.error(err.message || "Failed to reset registrations");
+    } finally {
+      setIsResetting(false);
+    }
   };
 
   if (!hasActiveSection) {
@@ -296,10 +337,17 @@ export function TutorReportsClient({ reportData, hasActiveSection = true }: { re
             {sectionLabel ? `Section ${sectionLabel}` : "Your section"}{programmeName ? ` • ${programmeName}` : ""}{departmentName ? ` • ${departmentName}` : ""}
           </p>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-3 w-full sm:w-auto">
+          <button
+            onClick={handleReset}
+            disabled={isResetting}
+            className="flex-1 sm:flex-none flex items-center justify-center gap-2 bg-red-500/10 text-red-500 px-4 py-2.5 rounded-xl text-sm font-medium hover:bg-red-500/20 transition-colors disabled:opacity-50"
+          >
+            {isResetting ? "Resetting..." : "Reset Registrations"}
+          </button>
           <button
             onClick={exportCSV}
-            className="group relative flex items-center gap-2 px-4 py-2.5 bg-[var(--card)] hover:bg-[var(--accent)] border border-[var(--border)] rounded-lg text-sm font-medium transition-all duration-200 hover:shadow-md"
+            className="flex-1 sm:flex-none flex items-center justify-center gap-2 bg-[var(--card)] border border-[var(--border)] rounded-lg text-sm font-medium transition-all duration-200 hover:shadow-md"
           >
             <FileSpreadsheet className="w-4 h-4 text-emerald-500" />
             <span>CSV</span>
@@ -363,6 +411,7 @@ export function TutorReportsClient({ reportData, hasActiveSection = true }: { re
               setStatusFilter={setStatusFilter}
               expandedStudents={expandedStudents}
               toggleExpanded={toggleExpanded}
+              onlineUserIds={onlineUserIds}
             />
           </motion.div>
         )}
@@ -585,6 +634,7 @@ function StudentsTab({ filtered, search, setSearch, statusFilter, setStatusFilte
   setStatusFilter: (f: "all" | "registered" | "pending") => void;
   expandedStudents: Set<string>;
   toggleExpanded: (id: string) => void;
+  onlineUserIds: Set<string>;
 }) {
   return (
     <div className="space-y-4">
@@ -644,110 +694,116 @@ function StudentsTab({ filtered, search, setSearch, statusFilter, setStatusFilte
                   const hasRegs = s.registrations.length > 0;
 
                   return (
-                    <motion.tr
-                      key={s.id}
-                      initial={{ opacity: 0 }}
-                      animate={{ opacity: 1 }}
-                      transition={{ delay: Math.min(i * 0.015, 0.3) }}
-                      className={`hover:bg-[var(--accent)]/30 transition-colors cursor-pointer ${isExpanded ? "bg-[var(--accent)]/20" : ""}`}
-                      onClick={() => hasRegs && toggleExpanded(s.id)}
-                    >
-                      <td className="px-5 py-3.5">
-                        <div className="flex items-center gap-3">
-                          <div className={`w-8 h-8 rounded-full flex items-center justify-center text-white text-xs font-bold shrink-0 ${
-                            isRegistered
-                              ? "bg-gradient-to-br from-emerald-500 to-teal-600"
-                              : "bg-gradient-to-br from-slate-400 to-slate-500"
-                          }`}>
-                            {s.name.charAt(0).toUpperCase()}
-                          </div>
-                          <div>
-                            <span className="font-medium text-[var(--foreground)] block leading-tight">{s.name}</span>
-                            <span className="text-[10px] text-[var(--muted-foreground)]">{s.email}</span>
-                          </div>
-                        </div>
-                      </td>
-                      <td className="px-5 py-3.5 text-[var(--muted-foreground)] font-mono text-xs">{s.registerNumber ?? "—"}</td>
-                      <td className="px-5 py-3.5">
-                        <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-semibold ${
-                          isRegistered
-                            ? "bg-emerald-500/10 text-emerald-500 ring-1 ring-emerald-500/20"
-                            : "bg-amber-500/10 text-amber-500 ring-1 ring-amber-500/20"
-                        }`}>
-                          <span className={`w-1.5 h-1.5 rounded-full ${isRegistered ? "bg-emerald-500" : "bg-amber-500"}`} />
-                          {isRegistered ? "Confirmed" : "Pending"}
-                        </span>
-                      </td>
-                      <td className="px-5 py-3.5">
-                        {s.receiptNumber ? (
-                          <span className="text-xs font-mono bg-[var(--accent)] px-2 py-0.5 rounded-md text-[var(--foreground)]">{s.receiptNumber}</span>
-                        ) : (
-                          <span className="text-xs text-[var(--muted-foreground)]">—</span>
-                        )}
-                      </td>
-                      <td className="px-5 py-3.5">
-                        {hasRegs ? (
-                          <div className="space-y-1">
-                            {s.registrations.map((r, j) => (
-                              <div key={j} className="flex items-center gap-1.5">
-                                <span className="text-[10px] font-medium text-[var(--muted-foreground)] shrink-0">{r.groupName}:</span>
-                                <span className="text-[11px] bg-indigo-500/10 text-indigo-400 px-2 py-0.5 rounded-md font-medium truncate max-w-[200px]">
-                                  {r.courseCode ? `${r.courseCode} — ` : ""}{r.electiveName}
-                                </span>
+                    <Fragment key={s.id}>
+                      <motion.tr
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                        transition={{ delay: Math.min(i * 0.015, 0.3) }}
+                        className={`hover:bg-[var(--accent)]/30 transition-colors cursor-pointer ${isExpanded ? "bg-[var(--accent)]/20" : ""}`}
+                        onClick={() => hasRegs && toggleExpanded(s.id)}
+                      >
+                        <td className="px-5 py-3.5">
+                          <div className="flex items-center gap-3">
+                            <div className="relative">
+                              <div className={`w-8 h-8 rounded-full flex items-center justify-center text-white text-xs font-bold shrink-0 ${
+                                isRegistered
+                                  ? "bg-gradient-to-br from-emerald-500 to-teal-600"
+                                  : "bg-gradient-to-br from-slate-400 to-slate-500"
+                              }`}>
+                                {s.name.charAt(0).toUpperCase()}
                               </div>
-                            ))}
+                              {onlineUserIds.has(s.id) && (
+                                <span className="absolute bottom-0 -right-0.5 w-3 h-3 bg-emerald-500 border-2 border-[var(--background)] rounded-full animate-pulse" />
+                              )}
+                            </div>
+                            <div>
+                              <span className="font-medium text-[var(--foreground)] block leading-tight">{s.name}</span>
+                              <span className="text-[10px] text-[var(--muted-foreground)]">{s.email}</span>
+                            </div>
                           </div>
-                        ) : (
-                          <span className="text-xs text-[var(--muted-foreground)]">—</span>
+                        </td>
+                        <td className="px-5 py-3.5 text-[var(--muted-foreground)] font-mono text-xs">{s.registerNumber ?? "—"}</td>
+                        <td className="px-5 py-3.5">
+                          <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-semibold ${
+                            isRegistered
+                              ? "bg-emerald-500/10 text-emerald-500 ring-1 ring-emerald-500/20"
+                              : "bg-amber-500/10 text-amber-500 ring-1 ring-amber-500/20"
+                          }`}>
+                            <span className={`w-1.5 h-1.5 rounded-full ${isRegistered ? "bg-emerald-500" : "bg-amber-500"}`} />
+                            {isRegistered ? "Confirmed" : "Pending"}
+                          </span>
+                        </td>
+                        <td className="px-5 py-3.5">
+                          {s.receiptNumber ? (
+                            <span className="text-xs font-mono bg-[var(--accent)] px-2 py-0.5 rounded-md text-[var(--foreground)]">{s.receiptNumber}</span>
+                          ) : (
+                            <span className="text-xs text-[var(--muted-foreground)]">—</span>
+                          )}
+                        </td>
+                        <td className="px-5 py-3.5">
+                          {hasRegs ? (
+                            <div className="space-y-1">
+                              {s.registrations.map((r, j) => (
+                                <div key={j} className="flex items-center gap-1.5">
+                                  <span className="text-[10px] font-medium text-[var(--muted-foreground)] shrink-0">{r.groupName}:</span>
+                                  <span className="text-[11px] bg-indigo-500/10 text-indigo-400 px-2 py-0.5 rounded-md font-medium truncate max-w-[200px]">
+                                    {r.courseCode ? `${r.courseCode} — ` : ""}{r.electiveName}
+                                  </span>
+                                </div>
+                              ))}
+                            </div>
+                          ) : (
+                            <span className="text-xs text-[var(--muted-foreground)]">—</span>
+                          )}
+                        </td>
+                        <td className="px-3 py-3.5">
+                          {hasRegs && (
+                            <ChevronDown className={`w-4 h-4 text-[var(--muted-foreground)] transition-transform duration-200 ${isExpanded ? "rotate-180" : ""}`} />
+                          )}
+                        </td>
+                      </motion.tr>
+                      <AnimatePresence>
+                        {isExpanded && hasRegs && (
+                          <tr className="border-b-0">
+                            <td colSpan={6} className="p-0">
+                              <motion.div
+                                initial={{ height: 0, opacity: 0 }}
+                                animate={{ height: "auto", opacity: 1 }}
+                                exit={{ height: 0, opacity: 0 }}
+                                transition={{ duration: 0.2 }}
+                                className="border-t border-[var(--border)] bg-[var(--accent)]/30 px-5 py-4 overflow-hidden"
+                              >
+                                <p className="text-xs font-semibold text-[var(--muted-foreground)] uppercase tracking-wider mb-3">
+                                  {s.name}&apos;s Elective Selections
+                                </p>
+                                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
+                                  {s.registrations.map((r, j) => (
+                                    <div key={j} className="flex items-start gap-3 bg-[var(--card)] border border-[var(--border)] rounded-lg p-3">
+                                      <div className="w-8 h-8 rounded-lg bg-indigo-500/10 flex items-center justify-center shrink-0 mt-0.5">
+                                        <BookOpen className="w-4 h-4 text-indigo-500" />
+                                      </div>
+                                      <div className="min-w-0">
+                                        <p className="text-[10px] font-medium text-[var(--muted-foreground)] uppercase tracking-wider">{r.groupName}</p>
+                                        <p className="text-sm font-medium text-[var(--foreground)] mt-0.5 leading-tight">
+                                          {r.courseCode ? <span className="text-indigo-400">{r.courseCode}</span> : null}
+                                          {r.courseCode ? " — " : ""}{r.electiveName}
+                                        </p>
+                                      </div>
+                                    </div>
+                                  ))}
+                                </div>
+                              </motion.div>
+                            </td>
+                          </tr>
                         )}
-                      </td>
-                      <td className="px-3 py-3.5">
-                        {hasRegs && (
-                          <ChevronDown className={`w-4 h-4 text-[var(--muted-foreground)] transition-transform duration-200 ${isExpanded ? "rotate-180" : ""}`} />
-                        )}
-                      </td>
-                    </motion.tr>
+                      </AnimatePresence>
+                    </Fragment>
                   );
                 })
               )}
             </tbody>
           </table>
         </div>
-
-        {/* Expanded Student Details (rendered below table as overlapping rows) */}
-        {filtered.map(s => {
-          if (!expandedStudents.has(s.id) || s.registrations.length === 0) return null;
-          return (
-            <motion.div
-              key={`detail-${s.id}`}
-              initial={{ height: 0, opacity: 0 }}
-              animate={{ height: "auto", opacity: 1 }}
-              exit={{ height: 0, opacity: 0 }}
-              transition={{ duration: 0.2 }}
-              className="border-t border-[var(--border)] bg-[var(--accent)]/30 px-5 py-4"
-            >
-              <p className="text-xs font-semibold text-[var(--muted-foreground)] uppercase tracking-wider mb-3">
-                {s.name}&apos;s Elective Selections
-              </p>
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
-                {s.registrations.map((r, j) => (
-                  <div key={j} className="flex items-start gap-3 bg-[var(--card)] border border-[var(--border)] rounded-lg p-3">
-                    <div className="w-8 h-8 rounded-lg bg-indigo-500/10 flex items-center justify-center shrink-0 mt-0.5">
-                      <BookOpen className="w-4 h-4 text-indigo-500" />
-                    </div>
-                    <div className="min-w-0">
-                      <p className="text-[10px] font-medium text-[var(--muted-foreground)] uppercase tracking-wider">{r.groupName}</p>
-                      <p className="text-sm font-medium text-[var(--foreground)] mt-0.5 leading-tight">
-                        {r.courseCode ? <span className="text-indigo-400">{r.courseCode}</span> : null}
-                        {r.courseCode ? " — " : ""}{r.electiveName}
-                      </p>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </motion.div>
-          );
-        })}
       </div>
 
       <p className="text-xs text-[var(--muted-foreground)] text-right">Showing {filtered.length} student{filtered.length !== 1 ? "s" : ""}</p>

@@ -68,7 +68,7 @@ export async function middleware(request: NextRequest) {
     }
 
     // System Admin specific route guarding
-    if (pathname.startsWith("/faculty/settings") || pathname.startsWith("/faculty/audit")) {
+    if (pathname.startsWith("/faculty/audit")) {
       if (session.role !== "SYSTEM_ADMIN") {
         return NextResponse.redirect(new URL("/faculty/dashboard", request.url));
       }

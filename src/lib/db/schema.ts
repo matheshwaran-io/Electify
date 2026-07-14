@@ -374,6 +374,33 @@ export const registrations = pgTable("registrations", {
 ]);
 
 // ────────────────────────────────────────────────────────────────────
+// REGISTRATION REPLAY LOGS
+// ────────────────────────────────────────────────────────────────────
+
+export const replayEvents = pgTable("replay_events", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  registrationEventId: uuid("registration_event_id")
+    .notNull()
+    .references(() => registrationEvents.id, { onDelete: "cascade" }),
+  timestamp: timestamp("timestamp").defaultNow().notNull(),
+  studentId: uuid("student_id").references(() => users.id, { onDelete: "set null" }),
+  studentName: text("student_name"),
+  eventType: text("event_type").notNull(), // STUDENT_REGISTERED, STUDENT_CHANGED_CHOICE, SEAT_RELEASED, REGISTRATION_RESET, etc.
+  subjectId: uuid("subject_id").references(() => electives.id, { onDelete: "set null" }),
+  subjectName: text("subject_name"),
+  oldSubject: text("old_subject"),
+  newSubject: text("new_subject"),
+  seatBefore: integer("seat_before"),
+  seatAfter: integer("seat_after"),
+  performedBy: uuid("performed_by").references(() => users.id, { onDelete: "set null" }),
+  metadata: jsonb("metadata"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+}, (table) => [
+  index("replayEvents_event_idx").on(table.registrationEventId),
+  index("replayEvents_timestamp_idx").on(table.timestamp)
+]);
+
+// ────────────────────────────────────────────────────────────────────
 // RELATIONS (for Drizzle relational queries)
 // ────────────────────────────────────────────────────────────────────
 

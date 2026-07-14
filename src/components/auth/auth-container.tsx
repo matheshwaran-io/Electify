@@ -14,8 +14,8 @@ import { motion, AnimatePresence } from "framer-motion";
 
 // --- Schemas ---
 const studentLoginSchema = z.object({
+  email: z.string().min(1, "Email is required").email("Invalid email address"),
   registerNumber: z.string().min(1, "Register number is required"),
-  password: z.string().min(1, "Password is required"),
 });
 
 const staffLoginSchema = z.object({
@@ -145,8 +145,8 @@ export function AuthContainer() {
   const onStudentLogin = (data: StudentLoginData) => {
     runAuthMockAnimation(() =>
       login({
-        identifier: data.registerNumber.toUpperCase().trim(),
-        password: data.password,
+        identifier: data.email.toLowerCase().trim(),
+        password: data.registerNumber.toUpperCase().trim(),
       })
     );
   };
@@ -327,8 +327,25 @@ export function AuthContainer() {
                 <div>
                   <h2 className="text-lg font-bold text-slate-900 dark:text-slate-100 tracking-tight">Student Sign In</h2>
                   <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-1">
-                    Sign in with your register number and password.
+                    Sign in with your official SRM email and register number.
                   </p>
+                </div>
+
+                {/* SRM Email Input */}
+                <div className="space-y-1 relative group/input">
+                  <div className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within/input:text-[#4F8CFF] transition-colors z-10">
+                    <Mail className="w-3.5 h-3.5" />
+                  </div>
+                  <input
+                    type="email"
+                    placeholder="SRM Email (e.g. jd1234@srmist.edu.in)"
+                    className="w-full pl-10 pr-4 py-2.5 bg-slate-50/50 dark:bg-white/[0.01] border border-slate-200 dark:border-white/[0.06] rounded-xl text-xs text-slate-900 dark:text-slate-100 placeholder-slate-400 dark:placeholder-slate-500 focus:outline-none focus:border-[#4F8CFF]/50 focus:ring-2 focus:ring-[#4F8CFF]/5 dark:focus:ring-[#4F8CFF]/10 hover:border-slate-300 dark:hover:border-white/10 transition-all font-medium"
+                    disabled={authState !== "idle"}
+                    {...registerStudent("email")}
+                  />
+                  {studentErrors.email && (
+                    <p className="text-[10px] text-rose-500 mt-1 pl-2">{studentErrors.email.message}</p>
+                  )}
                 </div>
 
                 {/* Register Number Input */}
@@ -337,28 +354,11 @@ export function AuthContainer() {
                     <User className="w-3.5 h-3.5" />
                   </div>
                   <input
-                    type="text"
-                    placeholder="Register Number (e.g. RA2682242010126)"
-                    className="w-full pl-10 pr-4 py-2.5 bg-slate-50/50 dark:bg-white/[0.01] border border-slate-200 dark:border-white/[0.06] rounded-xl text-xs text-slate-900 dark:text-slate-100 placeholder-slate-400 dark:placeholder-slate-500 focus:outline-none focus:border-[#4F8CFF]/50 focus:ring-2 focus:ring-[#4F8CFF]/5 dark:focus:ring-[#4F8CFF]/10 hover:border-slate-300 dark:hover:border-white/10 transition-all font-medium"
-                    disabled={authState !== "idle"}
-                    {...registerStudent("registerNumber")}
-                  />
-                  {studentErrors.registerNumber && (
-                    <p className="text-[10px] text-rose-500 mt-1 pl-2">{studentErrors.registerNumber.message}</p>
-                  )}
-                </div>
-
-                {/* Password Input */}
-                <div className="space-y-1 relative group/input">
-                  <div className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within/input:text-[#4F8CFF] transition-colors z-10">
-                    <Lock className="w-3.5 h-3.5" />
-                  </div>
-                  <input
                     type={showPassword ? "text" : "password"}
-                    placeholder="Password"
+                    placeholder="Register Number (e.g. RA2682242010126)"
                     className="w-full pl-10 pr-11 py-2.5 bg-slate-50/50 dark:bg-white/[0.01] border border-slate-200 dark:border-white/[0.06] rounded-xl text-xs text-slate-900 dark:text-slate-100 placeholder-slate-400 dark:placeholder-slate-500 focus:outline-none focus:border-[#4F8CFF]/50 focus:ring-2 focus:ring-[#4F8CFF]/5 dark:focus:ring-[#4F8CFF]/10 hover:border-slate-300 dark:hover:border-white/10 transition-all font-medium"
                     disabled={authState !== "idle"}
-                    {...registerStudent("password")}
+                    {...registerStudent("registerNumber")}
                   />
                   <button
                     type="button"
@@ -367,8 +367,8 @@ export function AuthContainer() {
                   >
                     {showPassword ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
                   </button>
-                  {studentErrors.password && (
-                    <p className="text-[10px] text-rose-500 mt-1 pl-2">{studentErrors.password.message}</p>
+                  {studentErrors.registerNumber && (
+                    <p className="text-[10px] text-rose-500 mt-1 pl-2">{studentErrors.registerNumber.message}</p>
                   )}
                 </div>
 

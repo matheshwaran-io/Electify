@@ -21,7 +21,8 @@ import {
   ShieldAlert,
   Building,
   Mail,
-  Clock
+  Clock,
+  History
 } from "lucide-react";
 import { logout } from "@/app/actions/auth";
 
@@ -76,6 +77,7 @@ export function FacultyLayoutClient({ children, session }: FacultyLayoutClientPr
         { name: "Users", href: "/faculty/users", icon: Users },
         { name: "Invite Codes", href: "/faculty/invites", icon: Mail },
         { name: "Audit Logs", href: "/faculty/audit", icon: ShieldAlert },
+        { name: "Registration Replay", href: "/faculty/replay", icon: History },
         { name: "Settings", href: "/faculty/settings", icon: Settings }
       );
     } else if (session.role === "COURSE_COORDINATOR") {
@@ -83,14 +85,16 @@ export function FacultyLayoutClient({ children, session }: FacultyLayoutClientPr
         { name: "Event Templates", href: "/faculty/templates", icon: Layers },
         { name: "Electives", href: "/faculty/electives", icon: BookOpen },
         { name: "Students", href: "/faculty/students", icon: GraduationCap },
-        { name: "Reports", href: "/faculty/reports", icon: FileText }
+        { name: "Reports", href: "/faculty/reports", icon: FileText },
+        { name: "Registration Replay", href: "/faculty/replay", icon: History }
       );
     } else if (session.role === "CLASS_TUTOR") {
       items.push(
         { name: "Electives", href: "/faculty/tutor-electives", icon: BookOpen },
         { name: "Students", href: "/faculty/section", icon: GraduationCap },
         { name: "Reports", href: "/faculty/tutor-reports", icon: FileText },
-        { name: "Portal Window", href: "/faculty/window", icon: Clock }
+        { name: "Reg Control Center", href: "/faculty/window", icon: Clock },
+        { name: "Registration Replay", href: "/faculty/replay", icon: History }
       );
     }
 
