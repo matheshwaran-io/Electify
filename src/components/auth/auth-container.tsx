@@ -58,6 +58,22 @@ export function AuthContainer() {
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
 
+  // Dynamic hierarchy
+  type SectionData = { id: string; label: string };
+  type BatchData = { id: string; year: string; sections: SectionData[] };
+  type ProgData = { id: string; name: string; code: string; batches: BatchData[] };
+  type DeptData = { id: string; name: string; code: string; programmes: ProgData[] };
+  type FacultyData = { id: string; name: string; code: string; departments: DeptData[] };
+  const [hierarchy, setHierarchy] = useState<FacultyData[]>([]);
+
+  useEffect(() => {
+    import("@/app/actions/auth").then((mod) => {
+      mod.getPublicHierarchy().then((data) => {
+        setHierarchy(data.faculties);
+      });
+    });
+  }, []);
+
   // Authentication progress state (Custom apple/SaaS progress bar)
   const [authState, setAuthState] = useState<"idle" | "authenticating" | "verified" | "error">("idle");
   const [authProgress, setAuthProgress] = useState(0);
@@ -81,14 +97,21 @@ export function AuthContainer() {
       employeeId: "",
       name: "",
       email: "",
-      faculty: "Faculty of Science & Humanities",
-      department: "Computer Applications",
-      degree: "MCA",
+      faculty: "",
+      department: "",
+      degree: "",
       section: "",
     },
   });
 
   const selectedRole = watch("role");
+  const selectedFacultyId = watch("faculty");
+  const selectedDeptId = watch("department");
+  const selectedProgId = watch("degree");
+
+  const currentDepts = hierarchy.find(f => f.id === selectedFacultyId)?.departments || [];
+  const currentProgs = currentDepts.find(d => d.id === selectedDeptId)?.programmes || [];
+  const currentSections = currentProgs.find(p => p.id === selectedProgId)?.batches.flatMap(b => b.sections) || [];
 
   // Animate the progress bar when authenticating
   useEffect(() => {
@@ -544,7 +567,10 @@ export function AuthContainer() {
                     disabled={authState !== "idle"}
                     {...registerStaffForm("faculty")}
                   >
-                    <option value="Faculty of Science & Humanities">Faculty of Science & Humanities</option>
+                    <option value="">Select Faculty</option>
+                    {hierarchy.map(f => (
+                      <option key={f.id} value={f.id}>{f.name}</option>
+                    ))}
                   </select>
                   <div className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none text-slate-400 text-[10px]">▼</div>
                   {staffRegisterErrors.faculty && (
@@ -560,10 +586,13 @@ export function AuthContainer() {
                     </div>
                     <select
                       className="w-full pl-10 pr-10 py-2.5 bg-slate-50/50 dark:bg-white/[0.01] border border-slate-200/60 dark:border-white/[0.06] rounded-xl text-xs text-slate-950 dark:text-slate-100 placeholder-slate-400 dark:placeholder-slate-500 focus:outline-none focus:border-[#6D5DFE]/50 focus:ring-2 focus:ring-[#6D5DFE]/5 dark:focus:ring-[#6D5DFE]/10 hover:border-slate-300 dark:hover:border-white/10 transition-all font-medium appearance-none cursor-pointer"
-                      disabled={authState !== "idle"}
+                      disabled={authState !== "idle" || !selectedFacultyId}
                       {...registerStaffForm("department")}
                     >
-                      <option value="Computer Applications">Computer Applications</option>
+                      <option value="">Select Department</option>
+                      {currentDepts.map(d => (
+                        <option key={d.id} value={d.id}>{d.name}</option>
+                      ))}
                     </select>
                     <div className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none text-slate-400 text-[10px]">▼</div>
                     {staffRegisterErrors.department && (
@@ -577,10 +606,13 @@ export function AuthContainer() {
                     </div>
                     <select
                       className="w-full pl-10 pr-10 py-2.5 bg-slate-50/50 dark:bg-white/[0.01] border border-slate-200/60 dark:border-white/[0.06] rounded-xl text-xs text-slate-950 dark:text-slate-100 placeholder-slate-400 dark:placeholder-slate-500 focus:outline-none focus:border-[#6D5DFE]/50 focus:ring-2 focus:ring-[#6D5DFE]/5 dark:focus:ring-[#6D5DFE]/10 hover:border-slate-300 dark:hover:border-white/10 transition-all font-medium appearance-none cursor-pointer"
-                      disabled={authState !== "idle"}
+                      disabled={authState !== "idle" || !selectedDeptId}
                       {...registerStaffForm("degree")}
                     >
-                      <option value="MCA">MCA</option>
+                      <option value="">Select Programme</option>
+                      {currentProgs.map(p => (
+                        <option key={p.id} value={p.id}>{p.code}</option>
+                      ))}
                     </select>
                     <div className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none text-slate-400 text-[10px]">▼</div>
                     {staffRegisterErrors.degree && (
@@ -631,16 +663,9 @@ export function AuthContainer() {
                       {...registerStaffForm("section")}
                     >
                       <option value="">Select Section</option>
-                      <option value="A">Section A</option>
-                      <option value="B">Section B</option>
-                      <option value="C">Section C</option>
-                      <option value="D">Section D</option>
-                      <option value="E">Section E</option>
-                      <option value="F">Section F</option>
-                      <option value="G">Section G</option>
-                      <option value="H">Section H</option>
-                      <option value="I">Section I</option>
-                      <option value="J">Section J</option>
+                      {currentSections.map(s => (
+                        <option key={s.id} value={s.label}>Section {s.label}</option>
+                      ))}
                     </select>
                     <div className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none text-slate-400 text-[10px]">▼</div>
                     {staffRegisterErrors.section && (

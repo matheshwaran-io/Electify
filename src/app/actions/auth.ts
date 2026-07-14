@@ -1,10 +1,10 @@
 "use server";
 
 import { db } from "@/lib/db";
-import { users, loginAttempts, inviteCodes, auditLogs, sections } from "@/lib/db/schema";
+import { users, loginAttempts, inviteCodes, auditLogs, sections, faculties, departments, programmes, academicBatches } from "@/lib/db/schema";
 import * as bcrypt from "bcryptjs";
 import { signJWT, setSessionCookie, clearSessionCookie, type UserSession } from "@/lib/auth";
-import { eq, and } from "drizzle-orm";
+import { eq, and, asc } from "drizzle-orm";
 
 const MAX_ATTEMPTS = 5;
 const LOCKOUT_DURATION_MS = 15 * 60 * 1000; // 15 minutes
@@ -331,4 +331,38 @@ export async function registerStaff(formData: {
     console.error("Staff registration error:", error);
     return { success: false, error: "An unexpected error occurred. Please try again." };
   }
+}
+
+// ────────────────────────────────────────────────────────────────────
+// Public Hierarchy (For Registration)
+// ────────────────────────────────────────────────────────────────────
+
+export async function getPublicHierarchy() {
+  const allFaculties = await db.select().from(faculties).orderBy(asc(faculties.name));
+  const allDepts = await db.select().from(departments).orderBy(asc(departments.name));
+  const allProgs = await db.select().from(programmes).orderBy(asc(programmes.name));
+  const allBatches = await db.select().from(academicBatches).orderBy(asc(academicBatches.year));
+  const allSections = await db.select().from(sections).orderBy(asc(sections.label));
+
+  return {
+    faculties: allFaculties.map((f) => ({
+      ...f,
+      departments: allDepts
+        .filter((d) => d.facultyId === f.id)
+        .map((d) => ({
+          ...d,
+          programmes: allProgs
+            .filter((p) => p.departmentId === d.id)
+            .map((p) => ({
+              ...p,
+              batches: allBatches
+                .filter((b) => b.programmeId === p.id)
+                .map((b) => ({
+                  ...b,
+                  sections: allSections.filter((s) => s.academicBatchId === b.id),
+                })),
+            })),
+        })),
+    })),
+  };
 }

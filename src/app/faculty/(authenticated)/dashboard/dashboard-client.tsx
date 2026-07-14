@@ -32,6 +32,29 @@ interface DashboardClientProps {
   metrics: any;
 }
 
+const containerVariants: Variants = {
+  hidden: { opacity: 0 },
+  show: {
+    opacity: 1,
+    transition: { staggerChildren: 0.1 }
+  }
+};
+
+function formatCountdown(closeDate: string | null) {
+  if (!closeDate) return "No deadline set";
+  const d = new Date(closeDate);
+  const now = new Date();
+  const diff = differenceInSeconds(d, now);
+  if (diff <= 0) return "Window Closed";
+  
+  const days = Math.floor(diff / (3600 * 24));
+  const h = Math.floor((diff % (3600 * 24)) / 3600);
+  const m = Math.floor((diff % 3600) / 60);
+  const s = diff % 60;
+  
+  return `${days}d ${h}h ${m}m ${s}s`;
+}
+
 export function DashboardClient({ session, metrics }: DashboardClientProps) {
   const [tick, setTick] = useState(0);
 
@@ -40,35 +63,7 @@ export function DashboardClient({ session, metrics }: DashboardClientProps) {
     return () => clearInterval(timer);
   }, []);
 
-  const containerVariants: Variants = {
-    hidden: { opacity: 0 },
-    show: {
-      opacity: 1,
-      transition: { staggerChildren: 0.1 }
-    }
-  };
-
-  const itemVariants: Variants = {
-    hidden: { opacity: 0, y: 20 },
-    show: { opacity: 1, y: 0, transition: { type: "spring", stiffness: 300, damping: 24 } }
-  };
-
   if (!metrics) return null;
-
-  function formatCountdown(closeDate: string | null) {
-    if (!closeDate) return "No deadline set";
-    const d = new Date(closeDate);
-    const now = new Date();
-    const diff = differenceInSeconds(d, now);
-    if (diff <= 0) return "Window Closed";
-    
-    const days = Math.floor(diff / (3600 * 24));
-    const h = Math.floor((diff % (3600 * 24)) / 3600);
-    const m = Math.floor((diff % 3600) / 60);
-    const s = diff % 60;
-    
-    return `${days}d ${h}h ${m}m ${s}s`;
-  }
 
   return (
     <div className="space-y-8">
@@ -290,27 +285,32 @@ export function DashboardClient({ session, metrics }: DashboardClientProps) {
       )}
     </div>
   );
+}
 
-  function StatCard({ title, value, icon: Icon, color, bgColor }: any) {
-    return (
-      <motion.div 
-        variants={itemVariants}
-        className="bg-[var(--background)] p-5 rounded-xl border border-[var(--border)]/50 shadow-sm group hover:border-[var(--border)] transition-all duration-300 relative overflow-hidden"
-      >
-        <div className="absolute top-0 right-0 w-24 h-24 bg-current opacity-[0.03] blur-2xl -translate-y-1/2 translate-x-1/2 rounded-full pointer-events-none" style={{ color: 'var(--foreground)' }} />
-        
-        <div className="flex justify-between items-start mb-6">
-          <div className="w-8 h-8 rounded-lg bg-[var(--accent)] flex items-center justify-center border border-[var(--border)]/50 group-hover:scale-105 transition-transform duration-300">
-            <Icon className={`w-4 h-4 ${color}`} />
-          </div>
+const itemVariants: Variants = {
+  hidden: { opacity: 0, y: 20 },
+  show: { opacity: 1, y: 0, transition: { type: "spring", stiffness: 300, damping: 24 } }
+};
+
+function StatCard({ title, value, icon: Icon, color, bgColor }: any) {
+  return (
+    <motion.div 
+      variants={itemVariants}
+      className="bg-[var(--background)] p-5 rounded-xl border border-[var(--border)]/50 shadow-sm group hover:border-[var(--border)] transition-all duration-300 relative overflow-hidden"
+    >
+      <div className="absolute top-0 right-0 w-24 h-24 bg-current opacity-[0.03] blur-2xl -translate-y-1/2 translate-x-1/2 rounded-full pointer-events-none" style={{ color: 'var(--foreground)' }} />
+      
+      <div className="flex justify-between items-start mb-6">
+        <div className="w-8 h-8 rounded-lg bg-[var(--accent)] flex items-center justify-center border border-[var(--border)]/50 group-hover:scale-105 transition-transform duration-300">
+          <Icon className={`w-4 h-4 ${color}`} />
         </div>
-        <div>
-          <h3 className="text-[11px] font-semibold text-[var(--muted-foreground)] uppercase tracking-wider mb-1">{title}</h3>
-          <p className="text-2xl font-semibold text-[var(--foreground)] tracking-tight">
-            {value}
-          </p>
-        </div>
-      </motion.div>
-    );
-  }
+      </div>
+      <div>
+        <h3 className="text-[11px] font-semibold text-[var(--muted-foreground)] uppercase tracking-wider mb-1">{title}</h3>
+        <p className="text-2xl font-semibold text-[var(--foreground)] tracking-tight">
+          {value}
+        </p>
+      </div>
+    </motion.div>
+  );
 }
