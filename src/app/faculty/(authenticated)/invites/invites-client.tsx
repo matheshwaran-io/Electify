@@ -39,26 +39,9 @@ export function InvitesClient({
 
   // Form state
   const [role, setRole] = useState<"COURSE_COORDINATOR" | "CLASS_TUTOR">("COURSE_COORDINATOR");
-  const [facultyId, setFacultyId] = useState("");
-  const [departmentId, setDepartmentId] = useState("");
-  const [programmeId, setProgrammeId] = useState("");
-  const [sectionId, setSectionId] = useState("");
   const [maxUses, setMaxUses] = useState(1);
   const [expiresInDays, setExpiresInDays] = useState(7);
   const [lastCreatedCode, setLastCreatedCode] = useState<string | null>(null);
-
-  // Derive dropdown options based on selections
-  const allFaculties = tree.faculties;
-  const allDepts = facultyId
-    ? allFaculties.find((f) => f.id === facultyId)?.departments ?? []
-    : [];
-  const allProgs = departmentId
-    ? allDepts.find((d) => d.id === departmentId)?.programmes ?? []
-    : [];
-  const allSections =
-    role === "CLASS_TUTOR" && programmeId
-      ? allProgs.find((p) => p.id === programmeId)?.batches.flatMap((b) => b.sections) ?? []
-      : [];
 
   const copyCode = (code: string, id: string) => {
     navigator.clipboard.writeText(code);
@@ -72,10 +55,6 @@ export function InvitesClient({
       try {
         const result = await createInviteCode({
           role,
-          facultyId: facultyId || undefined,
-          departmentId: departmentId || undefined,
-          programmeId: programmeId || undefined,
-          sectionId: role === "CLASS_TUTOR" ? (sectionId || undefined) : undefined,
           maxUses,
           expiresInDays,
         });
@@ -250,7 +229,7 @@ export function InvitesClient({
                       {(["COURSE_COORDINATOR", "CLASS_TUTOR"] as const).map((r) => (
                         <button
                           key={r}
-                          onClick={() => { setRole(r); setSectionId(""); }}
+                          onClick={() => setRole(r)}
                           className={`flex-1 py-2.5 px-4 rounded-xl text-sm font-medium border transition-all cursor-pointer ${role === r ? "bg-indigo-600 text-white border-indigo-600" : "bg-transparent text-[var(--muted-foreground)] border-[var(--border)] hover:border-indigo-500/50"}`}
                         >
                           {r.replace("_", " ")}
@@ -259,71 +238,6 @@ export function InvitesClient({
                     </div>
                   </div>
 
-                  {/* Faculty */}
-                  <div className="space-y-2">
-                    <label className="text-sm font-medium text-[var(--foreground)]">Faculty</label>
-                    <select
-                      value={facultyId}
-                      onChange={(e) => { setFacultyId(e.target.value); setDepartmentId(""); setProgrammeId(""); setSectionId(""); }}
-                      className="w-full px-4 py-2.5 bg-[var(--background)] border border-[var(--border)] rounded-xl text-sm text-[var(--foreground)] focus:outline-none focus:ring-2 focus:ring-indigo-500/50"
-                    >
-                      <option value="">Any faculty</option>
-                      {allFaculties.map((f) => (
-                        <option key={f.id} value={f.id}>{f.name}</option>
-                      ))}
-                    </select>
-                  </div>
-
-                  {/* Department */}
-                  {facultyId && (
-                    <div className="space-y-2">
-                      <label className="text-sm font-medium text-[var(--foreground)]">Department</label>
-                      <select
-                        value={departmentId}
-                        onChange={(e) => { setDepartmentId(e.target.value); setProgrammeId(""); setSectionId(""); }}
-                        className="w-full px-4 py-2.5 bg-[var(--background)] border border-[var(--border)] rounded-xl text-sm text-[var(--foreground)] focus:outline-none focus:ring-2 focus:ring-indigo-500/50"
-                      >
-                        <option value="">Any department</option>
-                        {allDepts.map((d) => (
-                          <option key={d.id} value={d.id}>{d.name}</option>
-                        ))}
-                      </select>
-                    </div>
-                  )}
-
-                  {/* Programme */}
-                  {departmentId && (
-                    <div className="space-y-2">
-                      <label className="text-sm font-medium text-[var(--foreground)]">Programme</label>
-                      <select
-                        value={programmeId}
-                        onChange={(e) => { setProgrammeId(e.target.value); setSectionId(""); }}
-                        className="w-full px-4 py-2.5 bg-[var(--background)] border border-[var(--border)] rounded-xl text-sm text-[var(--foreground)] focus:outline-none focus:ring-2 focus:ring-indigo-500/50"
-                      >
-                        <option value="">Any programme</option>
-                        {allProgs.map((p) => (
-                          <option key={p.id} value={p.id}>{p.name} ({p.code})</option>
-                        ))}
-                      </select>
-                    </div>
-                  )}
-
-                  {/* Section (CLASS_TUTOR only) */}
-                  {role === "CLASS_TUTOR" && programmeId && (
-                    <div className="space-y-2">
-                      <label className="text-sm font-medium text-[var(--foreground)]">Section *</label>
-                      <select
-                        value={sectionId}
-                        onChange={(e) => setSectionId(e.target.value)}
-                        className="w-full px-4 py-2.5 bg-[var(--background)] border border-[var(--border)] rounded-xl text-sm text-[var(--foreground)] focus:outline-none focus:ring-2 focus:ring-indigo-500/50"
-                      >
-                        <option value="">Select section</option>
-                        {allSections.map((s: Section) => (
-                          <option key={s.id} value={s.id}>Section {s.label}</option>
-                        ))}
-                      </select>
-                    </div>
-                  )}
 
                   {/* Max Uses + Expiry */}
                   <div className="grid grid-cols-2 gap-4">
