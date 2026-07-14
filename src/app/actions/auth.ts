@@ -406,12 +406,16 @@ export async function switchTutorSection(sectionId: string) {
     throw new Error("You are not assigned to this section.");
   }
 
+  const { iat, exp, ...sessionData } = session as any;
+
   // Generate a new token with the updated sectionId
   const newToken = await signJWT({
-    ...session,
+    ...sessionData,
     sectionId: assignment.sectionId,
   });
 
   await setSessionCookie(newToken);
+  const { revalidatePath } = await import("next/cache");
+  revalidatePath("/", "layout");
   return { success: true };
 }
