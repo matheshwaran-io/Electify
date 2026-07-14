@@ -4,7 +4,7 @@ import { motion } from "framer-motion";
 
 export function StatusPanel() {
   return (
-    <div className="relative w-full max-w-[400px] bg-white/[0.72] dark:bg-white/[0.02] backdrop-blur-2xl rounded-2xl border border-slate-200/60 dark:border-white/[0.08] p-6 shadow-[0_20px_50px_rgba(0,0,0,0.03)] dark:shadow-[0_30px_100px_rgba(0,0,0,0.4)] overflow-hidden group transition-all duration-300">
+    <div className="relative w-full max-w-[400px] bg-white/70 dark:bg-slate-900/40 backdrop-blur-[32px] rounded-2xl border border-white/40 dark:border-white/[0.08] p-6 shadow-[0_20px_60px_-15px_rgba(0,0,0,0.05)] dark:shadow-[0_20px_60px_-15px_rgba(0,0,0,0.4)] overflow-hidden group transition-all duration-300">
       
       {/* ── Layer 8: Reflection Sweep Layer (animates every 15s) ──────────────── */}
       <div 

@@ -1,8 +1,10 @@
 "use server";
 
-import db from "@/lib/db";
+import { db } from "@/lib/db";
+import { users, loginAttempts, inviteCodes, auditLogs, sections } from "@/lib/db/schema";
 import * as bcrypt from "bcryptjs";
-import { signJWT, setSessionCookie, clearSessionCookie } from "@/lib/auth";
+import { signJWT, setSessionCookie, clearSessionCookie, type UserSession } from "@/lib/auth";
+import { eq, and } from "drizzle-orm";
 
 const MAX_ATTEMPTS = 5;
 const LOCKOUT_DURATION_MS = 15 * 60 * 1000; // 15 minutes
@@ -13,26 +15,21 @@ interface LoginResult {
   role?: string;
 }
 
-/**
- * Checks and updates rate limits for a given identifier (email or register number).
- * Returns lock time remaining if locked out, or null if allowed.
- */
+// ────────────────────────────────────────────────────────────────────
+// Rate Limiting
+// ────────────────────────────────────────────────────────────────────
+
 async function handleRateLimit(identifier: string, ip: string): Promise<Date | null> {
   const now = new Date();
-  
-  // Find or create attempt record
-  const attempt = await db.loginAttempt.findUnique({
-    where: { identifier },
-  });
+
+  const [attempt] = await db
+    .select()
+    .from(loginAttempts)
+    .where(eq(loginAttempts.identifier, identifier))
+    .limit(1);
 
   if (!attempt) {
-    await db.loginAttempt.create({
-      data: {
-        identifier,
-        ip,
-        attempts: 0,
-      },
-    });
+    await db.insert(loginAttempts).values({ identifier, ip, attempts: 0 });
     return null;
   }
 
@@ -41,27 +38,23 @@ async function handleRateLimit(identifier: string, ip: string): Promise<Date | n
     return attempt.lockoutUntil;
   }
 
-  // If lockout expired, reset attempts
+  // If lockout expired, reset
   if (attempt.lockoutUntil && attempt.lockoutUntil <= now) {
-    await db.loginAttempt.update({
-      where: { identifier },
-      data: {
-        attempts: 0,
-        lockoutUntil: null,
-      },
-    });
+    await db
+      .update(loginAttempts)
+      .set({ attempts: 0, lockoutUntil: null })
+      .where(eq(loginAttempts.identifier, identifier));
   }
 
   return null;
 }
 
-/**
- * Increments failed attempts and sets lockout if threshold is reached.
- */
 async function registerFailedAttempt(identifier: string, ip: string) {
-  const attempt = await db.loginAttempt.findUnique({
-    where: { identifier },
-  });
+  const [attempt] = await db
+    .select()
+    .from(loginAttempts)
+    .where(eq(loginAttempts.identifier, identifier))
+    .limit(1);
 
   if (!attempt) return;
 
@@ -69,196 +62,145 @@ async function registerFailedAttempt(identifier: string, ip: string) {
   const isLockout = newAttempts >= MAX_ATTEMPTS;
   const lockoutUntil = isLockout ? new Date(Date.now() + LOCKOUT_DURATION_MS) : null;
 
-  await db.loginAttempt.update({
-    where: { identifier },
-    data: {
-      attempts: newAttempts,
-      lockoutUntil,
-      ip,
-    },
-  });
+  await db
+    .update(loginAttempts)
+    .set({ attempts: newAttempts, lockoutUntil, ip })
+    .where(eq(loginAttempts.identifier, identifier));
 }
 
-/**
- * Resets failed attempts after successful login.
- */
 async function resetAttempts(identifier: string) {
-  await db.loginAttempt.upsert({
-    where: { identifier },
-    update: {
-      attempts: 0,
-      lockoutUntil: null,
-    },
-    create: {
-      identifier,
-      ip: "local",
-      attempts: 0,
-    },
-  });
+  const [existing] = await db
+    .select()
+    .from(loginAttempts)
+    .where(eq(loginAttempts.identifier, identifier))
+    .limit(1);
+
+  if (existing) {
+    await db
+      .update(loginAttempts)
+      .set({ attempts: 0, lockoutUntil: null })
+      .where(eq(loginAttempts.identifier, identifier));
+  } else {
+    await db.insert(loginAttempts).values({ identifier, ip: "local", attempts: 0 });
+  }
 }
 
-/**
- * Log in student action
- */
-export async function studentLogin(formData: {
+// ────────────────────────────────────────────────────────────────────
+// Unified Login (all roles use single `users` table)
+// ────────────────────────────────────────────────────────────────────
+
+export async function login(formData: {
   email: string;
-  registerNumber: string; // Used as password
+  password: string;
 }): Promise<LoginResult> {
-  const { email, registerNumber } = formData;
+  const { email, password } = formData;
   const ip = "client-ip"; // In production, get from request headers
 
   try {
     // Check lockout
-    const lockoutTime = await handleRateLimit(email, ip);
+    const lockoutTime = await handleRateLimit(email.toLowerCase().trim(), ip);
     if (lockoutTime) {
       const minutesRemaining = Math.ceil((lockoutTime.getTime() - Date.now()) / 60000);
       return {
         success: false,
-        error: `Too many failed attempts. Account locked. Try again in ${minutesRemaining} minute(s).`,
+        error: `Too many failed attempts. Account locked for ${minutesRemaining} minute(s).`,
       };
     }
 
-    // Find student
-    const student = await db.student.findUnique({
-      where: { email },
-    });
+    // Find user by email
+    const [user] = await db
+      .select()
+      .from(users)
+      .where(eq(users.email, email.toLowerCase().trim()))
+      .limit(1);
 
-    if (!student) {
-      await registerFailedAttempt(email, ip);
-      return { success: false, error: "Your account has not been created yet. Please contact your Class Tutor or Course Coordinator." };
-    }
-
-    if (!student.isActive) {
-      return { success: false, error: "Your login access is disabled. Please contact the administrator." };
-    }
-
-    // Compare Register Number as the password
-    const isPasswordValid = await bcrypt.compare(registerNumber, student.passwordHash);
-
-    if (!isPasswordValid) {
-      await registerFailedAttempt(email, ip);
-      return { success: false, error: "Invalid credentials." };
-    }
-
-    // Reset lockout counter on success
-    await resetAttempts(email);
-
-    // Create session
-    const token = await signJWT({
-      userId: student.id,
-      name: student.name,
-      email: student.email,
-      role: "STUDENT",
-      registerNumber: student.registerNumber,
-    });
-
-    // Set cookie
-    await setSessionCookie(token);
-
-    return { success: true, role: "STUDENT" };
-  } catch (error) {
-    console.error("Student login error:", error);
-    return { success: false, error: "An unexpected error occurred. Please try again." };
-  }
-}
-
-/**
- * Log in faculty/admin action
- */
-export async function facultyLogin(formData: {
-  email: string;
-  passwordHash: string; // User input password
-}): Promise<LoginResult> {
-  const { email, passwordHash: password } = formData;
-  const ip = "client-ip";
-
-  try {
-    // Check lockout
-    const lockoutTime = await handleRateLimit(email, ip);
-    if (lockoutTime) {
-      const minutesRemaining = Math.ceil((lockoutTime.getTime() - Date.now()) / 60000);
-      return {
-        success: false,
-        error: `Too many failed attempts. Locked out for ${minutesRemaining} minutes.`,
-      };
-    }
-
-    // Find faculty
-    const faculty = await db.faculty.findUnique({
-      where: { email },
-    });
-
-    if (!faculty) {
-      await registerFailedAttempt(email, ip);
+    if (!user) {
+      await registerFailedAttempt(email.toLowerCase().trim(), ip);
       return { success: false, error: "Invalid email or password." };
     }
 
-    if (!faculty.isActive) {
-      return { success: false, error: "Your account has been suspended. Please contact the system administrator." };
+    if (!user.isActive) {
+      return {
+        success: false,
+        error: "Your account has been suspended. Please contact the administrator.",
+      };
     }
 
     // Compare passwords
-    const isPasswordValid = await bcrypt.compare(password, faculty.passwordHash);
-
+    const isPasswordValid = await bcrypt.compare(password, user.passwordHash);
     if (!isPasswordValid) {
-      await registerFailedAttempt(email, ip);
+      await registerFailedAttempt(email.toLowerCase().trim(), ip);
       return { success: false, error: "Invalid email or password." };
     }
 
-    // Reset attempts on success
-    await resetAttempts(email);
+    // Reset lockout counter
+    await resetAttempts(email.toLowerCase().trim());
 
-    // Create session
+    // Create JWT session
     const token = await signJWT({
-      userId: faculty.id,
-      name: faculty.name,
-      email: faculty.email,
-      role: faculty.role === "SUPER_ADMIN" ? "SUPER_ADMIN" : "FACULTY",
-      facultyType: faculty.role === "SUPER_ADMIN" ? undefined : (faculty.role as "COURSE_COORDINATOR" | "CLASS_TUTOR"),
-      className: faculty.className || undefined,
+      userId: user.id,
+      name: user.name,
+      email: user.email,
+      role: user.role as UserSession["role"],
+      ...(user.employeeId && { employeeId: user.employeeId }),
+      ...(user.registerNumber && { registerNumber: user.registerNumber }),
+      ...(user.facultyId && { facultyId: user.facultyId }),
+      ...(user.departmentId && { departmentId: user.departmentId }),
+      ...(user.programmeId && { programmeId: user.programmeId }),
+      ...(user.sectionId && { sectionId: user.sectionId }),
     });
 
-    // Set cookie
     await setSessionCookie(token);
 
-    return { success: true, role: faculty.role };
+    // Audit log
+    await db.insert(auditLogs).values({
+      action: "USER_LOGIN",
+      userId: user.id,
+      userEmail: user.email,
+      userRole: user.role,
+      ipAddress: ip,
+    });
+
+    return { success: true, role: user.role };
   } catch (error) {
-    console.error("Faculty login error:", error);
+    console.error("Login error:", error);
     return { success: false, error: "An unexpected error occurred. Please try again." };
   }
 }
 
-/**
- * Logout action
- */
+// ────────────────────────────────────────────────────────────────────
+// Logout
+// ────────────────────────────────────────────────────────────────────
+
 export async function logout() {
   await clearSessionCookie();
 }
 
-/**
- * Register new staff action
- */
+// ────────────────────────────────────────────────────────────────────
+// Staff Registration (via Invite Code)
+// ────────────────────────────────────────────────────────────────────
+
 export async function registerStaff(formData: {
   inviteCode: string;
   employeeId: string;
   name: string;
   email: string;
-  faculty: string;
-  department: string;
-  degree: string;
-  section?: string;
-  passwordHash: string;
+  phone?: string;
+  section?: string; // Only for CLASS_TUTOR
+  password: string;
 }): Promise<LoginResult> {
-  const { inviteCode, employeeId, name, email, faculty, department, degree, section, passwordHash } = formData;
+  const { inviteCode, employeeId, name, email, phone, section, password } = formData;
 
   try {
-    // 1. Fetch & Validate Invite Code
-    const invite = await db.inviteCode.findUnique({
-      where: { code: inviteCode },
-    });
+    // 1. Validate invite code
+    const [invite] = await db
+      .select()
+      .from(inviteCodes)
+      .where(eq(inviteCodes.code, inviteCode.trim()))
+      .limit(1);
 
     if (!invite) {
-      return { success: false, error: "Invalid invite code. Please request a new code." };
+      return { success: false, error: "Invalid invite code." };
     }
 
     if (invite.status !== "ACTIVE") {
@@ -266,98 +208,124 @@ export async function registerStaff(formData: {
     }
 
     if (invite.expiresAt < new Date()) {
-      // Mark as expired in db if active
-      await db.inviteCode.update({
-        where: { id: invite.id },
-        data: { status: "EXPIRED" },
-      });
-      return { success: false, error: "This invite code has expired. Please request a new code." };
+      await db
+        .update(inviteCodes)
+        .set({ status: "EXPIRED" })
+        .where(eq(inviteCodes.id, invite.id));
+      return { success: false, error: "This invite code has expired." };
     }
 
-
-
+    // 2. Section validation for CLASS_TUTOR
+    let resolvedSectionId: string | null = null;
     if (invite.role === "CLASS_TUTOR") {
-      if (!section || !["A", "B", "C", "D", "E", "F", "G", "H", "I", "J"].includes(section.toUpperCase().trim())) {
-        return { success: false, error: "Please select a valid section (A - J)." };
+      if (!section) {
+        return { success: false, error: "Class Tutors must select a section." };
+      }
+      // Look up section by label + programmeId from the invite
+      if (invite.programmeId) {
+        const [sec] = await db
+          .select()
+          .from(sections)
+          .where(
+            and(
+              eq(sections.label, section.toUpperCase().trim()),
+              eq(sections.programmeId, invite.programmeId)
+            )
+          )
+          .limit(1);
+        if (!sec) {
+          return { success: false, error: "Invalid section. Please select A–J." };
+        }
+        resolvedSectionId = sec.id;
       }
     }
 
-    // 3. SRM Email Domain Check
+    // 3. Email domain check
     if (!email.toLowerCase().trim().endsWith("@srmist.edu.in")) {
-      return { success: false, error: "Registration is restricted to official '@srmist.edu.in' email addresses." };
+      return {
+        success: false,
+        error: "Registration requires an '@srmist.edu.in' email.",
+      };
     }
 
-    // 4. Duplicate Checks (Email and Employee ID)
-    const existingEmail = await db.faculty.findUnique({
-      where: { email: email.toLowerCase().trim() },
-    });
+    // 4. Duplicate checks
+    const [existingEmail] = await db
+      .select()
+      .from(users)
+      .where(eq(users.email, email.toLowerCase().trim()))
+      .limit(1);
     if (existingEmail) {
-      return { success: false, error: "An account with this email address already exists." };
+      return { success: false, error: "An account with this email already exists." };
     }
 
-    const existingEmp = await db.faculty.findUnique({
-      where: { employeeId: employeeId.trim() },
-    });
+    const [existingEmp] = await db
+      .select()
+      .from(users)
+      .where(eq(users.employeeId, employeeId.trim()))
+      .limit(1);
     if (existingEmp) {
       return { success: false, error: "An account with this Employee ID already exists." };
     }
 
-    // 5. Hash Password & Create Faculty Entry
-    const hashed = await bcrypt.hash(passwordHash, 10);
-    const newFaculty = await db.faculty.create({
-      data: {
-        employeeId: employeeId.trim(),
+    // 5. Hash password and create user
+    const hashed = await bcrypt.hash(password, 12);
+    const [newUser] = await db
+      .insert(users)
+      .values({
         name: name.trim(),
         email: email.toLowerCase().trim(),
         passwordHash: hashed,
-        role: invite.role, // Inherit role directly from the verified invite code
-        faculty: invite.faculty,
-        department: invite.department,
-        degree: invite.degree,
-        className: invite.role === "CLASS_TUTOR" ? invite.section : null,
-      },
-    });
+        role: invite.role,
+        employeeId: employeeId.trim(),
+        phone: phone?.trim() || null,
+        facultyId: invite.facultyId,
+        departmentId: invite.departmentId,
+        programmeId: invite.programmeId,
+        sectionId: resolvedSectionId,
+      })
+      .returning();
 
-    // 6. Update Invite Code Usage Count
+    // 6. Update invite code usage
     const updatedCount = invite.usedCount + 1;
-    await db.inviteCode.update({
-      where: { id: invite.id },
-      data: {
+    await db
+      .update(inviteCodes)
+      .set({
         usedCount: updatedCount,
         status: updatedCount >= invite.maxUses ? "USED" : "ACTIVE",
+      })
+      .where(eq(inviteCodes.id, invite.id));
+
+    // 7. Audit log
+    await db.insert(auditLogs).values({
+      action: "STAFF_REGISTERED",
+      userId: newUser.id,
+      userEmail: newUser.email,
+      userRole: newUser.role,
+      metadata: {
+        employeeId: newUser.employeeId,
+        role: newUser.role,
+        inviteCode: invite.code,
       },
     });
 
-    // 7. Write Action to Audit Log
-    await db.auditLog.create({
-      data: {
-        action: "STAFF_REGISTERED",
-        userId: newFaculty.id,
-        userEmail: newFaculty.email,
-        metadata: JSON.stringify({
-          employeeId: newFaculty.employeeId,
-          role: newFaculty.role,
-          inviteCode: invite.code,
-        }),
-      },
-    });
-
-    // 8. Generate Session
+    // 8. Create session
     const token = await signJWT({
-      userId: newFaculty.id,
-      name: newFaculty.name,
-      email: newFaculty.email,
-      role: "FACULTY",
-      facultyType: newFaculty.role as "COURSE_COORDINATOR" | "CLASS_TUTOR",
-      className: newFaculty.className || undefined,
+      userId: newUser.id,
+      name: newUser.name,
+      email: newUser.email,
+      role: newUser.role as UserSession["role"],
+      employeeId: newUser.employeeId!,
+      ...(newUser.facultyId && { facultyId: newUser.facultyId }),
+      ...(newUser.departmentId && { departmentId: newUser.departmentId }),
+      ...(newUser.programmeId && { programmeId: newUser.programmeId }),
+      ...(newUser.sectionId && { sectionId: newUser.sectionId }),
     });
 
-    // Set cookie
     await setSessionCookie(token);
 
-    return { success: true, role: newFaculty.role };
+    return { success: true, role: newUser.role };
   } catch (error) {
     console.error("Staff registration error:", error);
-    return { success: false, error: "An unexpected error occurred during registration. Please try again." };
+    return { success: false, error: "An unexpected error occurred. Please try again." };
   }
 }

@@ -5,16 +5,19 @@
  * Run with: npx tsx src/lib/db/seed.ts
  */
 
+import "dotenv/config";
 import { drizzle } from "drizzle-orm/node-postgres";
 import { Pool } from "pg";
 import * as bcrypt from "bcryptjs";
 import * as schema from "./schema";
 
 async function seed() {
-  const pool = new Pool({
-    connectionString: process.env.DATABASE_URL,
-  });
+  const connectionString = process.env.DIRECT_URL || process.env.DATABASE_URL;
+  if (!connectionString) {
+    throw new Error("DIRECT_URL or DATABASE_URL must be set");
+  }
 
+  const pool = new Pool({ connectionString });
   const db = drizzle(pool, { schema });
 
   console.log("🌱 Seeding Electify database...\n");

@@ -9,10 +9,13 @@ export interface UserSession {
   userId: string;
   name: string;
   email: string;
-  role: "STUDENT" | "FACULTY" | "SUPER_ADMIN";
-  registerNumber?: string; // only for students
-  facultyType?: "COURSE_COORDINATOR" | "CLASS_TUTOR";
-  className?: string; // only for class tutors
+  role: "SYSTEM_ADMIN" | "COURSE_COORDINATOR" | "CLASS_TUTOR" | "STUDENT";
+  employeeId?: string;
+  registerNumber?: string;
+  facultyId?: string;
+  departmentId?: string;
+  programmeId?: string;
+  sectionId?: string;
 }
 
 /**

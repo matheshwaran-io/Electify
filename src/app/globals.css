@@ -1,194 +1,177 @@
-@import "tw-animate-css";
-@import "shadcn/tailwind.css";
 @import "tailwindcss";
+@custom-variant dark (&:is(.dark *));
+@import "shadcn/tailwind.css";
 
-@layer base {
-  :root {
-    --background: oklch(0.99 0.01 240);
-    --foreground: oklch(0.12 0.02 240);
+/* ─── Design Tokens (Light) ──────────────────────────────────────── */
+:root {
+  --background: oklch(0.99 0.01 240);
+  --foreground: oklch(0.12 0.02 240);
 
-    --card: oklch(1 0 0);
-    --card-foreground: oklch(0.12 0.02 240);
+  --card: oklch(1 0 0);
+  --card-foreground: oklch(0.12 0.02 240);
 
-    --popover: oklch(1 0 0);
-    --popover-foreground: oklch(0.12 0.02 240);
+  --popover: oklch(1 0 0);
+  --popover-foreground: oklch(0.12 0.02 240);
 
-    --primary: oklch(0.51 0.23 260); /* Indigo */
-    --primary-foreground: oklch(0.99 0.01 240);
+  --primary: oklch(0.51 0.23 260); /* Indigo */
+  --primary-foreground: oklch(0.99 0.01 240);
 
-    --secondary: oklch(0.96 0.01 240);
-    --secondary-foreground: oklch(0.2 0.1 260);
+  --secondary: oklch(0.96 0.01 240);
+  --secondary-foreground: oklch(0.2 0.1 260);
 
-    --muted: oklch(0.96 0.01 240);
-    --muted-foreground: oklch(0.45 0.05 240);
+  --muted: oklch(0.96 0.01 240);
+  --muted-foreground: oklch(0.45 0.05 240);
 
-    --accent: oklch(0.96 0.01 240);
-    --accent-foreground: oklch(0.51 0.23 260);
+  --accent: oklch(0.96 0.01 240);
+  --accent-foreground: oklch(0.51 0.23 260);
 
-    --destructive: oklch(0.6 0.22 20);
-    --destructive-foreground: oklch(0.99 0.01 240);
+  --destructive: oklch(0.6 0.22 20);
+  --destructive-foreground: oklch(0.99 0.01 240);
 
-    --border: oklch(0.92 0.01 240);
-    --input: oklch(0.92 0.01 240);
-    --ring: oklch(0.51 0.23 260);
-    --radius: 24px; /* 24px Card radius */
+  --border: oklch(0.92 0.01 240);
+  --input: oklch(0.92 0.01 240);
+  --ring: oklch(0.51 0.23 260);
+  --radius: 24px;
 
-    /* Design System Tokens */
-    --radius-card: 24px;
-    --radius-input: 18px;
-    --radius-button: 14px;
-  }
-
-  .dark {
-    --background: oklch(0.08 0.02 240); /* Very dark desaturated violet */
-    --foreground: oklch(0.97 0.01 240);
-
-    --card: oklch(0.12 0.02 240);
-    --card-foreground: oklch(0.97 0.01 240);
-
-    --popover: oklch(0.12 0.02 240);
-    --popover-foreground: oklch(0.97 0.01 240);
-
-    --primary: oklch(0.62 0.22 270); /* Violet */
-    --primary-foreground: oklch(0.08 0.02 240);
-
-    --secondary: oklch(0.16 0.02 240);
-    --secondary-foreground: oklch(0.97 0.01 240);
-
-    --muted: oklch(0.16 0.02 240);
-    --muted-foreground: oklch(0.65 0.02 240);
-
-    --accent: oklch(0.16 0.02 240);
-    --accent-foreground: oklch(0.62 0.22 270);
-
-    --destructive: oklch(0.48 0.22 20);
-    --destructive-foreground: oklch(0.97 0.01 240);
-
-    --border: oklch(0.18 0.02 240);
-    --input: oklch(0.18 0.02 240);
-    --ring: oklch(0.62 0.22 270);
-  }
+  /* Design System Tokens */
+  --radius-card: 24px;
+  --radius-input: 18px;
+  --radius-button: 14px;
 }
 
-@layer utilities {
-  /* Ambient Aurora Background */
-  .aurora-bg {
-    position: relative;
-    background-color: var(--background);
-    overflow: hidden;
-  }
-  .aurora-bg::before {
-    content: "";
-    position: absolute;
-    top: -50%;
-    left: -50%;
-    width: 200%;
-    height: 200%;
-    background: radial-gradient(circle, rgba(99, 102, 241, 0.08) 0%, transparent 40%),
-                radial-gradient(circle, rgba(139, 92, 246, 0.08) 30%, transparent 60%),
-                radial-gradient(circle, rgba(6, 182, 212, 0.06) 60%, transparent 80%);
-    filter: blur(140px);
-    z-index: 0;
-    pointer-events: none;
-    animation: rotate 60s linear infinite;
-  }
+/* ─── Design Tokens (Dark) ───────────────────────────────────────── */
+.dark {
+  --background: oklch(0.08 0.02 240);
+  --foreground: oklch(0.97 0.01 240);
 
-  /* Grid Overlay */
-  .grid-overlay {
-    background-image: linear-gradient(rgba(148, 163, 184, 0.05) 1px, transparent 1px),
-                      linear-gradient(90deg, rgba(148, 163, 184, 0.05) 1px, transparent 1px);
-    background-size: 24px 24px;
-    background-position: center;
-  }
+  --card: oklch(0.12 0.02 240);
+  --card-foreground: oklch(0.97 0.01 240);
 
-  /* Noise Overlay */
-  .noise-overlay {
-    position: absolute;
-    inset: 0;
-    width: 100%;
-    height: 100%;
-    opacity: 0.015;
-    pointer-events: none;
-    z-index: 1;
-    background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.65' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)'/%3E%3C/svg%3E");
-  }
+  --popover: oklch(0.12 0.02 240);
+  --popover-foreground: oklch(0.97 0.01 240);
 
-  /* Glassmorphism Panel */
-  .glass-panel {
-    background: rgba(255, 255, 255, 0.45);
-    border: 1px solid rgba(255, 255, 255, 0.5);
-    backdrop-filter: blur(16px);
-  }
-  .dark .glass-panel {
-    background: rgba(15, 23, 42, 0.45);
-    border: 1px solid rgba(255, 255, 255, 0.08);
-    backdrop-filter: blur(16px);
-  }
+  --primary: oklch(0.62 0.22 270); /* Violet */
+  --primary-foreground: oklch(0.08 0.02 240);
 
-  /* Accent glows */
-  .indigo-glow {
-    box-shadow: 0 0 40px -5px rgba(99, 102, 241, 0.12);
-  }
-  .cyan-glow {
-    box-shadow: 0 0 40px -5px rgba(6, 182, 212, 0.12);
-  }
+  --secondary: oklch(0.16 0.02 240);
+  --secondary-foreground: oklch(0.97 0.01 240);
 
-  /* Safe area padding for mobile (notch / home indicator) */
-  .pb-safe {
-    padding-bottom: env(safe-area-inset-bottom, 0px);
-  }
-  .pt-safe {
-    padding-top: env(safe-area-inset-top, 0px);
-  }
-  .pl-safe {
-    padding-left: env(safe-area-inset-left, 0px);
-  }
-  .pr-safe {
-    padding-right: env(safe-area-inset-right, 0px);
-  }
+  --muted: oklch(0.16 0.02 240);
+  --muted-foreground: oklch(0.65 0.02 240);
 
-  /* Mobile table scroll */
-  .table-scroll-container {
-    overflow-x: auto;
-    -webkit-overflow-scrolling: touch;
-    border-radius: inherit;
-  }
+  --accent: oklch(0.16 0.02 240);
+  --accent-foreground: oklch(0.62 0.22 270);
+
+  --destructive: oklch(0.48 0.22 20);
+  --destructive-foreground: oklch(0.97 0.01 240);
+
+  --border: oklch(0.18 0.02 240);
+  --input: oklch(0.18 0.02 240);
+  --ring: oklch(0.62 0.22 270);
+}
+
+/* ─── Custom Utilities ───────────────────────────────────────────── */
+
+/* Ambient Aurora Background */
+.aurora-bg {
+  position: relative;
+  background-color: var(--background);
+  overflow: hidden;
+}
+.aurora-bg::before {
+  content: "";
+  position: absolute;
+  top: -50%;
+  left: -50%;
+  width: 200%;
+  height: 200%;
+  background: radial-gradient(circle, rgba(99, 102, 241, 0.08) 0%, transparent 40%),
+              radial-gradient(circle, rgba(139, 92, 246, 0.08) 30%, transparent 60%),
+              radial-gradient(circle, rgba(6, 182, 212, 0.06) 60%, transparent 80%);
+  filter: blur(140px);
+  z-index: 0;
+  pointer-events: none;
+  animation: rotate 60s linear infinite;
+}
+
+/* Grid Overlay */
+.grid-overlay {
+  background-image: linear-gradient(rgba(148, 163, 184, 0.05) 1px, transparent 1px),
+                    linear-gradient(90deg, rgba(148, 163, 184, 0.05) 1px, transparent 1px);
+  background-size: 24px 24px;
+  background-position: center;
+}
+
+/* Noise Overlay */
+.noise-overlay {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  opacity: 0.015;
+  pointer-events: none;
+  z-index: 1;
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.65' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)'/%3E%3C/svg%3E");
+}
+
+/* Glassmorphism Panel */
+.glass-panel {
+  background: rgba(255, 255, 255, 0.45);
+  border: 1px solid rgba(255, 255, 255, 0.5);
+  backdrop-filter: blur(16px);
+}
+.dark .glass-panel {
+  background: rgba(15, 23, 42, 0.45);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  backdrop-filter: blur(16px);
+}
+
+/* Accent glows */
+.indigo-glow {
+  box-shadow: 0 0 40px -5px rgba(99, 102, 241, 0.12);
+}
+.cyan-glow {
+  box-shadow: 0 0 40px -5px rgba(6, 182, 212, 0.12);
+}
+
+/* Safe area padding for mobile */
+.pb-safe { padding-bottom: env(safe-area-inset-bottom, 0px); }
+.pt-safe { padding-top: env(safe-area-inset-top, 0px); }
+.pl-safe { padding-left: env(safe-area-inset-left, 0px); }
+.pr-safe { padding-right: env(safe-area-inset-right, 0px); }
+
+/* Mobile table scroll */
+.table-scroll-container {
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  border-radius: inherit;
 }
 
 @keyframes rotate {
-  from {
-    transform: rotate(0deg);
-  }
-  to {
-    transform: rotate(360deg);
-  }
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
 }
 
-/* ─── Base resets for mobile ─────────────────────────────────────── */
+/* ─── Base Resets ────────────────────────────────────────────────── */
 * {
-  @apply border-border;
-  /* Prevent grey tap flash on iOS/Android */
+  border-color: var(--border);
   -webkit-tap-highlight-color: transparent;
-  /* Smooth touch interactions */
   touch-action: manipulation;
 }
 
 body {
-  @apply bg-background text-foreground;
+  background-color: var(--background);
+  color: var(--foreground);
   font-feature-settings: "cv02", "cv03", "cv04", "cv11";
-  /* Prevent text size adjustment on orientation change */
   -webkit-text-size-adjust: 100%;
   text-size-adjust: 100%;
 }
 
 html {
-  @apply font-sans;
-  /* Enable momentum-based scrolling on iOS */
   -webkit-overflow-scrolling: touch;
 }
 
 /* ─── Input zoom prevention on iOS ──────────────────────────────── */
-/* iOS Safari zooms in when font-size < 16px on focus */
 input,
 select,
 textarea {
@@ -211,14 +194,13 @@ a {
   min-width: 44px;
 }
 
-/* Exceptions: inline text links and icon-only tiny elements */
 button.touch-none,
 a.touch-none {
   min-height: unset;
   min-width: unset;
 }
 
-/* ─── Reduced motion: disable all animations ─────────────────────── */
+/* ─── Reduced motion ────────────────────────────────────────────── */
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,
@@ -234,8 +216,7 @@ a.touch-none {
   }
 }
 
-/* ─── Hover effects: only on pointer devices ─────────────────────── */
-/* Prevents sticky hover states on touch devices */
+/* ─── Hover: only on pointer devices ─────────────────────────────── */
 @media (hover: none) {
   .hover\:scale-\[1\.02\]:hover,
   .hover\:scale-\[1\.01\]:hover,
@@ -246,7 +227,7 @@ a.touch-none {
   }
 }
 
-/* Three Shapes Loader - Custom Brand Theme Animation */
+/* ─── Three Shapes Loader ────────────────────────────────────────── */
 .loader {
   --path: var(--border);
   --dot: var(--primary);
@@ -317,70 +298,34 @@ a.touch-none {
 }
 
 @keyframes pathTriangle {
-  33% {
-    stroke-dashoffset: 74;
-  }
-  66% {
-    stroke-dashoffset: 147;
-  }
-  100% {
-    stroke-dashoffset: 221;
-  }
+  33% { stroke-dashoffset: 74; }
+  66% { stroke-dashoffset: 147; }
+  100% { stroke-dashoffset: 221; }
 }
 
 @keyframes dotTriangle {
-  33% {
-    transform: translate(0, 0);
-  }
-  66% {
-    transform: translate(10px, -18px);
-  }
-  100% {
-    transform: translate(-10px, -18px);
-  }
+  33% { transform: translate(0, 0); }
+  66% { transform: translate(10px, -18px); }
+  100% { transform: translate(-10px, -18px); }
 }
 
 @keyframes pathRect {
-  25% {
-    stroke-dashoffset: 64;
-  }
-  50% {
-    stroke-dashoffset: 128;
-  }
-  75% {
-    stroke-dashoffset: 192;
-  }
-  100% {
-    stroke-dashoffset: 256;
-  }
+  25% { stroke-dashoffset: 64; }
+  50% { stroke-dashoffset: 128; }
+  75% { stroke-dashoffset: 192; }
+  100% { stroke-dashoffset: 256; }
 }
 
 @keyframes dotRect {
-  25% {
-    transform: translate(0, 0);
-  }
-  50% {
-    transform: translate(18px, -18px);
-  }
-  75% {
-    transform: translate(0, -36px);
-  }
-  100% {
-    transform: translate(-18px, -18px);
-  }
+  25% { transform: translate(0, 0); }
+  50% { transform: translate(18px, -18px); }
+  75% { transform: translate(0, -36px); }
+  100% { transform: translate(-18px, -18px); }
 }
 
 @keyframes pathCircle {
-  25% {
-    stroke-dashoffset: 125;
-  }
-  50% {
-    stroke-dashoffset: 175;
-  }
-  75% {
-    stroke-dashoffset: 225;
-  }
-  100% {
-    stroke-dashoffset: 275;
-  }
+  25% { stroke-dashoffset: 125; }
+  50% { stroke-dashoffset: 175; }
+  75% { stroke-dashoffset: 225; }
+  100% { stroke-dashoffset: 275; }
 }

@@ -6,7 +6,7 @@ import { useRouter } from "next/navigation";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
-import { studentLogin, facultyLogin, registerStaff } from "@/app/actions/auth";
+import { login, registerStaff } from "@/app/actions/auth";
 import { toast } from "sonner";
 import { User, UserCog, Eye, EyeOff, Mail, Lock, Check, Layers, KeyRound, Barcode, Building, GraduationCap } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -148,18 +148,18 @@ export function AuthContainer() {
 
   const onStudentLogin = (data: StudentLoginData) => {
     runAuthMockAnimation(() =>
-      studentLogin({
+      login({
         email: data.email.toLowerCase().trim(),
-        registerNumber: data.registerNumber.toUpperCase().trim(),
+        password: data.registerNumber.toUpperCase().trim(),
       })
     );
   };
 
   const onStaffLogin = (data: StaffLoginData) => {
     runAuthMockAnimation(() =>
-      facultyLogin({
+      login({
         email: data.email.toLowerCase().trim(),
-        passwordHash: data.password,
+        password: data.password,
       })
     );
   };
@@ -171,11 +171,8 @@ export function AuthContainer() {
         employeeId: data.employeeId,
         name: data.name,
         email: data.email.toLowerCase().trim(),
-        faculty: data.faculty,
-        department: data.department,
-        degree: data.degree,
         section: data.role === "CLASS_TUTOR" ? data.section : undefined,
-        passwordHash: data.password,
+        password: data.password,
       })
     );
   };
@@ -298,7 +295,7 @@ export function AuthContainer() {
             repeat: Infinity,
             ease: "easeInOut",
           }}
-          className="bg-white/[0.72] dark:bg-white/[0.02] backdrop-blur-[32px] p-8 rounded-[32px] border border-slate-200/80 dark:border-white/[0.08] shadow-[0_30px_100px_rgba(0,0,0,0.03)] dark:shadow-[0_30px_100px_rgba(0,0,0,0.5)] relative overflow-hidden z-10 transition-all duration-300"
+          className="bg-white/70 dark:bg-slate-900/40 backdrop-blur-[40px] p-8 rounded-[32px] border border-white/40 dark:border-white/[0.08] shadow-[0_40px_80px_-20px_rgba(0,0,0,0.08)] dark:shadow-[0_40px_80px_-20px_rgba(0,0,0,0.5)] relative overflow-hidden z-10 transition-all duration-300"
         >
           {/* Glass sweep reflection layer (sweeps every 15s) */}
           <div 
