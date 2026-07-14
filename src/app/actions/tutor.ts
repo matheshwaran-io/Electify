@@ -118,7 +118,14 @@ export async function getTutorReports() {
   if (!session.sectionId) return { students: [], totalStudents: 0, registeredCount: 0 };
 
   const students = await db
-    .select({ id: users.id, name: users.name, registerNumber: users.registerNumber, isEligible: users.isEligible })
+    .select({ 
+      id: users.id, 
+      name: users.name, 
+      registerNumber: users.registerNumber, 
+      isEligible: users.isEligible,
+      isActive: users.isActive,
+      email: users.email
+    })
     .from(users)
     .where(and(eq(users.role, "STUDENT"), eq(users.sectionId, session.sectionId)))
     .orderBy(asc(users.name));

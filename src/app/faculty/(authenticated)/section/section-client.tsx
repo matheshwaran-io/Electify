@@ -2,77 +2,175 @@
 
 import { useState } from "react";
 import { motion } from "framer-motion";
-import { Users, Search } from "lucide-react";
+import { Users, Search, ShieldCheck, CheckCircle2, Clock } from "lucide-react";
 
-type Student = { id: string; name: string; email: string; registerNumber: string | null; isActive: boolean; isEligible: boolean };
+type Registration = { studentId: string; electiveName: string; groupName: string; eventName: string };
+type Student = { 
+  id: string; 
+  name: string; 
+  email: string | null;
+  registerNumber: string | null; 
+  isActive: boolean; 
+  isEligible: boolean; 
+  registrations: Registration[] 
+};
+type ReportData = { students: Student[]; totalStudents: number; registeredCount: number };
 type Session = { name: string; sectionId?: string };
 
-export function SectionClient({ students, session }: { students: Student[]; session: Session }) {
+export function SectionClient({ reportData, session }: { reportData: ReportData; session: Session }) {
+  const { students, totalStudents, registeredCount } = reportData;
   const [search, setSearch] = useState("");
+
   const filtered = students.filter(
     (s) =>
       s.name.toLowerCase().includes(search.toLowerCase()) ||
       (s.registerNumber ?? "").toLowerCase().includes(search.toLowerCase())
   );
 
+  const eligibleCount = students.filter((s) => s.isEligible).length;
+  const activeCount = students.filter((s) => s.isActive).length;
+
   return (
-    <div className="space-y-6">
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        <div>
-          <h1 className="text-3xl font-bold text-[var(--foreground)]">My Section</h1>
-          <p className="text-[var(--muted-foreground)] mt-1">{students.length} students in your section.</p>
-        </div>
-        <div className="flex items-center gap-2 bg-[var(--card)] border border-[var(--border)] rounded-xl px-4 py-2 text-sm text-[var(--muted-foreground)]">
-          <Users className="w-4 h-4" />
-          {students.length} students
-        </div>
+    <div className="space-y-8">
+      <div>
+        <h1 className="text-3xl font-bold text-[var(--foreground)]">Student Directory</h1>
+        <p className="text-[var(--muted-foreground)] mt-1">Review student registrations and eligibility for your section.</p>
       </div>
 
-      <div className="relative">
-        <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-[var(--muted-foreground)]" />
-        <input
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-          placeholder="Search by name or register number…"
-          className="w-full pl-11 pr-4 py-3 bg-[var(--card)] border border-[var(--border)] rounded-xl text-sm text-[var(--foreground)] placeholder:text-[var(--muted-foreground)] focus:outline-none focus:ring-2 focus:ring-indigo-500/50"
-        />
-      </div>
-
-      {students.length === 0 && !session.sectionId && (
+      {!session.sectionId && (
         <div className="bg-orange-500/10 border border-orange-500/30 rounded-2xl p-6 text-sm text-orange-400">
           ⚠ Your account doesn't have a section assigned. Please contact the System Admin.
         </div>
       )}
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">
-        {filtered.map((s, i) => (
-          <motion.div
-            key={s.id}
-            initial={{ opacity: 0, y: 10 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: i * 0.04 }}
-            className="bg-[var(--card)] border border-[var(--border)] rounded-2xl p-5 flex items-center gap-4"
-          >
-            <div className="w-12 h-12 rounded-full bg-gradient-to-br from-blue-500 to-teal-600 flex items-center justify-center text-white font-bold text-lg shrink-0">
-              {s.name.charAt(0).toUpperCase()}
+      {/* Top Statistic Cards */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        <div className="bg-[var(--card)] border border-[var(--border)] rounded-2xl p-6 flex items-center justify-between shadow-sm">
+          <div>
+            <div className="w-10 h-10 rounded-full bg-blue-500/10 flex items-center justify-center mb-3">
+              <Users className="w-5 h-5 text-blue-500" />
             </div>
-            <div className="flex-1 min-w-0">
-              <p className="font-semibold text-[var(--foreground)] truncate">{s.name}</p>
-              <p className="text-xs text-[var(--muted-foreground)] font-mono">{s.registerNumber ?? "—"}</p>
-              <div className="flex gap-2 mt-1.5">
-                <span className={`text-xs px-1.5 py-0.5 rounded-md font-medium ${s.isActive ? "bg-emerald-500/10 text-emerald-400" : "bg-red-500/10 text-red-400"}`}>
-                  {s.isActive ? "Active" : "Inactive"}
-                </span>
-                <span className={`text-xs px-1.5 py-0.5 rounded-md font-medium ${s.isEligible ? "bg-blue-500/10 text-blue-400" : "bg-orange-500/10 text-orange-400"}`}>
-                  {s.isEligible ? "Eligible" : "Ineligible"}
-                </span>
-              </div>
+            <p className="text-xs font-semibold text-[var(--muted-foreground)] uppercase tracking-wider">Intake Count</p>
+            <p className="text-3xl font-bold text-[var(--foreground)] mt-1">{totalStudents}</p>
+          </div>
+        </div>
+
+        <div className="bg-[var(--card)] border border-[var(--border)] rounded-2xl p-6 flex items-center justify-between shadow-sm">
+          <div>
+            <div className="w-10 h-10 rounded-full bg-purple-500/10 flex items-center justify-center mb-3">
+              <ShieldCheck className="w-5 h-5 text-purple-500" />
             </div>
-          </motion.div>
-        ))}
-        {filtered.length === 0 && students.length > 0 && (
-          <div className="col-span-full text-center py-12 text-[var(--muted-foreground)]">No students match your search.</div>
-        )}
+            <p className="text-xs font-semibold text-[var(--muted-foreground)] uppercase tracking-wider">Eligible Count</p>
+            <p className="text-3xl font-bold text-[var(--foreground)] mt-1">{eligibleCount}</p>
+          </div>
+        </div>
+
+        <div className="bg-[var(--card)] border border-[var(--border)] rounded-2xl p-6 flex items-center justify-between shadow-sm">
+          <div>
+            <div className="w-10 h-10 rounded-full bg-emerald-500/10 flex items-center justify-center mb-3">
+              <CheckCircle2 className="w-5 h-5 text-emerald-500" />
+            </div>
+            <p className="text-xs font-semibold text-[var(--muted-foreground)] uppercase tracking-wider">Active Logins</p>
+            <p className="text-3xl font-bold text-[var(--foreground)] mt-1">{activeCount}</p>
+          </div>
+        </div>
+
+        <div className="bg-[var(--card)] border border-[var(--border)] rounded-2xl p-6 flex items-center justify-between shadow-sm">
+          <div>
+            <div className="w-10 h-10 rounded-full bg-orange-500/10 flex items-center justify-center mb-3">
+              <Clock className="w-5 h-5 text-orange-500" />
+            </div>
+            <p className="text-xs font-semibold text-[var(--muted-foreground)] uppercase tracking-wider">Submitted Count</p>
+            <p className="text-3xl font-bold text-[var(--foreground)] mt-1">{registeredCount}</p>
+          </div>
+        </div>
+      </div>
+
+      {/* Directory Table Area */}
+      <div className="bg-[var(--card)] border border-[var(--border)] rounded-3xl shadow-sm overflow-hidden">
+        <div className="px-6 py-6 border-b border-[var(--border)] flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <div>
+            <h2 className="text-xl font-bold text-[var(--foreground)] flex items-center gap-2">
+              <Users className="w-5 h-5 text-[var(--muted-foreground)]" />
+              Student Directory
+            </h2>
+            <p className="text-sm text-[var(--muted-foreground)] mt-1">
+              Verify registration eligibility status and submission receipts.
+            </p>
+          </div>
+          
+          <div className="relative w-full sm:w-64 shrink-0">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[var(--muted-foreground)]" />
+            <input
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder="Search students..."
+              className="w-full pl-9 pr-4 py-2 bg-[var(--background)] border border-[var(--border)] rounded-xl text-sm text-[var(--foreground)] placeholder:text-[var(--muted-foreground)] focus:outline-none focus:ring-2 focus:ring-indigo-500/50"
+            />
+          </div>
+        </div>
+
+        <div className="overflow-x-auto">
+          <table className="w-full text-sm text-left">
+            <thead>
+              <tr className="bg-[var(--background)]/50 border-b border-[var(--border)]">
+                <th className="px-6 py-4 font-semibold text-[var(--muted-foreground)] text-xs tracking-wider uppercase">Register Number</th>
+                <th className="px-6 py-4 font-semibold text-[var(--muted-foreground)] text-xs tracking-wider uppercase">Name</th>
+                <th className="px-6 py-4 font-semibold text-[var(--muted-foreground)] text-xs tracking-wider uppercase">SRM Email</th>
+                <th className="px-6 py-4 font-semibold text-[var(--muted-foreground)] text-xs tracking-wider uppercase">Eligible</th>
+                <th className="px-6 py-4 font-semibold text-[var(--muted-foreground)] text-xs tracking-wider uppercase">Login Active</th>
+                <th className="px-6 py-4 font-semibold text-[var(--muted-foreground)] text-xs tracking-wider uppercase">Submitted</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-[var(--border)]">
+              {filtered.length === 0 ? (
+                <tr>
+                  <td colSpan={6} className="text-center py-16 text-[var(--muted-foreground)]">
+                    No students match your search.
+                  </td>
+                </tr>
+              ) : (
+                filtered.map((s, i) => {
+                  const isRegistered = s.registrations.length > 0;
+                  return (
+                    <motion.tr
+                      key={s.id}
+                      initial={{ opacity: 0 }}
+                      animate={{ opacity: 1 }}
+                      transition={{ delay: i * 0.02 }}
+                      className="hover:bg-[var(--accent)]/10 transition-colors"
+                    >
+                      <td className="px-6 py-4 font-medium text-[var(--foreground)]">
+                        {s.registerNumber ?? "—"}
+                      </td>
+                      <td className="px-6 py-4 text-[var(--foreground)] font-medium">
+                        {s.name}
+                      </td>
+                      <td className="px-6 py-4 text-[var(--muted-foreground)]">
+                        {s.email ?? "—"}
+                      </td>
+                      <td className="px-6 py-4">
+                        <span className={`inline-flex px-2 py-1 rounded-md text-xs font-bold ${s.isEligible ? "text-emerald-500 bg-emerald-500/10" : "text-red-500 bg-red-500/10"}`}>
+                          {s.isEligible ? "YES" : "NO"}
+                        </span>
+                      </td>
+                      <td className="px-6 py-4">
+                        <span className={`inline-flex px-2 py-1 rounded-md text-xs font-bold ${s.isActive ? "text-emerald-500 bg-emerald-500/10" : "text-red-500 bg-red-500/10"}`}>
+                          {s.isActive ? "YES" : "NO"}
+                        </span>
+                      </td>
+                      <td className="px-6 py-4">
+                        <span className={`inline-flex px-2 py-1 rounded-md text-xs font-bold ${isRegistered ? "text-emerald-500 bg-emerald-500/10" : "text-red-500 bg-red-500/10"}`}>
+                          {isRegistered ? "YES" : "NO"}
+                        </span>
+                      </td>
+                    </motion.tr>
+                  );
+                })
+              )}
+            </tbody>
+          </table>
+        </div>
       </div>
     </div>
   );
