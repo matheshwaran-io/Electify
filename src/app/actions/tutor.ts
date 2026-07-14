@@ -2,7 +2,7 @@
 
 import { db } from "@/lib/db";
 import {
-  users, electives, electiveGroups, registrationEvents,
+  users, electives, electiveGroups, registrationEvents, tutorSections,
   studentRegistrations, eventSections, sections, programmes, academicBatches, auditLogs, registrations, departments
 } from "@/lib/db/schema";
 import { getSession } from "@/lib/auth";
@@ -700,4 +700,47 @@ export async function resetSectionRegistrationEvent(eventId: string) {
       },
     });
   });
+}
+
+// ── Self Onboarding ──────────────────────────────────────────────────────
+
+export async function getAllAvailableSections() {
+  const session = await getSession();
+  if (!session || session.role !== "CLASS_TUTOR") throw new Error("Unauthorized");
+
+  const results = await db
+    .select({
+      id: sections.id,
+      label: sections.label,
+      batch: academicBatches.year,
+      programme: programmes.name,
+    })
+    .from(sections)
+    .innerJoin(academicBatches, eq(sections.academicBatchId, academicBatches.id))
+    .innerJoin(programmes, eq(academicBatches.programmeId, programmes.id))
+    .orderBy(programmes.name, academicBatches.year, sections.label);
+
+  return results;
+}
+
+export async function claimTutorSection(sectionId: string) {
+  const session = await getSession();
+  if (!session || session.role !== "CLASS_TUTOR") throw new Error("Unauthorized");
+
+  // Add the section to this tutor
+  const existing = await db
+    .select()
+    .from(tutorSections)
+    .where(and(eq(tutorSections.tutorId, session.userId), eq(tutorSections.sectionId, sectionId)));
+
+  if (existing.length === 0) {
+    await db.insert(tutorSections).values({
+      tutorId: session.userId,
+      sectionId: sectionId,
+    });
+  }
+
+  // Update their session to use this new section as active
+  const { switchTutorSection } = await import("@/app/actions/auth");
+  await switchTutorSection(sectionId);
 }

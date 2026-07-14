@@ -5,6 +5,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { Users, Search, ShieldCheck, CheckCircle2, Clock, Plus, X, Download, Upload, Pencil, Trash2 } from "lucide-react";
 import { createStudent, importStudentsCSV, updateStudent, deleteStudent, unlockStudentRegistration, deleteMultipleStudentsTutor } from "@/app/actions/tutor";
 import { useRouter } from "next/navigation";
+import { TutorSectionOnboarding } from "@/components/tutor-section-onboarding";
 
 type Registration = { studentId: string; electiveName: string; groupName: string; eventName: string };
 type Student = { 
@@ -45,6 +46,10 @@ export function SectionClient({ reportData, session }: { reportData: ReportData;
 
   const eligibleCount = students.filter((s) => s.isEligible).length;
   const activeCount = students.filter((s) => s.isActive).length;
+
+  if (!session.sectionId) {
+    return <TutorSectionOnboarding />;
+  }
 
   async function handleAddStudent() {
     if (!newName || !newRegNo || !newEmail) return;

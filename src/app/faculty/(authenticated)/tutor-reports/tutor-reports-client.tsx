@@ -8,6 +8,7 @@ import {
 import { useState, useMemo } from "react";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
+import { TutorSectionOnboarding } from "@/components/tutor-section-onboarding";
 
 type Registration = {
   studentId: string;
@@ -49,7 +50,7 @@ type ReportData = {
 
 type TabId = "overview" | "students" | "subjects";
 
-export function TutorReportsClient({ reportData }: { reportData: ReportData }) {
+export function TutorReportsClient({ reportData, hasActiveSection = true }: { reportData: ReportData, hasActiveSection?: boolean }) {
   const { students, totalStudents, registeredCount, sectionLabel, programmeName, departmentName, groups } = reportData;
   const pendingCount = totalStudents - registeredCount;
   const overallPct = totalStudents > 0 ? Math.round((registeredCount / totalStudents) * 100) : 0;
@@ -88,10 +89,15 @@ export function TutorReportsClient({ reportData }: { reportData: ReportData }) {
   const toggleExpanded = (id: string) => {
     setExpandedStudents(prev => {
       const next = new Set(prev);
-      if (next.has(id)) next.delete(id); else next.add(id);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
       return next;
     });
   };
+
+  if (!hasActiveSection) {
+    return <TutorSectionOnboarding />;
+  }
 
   // ── Premium CSV Export ──────────────────────────────────────────────────
   const exportCSV = () => {

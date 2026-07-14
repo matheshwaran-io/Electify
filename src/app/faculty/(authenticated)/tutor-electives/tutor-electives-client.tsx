@@ -5,6 +5,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { BookOpen, Users, CheckCircle2, Percent, Search, Plus, X, Layers, Pencil, Trash2 } from "lucide-react";
 import { createElective, createElectiveGroup, createRegistrationWindow, updateElective, deleteElective } from "@/app/actions/tutor";
 import { useRouter } from "next/navigation";
+import { TutorSectionOnboarding } from "@/components/tutor-section-onboarding";
 
 type Elective = { 
   id: string; 
@@ -19,7 +20,7 @@ type Group = { id: string; name: string; electives: Elective[] };
 type EventInfo = { id: string; name: string; status: string; openDate: Date | null; closeDate: Date | null };
 type EventData = { event: EventInfo; groups: Group[] };
 
-export function TutorElectivesClient({ electivesData }: { electivesData: EventData[] }) {
+export function TutorElectivesClient({ electivesData, hasActiveSection = true }: { electivesData: EventData[], hasActiveSection?: boolean }) {
   const router = useRouter();
   const allGroups = electivesData.flatMap(e => e.groups);
   const allElectives = allGroups.flatMap(g => g.electives);
@@ -154,38 +155,58 @@ export function TutorElectivesClient({ electivesData }: { electivesData: EventDa
   }
 
   if (electivesData.length === 0) {
+    if (!hasActiveSection) {
+      return <TutorSectionOnboarding />;
+    }
+
     return (
       <div className="space-y-6">
         <div>
           <h1 className="text-3xl font-bold text-[var(--foreground)]">Course Configurations</h1>
           <p className="text-[var(--muted-foreground)] mt-1">Review elective listings and seat quotas.</p>
         </div>
-        <div className="flex flex-col items-center justify-center py-20 text-[var(--muted-foreground)] bg-[var(--card)] rounded-2xl border border-[var(--border)]">
-          <BookOpen className="w-10 h-10 mb-4 opacity-30" />
-          <p className="mb-6">No registration event exists. Create a Registration Window first to start adding electives.</p>
+
+        <div className="bg-[var(--card)] border border-[var(--border)] rounded-2xl flex flex-col items-center justify-center min-h-[60vh] p-8 text-center relative overflow-hidden">
+          <div className="absolute inset-0 bg-gradient-to-b from-transparent to-[var(--accent)]/10" />
           
-          <div className="bg-[var(--background)] p-6 rounded-2xl border border-[var(--border)] max-w-sm w-full space-y-4 shadow-sm text-left">
-            <div>
-              <label className="block text-xs font-bold uppercase tracking-wider mb-1">Window Name</label>
-              <input 
-                value={newWindowName} onChange={e => setNewWindowName(e.target.value)}
-                placeholder="e.g. Fall 2026 Registration"
-                className="w-full px-4 py-2 bg-[var(--card)] border border-[var(--border)] rounded-xl text-sm text-[var(--foreground)] focus:ring-2 focus:ring-indigo-500/50 outline-none"
-              />
+          <div className="relative z-10 w-full max-w-md bg-[var(--background)] border border-[var(--border)] p-8 rounded-2xl shadow-xl shadow-black/5">
+            <div className="w-16 h-16 bg-[var(--accent)] rounded-full flex items-center justify-center mx-auto mb-6 ring-8 ring-[var(--background)]">
+              <BookOpen className="w-8 h-8 text-[var(--muted-foreground)]" />
             </div>
-            <div>
-              <label className="block text-xs font-bold uppercase tracking-wider mb-1">Academic Year</label>
-              <input 
-                value={newWindowYear} onChange={e => setNewWindowYear(e.target.value)}
-                className="w-full px-4 py-2 bg-[var(--card)] border border-[var(--border)] rounded-xl text-sm text-[var(--foreground)] focus:ring-2 focus:ring-indigo-500/50 outline-none"
-              />
+            
+            <h2 className="text-2xl font-bold text-[var(--foreground)] mb-3">Setup Your Classes</h2>
+            <p className="text-[var(--muted-foreground)] text-sm mb-8">
+              No registration event exists. Create a Registration Window first to start adding electives.
+            </p>
+
+            <div className="space-y-4 text-left">
+              <div>
+                <label className="text-xs font-bold text-[var(--muted-foreground)] uppercase tracking-wider mb-2 block">Event Name</label>
+                <input 
+                  value={newWindowName}
+                  onChange={e => setNewWindowName(e.target.value)}
+                  placeholder="e.g. B.TECH EVEN SEM AI F..."
+                  className="w-full px-4 py-3 bg-[var(--accent)]/50 border border-[var(--border)] rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/50"
+                />
+              </div>
+              <div>
+                <label className="text-xs font-bold text-[var(--muted-foreground)] uppercase tracking-wider mb-2 block">Academic Year</label>
+                <input 
+                  value={newWindowYear}
+                  onChange={e => setNewWindowYear(e.target.value)}
+                  placeholder="e.g. 2026-2027"
+                  className="w-full px-4 py-3 bg-[var(--accent)]/50 border border-[var(--border)] rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/50"
+                />
+              </div>
+              
+              <button 
+                onClick={handleCreateWindow}
+                disabled={!newWindowName || isWindowCreating}
+                className="w-full py-3.5 bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 text-white rounded-xl font-bold text-sm transition-all shadow-lg shadow-indigo-500/20 flex items-center justify-center gap-2 mt-4"
+              >
+                {isWindowCreating ? "Creating..." : <><Plus className="w-4 h-4" /> Create Registration Window</>}
+              </button>
             </div>
-            <button 
-              onClick={handleCreateWindow} disabled={isWindowCreating}
-              className="w-full bg-indigo-600 text-white px-4 py-2 rounded-xl text-sm font-medium hover:bg-indigo-500 transition shadow-md shadow-indigo-500/20 flex items-center justify-center gap-2 mt-2 disabled:opacity-50"
-            >
-              <Plus className="w-4 h-4" /> {isWindowCreating ? "Creating..." : "Create Registration Window"}
-            </button>
           </div>
         </div>
       </div>

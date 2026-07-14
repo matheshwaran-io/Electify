@@ -7,5 +7,5 @@ export default async function TutorElectivesPage() {
   const session = await getSession();
   if (!session || session.role !== "CLASS_TUTOR") redirect("/faculty/dashboard");
   const electivesData = await getTutorElectives();
-  return <TutorElectivesClient electivesData={electivesData} />;
+  return <TutorElectivesClient electivesData={electivesData} hasActiveSection={!!session.sectionId} />;
 }
