@@ -40,6 +40,8 @@ export const programmes = pgTable("programmes", {
   name: text("name").notNull(),
   code: text("code").notNull().unique(),
   degreeType: text("degree_type"), // "UG" | "PG"
+  durationYears: integer("duration_years").default(4),
+  semesters: integer("semesters").default(8),
   departmentId: uuid("department_id")
     .notNull()
     .references(() => departments.id, { onDelete: "cascade" }),

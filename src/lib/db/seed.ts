@@ -1,7 +1,7 @@
 /**
  * Electify AEMS — Database Seed Script
  *
- * Seeds master data + System Admin account.
+ * Seeds master data + System Admin account using full SRM university data.
  * Run with: npx tsx src/lib/db/seed.ts
  */
 
@@ -10,6 +10,50 @@ import { drizzle } from "drizzle-orm/node-postgres";
 import { Pool } from "pg";
 import * as bcrypt from "bcryptjs";
 import * as schema from "./schema";
+import { srmData } from "./srm-data";
+
+function parseProgramme(progName: string) {
+  let degreeType = "UG";
+  let durationYears = 3;
+
+  if (progName.includes("B.Tech") || progName.includes("B.Pharm") || progName.includes("BPT") || progName.includes("BOT")) {
+    durationYears = 4;
+  } else if (progName.includes("B.Arch") || progName.includes("BA LLB") || progName.includes("BBA LLB") || progName.includes("MBBS") || progName.includes("BDS") || progName.includes("Pharm.D")) {
+    durationYears = 5;
+  } else if (progName.includes("M.") || progName.includes("MBA") || progName.includes("MCA") || progName.includes("LLM") || progName.includes("MPH") || progName.includes("MD") || progName.includes("MS") || progName.includes("DM")) {
+    degreeType = "PG";
+    durationYears = 2;
+  } else if (progName.includes("Ph.D")) {
+    degreeType = "PHD";
+    durationYears = 3;
+  }
+
+  // Create a unique code
+  let code = progName
+    .replace(/[^a-zA-Z0-9\s]/g, "")
+    .split(/\s+/)
+    .map(w => w[0]?.toUpperCase())
+    .join("");
+
+  // Special case for common programmes to make sure codes are somewhat sensible
+  if (progName === "Master of Computer Applications" || progName === "MCA") code = "MCA";
+  if (progName === "Bachelor of Computer Applications" || progName === "BCA") code = "BCA";
+  
+  // Just in case we get very long or empty codes
+  if (code.length < 2) code = progName.substring(0, 3).toUpperCase();
+
+  // Append hash of full name to avoid code collisions for B.Tech CSE variants etc.
+  const hash = Math.abs(progName.split('').reduce((a,b)=>{a=((a<<5)-a)+b.charCodeAt(0);return a&a},0)).toString(36).substring(0,4).toUpperCase();
+  code = `${code}-${hash}`;
+
+  return {
+    name: progName,
+    code,
+    degreeType,
+    durationYears,
+    semesters: durationYears * 2,
+  };
+}
 
 async function seed() {
   const connectionString = process.env.DIRECT_URL || process.env.DATABASE_URL;
@@ -20,104 +64,63 @@ async function seed() {
   const pool = new Pool({ connectionString });
   const db = drizzle(pool, { schema });
 
-  console.log("🌱 Seeding Electify database...\n");
+  console.log("🌱 Seeding Electify database (Full SRM Structure)...\n");
 
-  // ── 1. Faculty ──────────────────────────────────────────────────
-  console.log("  → Faculties...");
-  const [fsh] = await db
-    .insert(schema.faculties)
-    .values({
-      name: "Faculty of Science & Humanities",
-      code: "FSH",
-    })
-    .onConflictDoNothing({ target: schema.faculties.code })
-    .returning();
-
-  const facultyId = fsh?.id;
-  if (!facultyId) {
-    console.log("    ✓ Faculty FSH already exists, fetching...");
-    const existing = await db.query.faculties.findFirst({
-      where: (f, { eq }) => eq(f.code, "FSH"),
-    });
-    if (!existing) throw new Error("Faculty FSH not found");
-    Object.assign(fsh ?? {}, existing);
-  }
-  const fshId = fsh?.id ?? (await db.query.faculties.findFirst({ where: (f, { eq }) => eq(f.code, "FSH") }))!.id;
-  console.log(`    ✓ FSH (${fshId})`);
-
-  // ── 2. Departments ─────────────────────────────────────────────
-  console.log("  → Departments...");
-  const departmentData = [
-    { name: "Computer Applications", code: "CA" },
-    { name: "Mathematics", code: "MATH" },
-    { name: "Physics", code: "PHY" },
-    { name: "Chemistry", code: "CHEM" },
-    { name: "Commerce", code: "COM" },
-    { name: "English", code: "ENG" },
-    { name: "Economics", code: "ECON" },
-    { name: "Visual Communication", code: "VISCOM" },
-    { name: "Psychology", code: "PSY" },
-  ];
-
-  for (const dept of departmentData) {
-    await db
-      .insert(schema.departments)
-      .values({ ...dept, facultyId: fshId })
-      .onConflictDoNothing({ target: schema.departments.code });
-  }
-
-  const caDept = await db.query.departments.findFirst({
-    where: (d, { eq }) => eq(d.code, "CA"),
-  });
-  if (!caDept) throw new Error("Department CA not found");
-  console.log(`    ✓ ${departmentData.length} departments seeded`);
-
-  // ── 3. Programmes ──────────────────────────────────────────────
-  console.log("  → Programmes...");
-  const programmeData = [
-    { name: "Master of Computer Applications", code: "MCA", degreeType: "PG" },
-    { name: "Bachelor of Computer Applications", code: "BCA", degreeType: "UG" },
-    { name: "MSc Computer Science", code: "MSC-CS", degreeType: "PG" },
-  ];
-
-  for (const prog of programmeData) {
-    await db
-      .insert(schema.programmes)
-      .values({ ...prog, departmentId: caDept.id })
-      .onConflictDoNothing({ target: schema.programmes.code });
-  }
-
-  const mcaProg = await db.query.programmes.findFirst({
-    where: (p, { eq }) => eq(p.code, "MCA"),
-  });
-  if (!mcaProg) throw new Error("Programme MCA not found");
-  console.log(`    ✓ ${programmeData.length} programmes seeded`);
-
-  // ── 4. Academic Batches ──────────────────────────────────
-  console.log("  → Academic Batches...");
-  await db.insert(schema.academicBatches).values({
-    year: "2026",
-    programmeId: mcaProg.id,
-  }).onConflictDoNothing();
-
-  const batch2026 = await db.query.academicBatches.findFirst({
-    where: (b, { eq, and }) => and(eq(b.year, "2026"), eq(b.programmeId, mcaProg.id))
-  });
-  if (!batch2026) throw new Error("Batch 2026 not found");
-
-  // ── 5. Sections (A–J for MCA 2026) ──────────────────────────────────
-  console.log("  → Sections...");
   const sectionLabels = ["A", "B", "C", "D", "E", "F", "G", "H", "I", "J"];
 
-  for (const label of sectionLabels) {
-    await db
-      .insert(schema.sections)
-      .values({ label, academicBatchId: batch2026.id })
-      .onConflictDoNothing();
-  }
-  console.log(`    ✓ ${sectionLabels.length} sections (A–J) for MCA 2026`);
+  for (const faculty of srmData.university.faculties) {
+    console.log(`  → Faculty: ${faculty.name}`);
+    const [f] = await db
+      .insert(schema.faculties)
+      .values({ name: faculty.name, code: faculty.code })
+      .onConflictDoUpdate({ target: schema.faculties.code, set: { name: faculty.name } })
+      .returning();
 
-  // ── 5. System Admin Account ────────────────────────────────────
+    for (const dept of faculty.departments) {
+      const deptCode = dept.name.split(/\s+/).map(w => w[0]?.toUpperCase()).join("") + "-" + faculty.code;
+      const [d] = await db
+        .insert(schema.departments)
+        .values({ name: dept.name, code: deptCode, facultyId: f.id })
+        .onConflictDoUpdate({ target: schema.departments.code, set: { name: dept.name } })
+        .returning();
+
+      for (const progStr of dept.programmes) {
+        const pData = parseProgramme(progStr);
+        const [p] = await db
+          .insert(schema.programmes)
+          .values({ ...pData, departmentId: d.id })
+          .onConflictDoUpdate({ target: schema.programmes.code, set: { name: pData.name } })
+          .returning();
+
+        const [batch] = await db
+          .insert(schema.academicBatches)
+          .values({ year: "2026", programmeId: p.id })
+          // @ts-ignore
+          .onConflictDoNothing()
+          .returning();
+        
+        let batchId = batch?.id;
+        if (!batchId) {
+           const existing = await db.query.academicBatches.findFirst({
+              where: (ab, { eq, and }) => and(eq(ab.year, "2026"), eq(ab.programmeId, p.id))
+           });
+           batchId = existing!.id;
+        }
+
+        // Insert sections
+        for (const label of sectionLabels) {
+          await db
+            .insert(schema.sections)
+            .values({ label, academicBatchId: batchId })
+            .onConflictDoNothing();
+        }
+      }
+    }
+  }
+
+  console.log("    ✓ Full hierarchy seeded successfully");
+
+  // ── System Admin Account ────────────────────────────────────
   console.log("  → System Admin...");
   const adminEmail = "admin@electify.edu";
   const adminPassword = "Admin@12345";
@@ -138,7 +141,7 @@ async function seed() {
 
   console.log(`    ✓ admin@electify.edu / Admin@12345`);
 
-  // ── 6. System Settings ─────────────────────────────────────────
+  // ── System Settings ─────────────────────────────────────────
   console.log("  → System Settings...");
   await db
     .insert(schema.systemSettings)
@@ -149,17 +152,8 @@ async function seed() {
     .onConflictDoNothing();
   console.log("    ✓ Default system settings");
 
-  // ── Done ───────────────────────────────────────────────────────
   console.log("\n✅ Seed complete!\n");
-  console.log("  System Admin Credentials:");
-  console.log("  ─────────────────────────");
-  console.log("  Email:    admin@electify.edu");
-  console.log("  Password: Admin@12345");
-  console.log("  Role:     SYSTEM_ADMIN");
-  console.log("");
-
   await pool.end();
-  process.exit(0);
 }
 
 seed().catch((error) => {
