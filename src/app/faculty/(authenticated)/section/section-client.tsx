@@ -1,9 +1,9 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Users, Search, ShieldCheck, CheckCircle2, Clock, Plus, X } from "lucide-react";
-import { createStudent } from "@/app/actions/tutor";
+import { Users, Search, ShieldCheck, CheckCircle2, Clock, Plus, X, Download, Upload } from "lucide-react";
+import { createStudent, importStudentsCSV } from "@/app/actions/tutor";
 import { useRouter } from "next/navigation";
 
 type Registration = { studentId: string; electiveName: string; groupName: string; eventName: string };
@@ -24,12 +24,13 @@ export function SectionClient({ reportData, session }: { reportData: ReportData;
   const { students, totalStudents, registeredCount } = reportData;
   const [search, setSearch] = useState("");
   
-  // Modal state
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [newName, setNewName] = useState("");
   const [newRegNo, setNewRegNo] = useState("");
   const [newEmail, setNewEmail] = useState("");
   const [isSaving, setIsSaving] = useState(false);
+  const [isUploading, setIsUploading] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const filtered = students.filter(
     (s) =>
@@ -54,6 +55,49 @@ export function SectionClient({ reportData, session }: { reportData: ReportData;
       alert(err.message);
     } finally {
       setIsSaving(false);
+    }
+  }
+
+  function handleDownloadTemplate() {
+    const headers = ["Name", "Register Number", "Email"];
+    const csvContent = "data:text/csv;charset=utf-8," + headers.join(",") + "\n" + "John Doe,RA2211003010123,jd1234@srmist.edu.in";
+    const encodedUri = encodeURI(csvContent);
+    const link = document.createElement("a");
+    link.setAttribute("href", encodedUri);
+    link.setAttribute("download", "student_import_template.csv");
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+  }
+
+  async function handleFileUpload(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setIsUploading(true);
+    try {
+      const text = await file.text();
+      const lines = text.split("\n").map(l => l.trim()).filter(l => l.length > 0);
+      
+      // Assume first line is header
+      const dataLines = lines.slice(1);
+      const parsedData = dataLines.map(line => {
+        const [name, registerNumber, email] = line.split(",").map(val => val.trim());
+        return { name, registerNumber, email };
+      }).filter(s => s.name && s.registerNumber && s.email);
+
+      if (parsedData.length === 0) {
+        throw new Error("No valid data found in CSV. Make sure you match the template.");
+      }
+
+      const result = await importStudentsCSV(parsedData);
+      alert(`Imported ${result.imported} students. Skipped ${result.skipped} (already exist).`);
+      router.refresh();
+    } catch (err: any) {
+      alert("Error importing CSV: " + err.message);
+    } finally {
+      setIsUploading(false);
+      if (fileInputRef.current) fileInputRef.current.value = "";
     }
   }
 
@@ -126,7 +170,7 @@ export function SectionClient({ reportData, session }: { reportData: ReportData;
             </p>
           </div>
           
-          <div className="flex items-center gap-3 w-full sm:w-auto shrink-0">
+          <div className="flex items-center gap-3 w-full sm:w-auto shrink-0 flex-wrap sm:flex-nowrap">
             <div className="relative w-full sm:w-64">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[var(--muted-foreground)]" />
               <input
@@ -136,6 +180,29 @@ export function SectionClient({ reportData, session }: { reportData: ReportData;
                 className="w-full pl-9 pr-4 py-2 bg-[var(--background)] border border-[var(--border)] rounded-xl text-sm text-[var(--foreground)] placeholder:text-[var(--muted-foreground)] focus:outline-none focus:ring-2 focus:ring-indigo-500/50"
               />
             </div>
+            
+            <button 
+              onClick={handleDownloadTemplate}
+              className="bg-[var(--background)] border border-[var(--border)] text-[var(--foreground)] px-4 py-2 rounded-xl text-sm font-medium hover:bg-[var(--accent)] transition flex items-center gap-2"
+            >
+              <Download className="w-4 h-4" /> Download Template
+            </button>
+            
+            <input 
+              type="file" 
+              accept=".csv" 
+              className="hidden" 
+              ref={fileInputRef} 
+              onChange={handleFileUpload}
+            />
+            <button 
+              onClick={() => fileInputRef.current?.click()}
+              disabled={isUploading}
+              className="bg-[var(--background)] border border-[var(--border)] text-[var(--foreground)] px-4 py-2 rounded-xl text-sm font-medium hover:bg-[var(--accent)] transition flex items-center gap-2 disabled:opacity-50"
+            >
+              <Upload className="w-4 h-4" /> {isUploading ? "Importing..." : "Import CSV"}
+            </button>
+
             <button 
               onClick={() => setIsModalOpen(true)}
               className="bg-indigo-600 text-white px-4 py-2 rounded-xl text-sm font-medium hover:bg-indigo-500 transition shadow-md shadow-indigo-500/20 whitespace-nowrap flex items-center gap-2"

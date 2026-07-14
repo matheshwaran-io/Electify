@@ -330,3 +330,39 @@ export async function createElective(groupId: string, data: { name: string; maxS
     isFull: false,
   });
 }
+
+export async function importStudentsCSV(studentsData: { name: string; registerNumber: string; email: string }[]) {
+  const session = await assertTutor();
+  if (!session.sectionId || !session.programmeId || !session.departmentId) {
+    throw new Error("Missing assignment data");
+  }
+
+  const hashed = await bcrypt.hash("Student@123", 12);
+
+  const valuesToInsert = studentsData.map(s => ({
+    name: s.name.trim(),
+    email: s.email.toLowerCase().trim(),
+    registerNumber: s.registerNumber.trim(),
+    passwordHash: hashed,
+    role: "STUDENT" as const,
+    sectionId: session.sectionId,
+    programmeId: session.programmeId,
+    departmentId: session.departmentId,
+    isActive: true,
+    isEligible: true,
+  }));
+
+  // Simple loop or batch insert. Let's do a batch insert with ON CONFLICT DO NOTHING.
+  // Wait, Drizzle pg doesn't have a simple generic ON CONFLICT DO NOTHING for all rows without specifying columns easily in this setup, 
+  // so we'll just check existing emails first to avoid failing the whole batch if one exists.
+  
+  const existingUsers = await db.select({ email: users.email }).from(users);
+  const existingEmails = new Set(existingUsers.map(u => u.email));
+
+  const newUsers = valuesToInsert.filter(u => !existingEmails.has(u.email));
+  if (newUsers.length === 0) return { imported: 0, skipped: valuesToInsert.length };
+
+  await db.insert(users).values(newUsers);
+  
+  return { imported: newUsers.length, skipped: valuesToInsert.length - newUsers.length };
+}
