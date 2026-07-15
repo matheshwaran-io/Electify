@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { GraduationCap, Search, Trash2, Download, Filter, ChevronLeft, ChevronRight, ArrowUpDown, CheckCircle } from "lucide-react";
 import { deleteMultipleStudents } from "@/app/actions/coordinator";
@@ -76,7 +76,7 @@ export function StudentsClient({ students }: { students: Student[] }) {
   const currentData = filteredAndSorted.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
 
   // Reset to page 1 on filter changes
-  useMemo(() => { setCurrentPage(1); }, [search, sectionFilter, sortField, sortOrder]);
+  useEffect(() => { setCurrentPage(1); }, [search, sectionFilter, sortField, sortOrder]);
 
   // Handlers
   const toggleSort = (field: "NAME" | "REG_NO") => {

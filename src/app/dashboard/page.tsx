@@ -8,7 +8,8 @@ import { eq, and, inArray, desc } from "drizzle-orm";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { logout } from "@/app/actions/auth";
 import { ShieldAlert } from "lucide-react";
-import { ClientRedirect } from "@/components/client-redirect";
+
+export const dynamic = "force-dynamic";
 
 export default async function StudentDashboardRouterPage() {
   const session = await getSession();
@@ -24,7 +25,7 @@ export default async function StudentDashboardRouterPage() {
   const [settings] = await db.select().from(systemSettings).where(eq(systemSettings.id, "system")).limit(1);
 
   if (settings?.maintenanceMode) {
-    return <ClientRedirect to="/maintenance" />;
+    redirect("/maintenance");
   }
 
   const [student] = await db.select().from(users).where(eq(users.id, session.userId)).limit(1);
@@ -97,7 +98,7 @@ export default async function StudentDashboardRouterPage() {
   const hasSubmitted = userRegistration?.status === "CONFIRMED";
 
   if (hasSubmitted) {
-    return <ClientRedirect to="/dashboard/success" />;
+    redirect("/dashboard/success");
   }
 
   // ── Time-based checks (openDate/closeDate are the source of truth) ──
@@ -121,7 +122,7 @@ export default async function StudentDashboardRouterPage() {
     event.status === "FINALIZED";
 
   if (!isRegistrationStarted) {
-    return <ClientRedirect to="/countdown" />;
+    redirect("/countdown");
   }
 
   if (isRegistrationEnded && !hasSubmitted) {
@@ -149,5 +150,5 @@ export default async function StudentDashboardRouterPage() {
   }
 
   // If active and student has not registered yet, redirect to selecting electives
-  return <ClientRedirect to="/dashboard/electives" />;
+  redirect("/dashboard/electives");
 }

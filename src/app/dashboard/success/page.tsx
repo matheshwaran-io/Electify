@@ -6,7 +6,8 @@ import { users, registrationEvents, registrations, systemSettings } from "@/lib/
 import { eq, and, inArray, desc } from "drizzle-orm";
 import { SuccessView } from "./success-view";
 import { ThemeToggle } from "@/components/theme-toggle";
-import { ClientRedirect } from "@/components/client-redirect";
+
+export const dynamic = "force-dynamic";
 
 interface ReceiptSnapshot {
   receiptNumber: string;
@@ -39,17 +40,17 @@ export default async function RegistrationSuccessPage() {
 
   const [settings] = await db.select().from(systemSettings).where(eq(systemSettings.id, "system")).limit(1);
   if (settings?.maintenanceMode) {
-    return <ClientRedirect to="/maintenance" />;
+    redirect("/maintenance");
   }
 
   const [student] = await db.select().from(users).where(eq(users.id, session.userId)).limit(1);
 
   if (!student) {
-    return <ClientRedirect to="/login" />;
+    redirect("/login");
   }
 
   if (!student.academicBatchId) {
-    return <ClientRedirect to="/dashboard" />;
+    redirect("/dashboard");
   }
 
   const [event] = await db.select().from(registrationEvents)
@@ -61,7 +62,7 @@ export default async function RegistrationSuccessPage() {
     ).orderBy(desc(registrationEvents.createdAt)).limit(1);
 
   if (!event) {
-    return <ClientRedirect to="/dashboard" />;
+    redirect("/dashboard");
   }
 
   // Fetch from the registrations table
@@ -74,7 +75,7 @@ export default async function RegistrationSuccessPage() {
     ).limit(1);
 
   if (!userRegistration || userRegistration.status !== "CONFIRMED") {
-    return <ClientRedirect to="/dashboard/electives" />;
+    redirect("/dashboard/electives");
   }
 
   // Render directly from the immutable snapshot

@@ -9,8 +9,9 @@ import { CountdownTimer } from "./countdown-timer";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { logout } from "@/app/actions/auth";
 import { LogOut, AlertCircle, Calendar } from "lucide-react";
-import { ClientRedirect } from "@/components/client-redirect";
 import { GlassCard } from "@/components/premium/glass-card";
+
+export const dynamic = "force-dynamic";
 
 export default async function CountdownPage() {
   const session = await getSession();
@@ -26,7 +27,7 @@ export default async function CountdownPage() {
   const [settings] = await db.select().from(systemSettings).where(eq(systemSettings.id, "system")).limit(1);
 
   if (settings?.maintenanceMode) {
-    return <ClientRedirect to="/maintenance" />;
+    redirect("/maintenance");
   }
 
   const [student] = await db.select().from(users).where(eq(users.id, session.userId)).limit(1);
@@ -103,12 +104,12 @@ export default async function CountdownPage() {
 
   // If registration is currently open, redirect to dashboard
   if (isRegistrationStarted && !isRegistrationEnded) {
-    return <ClientRedirect to="/dashboard" />;
+    redirect("/dashboard");
   }
 
   // If already confirmed, go to success
   if (hasSubmitted) {
-    return <ClientRedirect to="/dashboard/success" />;
+    redirect("/dashboard/success");
   }
 
   async function handleLogoutAction() {

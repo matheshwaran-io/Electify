@@ -9,8 +9,9 @@ import { RegistrationForm } from "../registration-form";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { logout } from "@/app/actions/auth";
 import { FileCheck, ShieldAlert, ArrowRight } from "lucide-react";
-import { ClientRedirect } from "@/components/client-redirect";
 import Link from "next/link";
+
+export const dynamic = "force-dynamic";
 
 export default async function StudentElectivesPage() {
   const session = await getSession();
@@ -53,7 +54,7 @@ export default async function StudentElectivesPage() {
     ).orderBy(desc(registrationEvents.createdAt)).limit(1);
 
   if (!event) {
-    return <ClientRedirect to="/dashboard" />;
+    redirect("/dashboard");
   }
 
   // Check database registration record
@@ -63,7 +64,7 @@ export default async function StudentElectivesPage() {
   const hasSubmitted = userRegistration?.status === "CONFIRMED";
 
   if (hasSubmitted) {
-    return <ClientRedirect to="/dashboard/success" />;
+    redirect("/dashboard/success");
   }
 
   // Verify time boundaries (openDate/closeDate are the source of truth)
@@ -81,7 +82,7 @@ export default async function StudentElectivesPage() {
     event.status === "FINALIZED";
 
   if (!isRegistrationStarted || isRegistrationEnded) {
-    return <ClientRedirect to="/dashboard" />;
+    redirect("/dashboard");
   }
 
   const groups = await db.select().from(electiveGroups)
