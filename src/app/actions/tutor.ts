@@ -789,13 +789,13 @@ export async function deleteMultipleStudentsTutor(ids: string[]) {
   });
 }
 
-export async function resetSectionRegistrationEvent() {
+export async function resetSectionRegistrationEvent(eventIdParam?: string) {
   const session = await assertTutor();
   if (!session.sectionId) throw new Error("No section assigned.");
 
   await db.transaction(async (tx) => {
     // 1. Fetch all registrations for students in this tutor's section
-    const existingRegistrations = await tx
+    const existingRegistrationsQuery = tx
       .select({ 
         studentId: studentRegistrations.studentId, 
         electiveId: studentRegistrations.electiveId,
@@ -803,11 +803,21 @@ export async function resetSectionRegistrationEvent() {
       })
       .from(studentRegistrations)
       .innerJoin(users, eq(studentRegistrations.studentId, users.id))
-      .where(eq(users.sectionId, session.sectionId!));
+      .where(
+        eventIdParam 
+          ? and(eq(users.sectionId, session.sectionId!), eq(studentRegistrations.eventId, eventIdParam))
+          : eq(users.sectionId, session.sectionId!)
+      );
+
+    const existingRegistrations = await existingRegistrationsQuery;
 
     if (existingRegistrations.length === 0) return; // Nothing to reset
 
     const validStudentIds = existingRegistrations.map(r => r.studentId);
+    const uniqueEventIds = Array.from(new Set(existingRegistrations.map(r => r.eventId)));
+    
+    const events = await tx.select({ id: registrationEvents.id, name: registrationEvents.name }).from(registrationEvents).where(inArray(registrationEvents.id, uniqueEventIds));
+    const eventNames = events.map(e => e.name).join(", ");
 
     // 2. Refund all seats for these electives
     const counts: Record<string, { count: number; eventId: string }> = {};
@@ -850,7 +860,7 @@ export async function resetSectionRegistrationEvent() {
         receiptSnapshot: null,
         updatedAt: new Date(),
       })
-      .where(and(eq(registrations.eventId, eventId), inArray(registrations.studentId, validStudentIds)));
+      .where(and(inArray(registrations.eventId, uniqueEventIds), inArray(registrations.studentId, validStudentIds)));
 
     // 4. Create an audit log
     await tx.insert(auditLogs).values({
@@ -859,8 +869,8 @@ export async function resetSectionRegistrationEvent() {
       userEmail: session.email,
       userRole: session.role,
       metadata: {
-        eventId,
-        eventName: event.name,
+        eventIds: uniqueEventIds,
+        eventName: eventNames,
         sectionId: session.sectionId,
         clearedRegistrationsCount: existingRegistrations.length,
       },

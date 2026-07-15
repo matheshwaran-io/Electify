@@ -626,7 +626,7 @@ function ProgressBar({ label, value, max, color }: { label: string; value: numbe
 }
 
 // ── Students Tab ──────────────────────────────────────────────────────────
-function StudentsTab({ filtered, search, setSearch, statusFilter, setStatusFilter, expandedStudents, toggleExpanded }: {
+function StudentsTab({ filtered, search, setSearch, statusFilter, setStatusFilter, expandedStudents, toggleExpanded, onlineUserIds }: {
   filtered: Student[];
   search: string;
   setSearch: (s: string) => void;
