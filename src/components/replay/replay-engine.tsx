@@ -53,7 +53,7 @@ export function ReplayEngine({ eventId }: { eventId: string }) {
         seatMap.set(ev.subjectId, ev.seatAfter);
       }
 
-      if (ev.eventType === "STUDENT_REGISTERED") registrationsCount++;
+      if (ev.eventType === "STUDENT_REGISTERED" || ev.eventType === "MANUAL_REGISTRATION_BY_TUTOR") registrationsCount++;
       if (ev.eventType === "REGISTRATION_RESET") {
         if (ev.metadata?.countRefunded) {
           registrationsCount -= ev.metadata.countRefunded;
@@ -182,8 +182,8 @@ export function ReplayEngine({ eventId }: { eventId: string }) {
         </div>
 
         <div className="flex items-center gap-4">
-          <span className="text-xs font-mono text-[var(--muted-foreground)] w-20 text-right">
-            {currentEvent?.timestamp ? format(new Date(currentEvent.timestamp), "HH:mm:ss") : "00:00:00"}
+          <span className="text-xs font-mono text-[var(--muted-foreground)] whitespace-nowrap text-right min-w-[140px]">
+            {currentEvent?.timestamp ? format(new Date(currentEvent.timestamp), "dd MMM yyyy HH:mm:ss") : "00:00:00"}
           </span>
           <TimelineSlider 
             progress={progress} 
@@ -194,8 +194,8 @@ export function ReplayEngine({ eventId }: { eventId: string }) {
               setIsPlaying(false);
             }} 
           />
-          <span className="text-xs font-mono text-[var(--muted-foreground)] w-20">
-            {events.length > 0 ? format(new Date(events[events.length - 1].timestamp), "HH:mm:ss") : "00:00:00"}
+          <span className="text-xs font-mono text-[var(--muted-foreground)] whitespace-nowrap min-w-[140px]">
+            {events.length > 0 ? format(new Date(events[events.length - 1].timestamp), "dd MMM yyyy HH:mm:ss") : "00:00:00"}
           </span>
         </div>
       </div>

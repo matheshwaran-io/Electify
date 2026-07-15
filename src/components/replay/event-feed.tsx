@@ -38,6 +38,13 @@ export function EventFeed({ events, currentIndex }: { events: any[]; currentInde
           title: "Registration Reset",
           desc: ev.subjectName ? `Refunded seats for ${ev.subjectName}` : "Section reset",
         };
+      case "MANUAL_REGISTRATION_BY_TUTOR":
+        return {
+          icon: <UserCheck className="w-4 h-4 text-amber-500" />,
+          color: "bg-amber-500/10 border-amber-500/20",
+          title: "Manual Registration",
+          desc: ev.subjectName,
+        };
       default:
         return {
           icon: <Info className="w-4 h-4 text-gray-500" />,
@@ -63,8 +70,8 @@ export function EventFeed({ events, currentIndex }: { events: any[]; currentInde
               className={`p-3 rounded-xl border ${details.color} transition-colors ${isLatest ? 'ring-2 ring-indigo-500/50' : ''}`}
             >
               <div className="flex items-center justify-between mb-1">
-                <span className="text-xs font-mono text-[var(--muted-foreground)]">
-                  {format(new Date(ev.timestamp), "HH:mm:ss")}
+                <span className="text-xs font-mono text-[var(--muted-foreground)] whitespace-nowrap">
+                  {format(new Date(ev.timestamp), "dd MMM yyyy HH:mm:ss")}
                 </span>
                 <span className="text-xs font-bold text-[var(--foreground)] truncate max-w-[150px]">
                   {ev.studentName || "System"}
