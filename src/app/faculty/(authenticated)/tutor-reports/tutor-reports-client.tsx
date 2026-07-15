@@ -12,7 +12,7 @@ import { TutorSectionOnboarding } from "@/components/tutor-section-onboarding";
 import { supabase } from "@/lib/supabase";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
-import { resetSectionRegistrationEvent } from "@/app/actions/tutor";
+import { resetSectionRegistrationEvent, manualRegisterStudentByTutor } from "@/app/actions/tutor";
 
 type Registration = {
   studentId: string;
@@ -42,6 +42,16 @@ type GroupSummary = {
   count: number;
 };
 
+type ElectiveOption = {
+  id: string;
+  groupId: string;
+  groupName: string;
+  name: string;
+  courseCode: string | null;
+  availableSeats: number;
+  isFull: boolean;
+};
+
 type ReportData = {
   students: Student[];
   totalStudents: number;
@@ -50,13 +60,16 @@ type ReportData = {
   programmeName: string;
   departmentName: string;
   groups: GroupSummary[];
+  eventId?: string | null;
+  eventStatus?: string;
+  availableElectives?: ElectiveOption[];
 };
 
 type TabId = "overview" | "students" | "subjects";
 
 export function TutorReportsClient({ reportData, hasActiveSection = true }: { reportData: ReportData, hasActiveSection?: boolean }) {
   const router = useRouter();
-  const { students, totalStudents, registeredCount, sectionLabel, programmeName, departmentName, groups } = reportData;
+  const { students, totalStudents, registeredCount, sectionLabel, programmeName, departmentName, groups, eventId, eventStatus, availableElectives } = reportData;
   const pendingCount = totalStudents - registeredCount;
   const overallPct = totalStudents > 0 ? Math.round((registeredCount / totalStudents) * 100) : 0;
 
@@ -171,6 +184,31 @@ export function TutorReportsClient({ reportData, hasActiveSection = true }: { re
     lines.push(`"Elective Group","Course Code","Subject Name","Students Enrolled"`);
     groups.forEach(g => {
       lines.push(`"${g.groupName}","${g.courseCode ?? "—"}","${g.electiveName}","${g.count}"`);
+    });
+
+    lines.push("");
+    lines.push(`"SUBJECT-WISE STUDENT LIST"`);
+    
+    groupedSubjects.forEach(([groupName, groupSubjects]) => {
+      groupSubjects.forEach(subject => {
+        lines.push("");
+        lines.push(`"Group: ${groupName} | Subject: ${subject.courseCode ? subject.courseCode + ' - ' : ''}${subject.electiveName}"`);
+        lines.push(`"S.No","Student Name","Register Number","Email","Receipt No.","Submitted At"`);
+        
+        const enrolledStudents = students.filter(s => 
+          s.registrationStatus === "CONFIRMED" && 
+          s.registrations.some(r => r.groupName === groupName && r.electiveName === subject.electiveName)
+        );
+        
+        if (enrolledStudents.length === 0) {
+          lines.push(`"No students enrolled yet."`);
+        } else {
+          enrolledStudents.forEach((s, idx) => {
+            const submittedAt = s.submittedAt ? new Date(s.submittedAt).toLocaleString("en-IN", { dateStyle: "medium", timeStyle: "short" }) : "—";
+            lines.push(`"${idx + 1}","${s.name}","${s.registerNumber ?? "—"}","${s.email}","${s.receiptNumber ?? "—"}","${submittedAt}"`);
+          });
+        }
+      });
     });
 
     const blob = new Blob([BOM + lines.join("\n")], { type: "text/csv;charset=utf-8;" });
@@ -304,6 +342,58 @@ export function TutorReportsClient({ reportData, hasActiveSection = true }: { re
       },
     });
 
+    // Subject-wise Student Lists
+    groupedSubjects.forEach(([groupName, groupSubjects]) => {
+      groupSubjects.forEach(subject => {
+        doc.addPage();
+        
+        doc.setFillColor(15, 23, 42);
+        doc.rect(0, 0, pageWidth, 24, "F");
+        doc.setTextColor(255, 255, 255);
+        doc.setFontSize(14);
+        doc.setFont("helvetica", "bold");
+        doc.text(`Subject: ${subject.courseCode ? subject.courseCode + ' - ' : ''}${subject.electiveName}`, 14, 16);
+        doc.setFontSize(10);
+        doc.setFont("helvetica", "normal");
+        doc.text(`Group: ${groupName}`, pageWidth - 14, 16, { align: "right" });
+
+        const enrolledStudents = students.filter(s => 
+          s.registrationStatus === "CONFIRMED" && 
+          s.registrations.some(r => r.groupName === groupName && r.electiveName === subject.electiveName)
+        );
+
+        if (enrolledStudents.length === 0) {
+          doc.setTextColor(100, 116, 139);
+          doc.setFontSize(10);
+          doc.text("No students enrolled yet.", 14, 40);
+        } else {
+          const subjectTableData = enrolledStudents.map((s, idx) => {
+            const submittedAt = s.submittedAt ? new Date(s.submittedAt).toLocaleString("en-IN", { dateStyle: "short", timeStyle: "short" }) : "—";
+            return [
+              String(idx + 1),
+              s.name,
+              s.registerNumber ?? "—",
+              s.email,
+              s.receiptNumber ?? "—",
+              submittedAt,
+            ];
+          });
+
+          autoTable(doc, {
+            head: [["#", "Student Name", "Register No.", "Email", "Receipt No.", "Submitted"]],
+            body: subjectTableData,
+            startY: 30,
+            styles: { fontSize: 7, cellPadding: 3, lineWidth: 0.1, lineColor: [226, 232, 240] },
+            headStyles: { fillColor: [15, 23, 42], textColor: [255, 255, 255], fontStyle: "bold", fontSize: 7 },
+            alternateRowStyles: { fillColor: [248, 250, 252] },
+            columnStyles: {
+              0: { cellWidth: 10, halign: "center" },
+            },
+          });
+        }
+      });
+    });
+
     // Footer on all pages
     const pageCount = doc.getNumberOfPages();
     for (let i = 1; i <= pageCount; i++) {
@@ -412,6 +502,10 @@ export function TutorReportsClient({ reportData, hasActiveSection = true }: { re
               expandedStudents={expandedStudents}
               toggleExpanded={toggleExpanded}
               onlineUserIds={onlineUserIds}
+              eventId={eventId}
+              eventStatus={eventStatus}
+              availableElectives={availableElectives}
+              groups={groups}
             />
           </motion.div>
         )}
@@ -626,7 +720,7 @@ function ProgressBar({ label, value, max, color }: { label: string; value: numbe
 }
 
 // ── Students Tab ──────────────────────────────────────────────────────────
-function StudentsTab({ filtered, search, setSearch, statusFilter, setStatusFilter, expandedStudents, toggleExpanded, onlineUserIds }: {
+function StudentsTab({ filtered, search, setSearch, statusFilter, setStatusFilter, expandedStudents, toggleExpanded, onlineUserIds, eventId, eventStatus, availableElectives, groups }: {
   filtered: Student[];
   search: string;
   setSearch: (s: string) => void;
@@ -635,7 +729,13 @@ function StudentsTab({ filtered, search, setSearch, statusFilter, setStatusFilte
   expandedStudents: Set<string>;
   toggleExpanded: (id: string) => void;
   onlineUserIds: Set<string>;
+  eventId?: string | null;
+  eventStatus?: string;
+  availableElectives?: ElectiveOption[];
+  groups?: GroupSummary[];
 }) {
+  const [registeringStudent, setRegisteringStudent] = useState<Student | null>(null);
+
   return (
     <div className="space-y-4">
       {/* Search & Filters */}
@@ -732,6 +832,14 @@ function StudentsTab({ filtered, search, setSearch, statusFilter, setStatusFilte
                             <span className={`w-1.5 h-1.5 rounded-full ${isRegistered ? "bg-emerald-500" : "bg-amber-500"}`} />
                             {isRegistered ? "Confirmed" : "Pending"}
                           </span>
+                          {!isRegistered && eventStatus === "CLOSED" && (
+                            <button
+                              onClick={(e) => { e.stopPropagation(); setRegisteringStudent(s); }}
+                              className="ml-3 inline-flex items-center gap-1 bg-indigo-500 text-white px-2 py-1 rounded text-[10px] font-medium hover:bg-indigo-600 transition-colors"
+                            >
+                              Manual Register
+                            </button>
+                          )}
                         </td>
                         <td className="px-5 py-3.5">
                           {s.receiptNumber ? (
@@ -807,6 +915,111 @@ function StudentsTab({ filtered, search, setSearch, statusFilter, setStatusFilte
       </div>
 
       <p className="text-xs text-[var(--muted-foreground)] text-right">Showing {filtered.length} student{filtered.length !== 1 ? "s" : ""}</p>
+      
+      <AnimatePresence>
+        {registeringStudent && eventId && (
+          <ManualRegisterModal
+            student={registeringStudent}
+            eventId={eventId}
+            availableElectives={availableElectives || []}
+            onClose={() => setRegisteringStudent(null)}
+          />
+        )}
+      </AnimatePresence>
+    </div>
+  );
+}
+
+// ── Manual Register Modal ────────────────────────────────────────────────
+function ManualRegisterModal({ student, eventId, availableElectives, onClose }: { student: Student; eventId: string; availableElectives: ElectiveOption[]; onClose: () => void }) {
+  const router = useRouter();
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [selections, setSelections] = useState<Record<string, string>>({});
+
+  const groupOptions = useMemo(() => {
+    const map = new Map<string, { groupId: string; groupName: string; electives: ElectiveOption[] }>();
+    availableElectives.forEach(e => {
+      if (!map.has(e.groupId)) {
+        map.set(e.groupId, { groupId: e.groupId, groupName: e.groupName, electives: [] });
+      }
+      map.get(e.groupId)!.electives.push(e);
+    });
+    return Array.from(map.values());
+  }, [availableElectives]);
+
+  const handleSubmit = async () => {
+    // Validate that all groups have a selection
+    if (Object.keys(selections).length !== groupOptions.length) {
+      toast.error("Please select a subject for all groups");
+      return;
+    }
+    
+    const formattedSelections = Object.entries(selections).map(([groupId, electiveId]) => ({ groupId, electiveId }));
+    
+    setIsSubmitting(true);
+    try {
+      await manualRegisterStudentByTutor(student.id, eventId, formattedSelections);
+      toast.success("Student registered successfully");
+      router.refresh();
+      onClose();
+    } catch (err: any) {
+      toast.error(err.message || "Failed to register student");
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
+      <motion.div
+        initial={{ opacity: 0, scale: 0.95 }}
+        animate={{ opacity: 1, scale: 1 }}
+        exit={{ opacity: 0, scale: 0.95 }}
+        className="w-full max-w-lg bg-[var(--card)] border border-[var(--border)] rounded-2xl shadow-xl overflow-hidden"
+      >
+        <div className="p-6">
+          <h2 className="text-xl font-bold text-[var(--foreground)] mb-1">Manual Registration</h2>
+          <p className="text-sm text-[var(--muted-foreground)] mb-6">
+            Register subjects for {student.name} ({student.registerNumber})
+          </p>
+          
+          <div className="space-y-5">
+            {groupOptions.map(g => (
+              <div key={g.groupId}>
+                <label className="block text-sm font-medium text-[var(--foreground)] mb-2">{g.groupName}</label>
+                <select
+                  value={selections[g.groupId] || ""}
+                  onChange={(e) => setSelections(prev => ({ ...prev, [g.groupId]: e.target.value }))}
+                  className="w-full bg-[var(--background)] border border-[var(--border)] rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                >
+                  <option value="" disabled>Select a subject</option>
+                  {g.electives.map(e => (
+                    <option key={e.id} value={e.id} disabled={e.availableSeats <= 0}>
+                      {e.courseCode ? `${e.courseCode} - ` : ""}{e.name} ({e.availableSeats} seats left)
+                    </option>
+                  ))}
+                </select>
+              </div>
+            ))}
+          </div>
+        </div>
+        <div className="flex items-center justify-end gap-3 px-6 py-4 bg-[var(--accent)]/30 border-t border-[var(--border)]">
+          <button
+            onClick={onClose}
+            disabled={isSubmitting}
+            className="px-4 py-2 text-sm font-medium text-[var(--muted-foreground)] hover:text-[var(--foreground)] transition-colors"
+          >
+            Cancel
+          </button>
+          <button
+            onClick={handleSubmit}
+            disabled={isSubmitting}
+            className="px-5 py-2 bg-indigo-500 hover:bg-indigo-600 text-white text-sm font-medium rounded-lg transition-colors disabled:opacity-50"
+          >
+            {isSubmitting ? "Registering..." : "Confirm Registration"}
+          </button>
+        </div>
+      </motion.div>
     </div>
   );
 }

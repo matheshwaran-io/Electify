@@ -151,19 +151,48 @@ export async function getTutorReports() {
   const session = await assertTutor();
   if (!session.sectionId) return { students: [], totalStudents: 0, registeredCount: 0, sectionLabel: "", programmeName: "", departmentName: "", groups: [] };
 
-  // Fetch section metadata for PDF header
+  // Fetch section metadata for PDF header and event details
   const [sectionMeta] = await db
     .select({
       sectionLabel: sections.label,
       programmeName: programmes.name,
       departmentName: departments.name,
+      eventId: eventSections.eventId,
+      eventStatus: registrationEvents.status,
+      eventCloseDate: registrationEvents.closeDate,
     })
     .from(sections)
     .innerJoin(academicBatches, eq(sections.academicBatchId, academicBatches.id))
     .innerJoin(programmes, eq(academicBatches.programmeId, programmes.id))
     .innerJoin(departments, eq(programmes.departmentId, departments.id))
+    .leftJoin(eventSections, eq(sections.id, eventSections.sectionId))
+    .leftJoin(registrationEvents, eq(eventSections.eventId, registrationEvents.id))
     .where(eq(sections.id, session.sectionId))
     .limit(1);
+
+  // Compute effective event status based on dates
+  let effectiveEventStatus = sectionMeta?.eventStatus;
+  if (effectiveEventStatus && sectionMeta?.eventCloseDate && new Date() > sectionMeta.eventCloseDate) {
+    effectiveEventStatus = "CLOSED";
+  }
+
+  // Fetch all available electives for this event (for manual registration)
+  let availableElectives: { id: string; groupId: string; groupName: string; name: string; courseCode: string | null; availableSeats: number; isFull: boolean; }[] = [];
+  if (sectionMeta?.eventId) {
+    availableElectives = await db
+      .select({
+        id: electives.id,
+        groupId: electives.groupId,
+        groupName: electiveGroups.name,
+        name: electives.name,
+        courseCode: electives.courseCode,
+        availableSeats: electives.availableSeats,
+        isFull: electives.isFull,
+      })
+      .from(electives)
+      .innerJoin(electiveGroups, eq(electives.groupId, electiveGroups.id))
+      .where(eq(electiveGroups.eventId, sectionMeta.eventId));
+  }
 
   const students = await db
     .select({ 
@@ -240,6 +269,9 @@ export async function getTutorReports() {
     programmeName: sectionMeta?.programmeName || "",
     departmentName: sectionMeta?.departmentName || "",
     groups,
+    eventId: sectionMeta?.eventId || null,
+    eventStatus: effectiveEventStatus || "CLOSED",
+    availableElectives,
   };
 }
 
@@ -954,5 +986,184 @@ export async function claimTutorSection(sectionIds: string[]) {
     sameSite: "lax",
     path: "/",
     maxAge: 7200,
+  });
+}
+
+export async function manualRegisterStudentByTutor(studentId: string, eventId: string, selections: { groupId: string; electiveId: string }[]) {
+  const session = await assertTutor();
+  if (!session.sectionId) throw new Error("Unauthorized");
+
+  // Verify event is in tutor's section
+  const [eventLink] = await db
+    .select()
+    .from(eventSections)
+    .where(and(eq(eventSections.eventId, eventId), eq(eventSections.sectionId, session.sectionId)));
+  if (!eventLink) throw new Error("Unauthorized access to this event.");
+
+  // Verify event is closed
+  const [event] = await db
+    .select()
+    .from(registrationEvents)
+    .where(eq(registrationEvents.id, eventId))
+    .limit(1);
+    
+  if (!event) throw new Error("Event not found.");
+  
+  const now = new Date();
+  const isEnded = 
+    (event.closeDate && now > event.closeDate) || 
+    event.status === "CLOSED" || 
+    event.status === "VERIFICATION" || 
+    event.status === "FINALIZED";
+
+  if (!isEnded) {
+    throw new Error("Manual registration is only allowed after the registration window has closed.");
+  }
+
+  // Verify student is in section and hasn't registered
+  const [student] = await db
+    .select({
+      name: users.name,
+      registerNumber: users.registerNumber,
+      email: users.email,
+      sectionName: sections.label,
+      programmeName: programmes.name,
+      departmentName: departments.name,
+    })
+    .from(users)
+    .leftJoin(sections, eq(users.sectionId, sections.id))
+    .leftJoin(academicBatches, eq(users.academicBatchId, academicBatches.id))
+    .leftJoin(programmes, eq(academicBatches.programmeId, programmes.id))
+    .leftJoin(departments, eq(programmes.departmentId, departments.id))
+    .where(and(eq(users.id, studentId), eq(users.sectionId, session.sectionId)))
+    .limit(1);
+
+  if (!student) throw new Error("Student not found in your section.");
+
+  await db.transaction(async (tx) => {
+    // Check if already registered
+    const [existingReg] = await tx
+      .select()
+      .from(registrations)
+      .where(and(eq(registrations.studentId, studentId), eq(registrations.eventId, eventId)))
+      .limit(1);
+
+    if (existingReg && existingReg.status === "CONFIRMED") {
+      throw new Error("Student is already registered.");
+    }
+
+    const studentDetails = {
+      name: student.name,
+      registerNumber: student.registerNumber || "N/A",
+      email: student.email,
+      department: student.departmentName || "N/A",
+      degree: student.programmeName || "N/A",
+      section: student.sectionName || "N/A",
+    };
+
+    const selectedElectiveIds = selections.map((s) => s.electiveId);
+    
+    // Lock chosen electives
+    const lockedElectives = await tx
+      .select()
+      .from(electives)
+      .where(inArray(electives.id, selectedElectiveIds))
+      .for("update");
+
+    const lockedElectivesMap = new Map(lockedElectives.map((e) => [e.id, e]));
+    const electiveSnapshots: { groupName: string; electiveName: string }[] = [];
+
+    for (const sel of selections) {
+      const elective = lockedElectivesMap.get(sel.electiveId);
+      if (!elective || !elective.isActive) throw new Error("Selected elective is invalid.");
+      if (elective.availableSeats <= 0) throw new Error(`Seats are fully booked for elective: ${elective.name}`);
+
+      const [group] = await tx
+        .select({ name: electiveGroups.name })
+        .from(electiveGroups)
+        .where(eq(electiveGroups.id, sel.groupId))
+        .limit(1);
+
+      electiveSnapshots.push({
+        groupName: group?.name || "Unknown Group",
+        electiveName: elective.courseCode ? `${elective.courseCode} - ${elective.name}` : elective.name,
+      });
+
+      // Decrement seats
+      await tx
+        .update(electives)
+        .set({
+          availableSeats: sql`${electives.availableSeats} - 1`,
+          isFull: sql`CASE WHEN ${electives.availableSeats} - 1 <= 0 THEN true ELSE false END`,
+        })
+        .where(eq(electives.id, sel.electiveId));
+
+      await tx.insert(studentRegistrations).values({
+        studentId,
+        eventId,
+        groupId: sel.groupId,
+        electiveId: sel.electiveId,
+        isLocked: true,
+      });
+
+      // Replay events
+      await tx.insert(replayEvents).values({
+        registrationEventId: eventId,
+        studentId,
+        studentName: student.name,
+        eventType: "MANUAL_REGISTRATION_BY_TUTOR",
+        subjectId: sel.electiveId,
+        subjectName: elective.courseCode ? `${elective.courseCode} - ${elective.name}` : elective.name,
+        seatBefore: elective.availableSeats,
+        seatAfter: elective.availableSeats - 1,
+        performedBy: session.userId,
+      });
+    }
+
+    const year = new Date().getFullYear();
+    const [seqRow] = await tx
+      .select({ maxSeq: sql<number>`COALESCE(MAX(CAST(SUBSTRING(${registrations.receiptNumber} FROM 14) AS INTEGER)), 0)` })
+      .from(registrations);
+    const nextSeq = (seqRow?.maxSeq || 0) + 1;
+    const receiptNumber = `ELC-${year}-MAN-${String(nextSeq).padStart(6, "0")}`; // Distinguish manual receipts
+
+    const receiptSnapshot = {
+      receiptNumber,
+      submittedAt: new Date().toISOString(),
+      student: studentDetails,
+      electives: electiveSnapshots,
+      registeredByTutor: true,
+    };
+
+    if (existingReg) {
+      await tx
+        .update(registrations)
+        .set({
+          status: "CONFIRMED",
+          receiptNumber,
+          receiptSnapshot,
+          submittedAt: new Date(),
+          updatedAt: new Date(),
+        })
+        .where(eq(registrations.id, existingReg.id));
+    } else {
+      await tx.insert(registrations).values({
+        studentId,
+        eventId,
+        status: "CONFIRMED",
+        receiptNumber,
+        receiptSnapshot,
+        submittedAt: new Date(),
+      });
+    }
+    
+    // Audit Log
+    await tx.insert(auditLogs).values({
+      action: "MANUAL_STUDENT_REGISTRATION",
+      userId: session.userId,
+      userEmail: session.email,
+      userRole: session.role,
+      metadata: { studentId, eventId, selections },
+    });
   });
 }
