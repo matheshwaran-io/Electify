@@ -7,7 +7,7 @@ import {
   replayEvents
 } from "@/lib/db/schema";
 import { getSession } from "@/lib/auth";
-import { eq, and, asc, count, desc, inArray, notInArray } from "drizzle-orm";
+import { eq, and, asc, count, desc, inArray, notInArray, sql } from "drizzle-orm";
 
 async function assertTutor() {
   const session = await getSession();
