@@ -127,22 +127,22 @@ export default async function StudentElectivesPage() {
         </div>
       </header>
 
-      <main className="flex-1 max-w-5xl w-full mx-auto px-4 py-6 sm:py-10 space-y-6 sm:space-y-8 relative z-10">
-        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-6">
+      <main className="flex-1 max-w-5xl w-full mx-auto px-4 py-6 sm:py-10 sm:px-6 space-y-6 sm:space-y-8 relative z-10 pb-20 sm:pb-32">
+        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 sm:gap-6">
           <div className="space-y-1">
             <h1 className="text-2xl font-semibold tracking-tight text-slate-900 dark:text-white">{student.name}</h1>
-            <p className="text-sm text-slate-500 dark:text-slate-400">
+            <p className="text-xs sm:text-sm text-slate-500 dark:text-slate-400">
               {student.registerNumber} <span className="mx-2 text-slate-300 dark:text-slate-700">|</span> {event.name}
             </p>
           </div>
 
-          <div className="w-full sm:w-auto bg-white dark:bg-[#111] rounded-xl sm:rounded-md p-4 border border-slate-200 dark:border-white/10 flex items-center gap-4 shadow-sm">
-            <div className="w-10 h-10 rounded-full bg-slate-100 dark:bg-white/5 text-slate-900 dark:text-white flex items-center justify-center border border-slate-200 dark:border-white/10">
-              <FileCheck className="w-5 h-5" />
+          <div className="w-full sm:w-auto bg-white/50 dark:bg-white/5 backdrop-blur-sm rounded-xl sm:rounded-full p-3 sm:pr-5 sm:pl-3 border border-slate-200/60 dark:border-white/10 flex items-center gap-3 sm:gap-4 shadow-sm">
+            <div className="w-8 h-8 sm:w-9 sm:h-9 rounded-full bg-slate-100 dark:bg-white/10 text-slate-900 dark:text-white flex items-center justify-center">
+              <FileCheck className="w-4 h-4 sm:w-4 sm:h-4" />
             </div>
-            <div className="flex-1">
-              <p className="text-xs uppercase font-medium tracking-wider text-slate-500 dark:text-slate-400">Status</p>
-              <p className="text-sm font-medium text-slate-900 dark:text-white">
+            <div className="flex-1 flex sm:flex-col sm:items-start items-center justify-between sm:justify-center">
+              <p className="text-[10px] sm:text-[10px] uppercase font-bold tracking-wider text-slate-500 dark:text-slate-400">Status</p>
+              <p className="text-sm sm:text-sm font-semibold text-slate-900 dark:text-white">
                 Pending Selection
               </p>
             </div>

@@ -134,7 +134,7 @@ export function RegistrationForm({
     ) && student.isEligible;
   }, [groups, selections, student.isEligible]);
 
-  const handleSelect = (groupId: string, electiveId: string) => {
+  const handleSelect = React.useCallback((groupId: string, electiveId: string) => {
     const group = groups.find((g) => g.id === groupId);
     if (!group) return;
 
@@ -159,7 +159,7 @@ export function RegistrationForm({
       // Otherwise do nothing
       return prev;
     });
-  };
+  }, [groups]);
 
   const handleRegister = async () => {
     setIsSubmitting(true);
@@ -188,59 +188,7 @@ export function RegistrationForm({
     }
   };
 
-  const renderElectiveCard = (elective: Elective, isSelected: boolean) => {
-    const isFull = elective.availableSeats <= 0;
-    const isInitiallySelected = initialRegistrations.some(r => r.electiveId === elective.id);
-    const isDisabled = isFull && !isInitiallySelected;
 
-    return (
-      <div
-        key={elective.id}
-        onClick={() => {
-          if (!isDisabled && student.isEligible) handleSelect(elective.groupId, elective.id);
-        }}
-        className={`relative overflow-hidden cursor-pointer rounded-md p-5 flex flex-col justify-between min-h-[140px] transition-colors border ${
-          isSelected
-            ? "border-slate-900 bg-slate-50 dark:border-white dark:bg-[#1a1a1a]"
-            : isDisabled
-            ? "opacity-50 bg-slate-50 dark:bg-[#0a0a0a] border-slate-200 dark:border-white/5 cursor-not-allowed"
-            : "border-slate-200 dark:border-white/10 bg-white dark:bg-[#111] hover:border-slate-300 dark:hover:border-white/20"
-        }`}
-      >
-        <div className="space-y-3 relative z-10">
-          <div className="flex justify-between items-start gap-4">
-            <div>
-              {elective.courseCode && (
-                <p className="text-[10px] font-semibold tracking-widest text-slate-500 mb-1">{elective.courseCode}</p>
-              )}
-              <h3 className={`font-medium text-sm leading-tight ${isSelected ? 'text-slate-900 dark:text-white' : 'text-slate-700 dark:text-slate-200'}`}>
-                {elective.name}
-              </h3>
-            </div>
-            {isSelected && (
-              <div className="bg-slate-900 dark:bg-white text-white dark:text-black rounded-full p-0.5 shrink-0">
-                <Check className="w-3 h-3" strokeWidth={3} />
-              </div>
-            )}
-          </div>
-        </div>
-
-        <div className="mt-6 flex items-center justify-between">
-          <div className="text-xs">
-            <span className="text-slate-500 mr-1">Available:</span>
-            <span className={`font-medium ${isFull ? 'text-rose-500' : 'text-slate-900 dark:text-white'}`}>
-              {elective.availableSeats} / {elective.maxSeats}
-            </span>
-          </div>
-          {isFull && !isInitiallySelected && (
-            <span className="text-[10px] font-medium text-rose-500 bg-rose-500/10 px-2 py-0.5 rounded-sm">
-              Full
-            </span>
-          )}
-        </div>
-      </div>
-    );
-  };
 
   return (
     <div className="space-y-12">
@@ -273,26 +221,37 @@ export function RegistrationForm({
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4">
-              {groupElectives.map((elective) =>
-                renderElectiveCard(elective, selectedForGroup.includes(elective.id))
-              )}
+              {groupElectives.map((elective) => {
+                const isSelected = selectedForGroup.includes(elective.id);
+                const isInitiallySelected = initialRegistrations.some(r => r.electiveId === elective.id);
+                return (
+                  <ElectiveCard
+                    key={elective.id}
+                    elective={elective}
+                    isSelected={isSelected}
+                    isInitiallySelected={isInitiallySelected}
+                    isEligible={student.isEligible}
+                    onSelect={handleSelect}
+                  />
+                );
+              })}
             </div>
           </div>
         );
       })}
 
-      <div className="sticky bottom-0 sm:bottom-6 z-30 pt-4 sm:pt-6">
-        <div className="bg-white dark:bg-[#111] border-t sm:border border-slate-200 dark:border-white/10 sm:rounded-xl p-4 sm:p-5 shadow-[0_-8px_16px_-4px_rgba(0,0,0,0.05)] sm:shadow-sm flex flex-col sm:flex-row items-center justify-between gap-4 -mx-4 sm:mx-0 pb-8 sm:pb-5">
-          <div>
-            <h3 className="font-medium text-sm text-slate-900 dark:text-white">Ready to submit?</h3>
-            <p className="text-xs text-slate-500">
-              Please review your choices before confirming.
+      <div className="sticky bottom-0 z-40 pt-4 sm:pt-6 pb-6 sm:pb-6 pointer-events-none">
+        <div className="bg-white/80 dark:bg-black/80 backdrop-blur-xl border-t sm:border border-slate-200 dark:border-white/10 sm:rounded-2xl p-4 sm:p-5 shadow-[0_-8px_30px_-4px_rgba(0,0,0,0.1)] dark:shadow-[0_-8px_30px_-4px_rgba(0,0,0,0.5)] flex flex-col sm:flex-row items-center justify-between gap-4 -mx-4 sm:mx-0 pointer-events-auto transition-all">
+          <div className="w-full sm:w-auto text-center sm:text-left">
+            <h3 className="font-semibold text-sm text-slate-900 dark:text-white">Ready to submit?</h3>
+            <p className="text-xs text-slate-500 font-medium mt-0.5">
+              Review your choices before confirming.
             </p>
           </div>
           <PremiumButton
             onClick={() => setIsConfirmOpen(true)}
             disabled={!canSubmit || isSubmitting || !student.isEligible}
-            className="w-full sm:w-auto"
+            className="w-full sm:w-auto shadow-lg shadow-indigo-500/20"
           >
             <span className="flex items-center gap-2">
               {isSubmitting ? "Processing..." : student.hasSubmitted ? "Update Selections" : "Confirm Selections"}
@@ -349,3 +308,69 @@ export function RegistrationForm({
     </div>
   );
 }
+
+interface ElectiveCardProps {
+  elective: Elective;
+  isSelected: boolean;
+  isInitiallySelected: boolean;
+  isEligible: boolean;
+  onSelect: (groupId: string, electiveId: string) => void;
+}
+
+const ElectiveCard = React.memo(function ElectiveCard({
+  elective,
+  isSelected,
+  isInitiallySelected,
+  isEligible,
+  onSelect,
+}: ElectiveCardProps) {
+  const isFull = elective.availableSeats <= 0;
+  const isDisabled = isFull && !isInitiallySelected;
+
+  return (
+    <div
+      onClick={() => {
+        if (!isDisabled && isEligible) onSelect(elective.groupId, elective.id);
+      }}
+      className={`relative overflow-hidden cursor-pointer rounded-2xl p-5 flex flex-col justify-between min-h-[140px] transition-colors border ${
+        isSelected
+          ? "border-slate-900 bg-slate-50 dark:border-white dark:bg-[#1a1a1a]"
+          : isDisabled
+          ? "opacity-50 bg-slate-50 dark:bg-[#0a0a0a] border-slate-200 dark:border-white/5 cursor-not-allowed"
+          : "border-slate-200 dark:border-white/10 bg-white dark:bg-[#111] hover:border-slate-300 dark:hover:border-white/20"
+      }`}
+    >
+      <div className="space-y-3 relative z-10">
+        <div className="flex justify-between items-start gap-4">
+          <div>
+            {elective.courseCode && (
+              <p className="text-[10px] font-semibold tracking-widest text-slate-500 mb-1">{elective.courseCode}</p>
+            )}
+            <h3 className={`font-medium text-sm leading-tight ${isSelected ? 'text-slate-900 dark:text-white' : 'text-slate-700 dark:text-slate-200'}`}>
+              {elective.name}
+            </h3>
+          </div>
+          {isSelected && (
+            <div className="bg-slate-900 dark:bg-white text-white dark:text-black rounded-full p-0.5 shrink-0">
+              <Check className="w-3 h-3" strokeWidth={3} />
+            </div>
+          )}
+        </div>
+      </div>
+
+      <div className="mt-6 flex items-center justify-between">
+        <div className="text-xs">
+          <span className="text-slate-500 mr-1">Available:</span>
+          <span className={`font-medium ${isFull ? 'text-rose-500' : 'text-slate-900 dark:text-white'}`}>
+            {elective.availableSeats} / {elective.maxSeats}
+          </span>
+        </div>
+        {isFull && !isInitiallySelected && (
+          <span className="text-[10px] font-medium text-rose-500 bg-rose-500/10 px-2 py-0.5 rounded-sm">
+            Full
+          </span>
+        )}
+      </div>
+    </div>
+  );
+});

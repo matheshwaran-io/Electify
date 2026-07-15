@@ -60,19 +60,19 @@ export function SuccessView({
   return (
     <div className="w-full max-w-2xl mx-auto z-10 print:max-w-full print:w-full">
       {/* Web Controls Header - Hidden on Print */}
-      <div className="flex flex-col sm:flex-row justify-between items-center gap-4 mb-6 print:hidden">
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6 print:hidden">
         <h1 className="text-xl font-medium text-slate-900 dark:text-white">Registration Receipt</h1>
-        <div className="flex items-center gap-3 w-full sm:w-auto">
+        <div className="grid grid-cols-2 sm:flex items-center gap-3 w-full sm:w-auto">
           {allowRegistrationEdit && (
-            <PremiumButton variant="outline" onClick={() => router.push("/dashboard")} className="flex-1 sm:flex-none">
-              <Edit className="w-4 h-4 mr-2" /> Edit
+            <PremiumButton variant="outline" onClick={() => router.push("/dashboard")} className="w-full sm:w-auto col-span-2 sm:col-span-1 justify-center">
+              <Edit className="w-4 h-4 mr-2" /> Edit Selections
             </PremiumButton>
           )}
-          <PremiumButton variant="primary" onClick={handlePrint} className="flex-1 sm:flex-none">
+          <PremiumButton variant="primary" onClick={handlePrint} className="w-full sm:w-auto justify-center">
             <Printer className="w-4 h-4 mr-2" /> Print
           </PremiumButton>
-          <PremiumButton variant="ghost" onClick={handleLogout} className="text-slate-500 shrink-0 sm:flex-none">
-            <LogOut className="w-4 h-4" />
+          <PremiumButton variant="ghost" onClick={handleLogout} className="w-full sm:w-auto justify-center text-slate-500 border border-slate-200 dark:border-white/10 sm:border-0">
+            <LogOut className="w-4 h-4 mr-2 sm:mr-0" /> <span className="sm:hidden">Logout</span>
           </PremiumButton>
         </div>
       </div>
@@ -160,26 +160,20 @@ export function SuccessView({
               Selected Electives
             </h3>
             
-            <table className="w-full text-left border-collapse mt-2">
-              <thead>
-                <tr>
-                  <th className="py-2 text-[10px] text-slate-500 uppercase tracking-wider font-normal border-b border-slate-100 dark:border-white/5 print:border-slate-200 w-1/3">Elective Group</th>
-                  <th className="py-2 text-[10px] text-slate-500 uppercase tracking-wider font-normal border-b border-slate-100 dark:border-white/5 print:border-slate-200">Course Selection</th>
-                </tr>
-              </thead>
-              <tbody>
-                {registrations.map((reg, index) => (
-                  <tr key={index}>
-                    <td className="py-3 text-sm font-medium text-slate-700 dark:text-slate-300 print:text-slate-700 border-b border-slate-50 dark:border-white/5 print:border-slate-100 align-top">
-                      {reg.groupName}
-                    </td>
-                    <td className="py-3 text-sm font-semibold text-slate-900 dark:text-white print:text-black border-b border-slate-50 dark:border-white/5 print:border-slate-100">
-                      {reg.electiveName}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+            <div className="mt-4 flex flex-col gap-4">
+              {registrations.map((reg, index) => (
+                <div key={index} className="flex flex-col sm:flex-row sm:items-start justify-between border-b border-slate-100 dark:border-white/5 print:border-slate-100 pb-4 last:border-0 last:pb-0 gap-1 sm:gap-4">
+                  <div className="w-full sm:w-1/3">
+                    <p className="text-[10px] text-slate-500 uppercase tracking-wider font-normal sm:hidden mb-1">Elective Group</p>
+                    <p className="text-sm font-medium text-slate-700 dark:text-slate-300 print:text-slate-700">{reg.groupName}</p>
+                  </div>
+                  <div className="flex-1 mt-1 sm:mt-0">
+                    <p className="text-[10px] text-slate-500 uppercase tracking-wider font-normal sm:hidden mb-1">Course Selection</p>
+                    <p className="text-sm font-semibold text-slate-900 dark:text-white print:text-black">{reg.electiveName}</p>
+                  </div>
+                </div>
+              ))}
+            </div>
           </div>
 
           {/* Signatures (Print Only) */}
