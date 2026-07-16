@@ -290,91 +290,71 @@ export function TutorElectivesClient({ electivesData, hasActiveSection = true }:
   }
 
   return (
-    <div className="space-y-8 relative pb-20">
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+    <div className="space-y-6 relative pb-20">
+      {/* Header */}
+      <div className="flex flex-col md:flex-row md:items-end justify-between gap-4">
         <div>
-          <h1 className="text-3xl font-bold text-[var(--foreground)]">Subjects & Groups</h1>
-          <p className="text-[var(--muted-foreground)] mt-1">Manage elective groups, subjects, and seat allocations.</p>
+          <h1 className="text-2xl font-bold text-[var(--foreground)] tracking-tight">Subjects & Groups</h1>
+          <p className="text-sm text-[var(--muted-foreground)] mt-1">Manage elective groups, subjects, and seat allocations.</p>
         </div>
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-2">
           <button 
             onClick={() => handleResetAllSubjects(firstEventId)}
             disabled={isResetting || allGroups.length === 0 || !firstEventId}
-            className="bg-red-500/10 text-red-500 px-4 py-2.5 rounded-xl text-sm font-medium hover:bg-red-500/20 transition whitespace-nowrap flex items-center gap-2 disabled:opacity-50"
+            className="bg-red-500/10 text-red-500 px-4 py-2 rounded-xl text-xs font-semibold hover:bg-red-500/20 transition whitespace-nowrap flex items-center gap-1.5 disabled:opacity-40"
           >
-            <Trash2 className="w-4 h-4" /> {isResetting ? "Resetting..." : "Reset All"}
+            <Trash2 className="w-3.5 h-3.5" /> {isResetting ? "Resetting..." : "Reset All"}
           </button>
           <button 
             onClick={() => openAddGroupModal()}
-            className="bg-indigo-600 text-white px-5 py-2.5 rounded-xl text-sm font-medium hover:bg-indigo-700 transition shadow-md shadow-indigo-500/20 whitespace-nowrap flex items-center gap-2 focus:ring-2 focus:ring-indigo-500/50 outline-none"
+            className="bg-indigo-600 text-white px-4 py-2 rounded-xl text-xs font-semibold hover:bg-indigo-500 transition shadow-md shadow-indigo-500/20 whitespace-nowrap flex items-center gap-1.5 outline-none"
           >
-            <Plus className="w-4 h-4" /> Add Group
+            <Plus className="w-3.5 h-3.5" /> Add Group
           </button>
         </div>
       </div>
 
-      {/* Top Statistic Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        <div className="bg-[var(--card)] border border-[var(--border)] rounded-2xl p-6 flex items-center justify-between shadow-sm relative overflow-hidden group">
-          <div className="absolute top-0 right-0 w-24 h-24 bg-blue-500/5 rounded-full blur-2xl -translate-y-1/2 translate-x-1/2 group-hover:bg-blue-500/10 transition-colors" />
-          <div className="relative z-10">
-            <div className="w-10 h-10 rounded-full bg-blue-500/10 flex items-center justify-center mb-3">
-              <BookOpen className="w-5 h-5 text-blue-500" />
+      {/* Stat Cards */}
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+        {[
+          { label: "Course Options", value: courseOptions, icon: BookOpen, color: "indigo", gradient: "from-indigo-500/10 to-indigo-500/5" },
+          { label: "Total Capacity", value: totalCap, icon: Users, color: "violet", gradient: "from-violet-500/10 to-violet-500/5" },
+          { label: "Seats Booked", value: seatsBooked, icon: CheckCircle2, color: "emerald", gradient: "from-emerald-500/10 to-emerald-500/5" },
+          { label: "Allocation Rate", value: `${allocationRate}%`, icon: Percent, color: "amber", gradient: "from-amber-500/10 to-amber-500/5" },
+        ].map((stat, i) => (
+          <motion.div
+            key={stat.label}
+            initial={{ opacity: 0, y: 12 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: i * 0.05 }}
+            className={`bg-gradient-to-br ${stat.gradient} border border-[var(--border)] rounded-2xl p-5 relative overflow-hidden group hover:border-${stat.color}-500/30 transition-colors`}
+          >
+            <div className="flex items-center gap-2.5 mb-3">
+              <div className={`w-8 h-8 rounded-lg bg-${stat.color}-500/15 flex items-center justify-center`}>
+                <stat.icon className={`w-4 h-4 text-${stat.color}-500`} />
+              </div>
+              <span className="text-[11px] font-semibold text-[var(--muted-foreground)] uppercase tracking-wider">{stat.label}</span>
             </div>
-            <p className="text-xs font-semibold text-[var(--muted-foreground)] uppercase tracking-wider">Course Options</p>
-            <p className="text-3xl font-bold text-[var(--foreground)] mt-1">{courseOptions}</p>
-          </div>
-        </div>
-
-        <div className="bg-[var(--card)] border border-[var(--border)] rounded-2xl p-6 flex items-center justify-between shadow-sm relative overflow-hidden group">
-          <div className="absolute top-0 right-0 w-24 h-24 bg-purple-500/5 rounded-full blur-2xl -translate-y-1/2 translate-x-1/2 group-hover:bg-purple-500/10 transition-colors" />
-          <div className="relative z-10">
-            <div className="w-10 h-10 rounded-full bg-purple-500/10 flex items-center justify-center mb-3">
-              <Users className="w-5 h-5 text-purple-500" />
-            </div>
-            <p className="text-xs font-semibold text-[var(--muted-foreground)] uppercase tracking-wider">Total Capacity</p>
-            <p className="text-3xl font-bold text-[var(--foreground)] mt-1">{totalCap}</p>
-          </div>
-        </div>
-
-        <div className="bg-[var(--card)] border border-[var(--border)] rounded-2xl p-6 flex items-center justify-between shadow-sm relative overflow-hidden group">
-          <div className="absolute top-0 right-0 w-24 h-24 bg-emerald-500/5 rounded-full blur-2xl -translate-y-1/2 translate-x-1/2 group-hover:bg-emerald-500/10 transition-colors" />
-          <div className="relative z-10">
-            <div className="w-10 h-10 rounded-full bg-emerald-500/10 flex items-center justify-center mb-3">
-              <CheckCircle2 className="w-5 h-5 text-emerald-500" />
-            </div>
-            <p className="text-xs font-semibold text-[var(--muted-foreground)] uppercase tracking-wider">Seats Booked</p>
-            <p className="text-3xl font-bold text-[var(--foreground)] mt-1">{seatsBooked}</p>
-          </div>
-        </div>
-
-        <div className="bg-[var(--card)] border border-[var(--border)] rounded-2xl p-6 flex items-center justify-between shadow-sm relative overflow-hidden group">
-          <div className="absolute top-0 right-0 w-24 h-24 bg-orange-500/5 rounded-full blur-2xl -translate-y-1/2 translate-x-1/2 group-hover:bg-orange-500/10 transition-colors" />
-          <div className="relative z-10">
-            <div className="w-10 h-10 rounded-full bg-orange-500/10 flex items-center justify-center mb-3">
-              <Percent className="w-5 h-5 text-orange-500" />
-            </div>
-            <p className="text-xs font-semibold text-[var(--muted-foreground)] uppercase tracking-wider">Allocation Rate</p>
-            <p className="text-3xl font-bold text-[var(--foreground)] mt-1">{allocationRate}%</p>
-          </div>
-        </div>
+            <p className="text-2xl font-bold text-[var(--foreground)] tracking-tight">{stat.value}</p>
+          </motion.div>
+        ))}
       </div>
 
-      {/* Global Search */}
+      {/* Search */}
       <div className="relative w-full max-w-md">
-        <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-[var(--muted-foreground)]" />
+        <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-[var(--muted-foreground)]" />
         <input
           value={search}
           onChange={(e) => setSearch(e.target.value)}
           placeholder="Search subjects or course codes..."
-          className="w-full pl-11 pr-4 py-3 bg-[var(--card)] border border-[var(--border)] rounded-2xl text-sm text-[var(--foreground)] placeholder:text-[var(--muted-foreground)] focus:outline-none focus:ring-2 focus:ring-indigo-500/50 shadow-sm"
+          className="w-full pl-10 pr-4 py-2.5 bg-[var(--card)] border border-[var(--border)] rounded-xl text-sm text-[var(--foreground)] placeholder:text-[var(--muted-foreground)] focus:outline-none focus:ring-2 focus:ring-indigo-500/50"
         />
       </div>
 
-      {/* Premium Groups and Electives Accordion View */}
-      <div className="space-y-6">
+      {/* Groups */}
+      <div className="space-y-4">
         {allGroups.length === 0 ? (
-          <div className="text-center py-20 text-[var(--muted-foreground)] bg-[var(--card)] rounded-3xl border border-[var(--border)] border-dashed">
+          <div className="text-center py-20 text-[var(--muted-foreground)] bg-[var(--card)] rounded-2xl border border-dashed border-[var(--border)]">
             <Layers className="w-10 h-10 mx-auto mb-3 opacity-30" />
             <p>No groups added yet.</p>
             <button 
@@ -391,7 +371,6 @@ export function TutorElectivesClient({ electivesData, hasActiveSection = true }:
               (e.courseCode && e.courseCode.toLowerCase().includes(search.toLowerCase()))
             );
 
-            // If searching and no results in this group, hide it completely for cleaner view
             if (search && filteredElectives.length === 0) return null;
 
             const isExpanded = expandedGroups[group.id];
@@ -404,135 +383,160 @@ export function TutorElectivesClient({ electivesData, hasActiveSection = true }:
             return (
               <motion.div 
                 key={group.id}
-                initial={{ opacity: 0, y: 20 }}
+                initial={{ opacity: 0, y: 16 }}
                 animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: gIndex * 0.1 }}
-                className="bg-[var(--card)] border border-[var(--border)] rounded-2xl shadow-sm overflow-hidden"
+                transition={{ delay: gIndex * 0.06 }}
+                className="bg-[var(--card)] border border-[var(--border)] rounded-2xl overflow-hidden shadow-sm"
               >
-                {/* Group Header (Clickable Accordion) */}
+                {/* Group Header */}
                 <div 
-                  className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-5 border-b border-[var(--border)] bg-[var(--background)]/30 hover:bg-[var(--accent)]/30 transition-colors cursor-pointer select-none"
+                  className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-4 bg-gradient-to-r from-[var(--accent)]/40 to-transparent hover:from-[var(--accent)]/60 transition-all cursor-pointer select-none"
                   onClick={(e) => {
-                    // prevent toggle if clicking on action buttons
                     if ((e.target as HTMLElement).closest('.group-actions')) return;
                     toggleGroup(group.id);
                   }}
                 >
-                  <div className="flex items-center gap-4 flex-1">
-                    <div className="w-10 h-10 rounded-xl bg-indigo-500/10 flex items-center justify-center shrink-0">
+                  <div className="flex items-center gap-3 flex-1 min-w-0">
+                    <div className="w-10 h-10 rounded-xl bg-indigo-500/10 border border-indigo-500/20 flex items-center justify-center shrink-0">
                       <Layers className="w-5 h-5 text-indigo-500" />
                     </div>
-                    <div className="flex-1">
-                      <div className="flex items-center gap-3">
-                        <h2 className="text-lg font-bold text-[var(--foreground)]">{group.name}</h2>
-                        <span className="px-2 py-0.5 rounded-full bg-[var(--accent)] text-[var(--muted-foreground)] text-[10px] font-semibold tracking-wide">
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2.5 flex-wrap">
+                        <h2 className="text-sm font-bold text-[var(--foreground)] truncate">{group.name}</h2>
+                        <span className="px-2 py-0.5 rounded-full bg-[var(--background)] border border-[var(--border)] text-[var(--muted-foreground)] text-[10px] font-semibold tracking-wide shrink-0">
                           {group.electives.length} Subjects
                         </span>
                       </div>
                       
-                      <div className="flex items-center gap-4 mt-1">
-                        <div className="flex items-center gap-2 text-xs text-[var(--muted-foreground)]">
-                          <span className="w-2 h-2 rounded-full bg-emerald-500" />
-                          {groupFilled}/{groupCap} Seats Filled ({groupFillPerc}%)
+                      <div className="flex items-center gap-3 mt-1.5">
+                        <div className="flex items-center gap-1.5 text-xs text-[var(--muted-foreground)]">
+                          <span className={`w-1.5 h-1.5 rounded-full ${groupFillPerc === 100 ? 'bg-emerald-500' : groupFillPerc > 75 ? 'bg-amber-500' : 'bg-blue-500'}`} />
+                          <span className="font-medium">{groupFilled}/{groupCap}</span>
+                          <span className="opacity-60">seats filled</span>
                         </div>
-                        <div className="flex-1 max-w-[150px] h-1.5 bg-[var(--accent)] rounded-full overflow-hidden">
-                          <div className="h-full bg-emerald-500 rounded-full" style={{ width: `${groupFillPerc}%` }} />
+                        <div className="flex-1 max-w-[120px] h-1.5 bg-[var(--background)] border border-[var(--border)]/50 rounded-full overflow-hidden">
+                          <motion.div 
+                            className={`h-full rounded-full ${groupFillPerc === 100 ? 'bg-emerald-500' : groupFillPerc > 75 ? 'bg-amber-500' : 'bg-indigo-500'}`} 
+                            initial={{ width: 0 }}
+                            animate={{ width: `${groupFillPerc}%` }}
+                            transition={{ duration: 0.6, ease: "easeOut" }}
+                          />
                         </div>
+                        <span className="text-[10px] font-bold text-[var(--muted-foreground)]">{groupFillPerc}%</span>
                       </div>
                     </div>
                   </div>
                   
-                  <div className="flex items-center gap-2 group-actions">
+                  <div className="flex items-center gap-1 group-actions shrink-0">
                     <button 
                       onClick={() => openEditGroupModal(group)}
-                      className="p-2 text-[var(--muted-foreground)] hover:text-blue-500 hover:bg-blue-500/10 rounded-lg transition-colors outline-none"
+                      className="p-2 text-[var(--muted-foreground)] hover:text-indigo-500 hover:bg-indigo-500/10 rounded-lg transition-colors outline-none"
                       title="Edit Group"
                     >
-                      <Pencil className="w-4 h-4" />
+                      <Pencil className="w-3.5 h-3.5" />
                     </button>
                     <button 
                       onClick={() => handleDeleteGroup(group.id)}
                       className="p-2 text-[var(--muted-foreground)] hover:text-red-500 hover:bg-red-500/10 rounded-lg transition-colors outline-none"
                       title="Delete Group"
                     >
-                      <Trash2 className="w-4 h-4" />
+                      <Trash2 className="w-3.5 h-3.5" />
                     </button>
-                    <div className="w-px h-6 bg-[var(--border)] mx-2" />
+                    <div className="w-px h-5 bg-[var(--border)] mx-1" />
                     <button 
                       onClick={() => openAddSubjectModal(group.id)}
-                      className="bg-[var(--accent)] text-[var(--foreground)] px-3 py-1.5 rounded-lg text-xs font-semibold hover:bg-[var(--border)] transition flex items-center gap-1.5 outline-none"
+                      className="bg-[var(--background)] border border-[var(--border)] text-[var(--foreground)] px-3 py-1.5 rounded-lg text-[11px] font-semibold hover:border-indigo-500/40 hover:text-indigo-500 transition flex items-center gap-1.5 outline-none"
                     >
                       <Plus className="w-3 h-3" /> Add Subject
                     </button>
-                    <button className="p-2 text-[var(--muted-foreground)] ml-1 outline-none">
-                      <ChevronDown className={`w-5 h-5 transition-transform duration-300 ${isExpanded ? "rotate-180" : ""}`} />
+                    <button className="p-2 text-[var(--muted-foreground)] outline-none">
+                      <ChevronDown className={`w-4 h-4 transition-transform duration-300 ${isExpanded ? "rotate-180" : ""}`} />
                     </button>
                   </div>
                 </div>
 
-                {/* Electives List (Accordion Content) */}
+                {/* Electives List */}
                 <AnimatePresence>
                   {isExpanded && (
                     <motion.div
                       initial={{ height: 0, opacity: 0 }}
                       animate={{ height: "auto", opacity: 1 }}
                       exit={{ height: 0, opacity: 0 }}
+                      transition={{ duration: 0.25 }}
                       className="overflow-hidden"
                     >
-                      <div className="p-2">
+                      <div className="p-3 border-t border-[var(--border)]">
                         {filteredElectives.length === 0 ? (
                           <div className="text-center py-10 text-[var(--muted-foreground)] text-sm">
                             {group.electives.length === 0 ? "No subjects in this group yet." : "No subjects match your search in this group."}
                           </div>
                         ) : (
-                          <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+                          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3">
                             {filteredElectives.map((e) => {
                               const filled = e.maxSeats - e.availableSeats;
                               const fillPerc = e.maxSeats > 0 ? Math.round((filled / e.maxSeats) * 100) : 0;
+                              const circumference = 2 * Math.PI * 18;
+                              const strokeDashoffset = circumference - (fillPerc / 100) * circumference;
                               
                               return (
-                                <div key={e.id} className="flex flex-col p-4 rounded-xl border border-[var(--border)]/50 bg-[var(--background)]/30 hover:bg-[var(--accent)]/30 hover:border-[var(--border)] transition-all group/elective">
-                                  <div className="flex justify-between items-start gap-4">
+                                <div key={e.id} className="relative p-4 rounded-xl border border-[var(--border)] bg-[var(--background)]/50 hover:border-[var(--border)] hover:bg-[var(--accent)]/20 transition-all group/elective">
+                                  {/* Top Row */}
+                                  <div className="flex justify-between items-start gap-3">
                                     <div className="flex-1 min-w-0">
-                                      <div className="flex items-center gap-2 mb-1">
-                                        <h3 className="font-bold text-[var(--foreground)] truncate">{e.name}</h3>
+                                      <div className="flex items-center gap-2 mb-1.5 flex-wrap">
+                                        {e.courseCode && (
+                                          <span className="text-[10px] font-mono font-bold text-indigo-400 bg-indigo-500/10 px-1.5 py-0.5 rounded">{e.courseCode}</span>
+                                        )}
                                         {e.isFull && (
-                                          <span className="px-1.5 py-0.5 rounded bg-red-500/10 text-red-500 text-[9px] font-bold uppercase tracking-wider shrink-0">Full</span>
+                                          <span className="px-1.5 py-0.5 rounded bg-red-500/15 text-red-400 text-[9px] font-bold uppercase tracking-wider">Full</span>
                                         )}
                                       </div>
-                                      <div className="flex items-center gap-3 text-xs text-[var(--muted-foreground)]">
-                                        <span className="font-mono bg-[var(--accent)] px-1.5 py-0.5 rounded text-[10px]">{e.courseCode || "NO-CODE"}</span>
-                                        <span>•</span>
-                                        <span>{e.credits} Credits</span>
-                                      </div>
+                                      <h3 className="font-semibold text-sm text-[var(--foreground)] leading-tight">{e.name}</h3>
+                                      <p className="text-[11px] text-[var(--muted-foreground)] mt-1">{e.credits} Credits</p>
                                     </div>
                                     
-                                    <div className="flex items-center gap-1 opacity-0 group-hover/elective:opacity-100 transition-opacity">
-                                      <button onClick={() => openEditModal(e)} className="p-1.5 text-[var(--muted-foreground)] hover:text-blue-500 hover:bg-blue-500/10 rounded-md transition-colors outline-none" title="Edit Subject">
-                                        <Pencil className="w-3.5 h-3.5" />
-                                      </button>
-                                      <button onClick={() => handleDeleteElective(e.id)} className="p-1.5 text-[var(--muted-foreground)] hover:text-red-500 hover:bg-red-500/10 rounded-md transition-colors outline-none" title="Delete Subject">
-                                        <Trash2 className="w-3.5 h-3.5" />
-                                      </button>
+                                    {/* Circular Gauge */}
+                                    <div className="relative w-14 h-14 shrink-0">
+                                      <svg className="w-14 h-14 -rotate-90" viewBox="0 0 44 44">
+                                        <circle cx="22" cy="22" r="18" fill="none" stroke="var(--accent)" strokeWidth="3" />
+                                        <circle 
+                                          cx="22" cy="22" r="18" fill="none" 
+                                          stroke={e.isFull ? "#ef4444" : fillPerc > 75 ? "#f59e0b" : "#6366f1"} 
+                                          strokeWidth="3" 
+                                          strokeLinecap="round"
+                                          strokeDasharray={circumference} 
+                                          strokeDashoffset={strokeDashoffset}
+                                          className="transition-all duration-700 ease-out"
+                                        />
+                                      </svg>
+                                      <div className="absolute inset-0 flex items-center justify-center">
+                                        <span className={`text-[11px] font-bold ${e.isFull ? 'text-red-400' : 'text-[var(--foreground)]'}`}>{fillPerc}%</span>
+                                      </div>
                                     </div>
                                   </div>
                                   
-                                  <div className="mt-4 pt-4 border-t border-[var(--border)]/30 flex items-center justify-between gap-4">
-                                    <div className="flex-1">
-                                      <div className="flex justify-between text-[10px] font-semibold text-[var(--muted-foreground)] mb-1 uppercase tracking-wider">
-                                        <span>Capacity</span>
-                                        <span>{filled} / {e.maxSeats}</span>
+                                  {/* Bottom Stats */}
+                                  <div className="mt-3 pt-3 border-t border-[var(--border)]/50 flex items-center justify-between">
+                                    <div className="flex items-center gap-3">
+                                      <div>
+                                        <p className="text-[9px] font-bold text-[var(--muted-foreground)] uppercase tracking-wider">Filled</p>
+                                        <p className="text-sm font-bold text-[var(--foreground)]">{filled}<span className="text-[var(--muted-foreground)] font-normal">/{e.maxSeats}</span></p>
                                       </div>
-                                      <div className="h-1.5 w-full bg-[var(--accent)] rounded-full overflow-hidden">
-                                        <div 
-                                          className={`h-full rounded-full transition-all ${e.isFull ? 'bg-red-500' : 'bg-emerald-500'}`} 
-                                          style={{ width: `${fillPerc}%` }} 
-                                        />
+                                      <div className="w-px h-6 bg-[var(--border)]/50" />
+                                      <div>
+                                        <p className="text-[9px] font-bold text-[var(--muted-foreground)] uppercase tracking-wider">Available</p>
+                                        <p className={`text-sm font-bold ${e.isFull ? 'text-red-400' : 'text-emerald-500'}`}>{e.availableSeats}</p>
                                       </div>
                                     </div>
-                                    <div className="text-right shrink-0">
-                                      <p className="text-[10px] font-semibold text-[var(--muted-foreground)] uppercase tracking-wider">Available</p>
-                                      <p className={`text-sm font-bold ${e.isFull ? 'text-red-500' : 'text-emerald-500'}`}>{e.availableSeats}</p>
+                                    
+                                    {/* Action Buttons */}
+                                    <div className="flex items-center gap-0.5 opacity-0 group-hover/elective:opacity-100 transition-opacity">
+                                      <button onClick={() => openEditModal(e)} className="p-1.5 text-[var(--muted-foreground)] hover:text-indigo-500 hover:bg-indigo-500/10 rounded-lg transition-colors outline-none" title="Edit Subject">
+                                        <Pencil className="w-3.5 h-3.5" />
+                                      </button>
+                                      <button onClick={() => handleDeleteElective(e.id)} className="p-1.5 text-[var(--muted-foreground)] hover:text-red-500 hover:bg-red-500/10 rounded-lg transition-colors outline-none" title="Delete Subject">
+                                        <Trash2 className="w-3.5 h-3.5" />
+                                      </button>
                                     </div>
                                   </div>
                                 </div>

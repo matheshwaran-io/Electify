@@ -3,7 +3,7 @@ import Image from "next/image";
 import { redirect } from "next/navigation";
 import { getSession } from "@/lib/auth";
 import { db } from "@/lib/db";
-import { users, registrationEvents, electiveGroups, electives, studentRegistrations, registrations } from "@/lib/db/schema";
+import { users, registrationEvents, electiveGroups, electives, studentRegistrations, registrations, systemSettings } from "@/lib/db/schema";
 import { eq, and, inArray, desc } from "drizzle-orm";
 import { RegistrationForm } from "../registration-form";
 import { ThemeToggle } from "@/components/theme-toggle";
@@ -42,6 +42,12 @@ export default async function StudentElectivesPage() {
         </div>
       </div>
     );
+  }
+
+  const [settings] = await db.select().from(systemSettings).where(eq(systemSettings.id, "system")).limit(1);
+
+  if (settings?.maintenanceMode) {
+    redirect("/maintenance");
   }
 
   // Fetch active or recently closed registration event

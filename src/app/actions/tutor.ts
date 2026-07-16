@@ -278,17 +278,30 @@ export async function getTutorReports() {
 // ── Reg Control Center ─────────────────────────────────────────────────────────
 
 export async function getPortalWindow() {
-  const session = await assertTutor();
-  if (!session.sectionId) return [];
+  const session = await getSession();
+  if (!session) throw new Error("Unauthorized");
 
-  const sectionEvents = await db
-    .select({ eventId: eventSections.eventId })
-    .from(eventSections)
-    .where(eq(eventSections.sectionId, session.sectionId));
+  if (session.role === "CLASS_TUTOR") {
+    const verifiedSession = await assertTutor();
+    if (!verifiedSession.sectionId) return [];
+  }
 
-  if (sectionEvents.length === 0) return [];
+  // Fetch event IDs related to sections or overall events depending on role
+  let eventIds: string[] = [];
 
-  const eventIds = sectionEvents.map(se => se.eventId);
+  if (session.role === "CLASS_TUTOR" && session.sectionId) {
+    const sectionEvents = await db
+      .select({ eventId: eventSections.eventId })
+      .from(eventSections)
+      .where(eq(eventSections.sectionId, session.sectionId));
+    eventIds = sectionEvents.map(se => se.eventId);
+  } else {
+    // For Admin / Coordinator, fetch all events
+    const allEvents = await db.select({ id: registrationEvents.id }).from(registrationEvents);
+    eventIds = allEvents.map(e => e.id);
+  }
+
+  if (eventIds.length === 0) return [];
 
   const [events, allGroups] = await Promise.all([
     db.select({

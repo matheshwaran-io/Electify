@@ -511,7 +511,7 @@ export function TutorReportsClient({ reportData, hasActiveSection = true }: { re
         )}
         {activeTab === "subjects" && (
           <motion.div key="subjects" initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }} transition={{ duration: 0.2 }}>
-            <SubjectsTab groupedSubjects={groupedSubjects} totalStudents={totalStudents} />
+            <SubjectsTab groupedSubjects={groupedSubjects} totalStudents={totalStudents} students={students} />
           </motion.div>
         )}
       </AnimatePresence>
@@ -1025,8 +1025,10 @@ function ManualRegisterModal({ student, eventId, availableElectives, onClose }: 
 }
 
 // ── Subjects Tab ─────────────────────────────────────────────────────────
-function SubjectsTab({ groupedSubjects, totalStudents }: { groupedSubjects: [string, GroupSummary[]][]; totalStudents: number }) {
+function SubjectsTab({ groupedSubjects, totalStudents, students }: { groupedSubjects: [string, GroupSummary[]][]; totalStudents: number; students: Student[] }) {
   const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set(groupedSubjects.map(([name]) => name)));
+  const [expandedSubjects, setExpandedSubjects] = useState<Set<string>>(new Set());
+  const [subjectSearch, setSubjectSearch] = useState("");
 
   const toggleGroup = (name: string) => {
     setExpandedGroups(prev => {
@@ -1035,6 +1037,36 @@ function SubjectsTab({ groupedSubjects, totalStudents }: { groupedSubjects: [str
       return next;
     });
   };
+
+  const toggleSubject = (key: string) => {
+    setExpandedSubjects(prev => {
+      const next = new Set(prev);
+      if (next.has(key)) next.delete(key); else next.add(key);
+      return next;
+    });
+  };
+
+  // Build a map of (electiveName) -> list of students registered for it
+  const studentsPerSubject = useMemo(() => {
+    const map = new Map<string, { id: string; name: string; registerNumber: string | null; submittedAt: string | null }[]>();
+    for (const student of students) {
+      if (student.registrationStatus !== "CONFIRMED") continue;
+      for (const reg of student.registrations) {
+        const key = `${reg.groupName}::${reg.electiveName}`;
+        const list = map.get(key) || [];
+        list.push({
+          id: student.id,
+          name: student.name,
+          registerNumber: student.registerNumber,
+          submittedAt: student.submittedAt,
+        });
+        map.set(key, list);
+      }
+    }
+    // Sort each list by name
+    map.forEach((list) => list.sort((a, b) => a.name.localeCompare(b.name)));
+    return map;
+  }, [students]);
 
   if (groupedSubjects.length === 0) {
     return (
@@ -1047,6 +1079,18 @@ function SubjectsTab({ groupedSubjects, totalStudents }: { groupedSubjects: [str
 
   return (
     <div className="space-y-3">
+      {/* Search */}
+      <div className="relative">
+        <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[var(--muted-foreground)]" />
+        <input
+          type="text"
+          placeholder="Search students by name or register number..."
+          value={subjectSearch}
+          onChange={(e) => setSubjectSearch(e.target.value)}
+          className="w-full pl-9 pr-4 py-2.5 bg-[var(--card)] border border-[var(--border)] rounded-xl text-sm text-[var(--foreground)] placeholder:text-[var(--muted-foreground)] focus:outline-none focus:ring-2 focus:ring-indigo-500/50"
+        />
+      </div>
+
       {groupedSubjects.map(([groupName, subjects]) => {
         const isOpen = expandedGroups.has(groupName);
         const groupTotal = subjects.reduce((sum, s) => sum + s.count, 0);
@@ -1080,28 +1124,97 @@ function SubjectsTab({ groupedSubjects, totalStudents }: { groupedSubjects: [str
                   <div className="p-4 space-y-2">
                     {subjects.map((sub, idx) => {
                       const pct = totalStudents > 0 ? Math.round((sub.count / totalStudents) * 100) : 0;
+                      const subjectKey = `${groupName}::${sub.electiveName}`;
+                      const isSubjectExpanded = expandedSubjects.has(subjectKey);
+                      const enrolledStudents = studentsPerSubject.get(subjectKey) || [];
+
+                      // Filter students by search query
+                      const q = subjectSearch.toLowerCase().trim();
+                      const filteredStudents = q
+                        ? enrolledStudents.filter(s =>
+                            s.name.toLowerCase().includes(q) ||
+                            (s.registerNumber && s.registerNumber.toLowerCase().includes(q))
+                          )
+                        : enrolledStudents;
+
+                      // If searching and no students match, hide this subject
+                      if (q && filteredStudents.length === 0) return null;
+
                       return (
-                        <div key={idx} className="flex items-center gap-4 p-3 rounded-lg hover:bg-[var(--accent)]/20 transition-colors">
-                          <div className="flex-1 min-w-0">
-                            <div className="flex items-center gap-2">
-                              {sub.courseCode && (
-                                <span className="text-[10px] font-mono font-semibold text-indigo-400 bg-indigo-500/10 px-1.5 py-0.5 rounded">{sub.courseCode}</span>
-                              )}
-                              <span className="text-sm font-medium text-[var(--foreground)] truncate">{sub.electiveName}</span>
+                        <div key={idx} className="rounded-lg border border-[var(--border)] overflow-hidden">
+                          <button
+                            onClick={() => toggleSubject(subjectKey)}
+                            className="w-full flex items-center gap-4 p-3 hover:bg-[var(--accent)]/20 transition-colors"
+                          >
+                            <div className="flex-1 min-w-0">
+                              <div className="flex items-center gap-2">
+                                {sub.courseCode && (
+                                  <span className="text-[10px] font-mono font-semibold text-indigo-400 bg-indigo-500/10 px-1.5 py-0.5 rounded">{sub.courseCode}</span>
+                                )}
+                                <span className="text-sm font-medium text-[var(--foreground)] truncate">{sub.electiveName}</span>
+                              </div>
                             </div>
-                          </div>
-                          <div className="flex items-center gap-3 shrink-0">
-                            <div className="w-24 h-1.5 rounded-full bg-[var(--accent)] overflow-hidden">
+                            <div className="flex items-center gap-3 shrink-0">
+                              <div className="w-24 h-1.5 rounded-full bg-[var(--accent)] overflow-hidden">
+                                <motion.div
+                                  className="h-full rounded-full bg-gradient-to-r from-indigo-500 to-violet-500"
+                                  initial={{ width: 0 }}
+                                  animate={{ width: `${pct}%` }}
+                                  transition={{ duration: 0.5 }}
+                                />
+                              </div>
+                              <span className="text-xs font-bold text-[var(--foreground)] tabular-nums w-8 text-right">{sub.count}</span>
+                              <span className="text-[10px] text-[var(--muted-foreground)] tabular-nums w-8">({pct}%)</span>
+                              <ChevronDown className={`w-3.5 h-3.5 text-[var(--muted-foreground)] transition-transform duration-200 ${isSubjectExpanded ? "rotate-180" : ""}`} />
+                            </div>
+                          </button>
+
+                          <AnimatePresence>
+                            {isSubjectExpanded && (
                               <motion.div
-                                className="h-full rounded-full bg-gradient-to-r from-indigo-500 to-violet-500"
-                                initial={{ width: 0 }}
-                                animate={{ width: `${pct}%` }}
-                                transition={{ duration: 0.5 }}
-                              />
-                            </div>
-                            <span className="text-xs font-bold text-[var(--foreground)] tabular-nums w-8 text-right">{sub.count}</span>
-                            <span className="text-[10px] text-[var(--muted-foreground)] tabular-nums w-8">({pct}%)</span>
-                          </div>
+                                initial={{ height: 0, opacity: 0 }}
+                                animate={{ height: "auto", opacity: 1 }}
+                                exit={{ height: 0, opacity: 0 }}
+                                transition={{ duration: 0.2 }}
+                                className="border-t border-[var(--border)] bg-[var(--background)]/50"
+                              >
+                                <div className="p-3">
+                                  {/* Table Header */}
+                                  <div className="grid grid-cols-[40px_1fr_1fr] gap-2 px-2 pb-2 mb-1 border-b border-[var(--border)]">
+                                    <span className="text-[10px] font-bold uppercase tracking-wider text-[var(--muted-foreground)]">#</span>
+                                    <span className="text-[10px] font-bold uppercase tracking-wider text-[var(--muted-foreground)]">Student Name</span>
+                                    <span className="text-[10px] font-bold uppercase tracking-wider text-[var(--muted-foreground)]">Register Number</span>
+                                  </div>
+
+                                  {filteredStudents.length > 0 ? (
+                                    <div className="space-y-0.5 max-h-[320px] overflow-y-auto custom-scrollbar">
+                                      {filteredStudents.map((s, sIdx) => (
+                                        <div
+                                          key={s.id}
+                                          className="grid grid-cols-[40px_1fr_1fr] gap-2 px-2 py-2 rounded-md hover:bg-[var(--accent)]/30 transition-colors items-center"
+                                        >
+                                          <span className="text-xs font-mono text-[var(--muted-foreground)]">{sIdx + 1}</span>
+                                          <span className="text-sm text-[var(--foreground)] font-medium truncate">{s.name}</span>
+                                          <span className="text-xs font-mono text-[var(--muted-foreground)]">{s.registerNumber || "—"}</span>
+                                        </div>
+                                      ))}
+                                    </div>
+                                  ) : (
+                                    <p className="text-xs text-[var(--muted-foreground)] text-center py-4">No students found.</p>
+                                  )}
+
+                                  <div className="mt-2 pt-2 border-t border-[var(--border)] flex justify-between items-center px-2">
+                                    <span className="text-[10px] text-[var(--muted-foreground)]">
+                                      Showing {filteredStudents.length} of {enrolledStudents.length} student{enrolledStudents.length !== 1 ? "s" : ""}
+                                    </span>
+                                    <span className="text-[10px] font-bold text-indigo-500">
+                                      {pct}% of section
+                                    </span>
+                                  </div>
+                                </div>
+                              </motion.div>
+                            )}
+                          </AnimatePresence>
                         </div>
                       );
                     })}

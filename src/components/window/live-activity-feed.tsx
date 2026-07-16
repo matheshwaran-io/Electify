@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { format } from "date-fns";
 import { UserCheck, RefreshCw, AlertTriangle, Info, Loader2 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
-import { getReplayEvents } from "@/app/actions/replay";
+import { getLiveActivityEvents } from "@/app/actions/replay";
 
 export function LiveActivityFeed({ eventId }: { eventId: string }) {
   const [events, setEvents] = useState<any[]>([]);
@@ -12,11 +12,9 @@ export function LiveActivityFeed({ eventId }: { eventId: string }) {
 
   useEffect(() => {
     async function load() {
-      const res = await getReplayEvents(eventId);
+      const res = await getLiveActivityEvents(eventId);
       if (res.success && res.data) {
-        // We only want the most recent events, sorted descending for the feed
-        const sorted = [...res.data.events].reverse().slice(0, 50);
-        setEvents(sorted);
+        setEvents(res.data.events);
       }
       setLoading(false);
     }
