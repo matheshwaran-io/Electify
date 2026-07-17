@@ -270,47 +270,25 @@ export function AuthContainer() {
         {/* Depth Thin Ring (5% opacity) */}
         <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[440px] h-[440px] rounded-full border border-slate-900/5 dark:border-white/5 opacity-5 pointer-events-none" />
 
-        {/* Depth Rotating Wireframe (5% opacity) */}
-        <motion.div
-          animate={{ rotate: 360 }}
-          transition={{ duration: 48, repeat: Infinity, ease: "linear" }}
-          className="absolute inset-0 pointer-events-none z-0 flex items-center justify-center opacity-5"
-        >
+        {/* Depth Wireframe (5% opacity, static) */}
+        <div className="absolute inset-0 pointer-events-none z-0 flex items-center justify-center opacity-5 transform -rotate-12">
           <svg className="w-[380px] h-[380px] text-slate-900 dark:text-white" viewBox="0 0 100 100">
             <rect x="15" y="15" width="70" height="70" rx="12" fill="none" stroke="currentColor" strokeWidth="0.1" />
             <polygon points="50,15 85,50 50,85 15,50" fill="none" stroke="currentColor" strokeWidth="0.08" />
           </svg>
-        </motion.div>
+        </div>
 
-        {/* ── Main Glass Authentication Panel (Floats 3px, 22s duration) ─────── */}
-        <motion.div
-          animate={{
-            y: [-3, 3, -3],
-          }}
-          transition={{
-            duration: 22,
-            repeat: Infinity,
-            ease: "easeInOut",
-          }}
+        {/* ── Main Glass Authentication Panel (Static) ─────── */}
+        <div
           className="bg-white/70 dark:bg-slate-900/40 backdrop-blur-[40px] p-8 rounded-[32px] border border-white/40 dark:border-white/[0.08] shadow-[0_40px_80px_-20px_rgba(0,0,0,0.08)] dark:shadow-[0_40px_80px_-20px_rgba(0,0,0,0.5)] relative overflow-hidden z-10 transition-all duration-300"
         >
-          {/* Glass sweep reflection layer (sweeps every 15s) */}
+          {/* Static Glass Edge Highlight layer */}
           <div 
-            className="absolute inset-0 pointer-events-none opacity-[0.05] dark:opacity-8 z-20"
+            className="absolute inset-0 pointer-events-none opacity-[0.05] dark:opacity-10 z-20"
             style={{
-              background: "linear-gradient(115deg, transparent 40%, rgba(255,255,255,0.08) 50%, transparent 60%)",
-              backgroundSize: "200% 100%",
+              background: "linear-gradient(115deg, rgba(255,255,255,0.1) 0%, transparent 30%, transparent 70%, rgba(255,255,255,0.05) 100%)",
             }}
-          >
-            <motion.div
-              animate={{ x: ["-100%", "100%"] }}
-              transition={{ duration: 15, repeat: Infinity, ease: "easeInOut" }}
-              className="w-full h-full"
-              style={{
-                background: "linear-gradient(115deg, transparent 35%, rgba(255,255,255,0.08) 50%, transparent 65%)",
-              }}
-            />
-          </div>
+          />
 
           <AnimatePresence mode="wait">
             {/* STUDENT LOGIN */}
@@ -619,7 +597,7 @@ export function AuthContainer() {
               </motion.form>
             )}
           </AnimatePresence>
-        </motion.div>
+        </div>
       </div>
     </div>
   );

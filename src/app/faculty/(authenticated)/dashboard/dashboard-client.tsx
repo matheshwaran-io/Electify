@@ -31,6 +31,7 @@ interface UserSession {
 interface DashboardClientProps {
   session: UserSession;
   metrics: any;
+  activeWorkspace?: string;
 }
 
 const containerVariants: Variants = {
@@ -56,7 +57,7 @@ function formatCountdown(closeDate: string | null) {
   return `${days}d ${h}h ${m}m ${s}s`;
 }
 
-export function DashboardClient({ session, metrics }: DashboardClientProps) {
+export function DashboardClient({ session, metrics, activeWorkspace = "COORDINATOR" }: DashboardClientProps) {
   const [tick, setTick] = useState(0);
 
   useEffect(() => {
@@ -66,13 +67,19 @@ export function DashboardClient({ session, metrics }: DashboardClientProps) {
 
   if (!metrics) return null;
 
+  const tutorMetrics = metrics;
+  const coordinatorMetrics = metrics;
+
+  const showTutorView = session.role === "CLASS_TUTOR" || (session.role === "COURSE_COORDINATOR" && activeWorkspace === "TUTOR");
+  const showCoordinatorView = session.role === "COURSE_COORDINATOR" && activeWorkspace === "COORDINATOR";
+
   return (
     <div className="space-y-8">
       {/* Welcome Section */}
       <motion.div 
         initial={{ opacity: 0, y: -10 }}
         animate={{ opacity: 1, y: 0 }}
-        className="flex flex-col md:flex-row md:items-end justify-between gap-4 pb-6 border-b border-[var(--border)]/50 relative"
+        className="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-6 border-b border-[var(--border)]/50 relative"
       >
         <div className="space-y-1 relative z-10">
           <h1 className="text-2xl font-semibold tracking-tight text-[var(--foreground)]">
@@ -85,8 +92,8 @@ export function DashboardClient({ session, metrics }: DashboardClientProps) {
       </motion.div>
 
       {/* Class Tutor Specific View */}
-      {session.role === "CLASS_TUTOR" && (
-        <div className="space-y-8">
+      {showTutorView && (
+        <div className="space-y-8 animate-fade-in-up">
           
           {/* Quick Links */}
           <motion.div 
@@ -140,33 +147,33 @@ export function DashboardClient({ session, metrics }: DashboardClientProps) {
           </motion.div>
 
           <motion.div variants={containerVariants} initial="hidden" animate="show" className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-            <StatCard title="My Section Students" value={metrics.totalStudents} icon={Users} color="text-blue-500" />
-            <StatCard title="Course Options" value={metrics.courseOptionsCount} icon={BookOpen} color="text-indigo-500" />
-            <StatCard title="Completed Regs" value={metrics.registeredCount} icon={CheckCircle2} color="text-emerald-500" />
-            <StatCard title="Seat Allocation" value={`${metrics.allocationRate}%`} icon={Percent} color="text-orange-500" />
+            <StatCard title="My Section Students" value={tutorMetrics.totalStudents} icon={Users} color="text-blue-500" />
+            <StatCard title="Course Options" value={tutorMetrics.courseOptionsCount} icon={BookOpen} color="text-indigo-500" />
+            <StatCard title="Completed Regs" value={tutorMetrics.registeredCount} icon={CheckCircle2} color="text-emerald-500" />
+            <StatCard title="Seat Allocation" value={`${tutorMetrics.allocationRate}%`} icon={Percent} color="text-orange-500" />
           </motion.div>
 
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
             {/* Registration Window Widget */}
-            <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="lg:col-span-1 bg-[var(--background)] rounded-xl border border-[var(--border)]/50 shadow-sm p-5 flex flex-col relative overflow-hidden">
+            <div className="lg:col-span-1 bg-[var(--background)] rounded-xl border border-[var(--border)]/50 shadow-sm p-5 flex flex-col relative overflow-hidden">
               <div className="absolute top-0 right-0 w-32 h-32 bg-indigo-500/5 blur-3xl -translate-y-1/2 translate-x-1/2 rounded-full" />
               <h2 className="text-[13px] font-semibold text-[var(--foreground)] flex items-center gap-2 mb-6">
                 <Clock className="w-4 h-4 text-[var(--muted-foreground)]" />
                 Portal Status
               </h2>
-              {metrics.activeEvent ? (
+              {tutorMetrics.activeEvent ? (
                 <div className="flex-1 flex flex-col items-center justify-center text-center space-y-4">
                   <span className={`inline-flex items-center px-2 py-0.5 rounded text-[10px] font-semibold uppercase tracking-wider border ${
-                    metrics.activeEvent.status === "ACTIVE" || metrics.activeEvent.status === "PUBLISHED" 
+                    tutorMetrics.activeEvent.status === "ACTIVE" || tutorMetrics.activeEvent.status === "PUBLISHED" 
                       ? "bg-emerald-500/10 text-emerald-500 border-emerald-500/20" 
                       : "bg-orange-500/10 text-orange-500 border-orange-500/20"
                   }`}>
-                    {metrics.activeEvent.status}
+                    {tutorMetrics.activeEvent.status}
                   </span>
                   <div>
-                    <h3 className="text-xl font-semibold tracking-tight text-[var(--foreground)]">{metrics.activeEvent.name}</h3>
+                    <h3 className="text-xl font-semibold tracking-tight text-[var(--foreground)]">{tutorMetrics.activeEvent.name}</h3>
                     <p className="text-[13px] font-mono text-[var(--muted-foreground)] mt-1.5 opacity-80">
-                      {formatCountdown(metrics.activeEvent.closeDate)}
+                      {formatCountdown(tutorMetrics.activeEvent.closeDate)}
                     </p>
                   </div>
                   <Link href="/faculty/window" className="text-[13px] font-medium text-indigo-500 hover:text-indigo-400 transition-colors mt-4 border-b border-indigo-500/30 pb-0.5">Edit Timers</Link>
@@ -177,10 +184,10 @@ export function DashboardClient({ session, metrics }: DashboardClientProps) {
                   <p className="text-[13px]">No Registration Window</p>
                 </div>
               )}
-            </motion.div>
+            </div>
 
             {/* Recent Submissions Feed */}
-            <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }} className="lg:col-span-1 bg-[var(--background)] rounded-xl border border-[var(--border)]/50 shadow-sm overflow-hidden flex flex-col h-[400px]">
+            <div className="lg:col-span-1 bg-[var(--background)] rounded-xl border border-[var(--border)]/50 shadow-sm overflow-hidden flex flex-col h-[400px]">
               <div className="flex items-center justify-between p-5 border-b border-[var(--border)]/50">
                 <h2 className="text-[13px] font-semibold text-[var(--foreground)] flex items-center gap-2">
                   <ListPlus className="w-4 h-4 text-[var(--muted-foreground)]" />
@@ -188,8 +195,8 @@ export function DashboardClient({ session, metrics }: DashboardClientProps) {
                 </h2>
               </div>
               <div className="divide-y divide-[var(--border)]/50 overflow-y-auto custom-scrollbar">
-                {metrics.recentRegistrations?.length > 0 ? (
-                  metrics.recentRegistrations.map((reg: any) => (
+                {tutorMetrics.recentRegistrations?.length > 0 ? (
+                  tutorMetrics.recentRegistrations.map((reg: any) => (
                     <div key={reg.id} className="p-4 flex items-start gap-4 hover:bg-[var(--accent)]/30 transition-colors group">
                       <div className="flex-1 min-w-0">
                         <p className="text-[13px] font-medium text-[var(--foreground)]">
@@ -211,22 +218,22 @@ export function DashboardClient({ session, metrics }: DashboardClientProps) {
                   </div>
                 )}
               </div>
-            </motion.div>
+            </div>
 
             {/* Pending Students */}
-            <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2 }} className="lg:col-span-1 bg-[var(--background)] rounded-xl border border-[var(--border)]/50 shadow-sm overflow-hidden flex flex-col h-[400px]">
+            <div className="lg:col-span-1 bg-[var(--background)] rounded-xl border border-[var(--border)]/50 shadow-sm overflow-hidden flex flex-col h-[400px]">
               <div className="flex items-center justify-between p-5 border-b border-[var(--border)]/50">
                 <h2 className="text-[13px] font-semibold text-[var(--foreground)] flex items-center gap-2">
                   <UserMinus className="w-4 h-4 text-orange-500" />
                   Pending Students
                   <span className="ml-2 px-2 py-0.5 bg-orange-500/10 text-orange-500 rounded text-[10px] font-mono">
-                    {metrics.pendingStudents?.length || 0}
+                    {tutorMetrics.pendingStudents?.length || 0}
                   </span>
                 </h2>
               </div>
               <div className="divide-y divide-[var(--border)]/50 overflow-y-auto custom-scrollbar">
-                {metrics.pendingStudents?.length > 0 ? (
-                  metrics.pendingStudents.map((student: any) => (
+                {tutorMetrics.pendingStudents?.length > 0 ? (
+                  tutorMetrics.pendingStudents.map((student: any) => (
                     <div key={student.id} className="p-4 flex items-center gap-4 hover:bg-[var(--accent)]/30 transition-colors group">
                       <div className="flex-1 min-w-0">
                         <p className="text-[13px] font-medium text-[var(--foreground)] truncate">
@@ -249,35 +256,149 @@ export function DashboardClient({ session, metrics }: DashboardClientProps) {
                   </div>
                 )}
               </div>
-            </motion.div>
+            </div>
           </div>
         </div>
       )}
 
-      {/* Role-specific Metrics for SYSTEM_ADMIN and COURSE_COORDINATOR */}
-      {session.role !== "CLASS_TUTOR" && (
+      {/* Course Coordinator Specific View */}
+      {showCoordinatorView && (
+        <div className="space-y-8 animate-fade-in-up">
+          
+          {/* Quick Links */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+            <Link href="/faculty/events" className="block group">
+              <div className="bg-[var(--background)] border border-[var(--border)]/50 rounded-xl p-5 relative overflow-hidden transition-all duration-300 hover:border-blue-500/30 hover:bg-blue-500/5 shadow-sm">
+                <div className="flex items-center gap-3 mb-2">
+                  <div className="w-8 h-8 rounded-lg bg-blue-500/10 flex items-center justify-center">
+                    <Calendar className="w-4 h-4 text-blue-500" />
+                  </div>
+                  <div>
+                    <h3 className="font-medium text-[13px] text-[var(--foreground)]">Registration Events</h3>
+                  </div>
+                </div>
+                <p className="text-[11px] text-[var(--muted-foreground)]">Create and manage registration timelines</p>
+                <ArrowUpRight className="absolute top-5 right-5 w-4 h-4 text-blue-500 opacity-0 group-hover:opacity-100 transition-opacity" />
+              </div>
+            </Link>
+
+            <Link href="/faculty/templates" className="block group">
+              <div className="bg-[var(--background)] border border-[var(--border)]/50 rounded-xl p-5 relative overflow-hidden transition-all duration-300 hover:border-purple-500/30 hover:bg-purple-500/5 shadow-sm">
+                <div className="flex items-center gap-3 mb-2">
+                  <div className="w-8 h-8 rounded-lg bg-purple-500/10 flex items-center justify-center">
+                    <Layers className="w-4 h-4 text-purple-500" />
+                  </div>
+                  <div>
+                    <h3 className="font-medium text-[13px] text-[var(--foreground)]">Event Templates</h3>
+                  </div>
+                </div>
+                <p className="text-[11px] text-[var(--muted-foreground)]">Reusable structures and rulesets</p>
+                <ArrowUpRight className="absolute top-5 right-5 w-4 h-4 text-purple-500 opacity-0 group-hover:opacity-100 transition-opacity" />
+              </div>
+            </Link>
+
+            <Link href="/faculty/electives" className="block group">
+              <div className="bg-[var(--background)] border border-[var(--border)]/50 rounded-xl p-5 relative overflow-hidden transition-all duration-300 hover:border-indigo-500/30 hover:bg-indigo-500/5 shadow-sm">
+                <div className="flex items-center gap-3 mb-2">
+                  <div className="w-8 h-8 rounded-lg bg-indigo-500/10 flex items-center justify-center">
+                    <BookOpen className="w-4 h-4 text-indigo-500" />
+                  </div>
+                  <div>
+                    <h3 className="font-medium text-[13px] text-[var(--foreground)]">Master Catalog</h3>
+                  </div>
+                </div>
+                <p className="text-[11px] text-[var(--muted-foreground)]">Manage master elective courses</p>
+                <ArrowUpRight className="absolute top-5 right-5 w-4 h-4 text-indigo-500 opacity-0 group-hover:opacity-100 transition-opacity" />
+              </div>
+            </Link>
+
+            <Link href="/faculty/reports" className="block group">
+              <div className="bg-[var(--background)] border border-[var(--border)]/50 rounded-xl p-5 relative overflow-hidden transition-all duration-300 hover:border-emerald-500/30 hover:bg-emerald-500/5 shadow-sm">
+                <div className="flex items-center gap-3 mb-2">
+                  <div className="w-8 h-8 rounded-lg bg-emerald-500/10 flex items-center justify-center">
+                    <ListPlus className="w-4 h-4 text-emerald-500" />
+                  </div>
+                  <div>
+                    <h3 className="font-medium text-[13px] text-[var(--foreground)]">Coordinator Reports</h3>
+                  </div>
+                </div>
+                <p className="text-[11px] text-[var(--muted-foreground)]">Export registrations & print PDF/CSV</p>
+                <ArrowUpRight className="absolute top-5 right-5 w-4 h-4 text-emerald-500 opacity-0 group-hover:opacity-100 transition-opacity" />
+              </div>
+            </Link>
+          </div>
+
+          {/* Stat Cards */}
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+            <StatCard title="Total Events" value={coordinatorMetrics.totalEvents} icon={Calendar} color="text-blue-500" />
+            <StatCard title="Active Events" value={coordinatorMetrics.activeEventsCount} icon={Activity} color="text-emerald-500" />
+            <StatCard title="Event Templates" value={coordinatorMetrics.totalTemplates} icon={Layers} color="text-indigo-500" />
+            <StatCard title="Master Electives" value={coordinatorMetrics.totalElectives} icon={BookOpen} color="text-purple-500" />
+          </div>
+
+          {/* Recent Events Widget */}
+          <div className="grid grid-cols-1 gap-6">
+            <div className="bg-[var(--background)] rounded-xl border border-[var(--border)]/50 shadow-sm overflow-hidden flex flex-col">
+              <div className="flex items-center justify-between p-5 border-b border-[var(--border)]/50">
+                <h2 className="text-[13px] font-semibold text-[var(--foreground)] flex items-center gap-2">
+                  <Activity className="w-4 h-4 text-[var(--muted-foreground)]" />
+                  Recent Registration Events
+                </h2>
+              </div>
+              <div className="divide-y divide-[var(--border)]/50 overflow-y-auto max-h-[300px] custom-scrollbar">
+                {coordinatorMetrics.recentEvents?.length > 0 ? (
+                  coordinatorMetrics.recentEvents.map((evt: any) => (
+                    <div key={evt.id} className="p-4 flex items-center justify-between gap-4 hover:bg-[var(--accent)]/30 transition-colors">
+                      <div className="min-w-0 flex-1">
+                        <p className="text-[13px] font-medium text-[var(--foreground)] truncate">{evt.name}</p>
+                        <p className="text-[11px] text-[var(--muted-foreground)] mt-0.5 flex items-center gap-2">
+                          <span>Open: {evt.openDate ? format(new Date(evt.openDate), "MMM d, yyyy") : "N/A"}</span>
+                          <span className="w-1 h-1 rounded-full bg-[var(--border)]" />
+                          <span>Close: {evt.closeDate ? format(new Date(evt.closeDate), "MMM d, yyyy") : "N/A"}</span>
+                        </p>
+                      </div>
+                      <div className="flex items-center gap-3">
+                        <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-[10px] font-semibold uppercase tracking-wider border ${
+                          evt.status === "PUBLISHED" || evt.status === "OPEN"
+                            ? "bg-emerald-500/10 text-emerald-500 border-emerald-500/20"
+                            : evt.status === "DRAFT"
+                            ? "bg-amber-500/10 text-amber-500 border-amber-500/20"
+                            : "bg-slate-500/10 text-slate-500 border-slate-500/20"
+                        }`}>
+                          {evt.status}
+                        </span>
+                        <Link 
+                          href="/faculty/events" 
+                          className="p-1 hover:bg-[var(--border)]/50 rounded text-[var(--muted-foreground)] hover:text-[var(--foreground)] transition-colors"
+                        >
+                          <ArrowUpRight className="w-4 h-4" />
+                        </Link>
+                      </div>
+                    </div>
+                  ))
+                ) : (
+                  <div className="p-10 text-center text-[13px] text-[var(--muted-foreground)]">
+                    No registration events created yet.
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Role-specific Metrics for SYSTEM_ADMIN */}
+      {session.role === "SYSTEM_ADMIN" && (
         <motion.div 
           variants={containerVariants}
           initial="hidden"
           animate="show"
           className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6"
         >
-          {session.role === "SYSTEM_ADMIN" && (
-            <>
-              <StatCard title="Total Students" value={metrics.totalStudents} icon={GraduationCap} color="text-blue-500" bgColor="bg-blue-500/10" />
-              <StatCard title="Course Coordinators" value={metrics.totalFaculty} icon={Users} color="text-indigo-500" bgColor="bg-indigo-500/10" />
-              <StatCard title="Active Events" value={metrics.activeEvents} icon={Calendar} color="text-purple-500" bgColor="bg-purple-500/10" />
-              <StatCard title="System Status" value="Healthy" icon={Activity} color="text-emerald-500" bgColor="bg-emerald-500/10" />
-            </>
-          )}
-
-          {session.role === "COURSE_COORDINATOR" && (
-            <>
-              <StatCard title="Total Events" value={metrics.totalEvents} icon={Calendar} color="text-blue-500" bgColor="bg-blue-500/10" />
-              <StatCard title="Event Templates" value={metrics.totalTemplates} icon={Layers} color="text-indigo-500" bgColor="bg-indigo-500/10" />
-              <StatCard title="Total Electives" value="-" icon={BookOpen} color="text-purple-500" bgColor="bg-purple-500/10" />
-            </>
-          )}
+          <StatCard title="Total Students" value={metrics.totalStudents} icon={GraduationCap} color="text-blue-500" bgColor="bg-blue-500/10" />
+          <StatCard title="Course Coordinators" value={metrics.totalFaculty} icon={Users} color="text-indigo-500" bgColor="bg-indigo-500/10" />
+          <StatCard title="Active Events" value={metrics.activeEvents} icon={Calendar} color="text-purple-500" bgColor="bg-purple-500/10" />
+          <StatCard title="System Status" value="Healthy" icon={Activity} color="text-emerald-500" bgColor="bg-emerald-500/10" />
         </motion.div>
       )}
 

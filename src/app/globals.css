@@ -329,3 +329,39 @@ a.touch-none {
   75% { stroke-dashoffset: 225; }
   100% { stroke-dashoffset: 275; }
 }
+
+/* ─── Premium Entrance Animations (Static, No JS) ────────────────── */
+@keyframes fadeInUp {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.animate-fade-in-up {
+  animation: fadeInUp 0.8s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  opacity: 0;
+}
+
+.delay-100 { animation-delay: 100ms; }
+.delay-200 { animation-delay: 200ms; }
+.delay-300 { animation-delay: 300ms; }
+.delay-400 { animation-delay: 400ms; }
+
+/* Glowing Border Effect for Cards on Hover */
+.premium-card-hover {
+  transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+}
+.premium-card-hover:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 10px 40px -10px rgba(79, 70, 229, 0.15);
+  border-color: rgba(99, 102, 241, 0.3);
+}
+.dark .premium-card-hover:hover {
+  box-shadow: 0 10px 40px -10px rgba(99, 102, 241, 0.2);
+  border-color: rgba(99, 102, 241, 0.4);
+}

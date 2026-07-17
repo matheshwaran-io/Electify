@@ -43,18 +43,34 @@ export async function getCourseCoordinatorMetrics() {
 
   const [
     [{ totalTemplates }],
-    [{ totalEvents }]
+    [{ totalEvents }],
+    [{ activeEventsCount }],
+    [{ totalElectives }],
+    recentEvents
   ] = await Promise.all([
     db.select({ totalTemplates: count() }).from(eventTemplates),
-    db.select({ totalEvents: count() }).from(registrationEvents)
+    db.select({ totalEvents: count() }).from(registrationEvents),
+    db.select({ activeEventsCount: count() }).from(registrationEvents).where(eq(registrationEvents.status, "PUBLISHED")),
+    db.select({ totalElectives: count() }).from(electives),
+    db.select({
+      id: registrationEvents.id,
+      name: registrationEvents.name,
+      status: registrationEvents.status,
+      openDate: registrationEvents.openDate,
+      closeDate: registrationEvents.closeDate,
+      createdAt: registrationEvents.createdAt
+    })
+    .from(registrationEvents)
+    .orderBy(desc(registrationEvents.createdAt))
+    .limit(5)
   ]);
 
-  return { totalTemplates, totalEvents };
+  return { totalTemplates, totalEvents, activeEventsCount, totalElectives, recentEvents };
 }
 
 export async function getClassTutorMetrics() {
   const session = await getSession();
-  if (!session || session.role !== "CLASS_TUTOR") {
+  if (!session || (session.role !== "CLASS_TUTOR" && session.role !== "COURSE_COORDINATOR")) {
     throw new Error("Unauthorized");
   }
 

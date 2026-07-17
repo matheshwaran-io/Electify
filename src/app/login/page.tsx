@@ -1,8 +1,5 @@
-"use client";
-
 import * as React from "react";
 import Image from "next/image";
-import { motion } from "framer-motion";
 import { HeroGeometricBackground } from "@/components/background/hero-geometric-background";
 import { AuthContainer } from "@/components/auth/auth-container";
 import { ThemeToggle } from "@/components/theme-toggle";
@@ -24,12 +21,7 @@ export default function UnifiedLoginPage() {
       <div className="max-w-7xl mx-auto px-6 pt-24 lg:pt-32 grid grid-cols-1 lg:grid-cols-12 gap-12 lg:gap-20 items-start relative z-10 w-full">
         
         {/* LEFT COLUMN: Deep Typographic Hero & Status Panel */}
-        <motion.div
-          initial={{ opacity: 0, y: 15 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.8, ease: "easeOut" }}
-          className="lg:col-span-7 space-y-16"
-        >
+        <div className="lg:col-span-7 space-y-16 animate-fade-in-up">
           {/* Logo square and titles */}
           <div className="space-y-8">
             <div className="w-14 h-14 rounded-2xl bg-white/80 dark:bg-white/[0.03] backdrop-blur-xl border border-slate-200 dark:border-white/10 p-2.5 shadow-md flex items-center justify-center">
@@ -37,9 +29,9 @@ export default function UnifiedLoginPage() {
             </div>
 
             <div className="space-y-4">
-              <h1 className="text-4xl sm:text-7xl font-bold text-slate-900 dark:text-white tracking-[-0.05em] leading-[0.9]">
+              <h1 className="text-4xl sm:text-7xl font-bold text-slate-900 dark:text-transparent dark:bg-clip-text dark:bg-gradient-to-b dark:from-white dark:to-white/70 tracking-[-0.05em] leading-[0.9]">
                 Electify Portal <br />
-                <span className="text-slate-800 dark:text-slate-200">
+                <span className="text-slate-800 dark:text-transparent dark:bg-clip-text dark:bg-gradient-to-br dark:from-indigo-300 dark:to-purple-400">
                   Authentication.
                 </span>
               </h1>
@@ -53,7 +45,7 @@ export default function UnifiedLoginPage() {
           {/* Interactive Feature Grid Showcase */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 pt-4">
             {/* Feature 1 */}
-            <div className="space-y-3 p-5 rounded-2xl bg-white/40 dark:bg-white/[0.01] border border-slate-200/50 dark:border-white/[0.05] backdrop-blur-md shadow-sm hover:border-indigo-500/30 dark:hover:border-indigo-500/20 transition-all group">
+            <div className="space-y-3 p-5 rounded-2xl bg-white/40 dark:bg-white/[0.01] border border-slate-200/50 dark:border-white/[0.05] backdrop-blur-md shadow-sm premium-card-hover group animate-fade-in-up delay-100">
               <div className="w-9 h-9 rounded-xl bg-indigo-50/50 dark:bg-indigo-950/20 text-[#4F8CFF] flex items-center justify-center border border-indigo-100/50 dark:border-indigo-500/10">
                 <Zap className="w-4.5 h-4.5" />
               </div>
@@ -64,7 +56,7 @@ export default function UnifiedLoginPage() {
             </div>
 
             {/* Feature 2 */}
-            <div className="space-y-3 p-5 rounded-2xl bg-white/40 dark:bg-white/[0.01] border border-slate-200/50 dark:border-white/[0.05] backdrop-blur-md shadow-sm hover:border-purple-500/30 dark:hover:border-purple-500/20 transition-all group">
+            <div className="space-y-3 p-5 rounded-2xl bg-white/40 dark:bg-white/[0.01] border border-slate-200/50 dark:border-white/[0.05] backdrop-blur-md shadow-sm premium-card-hover group animate-fade-in-up delay-200">
               <div className="w-9 h-9 rounded-xl bg-purple-50/50 dark:bg-purple-950/20 text-[#6D5DFE] flex items-center justify-center border border-purple-100/50 dark:border-purple-500/10">
                 <ShieldCheck className="w-4.5 h-4.5" />
               </div>
@@ -75,7 +67,7 @@ export default function UnifiedLoginPage() {
             </div>
 
             {/* Feature 3 */}
-            <div className="space-y-3 p-5 rounded-2xl bg-white/40 dark:bg-white/[0.01] border border-slate-200/50 dark:border-white/[0.05] backdrop-blur-md shadow-sm hover:border-emerald-500/30 dark:hover:border-emerald-500/20 transition-all group">
+            <div className="space-y-3 p-5 rounded-2xl bg-white/40 dark:bg-white/[0.01] border border-slate-200/50 dark:border-white/[0.05] backdrop-blur-md shadow-sm premium-card-hover group animate-fade-in-up delay-300">
               <div className="w-9 h-9 rounded-xl bg-emerald-50/50 dark:bg-emerald-950/20 text-emerald-500 flex items-center justify-center border border-emerald-100/50 dark:border-emerald-500/10">
                 <FileText className="w-4.5 h-4.5" />
               </div>
@@ -86,7 +78,7 @@ export default function UnifiedLoginPage() {
             </div>
 
             {/* Feature 4 */}
-            <div className="space-y-3 p-5 rounded-2xl bg-white/40 dark:bg-white/[0.01] border border-slate-200/50 dark:border-white/[0.05] backdrop-blur-md shadow-sm hover:border-amber-500/30 dark:hover:border-amber-500/20 transition-all group">
+            <div className="space-y-3 p-5 rounded-2xl bg-white/40 dark:bg-white/[0.01] border border-slate-200/50 dark:border-white/[0.05] backdrop-blur-md shadow-sm premium-card-hover group animate-fade-in-up delay-400">
               <div className="w-9 h-9 rounded-xl bg-amber-50/50 dark:bg-amber-950/20 text-amber-500 flex items-center justify-center border border-amber-100/50 dark:border-amber-500/10">
                 <LayoutGrid className="w-4.5 h-4.5" />
               </div>
@@ -96,22 +88,17 @@ export default function UnifiedLoginPage() {
               </p>
             </div>
           </div>
-        </motion.div>
+        </div>
 
         {/* RIGHT COLUMN: Floating Glass Auth Panel */}
-        <motion.div
-          initial={{ opacity: 0, y: 15 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.8, ease: "easeOut", delay: 0.15 }}
-          className="lg:col-span-5 w-full flex flex-col items-center lg:sticky lg:top-28"
-        >
+        <div className="lg:col-span-5 w-full flex flex-col items-center lg:sticky lg:top-28 animate-fade-in-up delay-200">
           <AuthContainer />
 
           {/* Fully Encrypted subtext */}
           <p className="text-[10px] text-slate-400 dark:text-slate-500 leading-relaxed max-w-xs text-center mt-6 uppercase tracking-wider font-bold">
             🔒 Protected by security protocols &middot; audit logs active
           </p>
-        </motion.div>
+        </div>
       </div>
     </div>
   );

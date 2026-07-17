@@ -420,3 +420,24 @@ export async function switchTutorSection(sectionId: string) {
   revalidatePath("/", "layout");
   return { success: true, newSectionId: assignment.sectionId };
 }
+
+export async function setWorkspacePortal(workspace: "COORDINATOR" | "TUTOR") {
+  const session = await getSession();
+  if (!session || session.role !== "COURSE_COORDINATOR") {
+    throw new Error("Unauthorized");
+  }
+
+  const { cookies } = await import("next/headers");
+  const cookieStore = await cookies();
+  cookieStore.set("electify_active_workspace", workspace, {
+    httpOnly: true,
+    secure: process.env.NODE_ENV === "production",
+    sameSite: "lax",
+    path: "/",
+    maxAge: 7200, // 2 hours
+  });
+
+  const { revalidatePath } = await import("next/cache");
+  revalidatePath("/", "layout");
+  return { success: true };
+}

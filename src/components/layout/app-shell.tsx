@@ -28,7 +28,7 @@ import {
   History,
   Database
 } from "lucide-react";
-import { logout } from "@/app/actions/auth";
+import { logout, setWorkspacePortal } from "@/app/actions/auth";
 import { ThemeToggle } from "@/components/theme-toggle";
 
 interface UserSession {
@@ -60,9 +60,10 @@ interface AppShellProps {
   children: React.ReactNode;
   session: UserSession;
   assignedSections?: any[];
+  activeWorkspace?: string;
 }
 
-export function AppShell({ children, session, assignedSections = [] }: AppShellProps) {
+export function AppShell({ children, session, assignedSections = [], activeWorkspace = "COORDINATOR" }: AppShellProps) {
   const pathname = usePathname();
   const router = useRouter();
   
@@ -125,14 +126,25 @@ export function AppShell({ children, session, assignedSections = [] }: AppShellP
         { name: "Settings", href: "/faculty/settings", icon: Settings, color: "text-slate-500" },
       );
     } else if (session.role === "COURSE_COORDINATOR") {
-      items.push(
-        { name: "Event Templates", href: "/faculty/templates", icon: Layers, color: "text-purple-500" },
-        { name: "Electives", href: "/faculty/electives", icon: BookOpen, color: "text-purple-500" },
-        { name: "Student Directory", href: "/faculty/students", icon: GraduationCap, color: "text-blue-500" },
-        { name: "Reports", href: "/faculty/reports", icon: FileText, color: "text-emerald-500" },
-        { name: "Registration Replay", href: "/faculty/replay", icon: History, color: "text-indigo-500" },
-        { name: "Database", href: "/faculty/database", icon: Database, color: "text-red-500" },
-      );
+      if (activeWorkspace === "TUTOR") {
+        items.push(
+          { name: "Subjects & Groups", href: "/faculty/tutor-electives", icon: BookOpen, color: "text-purple-500" },
+          { name: "Student Directory", href: "/faculty/section", icon: GraduationCap, color: "text-blue-500" },
+          { name: "Reports", href: "/faculty/tutor-reports", icon: FileText, color: "text-emerald-500" },
+          { name: "Reg Control Center", href: "/faculty/window", icon: Clock, color: "text-amber-500" },
+          { name: "Registration Replay", href: "/faculty/replay", icon: History, color: "text-indigo-500" },
+          { name: "Database", href: "/faculty/database", icon: Database, color: "text-red-500" },
+        );
+      } else {
+        items.push(
+          { name: "Event Templates", href: "/faculty/templates", icon: Layers, color: "text-purple-500" },
+          { name: "Electives", href: "/faculty/electives", icon: BookOpen, color: "text-purple-500" },
+          { name: "Student Directory", href: "/faculty/students", icon: GraduationCap, color: "text-blue-500" },
+          { name: "Reports", href: "/faculty/reports", icon: FileText, color: "text-emerald-500" },
+          { name: "Registration Replay", href: "/faculty/replay", icon: History, color: "text-indigo-500" },
+          { name: "Database", href: "/faculty/database", icon: Database, color: "text-red-500" },
+        );
+      }
     } else if (session.role === "CLASS_TUTOR") {
       items.push(
         { name: "Subjects & Groups", href: "/faculty/tutor-electives", icon: BookOpen, color: "text-purple-500" },
@@ -145,7 +157,7 @@ export function AppShell({ children, session, assignedSections = [] }: AppShellP
     }
 
     return items;
-  }, [session.role]);
+  }, [session.role, activeWorkspace]);
 
   // Mobile navigation uses the first 4 items for the bottom bar
   const mobileNavItems = navItems.slice(0, 4);
@@ -160,7 +172,45 @@ export function AppShell({ children, session, assignedSections = [] }: AppShellP
           <span className="text-[17px] font-semibold tracking-tight text-[var(--foreground)]">Electify</span>
         </div>
 
-        {session.role === "CLASS_TUTOR" && assignedSections.length > 0 && (
+        {/* Workspace Portal Switcher for Course Coordinator */}
+        {session.role === "COURSE_COORDINATOR" && (
+          <div className="px-4 mb-4 mt-2 shrink-0">
+            <label className="text-xs font-semibold text-[var(--muted-foreground)] uppercase tracking-wider block mb-1.5 pl-2">
+              Workspace Portal
+            </label>
+            <div className="flex bg-[var(--accent)]/50 p-1 rounded-xl border border-[var(--border)]/50 relative z-10 w-full shadow-sm">
+              <button
+                onClick={async () => {
+                  await setWorkspacePortal("COORDINATOR");
+                  window.location.href = "/faculty/dashboard";
+                }}
+                className={`flex-1 py-1.5 text-xs font-semibold rounded-lg transition-all cursor-pointer ${
+                  activeWorkspace === "COORDINATOR"
+                    ? "bg-[var(--background)] text-[var(--foreground)] border border-[var(--border)]/50 shadow-sm font-semibold"
+                    : "text-[var(--muted-foreground)] hover:text-[var(--foreground)]"
+                }`}
+              >
+                Coordinator
+              </button>
+              <button
+                onClick={async () => {
+                  await setWorkspacePortal("TUTOR");
+                  window.location.href = "/faculty/dashboard";
+                }}
+                className={`flex-1 py-1.5 text-xs font-semibold rounded-lg transition-all cursor-pointer ${
+                  activeWorkspace === "TUTOR"
+                    ? "bg-[var(--background)] text-[var(--foreground)] border border-[var(--border)]/50 shadow-sm font-semibold"
+                    : "text-[var(--muted-foreground)] hover:text-[var(--foreground)]"
+                }`}
+              >
+                Class Tutor
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* Active Section selector for Class Tutor or Coordinator acting as Tutor */}
+        {((session.role === "CLASS_TUTOR") || (session.role === "COURSE_COORDINATOR" && activeWorkspace === "TUTOR")) && assignedSections.length > 0 && (
           <div className="px-4 mb-4 mt-2">
             <div className="flex items-center justify-between mb-2 pl-2 pr-1">
               <label className="text-xs font-semibold text-[var(--muted-foreground)] uppercase tracking-wider block">
@@ -400,6 +450,19 @@ export function AppShell({ children, session, assignedSections = [] }: AppShellP
             <span className="text-lg font-bold tracking-tight">Electify</span>
           </div>
           <div className="flex items-center gap-2">
+            {session.role === "COURSE_COORDINATOR" && (
+              <select
+                value={activeWorkspace}
+                onChange={async (e) => {
+                  await setWorkspacePortal(e.target.value as any);
+                  window.location.href = "/faculty/dashboard";
+                }}
+                className="bg-[var(--accent)] border border-[var(--border)] text-[var(--foreground)] text-[10px] font-bold rounded-lg px-2 py-1.5 focus:outline-none cursor-pointer"
+              >
+                <option value="COORDINATOR">Coordinator</option>
+                <option value="TUTOR">Tutor</option>
+              </select>
+            )}
             <ThemeToggle />
 
             <div className="relative">

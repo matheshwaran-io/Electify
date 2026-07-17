@@ -14,15 +14,23 @@ export default async function DashboardPage() {
     redirect("/login");
   }
 
+  const { cookies } = await import("next/headers");
+  const cookieStore = await cookies();
+  const activeWorkspace = cookieStore.get("electify_active_workspace")?.value || "COORDINATOR";
+
   let metrics: any = null;
 
   if (session.role === "SYSTEM_ADMIN") {
     metrics = await getSystemAdminMetrics();
   } else if (session.role === "COURSE_COORDINATOR") {
-    metrics = await getCourseCoordinatorMetrics();
+    if (activeWorkspace === "TUTOR") {
+      metrics = await getClassTutorMetrics();
+    } else {
+      metrics = await getCourseCoordinatorMetrics();
+    }
   } else if (session.role === "CLASS_TUTOR") {
     metrics = await getClassTutorMetrics();
   }
 
-  return <DashboardClient session={session} metrics={metrics} />;
+  return <DashboardClient session={session} metrics={metrics} activeWorkspace={activeWorkspace} />;
 }

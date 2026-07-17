@@ -38,8 +38,12 @@ export default async function FacultyLayout({
     }
   }
 
+  const { cookies } = await import("next/headers");
+  const cookieStore = await cookies();
+  const activeWorkspace = cookieStore.get("electify_active_workspace")?.value || "COORDINATOR";
+
   let assignedSections: any[] = [];
-  if (session.role === "CLASS_TUTOR") {
+  if (session.role === "CLASS_TUTOR" || session.role === "COURSE_COORDINATOR") {
     assignedSections = await db
       .select({
         id: sections.id,
@@ -54,5 +58,5 @@ export default async function FacultyLayout({
       .where(eq(dbTutorSections.tutorId, session.userId));
   }
 
-  return <AppShell session={session} assignedSections={assignedSections}>{children}</AppShell>;
+  return <AppShell session={session} assignedSections={assignedSections} activeWorkspace={activeWorkspace}>{children}</AppShell>;
 }
