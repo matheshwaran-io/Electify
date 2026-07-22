@@ -391,7 +391,7 @@ export const getPublicHierarchy = unstable_cache(
 
 export async function switchTutorSection(sectionId: string) {
   const session = await getSession();
-  if (!session || session.role !== "CLASS_TUTOR") {
+  if (!session || (session.role !== "CLASS_TUTOR" && session.role !== "COURSE_COORDINATOR")) {
     throw new Error("Unauthorized");
   }
 

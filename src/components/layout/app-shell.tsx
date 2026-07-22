@@ -126,6 +126,7 @@ export function AppShell({ children, session, assignedSections = [], activeWorks
         { name: "Settings", href: "/faculty/settings", icon: Settings, color: "text-slate-500" },
       );
     } else if (session.role === "COURSE_COORDINATOR") {
+      items.push({ name: "Portal Selection", href: "/faculty/portal-select", icon: Layers, color: "text-indigo-500" });
       if (activeWorkspace === "TUTOR") {
         items.push(
           { name: "Subjects & Groups", href: "/faculty/tutor-electives", icon: BookOpen, color: "text-purple-500" },

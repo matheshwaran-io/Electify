@@ -5,7 +5,7 @@ import { SectionClient } from "./section-client";
 
 export default async function SectionPage() {
   const session = await getSession();
-  if (!session || session.role !== "CLASS_TUTOR") redirect("/faculty/dashboard");
+  if (!session || (session.role !== "CLASS_TUTOR" && session.role !== "COURSE_COORDINATOR")) redirect("/faculty/dashboard");
 
   const reportData = await getTutorReports();
 

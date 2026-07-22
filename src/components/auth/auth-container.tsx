@@ -131,6 +131,8 @@ export function AuthContainer() {
       toast.success("Welcome back!");
       if (result.role === "STUDENT") {
         router.push("/dashboard");
+      } else if (result.role === "COURSE_COORDINATOR") {
+        router.push("/faculty/portal-select");
       } else {
         router.push("/faculty/dashboard");
       }

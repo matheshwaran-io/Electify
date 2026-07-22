@@ -5,7 +5,7 @@ import { WindowClient } from "./window-client";
 
 export default async function WindowPage() {
   const session = await getSession();
-  if (!session || session.role !== "CLASS_TUTOR") redirect("/faculty/dashboard");
+  if (!session || (session.role !== "CLASS_TUTOR" && session.role !== "COURSE_COORDINATOR")) redirect("/faculty/dashboard");
   const events = await getPortalWindow();
   let metrics = null;
   if (events.length > 0) {

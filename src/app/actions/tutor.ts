@@ -11,7 +11,7 @@ import { eq, and, asc, count, desc, inArray, notInArray, sql } from "drizzle-orm
 
 async function assertTutor() {
   const session = await getSession();
-  if (!session || session.role !== "CLASS_TUTOR") throw new Error("Unauthorized");
+  if (!session || (session.role !== "CLASS_TUTOR" && session.role !== "COURSE_COORDINATOR")) throw new Error("Unauthorized");
 
   // Fetch missing hierarchy details if the session token is incomplete
   if (session.sectionId && (!session.academicBatchId || !session.programmeId || !session.departmentId)) {
@@ -927,7 +927,7 @@ export async function resetSectionRegistrationEvent(eventIdParam?: string) {
 
 export async function getAllAvailableSections() {
   const session = await getSession();
-  if (!session || session.role !== "CLASS_TUTOR") throw new Error("Unauthorized");
+  if (!session || (session.role !== "CLASS_TUTOR" && session.role !== "COURSE_COORDINATOR")) throw new Error("Unauthorized");
 
   // Get all assigned sections across the institution
   const assigned = await db.select({ sectionId: tutorSections.sectionId }).from(tutorSections);
@@ -957,7 +957,7 @@ export async function getAllAvailableSections() {
 
 export async function claimTutorSection(sectionIds: string[]) {
   const session = await getSession();
-  if (!session || session.role !== "CLASS_TUTOR") throw new Error("Unauthorized");
+  if (!session || (session.role !== "CLASS_TUTOR" && session.role !== "COURSE_COORDINATOR")) throw new Error("Unauthorized");
 
   if (!sectionIds || sectionIds.length === 0) {
     throw new Error("No sections selected");

@@ -5,7 +5,7 @@ import { TutorElectivesClient } from "./tutor-electives-client";
 
 export default async function TutorElectivesPage() {
   const session = await getSession();
-  if (!session || session.role !== "CLASS_TUTOR") redirect("/faculty/dashboard");
+  if (!session || (session.role !== "CLASS_TUTOR" && session.role !== "COURSE_COORDINATOR")) redirect("/faculty/dashboard");
   const electivesData = await getTutorElectives();
   return <TutorElectivesClient electivesData={electivesData} hasActiveSection={!!session.sectionId} />;
 }

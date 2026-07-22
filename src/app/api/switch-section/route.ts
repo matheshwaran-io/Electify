@@ -7,7 +7,7 @@ import { and, eq } from "drizzle-orm";
 export async function POST(request: NextRequest) {
   try {
     const session = await getSession();
-    if (!session || session.role !== "CLASS_TUTOR") {
+    if (!session || (session.role !== "CLASS_TUTOR" && session.role !== "COURSE_COORDINATOR")) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 

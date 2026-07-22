@@ -5,7 +5,7 @@ import { ApprovalsClient } from "./approvals-client";
 
 export default async function ApprovalsPage() {
   const session = await getSession();
-  if (!session || session.role !== "CLASS_TUTOR") redirect("/faculty/dashboard");
+  if (!session || (session.role !== "CLASS_TUTOR" && session.role !== "COURSE_COORDINATOR")) redirect("/faculty/dashboard");
   const registrations = await getSectionRegistrations();
   return <ApprovalsClient registrations={registrations} />;
 }
