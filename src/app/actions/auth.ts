@@ -152,9 +152,9 @@ export async function login(formData: {
     // Reset lockout counter
     await resetAttempts(normalizedIdentifier.toLowerCase());
 
-    // For Class Tutors, fetch their mapped sections and default to the first one
+    // For Class Tutors and Coordinators, fetch their mapped sections and default to the first one
     let activeSectionId = user.sectionId;
-    if (user.role === "CLASS_TUTOR") {
+    if (user.role === "CLASS_TUTOR" || user.role === "COURSE_COORDINATOR") {
       const assignedSections = await db
         .select({ sectionId: tutorSections.sectionId })
         .from(tutorSections)

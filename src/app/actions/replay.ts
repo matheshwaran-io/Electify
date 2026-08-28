@@ -75,7 +75,7 @@ export async function getReplayEvents(registrationEventId: string) {
 
     // 3. Get all student details for these registrations
     const studentIds = confirmedRegistrations.map((r) => r.studentId);
-    let studentsMap = new Map<
+    const studentsMap = new Map<
       string,
       { name: string; registerNumber: string | null }
     >();

@@ -36,7 +36,7 @@ export function StudentsClient({ students }: { students: Student[] }) {
 
   // Apply Filters & Search
   const filteredAndSorted = useMemo(() => {
-    let result = students.filter(s => {
+    const result = students.filter(s => {
       // Search
       const searchLower = search.toLowerCase();
       const matchesSearch = 

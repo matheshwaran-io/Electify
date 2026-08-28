@@ -53,7 +53,7 @@ export async function getSession(): Promise<UserSession | null> {
   if (!session) return null;
 
   // Override sectionId if there's an active section cookie
-  if (session.role === "CLASS_TUTOR") {
+  if (session.role === "CLASS_TUTOR" || session.role === "COURSE_COORDINATOR") {
     const activeSectionId = cookieStore.get("electify_active_section")?.value;
     if (activeSectionId) {
       session.sectionId = activeSectionId;
