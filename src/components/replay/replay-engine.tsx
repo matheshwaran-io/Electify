@@ -6,9 +6,6 @@ import { motion, AnimatePresence } from "framer-motion";
 import {
   Loader2,
   Trophy,
-  Users,
-  UserCheck,
-  UserCog,
   Clock,
   Search,
   ChevronDown,
@@ -39,7 +36,7 @@ export function ReplayEngine({ eventId }: { eventId: string }) {
     load();
   }, [eventId]);
 
-  const registrations: ReplayRegistration[] = data?.registrations || [];
+  const registrations = useMemo<ReplayRegistration[]>(() => data?.registrations || [], [data?.registrations]);
   const eventDetails = data?.eventDetails;
 
   const filteredRegistrations = useMemo(() => {

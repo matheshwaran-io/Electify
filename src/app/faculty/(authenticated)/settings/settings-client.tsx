@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { toast } from "sonner";
-import { Settings, Shield, Activity, User as UserIcon, Lock, Mail } from "lucide-react";
+import { Shield, Activity, User as UserIcon, Lock, Mail } from "lucide-react";
 import { toggleMaintenanceMode } from "@/app/actions/admin";
 import { updateProfile } from "@/app/actions/user";
 

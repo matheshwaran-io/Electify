@@ -7,11 +7,10 @@ import {
   electiveGroups, 
   registrations, 
   studentRegistrations, 
-  eventSections,
   registrationEvents,
   replayEvents
 } from "@/lib/db/schema";
-import { eq, inArray, and } from "drizzle-orm";
+import { eq, inArray } from "drizzle-orm";
 import { getSession } from "@/lib/auth";
 
 async function assertAdminOrCoordinator() {

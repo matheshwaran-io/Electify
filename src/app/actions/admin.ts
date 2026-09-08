@@ -4,10 +4,10 @@ import { db } from "@/lib/db";
 import {
   users, registrationEvents, faculties, departments,
   programmes, academicBatches, sections, auditLogs, eventTemplates,
-  templateGroups, templateElectives, inviteCodes, systemSettings, tutorSections
+  templateGroups, inviteCodes, systemSettings, tutorSections
 } from "@/lib/db/schema";
 import { getSession } from "@/lib/auth";
-import { eq, desc, count, asc, ilike, or, inArray } from "drizzle-orm";
+import { eq, desc, count, asc, or, inArray } from "drizzle-orm";
 
 async function assertAdmin() {
   const session = await getSession();
@@ -285,7 +285,7 @@ export async function revokeInviteCode(id: string) {
 // ── Tutor Section Management ────────────────────────────────────────────────
 
 export async function assignTutorSections(tutorId: string, sectionIds: string[]) {
-  const session = await assertAdmin();
+  await assertAdmin();
 
   const [tutor] = await db.select().from(users).where(eq(users.id, tutorId));
   if (!tutor || tutor.role !== "CLASS_TUTOR") {

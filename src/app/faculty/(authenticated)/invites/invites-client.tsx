@@ -27,10 +27,9 @@ type Faculty = { id: string; name: string; departments: Department[] };
 
 export function InvitesClient({
   codes: initialCodes,
-  tree,
 }: {
   codes: InviteCode[];
-  tree: { faculties: Faculty[] };
+  tree?: { faculties: Faculty[] };
 }) {
   const [codes, setCodes] = useState(initialCodes);
   const [showModal, setShowModal] = useState(false);
@@ -41,7 +40,6 @@ export function InvitesClient({
   const [role, setRole] = useState<"COURSE_COORDINATOR" | "CLASS_TUTOR">("COURSE_COORDINATOR");
   const [maxUses, setMaxUses] = useState(1);
   const [expiresInDays, setExpiresInDays] = useState(7);
-  const [lastCreatedCode, setLastCreatedCode] = useState<string | null>(null);
 
   const copyCode = (code: string, id: string) => {
     navigator.clipboard.writeText(code);
@@ -58,7 +56,6 @@ export function InvitesClient({
           maxUses,
           expiresInDays,
         });
-        setLastCreatedCode(result.code);
         toast.success(`Invite code created: ${result.code}`);
         // Reload codes
         window.location.reload();

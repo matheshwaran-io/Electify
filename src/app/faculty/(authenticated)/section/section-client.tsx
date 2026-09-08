@@ -3,7 +3,7 @@
 import { useState, useRef, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { supabase } from "@/lib/supabase";
-import { Users, Search, ShieldCheck, CheckCircle2, Clock, Plus, X, Download, Upload, Pencil, Trash2 } from "lucide-react";
+import { Users, Search, ShieldCheck, Clock, Plus, X, Download, Upload, Pencil, Trash2 } from "lucide-react";
 import { createStudent, importStudentsCSV, updateStudent, deleteStudent, unlockStudentRegistration, deleteMultipleStudentsTutor, deleteAllSectionStudents } from "@/app/actions/tutor";
 import { useRouter } from "next/navigation";
 import { TutorSectionOnboarding } from "@/components/tutor-section-onboarding";
@@ -23,25 +23,28 @@ type ReportData = { students: Student[]; totalStudents: number; registeredCount:
 type Session = { name: string; sectionId?: string; role?: string };
 
 export function SectionClient({ reportData, session }: { reportData: ReportData; session: Session }) {
-  const router = useRouter();
-  const { students, totalStudents, registeredCount } = reportData;
+  const [students, setStudents] = useState<Student[]>(reportData.students);
+  const totalStudents = reportData.totalStudents ?? students.length;
+  const registeredCount = reportData.registeredCount ?? 0;
   const [search, setSearch] = useState("");
-  
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+  const [editingStudentId, setEditingStudentId] = useState<string | null>(null);
+  
   const [newName, setNewName] = useState("");
   const [newRegNo, setNewRegNo] = useState("");
   const [newEmail, setNewEmail] = useState("");
   const [isSaving, setIsSaving] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
-  
-  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
-  const [editingStudentId, setEditingStudentId] = useState<string | null>(null);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [isDeletingBulk, setIsDeletingBulk] = useState(false);
-  const fileInputRef = useRef<HTMLInputElement>(null);
   const [isDeletingAll, setIsDeletingAll] = useState(false);
   const [onlineUserIds, setOnlineUserIds] = useState<Set<string>>(new Set());
 
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const router = useRouter();
+
+  // Presence tracking
   useEffect(() => {
     const channel = supabase.channel('online-users');
 
@@ -61,14 +64,34 @@ export function SectionClient({ reportData, session }: { reportData: ReportData;
     };
   }, []);
 
+  // Keep students list up to date if reportData changes
+  useEffect(() => {
+    setStudents(reportData.students);
+  }, [reportData.students]);
+
+  // Real-time updates for live registrations
+  useEffect(() => {
+    const channel = supabase
+      .channel("public:student_registrations_section")
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "student_registrations" },
+        () => {
+          router.refresh();
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [router]);
+
   const filtered = students.filter(
     (s) =>
       s.name.toLowerCase().includes(search.toLowerCase()) ||
       (s.registerNumber ?? "").toLowerCase().includes(search.toLowerCase())
   );
-
-  const eligibleCount = students.filter((s) => s.isEligible).length;
-  const activeCount = students.filter((s) => s.isActive).length;
 
   if (!session.sectionId) {
     return <TutorSectionOnboarding />;

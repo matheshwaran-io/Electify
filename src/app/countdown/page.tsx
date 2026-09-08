@@ -8,7 +8,7 @@ import { eq, and, inArray, desc } from "drizzle-orm";
 import { CountdownTimer } from "./countdown-timer";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { logout } from "@/app/actions/auth";
-import { LogOut, AlertCircle, Calendar } from "lucide-react";
+import { LogOut, AlertCircle } from "lucide-react";
 import { GlassCard } from "@/components/premium/glass-card";
 
 export const dynamic = "force-dynamic";
@@ -117,15 +117,6 @@ export default async function CountdownPage() {
     await logout();
     redirect("/login");
   }
-
-  const formattedStart = event.openDate ? event.openDate.toLocaleDateString("en-US", {
-    weekday: "long",
-    year: "numeric",
-    month: "long",
-    day: "numeric",
-    hour: "2-digit",
-    minute: "2-digit",
-  }) : "TBD";
 
   return (
     <div className="min-h-screen bg-slate-50 dark:bg-slate-950 flex flex-col relative overflow-hidden">

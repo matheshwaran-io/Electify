@@ -2,11 +2,11 @@
 
 import { db } from "@/lib/db";
 import {
-  users, registrationEvents, programmes, sections,
-  electiveGroups, electives, studentRegistrations, academicBatches, eventTemplates, auditLogs, registrations
+  users, registrationEvents, sections,
+  electiveGroups, electives, studentRegistrations, academicBatches, auditLogs, registrations
 } from "@/lib/db/schema";
 import { getSession } from "@/lib/auth";
-import { eq, and, count, desc, asc, inArray } from "drizzle-orm";
+import { eq, and, count, asc, desc, inArray } from "drizzle-orm";
 
 async function assertCoordinator() {
   const session = await getSession();
@@ -91,7 +91,7 @@ export async function getCoordinatorStudents() {
 }
 
 export async function deleteMultipleStudents(ids: string[]) {
-  const session = await assertCoordinator();
+  await assertCoordinator();
   if (!ids || ids.length === 0) return;
 
   await db.transaction(async (tx) => {
@@ -174,8 +174,7 @@ export async function getCoordinatorReports() {
 export async function getCoordinatorTemplates() {
   const session = await assertCoordinator();
 
-  const { eventTemplates, templateGroups, programmes: prog } = await import("@/lib/db/schema");
-  const { count: cnt } = await import("drizzle-orm");
+  const { eventTemplates, programmes: prog } = await import("@/lib/db/schema");
 
   const templates = await db
     .select({

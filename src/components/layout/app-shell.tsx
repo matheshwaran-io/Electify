@@ -3,6 +3,7 @@
 import * as React from "react";
 import { useState, useEffect } from "react";
 import Link from "next/link";
+import Image from "next/image";
 import { usePathname, useRouter } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
 import { toast } from "sonner";
@@ -19,9 +20,7 @@ import {
   Building,
   Mail,
   Clock,
-  Search,
   Bell,
-  Command,
   ChevronRight,
   LogOut,
   User,
@@ -168,7 +167,7 @@ export function AppShell({ children, session, assignedSections = [], activeWorks
       {/* ── Desktop Sidebar ── */}
       <aside className="hidden lg:flex w-[260px] shrink-0 flex-col bg-[var(--background)] border-r border-[var(--border)] relative z-20">
         <div className="flex items-center gap-3 h-16 px-6 shrink-0 mt-2">
-          <img src="/logo.png" alt="Electify Logo" className="w-8 h-8 rounded-lg" />
+          <Image src="/logo.png" alt="Electify Logo" width={32} height={32} className="w-8 h-8 rounded-lg" />
           <span className="text-[17px] font-semibold tracking-tight text-[var(--foreground)]">Electify</span>
         </div>
 

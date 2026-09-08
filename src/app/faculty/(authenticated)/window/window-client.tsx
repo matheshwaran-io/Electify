@@ -1,6 +1,5 @@
 "use client";
 
-import { motion } from "framer-motion";
 import { Plus, Clock } from "lucide-react";
 import { useState } from "react";
 import { createRegistrationWindow } from "@/app/actions/tutor";

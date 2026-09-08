@@ -5,6 +5,7 @@ import { useRef, useMemo, useState, useEffect } from "react";
 import { Canvas, useFrame, ThreeElements } from "@react-three/fiber";
 import * as THREE from "three";
 import { motion } from "framer-motion";
+import Image from "next/image";
 
 import { cn } from "@/lib/utils";
 
@@ -281,7 +282,7 @@ export default function HeroGeometric({
                                 className="mb-6 md:mb-8"
                             >
                                 <div className="inline-flex items-center justify-center p-3 rounded-2xl bg-white shadow-xl">
-                                    <img src="/logo.png" alt="Electify Logo" className="h-16 w-auto object-contain" />
+                                    <Image src="/logo.png" alt="Electify Logo" width={64} height={64} className="h-16 w-auto object-contain" />
                                 </div>
                             </motion.div>
 

@@ -19,7 +19,7 @@ export function TutorSectionOnboarding({ isManageMode = false }: { isManageMode?
         setSections(data);
         setIsLoading(false);
       })
-      .catch(err => {
+      .catch(() => {
         toast.error("Failed to load sections");
         setIsLoading(false);
       });

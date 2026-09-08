@@ -1,5 +1,4 @@
 import * as React from "react";
-import Image from "next/image";
 import { redirect } from "next/navigation";
 import { getSession } from "@/lib/auth";
 import { db } from "@/lib/db";

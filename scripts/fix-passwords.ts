@@ -1,7 +1,7 @@
 import { config } from "dotenv";
 config({ path: ".env" });
-import { db } from "./src/lib/db";
-import { users } from "./src/lib/db/schema";
+import { db } from "../src/lib/db";
+import { users } from "../src/lib/db/schema";
 import { eq } from "drizzle-orm";
 import * as bcrypt from "bcryptjs";
 
@@ -22,7 +22,7 @@ async function main() {
   process.exit(0);
 }
 
-main().catch(err => {
-  console.error(err);
+main().catch((err) => {
+  console.error("❌ Password synchronization failed:", err);
   process.exit(1);
 });

@@ -5,7 +5,6 @@ import {
   studentRegistrations,
   electives,
   registrationEvents,
-  electiveGroups,
 } from "@/lib/db/schema";
 import { getSession } from "@/lib/auth";
 import { eq, and, gte, sql } from "drizzle-orm";

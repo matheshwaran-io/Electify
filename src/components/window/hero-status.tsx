@@ -1,7 +1,6 @@
 "use client";
 
 import { motion } from "framer-motion";
-import { Clock } from "lucide-react";
 import { format, differenceInSeconds } from "date-fns";
 import { useEffect, useState } from "react";
 
@@ -10,7 +9,7 @@ export function HeroStatus({
 }: { 
   event: any 
 }) {
-  const [tick, setTick] = useState(0);
+  const [, setTick] = useState(0);
 
   useEffect(() => {
     const timer = setInterval(() => setTick(t => t + 1), 1000);

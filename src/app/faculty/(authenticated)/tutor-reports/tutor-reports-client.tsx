@@ -2,8 +2,8 @@
 
 import { motion, AnimatePresence } from "framer-motion";
 import {
-  FileText, Users, CheckCircle, Search, Download, ChevronDown, ChevronRight,
-  BarChart3, Clock, BookOpen, Filter, TrendingUp, FileSpreadsheet,
+  Users, CheckCircle, Search, Download, ChevronDown,
+  BarChart3, Clock, BookOpen, TrendingUp, FileSpreadsheet,
 } from "lucide-react";
 import { useState, useMemo, useEffect, Fragment } from "react";
 import jsPDF from "jspdf";
@@ -720,7 +720,7 @@ function ProgressBar({ label, value, max, color }: { label: string; value: numbe
 }
 
 // ── Students Tab ──────────────────────────────────────────────────────────
-function StudentsTab({ filtered, search, setSearch, statusFilter, setStatusFilter, expandedStudents, toggleExpanded, onlineUserIds, eventId, eventStatus, availableElectives, groups }: {
+function StudentsTab({ filtered, search, setSearch, statusFilter, setStatusFilter, expandedStudents, toggleExpanded, onlineUserIds, eventId, eventStatus, availableElectives }: {
   filtered: Student[];
   search: string;
   setSearch: (s: string) => void;

@@ -67,7 +67,7 @@ export function LiveActivityFeed({ eventId }: { eventId: string }) {
       
       <div className="flex-1 overflow-y-auto p-4 flex flex-col gap-3">
         <AnimatePresence initial={false}>
-          {events.map((ev, idx) => {
+          {events.map((ev) => {
             const details = getEventDetails(ev);
             return (
               <motion.div

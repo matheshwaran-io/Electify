@@ -58,7 +58,7 @@ function formatCountdown(closeDate: string | null) {
 }
 
 export function DashboardClient({ session, metrics, activeWorkspace = "COORDINATOR" }: DashboardClientProps) {
-  const [tick, setTick] = useState(0);
+  const [, setTick] = useState(0);
 
   useEffect(() => {
     const timer = setInterval(() => setTick(t => t + 1), 1000);
@@ -452,7 +452,7 @@ const itemVariants: Variants = {
   show: { opacity: 1, y: 0, transition: { type: "spring", stiffness: 300, damping: 24 } }
 };
 
-function StatCard({ title, value, icon: Icon, color, bgColor }: any) {
+function StatCard({ title, value, icon: Icon, color }: any) {
   return (
     <motion.div 
       variants={itemVariants}

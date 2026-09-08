@@ -10,7 +10,7 @@ import {
   users,
   replayEvents,
 } from "@/lib/db/schema";
-import { eq, and, asc, desc, inArray } from "drizzle-orm";
+import { eq, asc, desc, inArray } from "drizzle-orm";
 import { getSession } from "@/lib/auth";
 
 export interface ReplayRegistration {

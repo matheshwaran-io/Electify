@@ -8,8 +8,7 @@ import { eq, and, inArray, desc } from "drizzle-orm";
 import { RegistrationForm } from "../registration-form";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { logout } from "@/app/actions/auth";
-import { FileCheck, ShieldAlert, ArrowRight } from "lucide-react";
-import Link from "next/link";
+import { FileCheck, ShieldAlert } from "lucide-react";
 
 export const dynamic = "force-dynamic";
 

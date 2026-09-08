@@ -58,7 +58,7 @@ export function EventFeed({ events, currentIndex }: { events: any[]; currentInde
   return (
     <div ref={containerRef} className="flex flex-col gap-3">
       <AnimatePresence initial={false}>
-        {visibleEvents.map((ev, idx) => {
+        {visibleEvents.map((ev) => {
           const details = getEventDetails(ev);
           const isLatest = ev.id === events[currentIndex]?.id;
 

@@ -1,7 +1,6 @@
 "use client";
 
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell } from "recharts";
-import { motion } from "framer-motion";
 
 export function AnalyticsWidget({ metrics }: { metrics: any }) {
   if (!metrics || !metrics.subjectCounts || metrics.subjectCounts.length === 0) {

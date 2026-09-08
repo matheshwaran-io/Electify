@@ -34,7 +34,6 @@ export function TutorElectivesClient({ electivesData, hasActiveSection = true }:
 
   const [search, setSearch] = useState("");
 
-  const [isAddingGroup, setIsAddingGroup] = useState(false);
   const [isResetting, setIsResetting] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   
