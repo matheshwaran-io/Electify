@@ -184,6 +184,21 @@ export async function login(formData: {
 
     await setSessionCookie(token);
 
+    // Sync active section cookie
+    const { cookies } = await import("next/headers");
+    const cookieStore = await cookies();
+    if (activeSectionId) {
+      cookieStore.set("electify_active_section", activeSectionId, {
+        httpOnly: true,
+        secure: process.env.NODE_ENV === "production",
+        sameSite: "lax",
+        path: "/",
+        maxAge: 7200,
+      });
+    } else {
+      cookieStore.delete("electify_active_section");
+    }
+
     // Audit log
     await db.insert(auditLogs).values({
       action: "USER_LOGIN",

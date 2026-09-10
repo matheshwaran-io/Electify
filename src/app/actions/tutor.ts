@@ -96,12 +96,33 @@ export async function getSectionRegistrations() {
 
 export async function getTutorElectives() {
   const session = await assertTutor();
-  if (!session.sectionId) return [];
+  let activeSectionId = session.sectionId;
+  if (activeSectionId) {
+    const [isAssigned] = await db
+      .select()
+      .from(tutorSections)
+      .where(and(eq(tutorSections.tutorId, session.userId), eq(tutorSections.sectionId, activeSectionId)))
+      .limit(1);
+    if (!isAssigned) {
+      activeSectionId = undefined;
+    }
+  }
+
+  if (!activeSectionId) {
+    const [assigned] = await db
+      .select({ sectionId: tutorSections.sectionId })
+      .from(tutorSections)
+      .where(eq(tutorSections.tutorId, session.userId))
+      .limit(1);
+    activeSectionId = assigned?.sectionId;
+  }
+
+  if (!activeSectionId) return [];
 
   const sectionEvents = await db
     .select({ eventId: eventSections.eventId })
     .from(eventSections)
-    .where(eq(eventSections.sectionId, session.sectionId));
+    .where(eq(eventSections.sectionId, activeSectionId));
 
   if (sectionEvents.length === 0) return [];
 
@@ -149,7 +170,28 @@ export async function deleteAllSectionStudents() {
 
 export async function getTutorReports() {
   const session = await assertTutor();
-  if (!session.sectionId) return { students: [], totalStudents: 0, registeredCount: 0, sectionLabel: "", programmeName: "", departmentName: "", groups: [] };
+  let activeSectionId = session.sectionId;
+  if (activeSectionId) {
+    const [isAssigned] = await db
+      .select()
+      .from(tutorSections)
+      .where(and(eq(tutorSections.tutorId, session.userId), eq(tutorSections.sectionId, activeSectionId)))
+      .limit(1);
+    if (!isAssigned) {
+      activeSectionId = undefined;
+    }
+  }
+
+  if (!activeSectionId) {
+    const [assigned] = await db
+      .select({ sectionId: tutorSections.sectionId })
+      .from(tutorSections)
+      .where(eq(tutorSections.tutorId, session.userId))
+      .limit(1);
+    activeSectionId = assigned?.sectionId;
+  }
+
+  if (!activeSectionId) return { students: [], totalStudents: 0, registeredCount: 0, sectionLabel: "", programmeName: "", departmentName: "", groups: [] };
 
   // Fetch section metadata for PDF header and event details
   const [sectionMeta] = await db
@@ -167,7 +209,7 @@ export async function getTutorReports() {
     .innerJoin(departments, eq(programmes.departmentId, departments.id))
     .leftJoin(eventSections, eq(sections.id, eventSections.sectionId))
     .leftJoin(registrationEvents, eq(eventSections.eventId, registrationEvents.id))
-    .where(eq(sections.id, session.sectionId))
+    .where(eq(sections.id, activeSectionId))
     .limit(1);
 
   // Compute effective event status based on dates
@@ -204,7 +246,7 @@ export async function getTutorReports() {
       email: users.email
     })
     .from(users)
-    .where(and(eq(users.role, "STUDENT"), eq(users.sectionId, session.sectionId)))
+    .where(and(eq(users.role, "STUDENT"), eq(users.sectionId, activeSectionId)))
     .orderBy(asc(users.name));
 
   const studentRegs = await db
@@ -221,7 +263,7 @@ export async function getTutorReports() {
     .innerJoin(electives, eq(studentRegistrations.electiveId, electives.id))
     .innerJoin(electiveGroups, eq(studentRegistrations.groupId, electiveGroups.id))
     .innerJoin(registrationEvents, eq(studentRegistrations.eventId, registrationEvents.id))
-    .where(eq(users.sectionId, session.sectionId));
+    .where(eq(users.sectionId, activeSectionId));
 
   // Fetch confirmed status from registrations table
   const confirmedRegs = await db
@@ -233,7 +275,7 @@ export async function getTutorReports() {
     })
     .from(registrations)
     .innerJoin(users, eq(registrations.studentId, users.id))
-    .where(eq(users.sectionId, session.sectionId));
+    .where(eq(users.sectionId, activeSectionId));
 
   const confirmedMap = new Map(confirmedRegs.map(r => [r.studentId, r]));
 

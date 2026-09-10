@@ -27,8 +27,9 @@ import {
   History,
   Database
 } from "lucide-react";
-import { logout, setWorkspacePortal } from "@/app/actions/auth";
+import { logout } from "@/app/actions/auth";
 import { ThemeToggle } from "@/components/theme-toggle";
+import { HeroGeometricBackground } from "@/components/background/hero-geometric-background";
 
 interface UserSession {
   userId: string;
@@ -159,6 +160,39 @@ export function AppShell({ children, session, assignedSections = [], activeWorks
   }, [session.role, activeWorkspace]);
 
   // Mobile navigation uses the first 4 items for the bottom bar
+  // If on Portal Selection screen after login, render clean standalone layout without dashboard sidebar
+  if (pathname === "/faculty/portal-select") {
+    return (
+      <div className="min-h-screen w-full flex flex-col font-sans overflow-x-hidden relative bg-slate-50/70 dark:bg-[#030712] text-slate-900 dark:text-slate-100 transition-colors duration-500">
+        <HeroGeometricBackground />
+
+        <header className="flex items-center justify-between h-16 px-6 sm:px-12 border-b border-slate-200/80 dark:border-white/[0.06] bg-white/75 dark:bg-slate-900/60 backdrop-blur-md sticky top-0 z-30 shadow-xs">
+          <div className="flex items-center gap-3">
+            <div className="w-8 h-8 rounded-xl bg-white dark:bg-white/[0.05] border border-slate-200/80 dark:border-white/10 p-1 shadow-xs flex items-center justify-center">
+              <Image src="/logo.png" alt="Electify Logo" width={28} height={28} className="w-full h-full object-contain" />
+            </div>
+            <span className="text-[17px] font-bold tracking-tight text-slate-900 dark:text-white">Electify</span>
+          </div>
+          <div className="flex items-center gap-3">
+            <ThemeToggle />
+            <button 
+              onClick={handleLogout} 
+              disabled={isLoggingOut} 
+              className="text-xs sm:text-sm font-medium text-slate-600 dark:text-slate-400 hover:text-rose-600 dark:hover:text-rose-400 transition-colors cursor-pointer flex items-center gap-1.5 px-3 py-1.5 rounded-xl hover:bg-slate-100 dark:hover:bg-white/[0.05] border border-transparent hover:border-slate-200 dark:hover:border-white/10"
+            >
+              <LogOut className="w-3.5 h-3.5" />
+              <span>{isLoggingOut ? "Logging out..." : "Log out"}</span>
+            </button>
+          </div>
+        </header>
+        <main className="flex-1 flex flex-col justify-center items-center px-4 sm:px-8 py-8 sm:py-12 relative z-10 w-full">
+          {children}
+        </main>
+      </div>
+    );
+  }
+
+  // Mobile navigation uses the first 4 items for the bottom bar
   const mobileNavItems = navItems.slice(0, 4);
 
   return (
@@ -171,42 +205,6 @@ export function AppShell({ children, session, assignedSections = [], activeWorks
           <span className="text-[17px] font-semibold tracking-tight text-[var(--foreground)]">Electify</span>
         </div>
 
-        {/* Workspace Portal Switcher for Course Coordinator */}
-        {session.role === "COURSE_COORDINATOR" && (
-          <div className="px-4 mb-4 mt-2 shrink-0">
-            <label className="text-xs font-semibold text-[var(--muted-foreground)] uppercase tracking-wider block mb-1.5 pl-2">
-              Workspace Portal
-            </label>
-            <div className="flex bg-[var(--accent)]/50 p-1 rounded-xl border border-[var(--border)]/50 relative z-10 w-full shadow-sm">
-              <button
-                onClick={async () => {
-                  await setWorkspacePortal("COORDINATOR");
-                  window.location.href = "/faculty/dashboard";
-                }}
-                className={`flex-1 py-1.5 text-xs font-semibold rounded-lg transition-all cursor-pointer ${
-                  activeWorkspace === "COORDINATOR"
-                    ? "bg-[var(--background)] text-[var(--foreground)] border border-[var(--border)]/50 shadow-sm font-semibold"
-                    : "text-[var(--muted-foreground)] hover:text-[var(--foreground)]"
-                }`}
-              >
-                Coordinator
-              </button>
-              <button
-                onClick={async () => {
-                  await setWorkspacePortal("TUTOR");
-                  window.location.href = "/faculty/dashboard";
-                }}
-                className={`flex-1 py-1.5 text-xs font-semibold rounded-lg transition-all cursor-pointer ${
-                  activeWorkspace === "TUTOR"
-                    ? "bg-[var(--background)] text-[var(--foreground)] border border-[var(--border)]/50 shadow-sm font-semibold"
-                    : "text-[var(--muted-foreground)] hover:text-[var(--foreground)]"
-                }`}
-              >
-                Class Tutor
-              </button>
-            </div>
-          </div>
-        )}
 
         {/* Active Section selector for Class Tutor or Coordinator acting as Tutor */}
         {((session.role === "CLASS_TUTOR") || (session.role === "COURSE_COORDINATOR" && activeWorkspace === "TUTOR")) && assignedSections.length > 0 && (
@@ -323,6 +321,16 @@ export function AppShell({ children, session, assignedSections = [], activeWorks
                       <User className="w-4 h-4 text-[var(--muted-foreground)]" />
                       Edit Profile
                     </Link>
+                    {session.role === "COURSE_COORDINATOR" && (
+                      <Link
+                        href="/faculty/portal-select"
+                        onClick={() => setShowProfileMenu(false)}
+                        className="flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm text-[var(--foreground)] hover:bg-[var(--accent)] transition-colors"
+                      >
+                        <Layers className="w-4 h-4 text-[var(--muted-foreground)]" />
+                        Switch Portal
+                      </Link>
+                    )}
                     <button
                       onClick={handleLogout}
                       disabled={isLoggingOut}
@@ -449,19 +457,6 @@ export function AppShell({ children, session, assignedSections = [], activeWorks
             <span className="text-lg font-bold tracking-tight">Electify</span>
           </div>
           <div className="flex items-center gap-2">
-            {session.role === "COURSE_COORDINATOR" && (
-              <select
-                value={activeWorkspace}
-                onChange={async (e) => {
-                  await setWorkspacePortal(e.target.value as any);
-                  window.location.href = "/faculty/dashboard";
-                }}
-                className="bg-[var(--accent)] border border-[var(--border)] text-[var(--foreground)] text-[10px] font-bold rounded-lg px-2 py-1.5 focus:outline-none cursor-pointer"
-              >
-                <option value="COORDINATOR">Coordinator</option>
-                <option value="TUTOR">Tutor</option>
-              </select>
-            )}
             <ThemeToggle />
 
             <div className="relative">

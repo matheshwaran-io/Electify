@@ -9,7 +9,8 @@ import {
   eventSections,
   electiveGroups,
   electives,
-  studentRegistrations
+  studentRegistrations,
+  tutorSections
 } from "@/lib/db/schema";
 import { getSession } from "@/lib/auth";
 import { eq, and, count, desc, inArray } from "drizzle-orm";
@@ -74,10 +75,32 @@ export async function getClassTutorMetrics() {
     throw new Error("Unauthorized");
   }
 
-  if (!session.sectionId) {
+  let activeSectionId = session.sectionId;
+  if (activeSectionId) {
+    const [isAssigned] = await db
+      .select()
+      .from(tutorSections)
+      .where(and(eq(tutorSections.tutorId, session.userId), eq(tutorSections.sectionId, activeSectionId)))
+      .limit(1);
+    if (!isAssigned) {
+      activeSectionId = undefined;
+    }
+  }
+
+  if (!activeSectionId) {
+    const [assigned] = await db
+      .select({ sectionId: tutorSections.sectionId })
+      .from(tutorSections)
+      .where(eq(tutorSections.tutorId, session.userId))
+      .limit(1);
+    activeSectionId = assigned?.sectionId;
+  }
+
+  if (!activeSectionId) {
     return { 
       totalStudents: 0, registeredCount: 0, courseOptionsCount: 0, 
-      allocationRate: 0, activeEvent: null, recentRegistrations: []
+      allocationRate: 0, activeEvent: null, recentRegistrations: [],
+      pendingStudents: []
     };
   }
 
@@ -85,8 +108,8 @@ export async function getClassTutorMetrics() {
     [{ totalStudents }],
     eventLinks
   ] = await Promise.all([
-    db.select({ totalStudents: count() }).from(users).where(and(eq(users.role, "STUDENT"), eq(users.sectionId, session.sectionId))),
-    db.select({ eventId: eventSections.eventId }).from(eventSections).where(eq(eventSections.sectionId, session.sectionId))
+    db.select({ totalStudents: count() }).from(users).where(and(eq(users.role, "STUDENT"), eq(users.sectionId, activeSectionId))),
+    db.select({ eventId: eventSections.eventId }).from(eventSections).where(eq(eventSections.sectionId, activeSectionId))
   ]);
 
   const eventLink = eventLinks[0];
@@ -117,7 +140,8 @@ export async function getClassTutorMetrics() {
 
       db.select({ studentId: studentRegistrations.studentId })
       .from(studentRegistrations)
-      .where(eq(studentRegistrations.eventId, eventLink.eventId)),
+      .innerJoin(users, eq(studentRegistrations.studentId, users.id))
+      .where(and(eq(studentRegistrations.eventId, eventLink.eventId), eq(users.sectionId, activeSectionId))),
 
       db.select({
         id: studentRegistrations.id,
@@ -129,7 +153,7 @@ export async function getClassTutorMetrics() {
       .from(studentRegistrations)
       .innerJoin(users, eq(studentRegistrations.studentId, users.id))
       .innerJoin(electives, eq(studentRegistrations.electiveId, electives.id))
-      .where(eq(studentRegistrations.eventId, eventLink.eventId))
+      .where(and(eq(studentRegistrations.eventId, eventLink.eventId), eq(users.sectionId, activeSectionId)))
       .orderBy(desc(studentRegistrations.submittedAt))
       .limit(5)
     ]);
@@ -172,7 +196,7 @@ export async function getClassTutorMetrics() {
       registerNumber: users.registerNumber,
     })
     .from(users)
-    .where(and(eq(users.role, "STUDENT"), eq(users.sectionId, session.sectionId)));
+    .where(and(eq(users.role, "STUDENT"), eq(users.sectionId, activeSectionId)));
     
   let pendingStudents = [];
   if (activeEvent) {

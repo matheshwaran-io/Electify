@@ -56,6 +56,10 @@ export default async function FacultyLayout({
       .innerJoin(academicBatches, eq(sections.academicBatchId, academicBatches.id))
       .innerJoin(programmes, eq(academicBatches.programmeId, programmes.id))
       .where(eq(dbTutorSections.tutorId, session.userId));
+
+    if (assignedSections.length > 0 && (!session.sectionId || !assignedSections.some(s => s.id === session.sectionId))) {
+      session.sectionId = assignedSections[0].id;
+    }
   }
 
   return <AppShell session={session} assignedSections={assignedSections} activeWorkspace={activeWorkspace}>{children}</AppShell>;

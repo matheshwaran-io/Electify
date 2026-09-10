@@ -584,6 +584,12 @@ function OverviewTab({ students, groups, totalStudents, registeredCount, pending
   pendingCount: number;
 }) {
   const maxCount = Math.max(...groups.map(g => g.count), 1);
+  const [showAll, setShowAll] = useState(true);
+  const [overviewSearch, setOverviewSearch] = useState("");
+
+  const confirmedStudents = students
+    .filter(s => s.registrationStatus === "CONFIRMED" && s.submittedAt)
+    .sort((a, b) => new Date(b.submittedAt!).getTime() - new Date(a.submittedAt!).getTime());
 
   return (
     <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
@@ -646,22 +652,63 @@ function OverviewTab({ students, groups, totalStudents, registeredCount, pending
         </div>
       </div>
 
-      {/* Recently Registered */}
+      {/* Registered Students */}
       <div className="bg-[var(--card)] border border-[var(--border)] rounded-xl p-6 lg:col-span-2">
-        <h3 className="text-sm font-semibold text-[var(--foreground)] mb-4 flex items-center gap-2">
-          <Clock className="w-4 h-4 text-[var(--muted-foreground)]" />
-          Recently Registered
-        </h3>
-        <div className="overflow-x-auto">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4">
+          <div className="flex items-center gap-2.5">
+            <Clock className="w-4 h-4 text-emerald-500" />
+            <h3 className="text-sm font-semibold text-[var(--foreground)]">
+              Registered Students
+            </h3>
+            <span className="text-xs font-semibold px-2.5 py-0.5 rounded-full bg-emerald-500/10 text-emerald-500 border border-emerald-500/20">
+              {confirmedStudents.length} Confirmed
+            </span>
+          </div>
+
+          <div className="flex items-center gap-2">
+            <div className="relative">
+              <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-[var(--muted-foreground)]" />
+              <input
+                type="text"
+                value={overviewSearch}
+                onChange={(e) => setOverviewSearch(e.target.value)}
+                placeholder="Search registered..."
+                className="pl-8 pr-3 py-1.5 bg-[var(--accent)]/50 border border-[var(--border)] rounded-lg text-xs text-[var(--foreground)] placeholder:text-[var(--muted-foreground)] focus:outline-none focus:ring-1 focus:ring-indigo-500"
+              />
+            </div>
+            {confirmedStudents.length > 10 && (
+              <button
+                type="button"
+                onClick={() => setShowAll(!showAll)}
+                className="text-xs font-semibold text-indigo-500 hover:text-indigo-600 bg-indigo-500/10 hover:bg-indigo-500/20 px-3 py-1.5 rounded-lg transition-colors shrink-0"
+              >
+                {showAll ? "Show Top 10" : `Show All (${confirmedStudents.length})`}
+              </button>
+            )}
+          </div>
+        </div>
+
+        <div className="overflow-x-auto max-h-[600px] overflow-y-auto pr-1">
           {(() => {
-            const recent = students
-              .filter(s => s.registrationStatus === "CONFIRMED" && s.submittedAt)
-              .sort((a, b) => new Date(b.submittedAt!).getTime() - new Date(a.submittedAt!).getTime())
-              .slice(0, 5);
-            if (recent.length === 0) return <p className="text-sm text-[var(--muted-foreground)] text-center py-6">No confirmed registrations yet.</p>;
+            let list = confirmedStudents;
+            if (overviewSearch.trim()) {
+              const q = overviewSearch.toLowerCase();
+              list = list.filter(s => 
+                s.name.toLowerCase().includes(q) || 
+                (s.registerNumber && s.registerNumber.toLowerCase().includes(q)) ||
+                (s.receiptNumber && s.receiptNumber.toLowerCase().includes(q))
+              );
+            }
+
+            const visibleList = showAll ? list : list.slice(0, 10);
+
+            if (visibleList.length === 0) {
+              return <p className="text-sm text-[var(--muted-foreground)] text-center py-6">No matching registrations found.</p>;
+            }
+
             return (
               <table className="w-full text-sm">
-                <thead>
+                <thead className="sticky top-0 bg-[var(--card)] z-10">
                   <tr className="border-b border-[var(--border)]">
                     <th className="text-left py-2.5 px-3 text-xs font-medium text-[var(--muted-foreground)]">Student</th>
                     <th className="text-left py-2.5 px-3 text-xs font-medium text-[var(--muted-foreground)]">Register No.</th>
@@ -671,7 +718,7 @@ function OverviewTab({ students, groups, totalStudents, registeredCount, pending
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-[var(--border)]">
-                  {recent.map(s => (
+                  {visibleList.map(s => (
                     <tr key={s.id} className="hover:bg-[var(--accent)]/30 transition-colors">
                       <td className="py-3 px-3 font-medium text-[var(--foreground)]">{s.name}</td>
                       <td className="py-3 px-3 text-[var(--muted-foreground)] font-mono text-xs">{s.registerNumber ?? "—"}</td>

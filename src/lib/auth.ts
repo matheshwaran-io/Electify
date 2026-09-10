@@ -83,4 +83,6 @@ export async function setSessionCookie(token: string) {
 export async function clearSessionCookie() {
   const cookieStore = await cookies();
   cookieStore.delete("electify_session");
+  cookieStore.delete("electify_active_section");
+  cookieStore.delete("electify_active_workspace");
 }
