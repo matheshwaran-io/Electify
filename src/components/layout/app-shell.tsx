@@ -1,590 +1,558 @@
 "use client";
 
 import * as React from "react";
-import { useState, useEffect } from "react";
 import Link from "next/link";
-import Image from "next/image";
 import { usePathname, useRouter } from "next/navigation";
-import { motion, AnimatePresence } from "framer-motion";
+import { useTheme } from "next-themes";
+import { motion } from "framer-motion";
 import { toast } from "sonner";
-import { 
-  LayoutDashboard, 
-  Users, 
-  Settings, 
-  BookOpen, 
-  FileText, 
-  Menu, 
-  Calendar, 
+import {
+  ChevronsLeft,
+  ChevronsRight,
+  Keyboard,
   Layers,
-  GraduationCap,
-  Building,
-  Mail,
-  Clock,
-  Bell,
-  ChevronRight,
   LogOut,
-  User,
-  History,
-  Database
+  Menu as MenuIcon,
+  Monitor,
+  Moon,
+  MoreHorizontal,
+  Search,
+  Settings,
+  Sun,
+  type LucideIcon,
 } from "lucide-react";
 import { logout } from "@/app/actions/auth";
-import { ThemeToggle } from "@/components/theme-toggle";
+import { cn } from "@/lib/utils";
+import { spring } from "@/lib/motion";
+import { BrandMark, Wordmark } from "@/components/brand";
 import { HeroGeometricBackground } from "@/components/background/hero-geometric-background";
-import { transition } from "@/lib/motion";
+import { ThemeToggle } from "@/components/theme-toggle";
+import { CommandPalette, type Command } from "@/components/ui/command-palette";
+import { Kbd } from "@/components/ui/kbd";
+import { Avatar } from "@/components/ui/layout";
+import { Menu, MenuContent, MenuItem, MenuLabel, MenuLinkItem, MenuSeparator, MenuTrigger } from "@/components/ui/menu";
+import { Sheet, SheetContent, SheetTitle } from "@/components/ui/sheet";
+import { Tooltip } from "@/components/ui/tooltip";
+import { buildNav, isActive, ROLE_LABEL, type NavGroup, type Role } from "@/components/layout/nav-config";
+import { RealtimeStatus } from "@/components/layout/realtime-status";
+import { SectionSwitcher, sectionName, useSwitchSection, type AssignedSection } from "@/components/layout/section-switcher";
+import { ShortcutsDialog, useGlobalShortcuts } from "@/components/layout/shortcuts";
 
 interface UserSession {
   userId: string;
   name: string;
   email: string;
-  role: "SYSTEM_ADMIN" | "COURSE_COORDINATOR" | "CLASS_TUTOR" | "STUDENT";
+  role: Role;
   employeeId?: string;
   sectionId?: string;
-}
-
-const ROLE_DISPLAY: Record<string, string> = {
-  SYSTEM_ADMIN: "System Administrator",
-  COURSE_COORDINATOR: "Course Coordinator",
-  CLASS_TUTOR: "Class Tutor",
-  STUDENT: "Student",
-};
-
-interface NotificationItem {
-  id: string;
-  title: string;
-  description: string;
-  time: string;
-  read: boolean;
-  type: "info" | "success" | "warning";
 }
 
 interface AppShellProps {
   children: React.ReactNode;
   session: UserSession;
-  assignedSections?: any[];
+  assignedSections?: AssignedSection[];
   activeWorkspace?: string;
+  initialCollapsed?: boolean;
 }
 
-export function AppShell({ children, session, assignedSections = [], activeWorkspace = "COORDINATOR" }: AppShellProps) {
+const SIDEBAR_COOKIE = "electify_sidebar";
+
+export function AppShell({ children, session, assignedSections = [], activeWorkspace = "COORDINATOR", initialCollapsed = false }: AppShellProps) {
   const pathname = usePathname();
   const router = useRouter();
-  
-  const [isLoggingOut, setIsLoggingOut] = useState(false);
-  const [scrolled, setScrolled] = useState(false);
-  const [notifications, setNotifications] = useState<NotificationItem[]>([]);
-  const [showNotifications, setShowNotifications] = useState(false);
-  const [showProfileMenu, setShowProfileMenu] = useState(false);
+  const { setTheme } = useTheme();
+  const [collapsed, setCollapsed] = React.useState(initialCollapsed);
+  const [paletteOpen, setPaletteOpen] = React.useState(false);
+  const [helpOpen, setHelpOpen] = React.useState(false);
+  const [drawerOpen, setDrawerOpen] = React.useState(false);
+  const [moreOpen, setMoreOpen] = React.useState(false);
+  const [signingOut, setSigningOut] = React.useState(false);
+  const { switchTo } = useSwitchSection();
 
-  useEffect(() => {
-    // In a real application, you would fetch real notifications here or set up a realtime subscription.
-    // For now, it will just be empty as we are not using mock data.
-    setNotifications([]);
-  }, [session.role]);
+  const groups = React.useMemo(() => buildNav(session.role, activeWorkspace), [session.role, activeWorkspace]);
+  const items = React.useMemo(() => groups.flatMap((g) => g.items), [groups]);
+  const showSections =
+    (session.role === "CLASS_TUTOR" || (session.role === "COURSE_COORDINATOR" && activeWorkspace === "TUTOR")) &&
+    assignedSections.length > 0;
 
-  const hasUnread = notifications.some(n => !n.read);
+  // Close transient navigation when the route changes.
+  React.useEffect(() => {
+    setDrawerOpen(false);
+    setMoreOpen(false);
+  }, [pathname]);
 
-  const toggleRead = (id: string) => {
-    setNotifications(prev => prev.map(n => n.id === id ? { ...n, read: true } : n));
-  };
-
-  const markAllAsRead = () => {
-    setNotifications(prev => prev.map(n => ({ ...n, read: true })));
-  };
-
-  const clearAll = () => {
-    setNotifications([]);
-  };
-
-  useEffect(() => {
-    const handleScroll = () => {
-      setScrolled(window.scrollY > 10);
-    };
-    window.addEventListener("scroll", handleScroll);
-    return () => window.removeEventListener("scroll", handleScroll);
+  const toggleSidebar = React.useCallback(() => {
+    setCollapsed((c) => {
+      document.cookie = `${SIDEBAR_COOKIE}=${c ? "expanded" : "collapsed"}; path=/; max-age=31536000; samesite=lax`;
+      return !c;
+    });
   }, []);
 
-  const handleLogout = async () => {
-    setIsLoggingOut(true);
+  const handleLogout = React.useCallback(async () => {
+    setSigningOut(true);
     await logout();
-    toast.success("Logged out successfully");
+    toast.success("Signed out");
     router.push("/login");
-  };
+  }, [router]);
 
-  const navItems = React.useMemo(() => {
-    const items: { name: string; href: string; icon: React.ComponentType<{ className?: string }>; color: string }[] = [];
+  const goKeys = React.useMemo(() => Object.fromEntries(items.filter((i) => i.key).map((i) => [i.key!, i.href])), [items]);
+  useGlobalShortcuts({
+    onPalette: () => setPaletteOpen((o) => !o),
+    onHelp: () => setHelpOpen(true),
+    onToggleSidebar: toggleSidebar,
+    onGo: (href) => router.push(href),
+    goKeys,
+  });
 
-    items.push({ name: "Dashboard", href: "/faculty/dashboard", icon: LayoutDashboard, color: "text-fg" });
+  const commands = React.useMemo<Command[]>(() => {
+    const nav: Command[] = groups.flatMap((g) =>
+      g.items.map((i) => ({
+        id: `nav-${i.href}`,
+        group: "Go to",
+        label: i.label,
+        hint: g.label,
+        icon: <i.icon />,
+        shortcut: i.key ? ["G", i.key.toUpperCase()] : undefined,
+        perform: () => router.push(i.href),
+      }))
+    );
+    const sections: Command[] = showSections
+      ? assignedSections
+          .filter((s) => s.id !== session.sectionId)
+          .map((s) => ({
+            id: `section-${s.id}`,
+            group: "Switch section",
+            label: `Switch to ${sectionName(s)}`,
+            hint: `${s.programme} · ${s.batch}`,
+            icon: <span className="font-mono text-xs font-semibold">{s.label}</span>,
+            keywords: [s.programme, s.batch],
+            perform: () => switchTo(s),
+          }))
+      : [];
+    const actions: Command[] = [
+      { id: "theme-light", group: "Preferences", label: "Use light theme", icon: <Sun />, perform: () => setTheme("light") },
+      { id: "theme-dark", group: "Preferences", label: "Use dark theme", icon: <Moon />, perform: () => setTheme("dark") },
+      { id: "theme-system", group: "Preferences", label: "Match system theme", icon: <Monitor />, perform: () => setTheme("system") },
+      { id: "sidebar", group: "Preferences", label: collapsed ? "Expand sidebar" : "Collapse sidebar", icon: <ChevronsLeft />, shortcut: ["["], perform: toggleSidebar },
+      { id: "shortcuts", group: "Help", label: "Keyboard shortcuts", icon: <Keyboard />, shortcut: ["?"], perform: () => setHelpOpen(true) },
+      { id: "settings", group: "Account", label: "Profile and settings", icon: <Settings />, perform: () => router.push("/faculty/settings") },
+      ...(session.role === "COURSE_COORDINATOR"
+        ? [{ id: "portal", group: "Account", label: "Switch portal", icon: <Layers />, perform: () => router.push("/faculty/portal-select") }]
+        : []),
+      { id: "signout", group: "Account", label: "Sign out", icon: <LogOut />, perform: handleLogout },
+    ];
+    return [...nav, ...sections, ...actions];
+  }, [groups, showSections, assignedSections, session.sectionId, session.role, collapsed, router, setTheme, switchTo, toggleSidebar, handleLogout]);
 
-    if (session.role === "SYSTEM_ADMIN") {
-      items.push(
-        { name: "Global Events", href: "/faculty/events", icon: Calendar, color: "text-fg" },
-        { name: "Event Templates", href: "/faculty/templates", icon: Layers, color: "text-fg" },
-        { name: "Users", href: "/faculty/users", icon: Users, color: "text-fg" },
-        { name: "Audit Logs", href: "/faculty/audit", icon: FileText, color: "text-fg" },
-        { name: "Departments", href: "/faculty/departments", icon: Building, color: "text-fg" },
-        { name: "Invite Codes", href: "/faculty/invites", icon: Mail, color: "text-fg" },
-        { name: "Registration Replay", href: "/faculty/replay", icon: History, color: "text-fg" },
-        { name: "Database", href: "/faculty/database", icon: Database, color: "text-fg" },
-        { name: "Settings", href: "/faculty/settings", icon: Settings, color: "text-fg" },
-      );
-    } else if (session.role === "COURSE_COORDINATOR") {
-      if (activeWorkspace === "TUTOR") {
-        items.push(
-          { name: "Subjects & Groups", href: "/faculty/tutor-electives", icon: BookOpen, color: "text-fg" },
-          { name: "Student Directory", href: "/faculty/section", icon: GraduationCap, color: "text-fg" },
-          { name: "Reports", href: "/faculty/tutor-reports", icon: FileText, color: "text-fg" },
-          { name: "Reg Control Center", href: "/faculty/window", icon: Clock, color: "text-fg" },
-          { name: "Registration Replay", href: "/faculty/replay", icon: History, color: "text-fg" },
-          { name: "Database", href: "/faculty/database", icon: Database, color: "text-fg" },
-        );
-      } else {
-        items.push(
-          { name: "Event Templates", href: "/faculty/templates", icon: Layers, color: "text-fg" },
-          { name: "Electives", href: "/faculty/electives", icon: BookOpen, color: "text-fg" },
-          { name: "Student Directory", href: "/faculty/students", icon: GraduationCap, color: "text-fg" },
-          { name: "Reports", href: "/faculty/reports", icon: FileText, color: "text-fg" },
-          { name: "Registration Replay", href: "/faculty/replay", icon: History, color: "text-fg" },
-          { name: "Database", href: "/faculty/database", icon: Database, color: "text-fg" },
-        );
-      }
-    } else if (session.role === "CLASS_TUTOR") {
-      items.push(
-        { name: "Subjects & Groups", href: "/faculty/tutor-electives", icon: BookOpen, color: "text-fg" },
-        { name: "Student Directory", href: "/faculty/section", icon: GraduationCap, color: "text-fg" },
-        { name: "Reports", href: "/faculty/tutor-reports", icon: FileText, color: "text-fg" },
-        { name: "Reg Control Center", href: "/faculty/window", icon: Clock, color: "text-fg" },
-        { name: "Registration Replay", href: "/faculty/replay", icon: History, color: "text-fg" },
-        { name: "Database", href: "/faculty/database", icon: Database, color: "text-fg" },
-      );
-    }
-
-    return items;
-  }, [session.role, activeWorkspace]);
-
-  // Mobile navigation uses the first 4 items for the bottom bar
-  // If on Portal Selection screen after login, render clean standalone layout without dashboard sidebar
+  // Portal selection after sign-in is a standalone screen.
   if (pathname === "/faculty/portal-select") {
     return (
-      <div className="min-h-screen w-full flex flex-col font-sans overflow-x-hidden relative bg-surface-2/70 text-fg transition-colors duration-500">
+      <div className="relative flex min-h-dvh flex-col">
         <HeroGeometricBackground />
-
-        <header className="flex items-center justify-between h-16 px-6 sm:px-12 border-b border-border bg-surface/70 backdrop-blur-md sticky top-0 z-30 shadow-1">
-          <div className="flex items-center gap-3">
-            <div className="w-8 h-8 rounded-control bg-surface border border-border p-1 shadow-1 flex items-center justify-center">
-              <Image src="/logo.png" alt="Electify Logo" width={28} height={28} className="w-full h-full object-contain" />
-            </div>
-            <span className="text-lg font-bold tracking-tight text-fg">Electify</span>
-          </div>
-          <div className="flex items-center gap-3">
+        <header className="sticky top-0 z-30 flex h-16 items-center justify-between border-b border-border bg-canvas/80 px-5 backdrop-blur-md sm:px-8">
+          <Wordmark />
+          <div className="flex items-center gap-2">
             <ThemeToggle />
-            <button 
-              onClick={handleLogout} 
-              disabled={isLoggingOut} 
-              className="text-xs sm:text-sm font-medium text-fg-muted hover:text-danger-text transition-colors cursor-pointer flex items-center gap-1.5 px-3 py-1.5 rounded-control hover:bg-surface-2 border border-transparent hover:border-border"
+            <button
+              type="button"
+              onClick={handleLogout}
+              disabled={signingOut}
+              className="inline-flex h-9 items-center gap-2 rounded-control px-3 text-sm font-medium text-fg-muted transition-colors hover:bg-surface-2 hover:text-fg"
             >
-              <LogOut className="w-3.5 h-3.5" />
-              <span>{isLoggingOut ? "Logging out..." : "Log out"}</span>
+              <LogOut className="size-4" /> {signingOut ? "Signing out" : "Sign out"}
             </button>
           </div>
         </header>
-        <main className="flex-1 flex flex-col justify-center items-center px-4 sm:px-8 py-8 sm:py-12 relative z-10 w-full">
-          {children}
-        </main>
+        <main className="relative z-10 flex flex-1 flex-col items-center justify-center px-4 py-10 sm:px-8">{children}</main>
       </div>
     );
   }
 
-  // Mobile navigation uses the first 4 items for the bottom bar
-  const mobileNavItems = navItems.slice(0, 4);
+  const primary = items.filter((i) => i.primary).slice(0, 4);
 
   return (
-    <div className="flex h-screen w-full bg-canvas text-fg overflow-hidden font-sans">
-      
-      {/* ── Desktop Sidebar ── */}
-      <aside className="hidden lg:flex w-65 shrink-0 flex-col bg-canvas border-r border-border relative z-20">
-        <div className="flex items-center gap-3 h-16 px-6 shrink-0 mt-2">
-          <Image src="/logo.png" alt="Electify Logo" width={32} height={32} className="w-8 h-8 rounded-control" />
-          <span className="text-lg font-semibold tracking-tight text-fg">Electify</span>
-        </div>
+    <div className="flex h-dvh w-full overflow-hidden bg-canvas text-fg">
+      {/* ── Desktop sidebar ── */}
+      <motion.aside
+        initial={false}
+        animate={{ width: collapsed ? 68 : 256 }}
+        transition={spring.gentle}
+        className="relative z-20 hidden shrink-0 flex-col border-r border-border bg-canvas lg:flex"
+      >
+        <SidebarContent
+          groups={groups}
+          pathname={pathname}
+          collapsed={collapsed}
+          session={session}
+          showSections={showSections}
+          sections={assignedSections}
+          onSearch={() => setPaletteOpen(true)}
+          onToggle={toggleSidebar}
+          onHelp={() => setHelpOpen(true)}
+          onLogout={handleLogout}
+          signingOut={signingOut}
+        />
+      </motion.aside>
 
-
-        {/* Active Section selector for Class Tutor or Coordinator acting as Tutor */}
-        {((session.role === "CLASS_TUTOR") || (session.role === "COURSE_COORDINATOR" && activeWorkspace === "TUTOR")) && assignedSections.length > 0 && (
-          <div className="px-4 mb-4 mt-2">
-            <div className="flex items-center justify-between mb-2 pl-2 pr-1">
-              <label className="text-xs font-semibold text-fg-muted uppercase tracking-wider block">
-                Active Section
-              </label>
-              <Link 
-                href="/faculty/assign-sections" 
-                className="text-xs font-medium text-primary-text hover:underline underline-offset-2"
-                title="Manage Sections"
-              >
-                Manage
-              </Link>
-            </div>
-            <select
-              value={session.sectionId || ""}
-              onChange={async (e) => {
-                const newSectionId = e.target.value;
-                try {
-                  toast.loading("Switching section...", { id: "switch-section" });
-                  const res = await fetch("/api/switch-section", {
-                    method: "POST",
-                    headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify({ sectionId: newSectionId }),
-                  });
-                  if (!res.ok) {
-                    const data = await res.json();
-                    throw new Error(data.error || "Failed to switch section");
-                  }
-                  toast.success("Section switched!", { id: "switch-section" });
-                  window.location.href = window.location.pathname;
-                } catch (error: any) {
-                  toast.error(error.message || "Failed to switch section", { id: "switch-section" });
-                }
-              }}
-              className="w-full bg-surface border border-border-strong text-fg text-sm rounded-control px-3 py-2.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring appearance-none font-medium cursor-pointer"
-            >
-              <option value="" disabled>Select a section</option>
-              {assignedSections.map(s => (
-                <option key={s.id} value={s.id}>
-                  {s.programme} - {s.batch} - {s.label}
-                </option>
-              ))}
-            </select>
-          </div>
-        )}
-
-
-
-        {/* Navigation */}
-        <nav className="flex-1 px-3 py-2 space-y-0.5 overflow-y-auto scrollbar-thin">
-                {navItems.map((item) => {
-                  const isActive = pathname === item.href || pathname.startsWith(`${item.href}/`);
-                  return (
-                    <Link
-                      key={item.href}
-                      href={item.href}
-                      className={`flex items-center justify-between px-3 py-2 rounded-control transition-all duration-200 group relative ${
-                        isActive
-                          ? "bg-surface-2 text-fg font-medium"
-                          : "text-fg-muted hover:bg-surface-2/50 hover:text-fg"
-                      }`}
-                    >
-                      <div className="flex items-center gap-2.5">
-                        <item.icon className={`w-4 h-4 shrink-0 ${isActive ? item.color : "opacity-70 group-hover:opacity-100 transition-opacity"}`} />
-                        <span className="text-sm">{item.name}</span>
-                      </div>
-                      {isActive && (
-                        <motion.div layoutId="active-nav-indicator" className="absolute left-0 top-1/2 -translate-y-1/2 w-0.75 h-4 bg-fg rounded-r-full" />
-                      )}
-                    </Link>
-                  );
-                })}
-        </nav>
-
-        {/* User Profile */}
-        <div className="p-3 shrink-0 border-t border-border/50 relative">
-          <div 
-            onClick={() => setShowProfileMenu(!showProfileMenu)}
-            className="flex items-center gap-3 px-3 py-2.5 rounded-control hover:bg-surface-2/50 transition-colors cursor-pointer group border border-transparent hover:border-border/50 shadow-1"
+      {/* ── Main ── */}
+      <div className="flex min-w-0 flex-1 flex-col">
+        {/* Compact top bar below lg */}
+        <header className="sticky top-0 z-30 flex h-14 shrink-0 items-center gap-2 border-b border-border bg-canvas/85 px-3 backdrop-blur-md pt-safe lg:hidden">
+          <button
+            type="button"
+            aria-label="Open navigation"
+            onClick={() => setDrawerOpen(true)}
+            className="hidden size-10 items-center justify-center rounded-control text-fg-muted hover:bg-surface-2 hover:text-fg md:inline-flex"
           >
-            <div className="w-8 h-8 rounded-full bg-surface-2 flex items-center justify-center text-fg font-semibold text-xs shrink-0 border border-border">
-              {session.name.charAt(0)}
-            </div>
-            <div className="flex-1 min-w-0">
-              <p className="text-sm font-semibold truncate text-fg">{session.name}</p>
-              <p className="text-xs font-medium text-fg-muted truncate">{ROLE_DISPLAY[session.role] ?? session.role.replace(/_/g, " ")}</p>
-            </div>
-            <ChevronRight className={`w-4 h-4 text-fg-muted transition-all duration-200 ${showProfileMenu ? 'rotate-90 opacity-100' : 'opacity-0 group-hover:opacity-100'}`} />
-          </div>
-
-          <AnimatePresence>
-            {showProfileMenu && (
-              <>
-                <div 
-                  className="fixed inset-0 z-40" 
-                  onClick={() => setShowProfileMenu(false)} 
-                />
-                <motion.div
-                  initial={{ opacity: 0, y: 8, scale: 0.95 }}
-                  animate={{ opacity: 1, y: 0, scale: 1 }}
-                  exit={{ opacity: 0, y: 8, scale: 0.95 }}
-                  transition={transition.fast}
-                  className="absolute bottom-full left-3 right-3 mb-2 bg-surface border border-border rounded-control shadow-3 overflow-hidden z-50"
-                >
-                  <div className="p-1.5">
-                    <Link
-                      href="/faculty/settings"
-                      onClick={() => setShowProfileMenu(false)}
-                      className="flex items-center gap-2.5 px-3 py-2 rounded-control text-sm text-fg hover:bg-surface-2 transition-colors"
-                    >
-                      <User className="w-4 h-4 text-fg-muted" />
-                      Edit Profile
-                    </Link>
-                    {session.role === "COURSE_COORDINATOR" && (
-                      <Link
-                        href="/faculty/portal-select"
-                        onClick={() => setShowProfileMenu(false)}
-                        className="flex items-center gap-2.5 px-3 py-2 rounded-control text-sm text-fg hover:bg-surface-2 transition-colors"
-                      >
-                        <Layers className="w-4 h-4 text-fg-muted" />
-                        Switch Portal
-                      </Link>
-                    )}
-                    <button
-                      onClick={handleLogout}
-                      disabled={isLoggingOut}
-                      className="flex items-center gap-2.5 px-3 py-2 rounded-control text-sm text-danger-text hover:bg-danger/10 transition-colors w-full text-left"
-                    >
-                      <LogOut className="w-4 h-4" />
-                      {isLoggingOut ? "Logging out..." : "Log out"}
-                    </button>
-                  </div>
-                </motion.div>
-              </>
-            )}
-          </AnimatePresence>
-        </div>
-      </aside>
-
-      {/* ── Main Content Area ── */}
-      <main className="flex-1 flex flex-col min-w-0 h-full relative z-10">
-        {/* Top Header (Desktop & Tablet) */}
-        <header className={`hidden lg:flex items-center justify-between h-16 px-8 sticky top-0 z-30 transition-all duration-200 ${scrolled ? 'bg-canvas/80 backdrop-blur-md border-b border-border' : 'bg-transparent'}`}>
-          <div className="flex-1" />
-          <div className="flex items-center gap-4">
-            <ThemeToggle />
-
-            <div className="relative">
-              <button 
-                onClick={() => setShowNotifications(!showNotifications)}
-                className="relative p-2 text-fg-muted hover:bg-surface-2 rounded-full transition-colors focus-visible:outline-none"
-              >
-                <Bell className="w-5 h-5" />
-                {hasUnread && (
-                  <span className="absolute top-1.5 right-1.5 w-2 h-2 bg-primary rounded-full border-2 border-canvas" />
-                )}
-              </button>
-
-              <AnimatePresence>
-                {showNotifications && (
-                  <>
-                    <div 
-                      className="fixed inset-0 z-40 bg-transparent"
-                      onClick={() => setShowNotifications(false)}
-                    />
-                    
-                    <motion.div
-                      initial={{ opacity: 0, y: 10, scale: 0.95 }}
-                      animate={{ opacity: 1, y: 0, scale: 1 }}
-                      exit={{ opacity: 0, y: 10, scale: 0.95 }}
-                      transition={transition.fast}
-                      className="absolute right-0 mt-2 w-80 bg-surface border border-border shadow-2 rounded-card overflow-hidden z-50"
-                    >
-                      <div className="p-4 border-b border-border flex items-center justify-between">
-                        <h3 className="font-semibold text-sm text-fg">Notifications</h3>
-                        {hasUnread && (
-                          <button 
-                            onClick={markAllAsRead}
-                            className="text-xs text-primary-text hover:underline underline-offset-2 font-semibold"
-                          >
-                            Mark all as read
-                          </button>
-                        )}
-                      </div>
-
-                      <div className="max-h-70 overflow-y-auto divide-y divide-border">
-                        {notifications.length === 0 ? (
-                          <div className="p-6 text-center text-fg-subtle text-xs">
-                            No notifications yet
-                          </div>
-                        ) : (
-                          notifications.map((item) => (
-                            <div 
-                              key={item.id} 
-                              onClick={() => toggleRead(item.id)}
-                              className={`p-4 flex gap-3 hover:bg-surface-2 cursor-pointer transition-colors ${!item.read ? 'bg-primary/10' : ''}`}
-                            >
-                              <div className="mt-0.5">
-                                {item.type === "success" && <div className="w-2 h-2 rounded-full bg-success mt-1.5" />}
-                                {item.type === "warning" && <div className="w-2 h-2 rounded-full bg-warning mt-1.5" />}
-                                {item.type === "info" && <div className="w-2 h-2 rounded-full bg-primary mt-1.5" />}
-                              </div>
-                              <div className="flex-1 min-w-0">
-                                <div className="flex items-center justify-between gap-2">
-                                  <p className={`text-xs font-semibold truncate ${!item.read ? 'text-fg' : 'text-fg-muted'}`}>
-                                    {item.title}
-                                  </p>
-                                  <span className="text-2xs text-fg-subtle shrink-0">{item.time}</span>
-                                </div>
-                                <p className="text-xs text-fg-muted mt-0.5 line-clamp-2 leading-relaxed">
-                                  {item.description}
-                                </p>
-                              </div>
-                            </div>
-                          ))
-                        )}
-                      </div>
-
-                      {notifications.length > 0 && (
-                        <div className="p-2 bg-surface-2 border-t border-border text-center">
-                          <button 
-                            onClick={clearAll}
-                            className="text-xs text-fg-muted hover:text-danger-text font-semibold w-full py-1.5"
-                          >
-                            Clear all notifications
-                          </button>
-                        </div>
-                      )}
-                    </motion.div>
-                  </>
-                )}
-              </AnimatePresence>
-            </div>
-
-            <button onClick={handleLogout} disabled={isLoggingOut} className="text-sm font-medium text-fg-muted hover:text-danger-text transition-colors">
-              {isLoggingOut ? "Logging out..." : "Log out"}
+            <MenuIcon className="size-5" />
+          </button>
+          <Link href="/faculty/dashboard" className="flex items-center gap-2 rounded-control pr-2" aria-label="Electify dashboard">
+            <BrandMark size="sm" />
+            <span className="text-sm font-semibold tracking-tight">Electify</span>
+          </Link>
+          <div className="ml-auto flex items-center gap-1">
+            <RealtimeStatus compact />
+            <button
+              type="button"
+              aria-label="Search and jump"
+              onClick={() => setPaletteOpen(true)}
+              className="inline-flex size-10 items-center justify-center rounded-control text-fg-muted hover:bg-surface-2 hover:text-fg"
+            >
+              <Search className="size-5" />
             </button>
+            <ThemeToggle className="size-10" />
           </div>
         </header>
 
-        {/* Mobile Header */}
-        <header className="lg:hidden flex items-center justify-between h-14 px-4 sticky top-0 z-30 bg-canvas/80 backdrop-blur-md border-b border-border">
-          <div className="flex items-center gap-2">
-            <div className="flex items-center justify-center w-7 h-7 rounded-control bg-primary text-primary-fg">
-              <BookOpen className="w-3 h-3" />
+        <main id="main" className="relative flex-1 overflow-y-auto overscroll-contain scrollbar-thin pb-24 md:pb-10">
+          {showSections ? (
+            <div className="border-b border-border px-4 py-2.5 lg:hidden">
+              <SectionSwitcher sections={assignedSections} activeId={session.sectionId} />
             </div>
-            <span className="text-lg font-bold tracking-tight">Electify</span>
-          </div>
-          <div className="flex items-center gap-2">
-            <ThemeToggle />
-
-            <div className="relative">
-              <button 
-                onClick={() => setShowNotifications(!showNotifications)}
-                className="relative p-2 text-fg-muted hover:bg-surface-2 rounded-full transition-colors focus-visible:outline-none"
-              >
-                <Bell className="w-5 h-5" />
-                {hasUnread && (
-                  <span className="absolute top-1.5 right-1.5 w-2 h-2 bg-primary rounded-full border-2 border-canvas" />
-                )}
-              </button>
-
-              <AnimatePresence>
-                {showNotifications && (
-                  <>
-                    <div 
-                      className="fixed inset-0 z-40 bg-transparent"
-                      onClick={() => setShowNotifications(false)}
-                    />
-                    
-                    <motion.div
-                      initial={{ opacity: 0, y: 10, scale: 0.95 }}
-                      animate={{ opacity: 1, y: 0, scale: 1 }}
-                      exit={{ opacity: 0, y: 10, scale: 0.95 }}
-                      transition={transition.fast}
-                      className="absolute right-0 mt-2 w-72 bg-surface border border-border shadow-2 rounded-card overflow-hidden z-50"
-                    >
-                      <div className="p-4 border-b border-border flex items-center justify-between">
-                        <h3 className="font-semibold text-sm text-fg">Notifications</h3>
-                        {hasUnread && (
-                          <button 
-                            onClick={markAllAsRead}
-                            className="text-xs text-primary-text hover:underline underline-offset-2 font-semibold"
-                          >
-                            Mark
-                          </button>
-                        )}
-                      </div>
-
-                      <div className="max-h-60 overflow-y-auto divide-y divide-border">
-                        {notifications.length === 0 ? (
-                          <div className="p-6 text-center text-fg-subtle text-xs">
-                            No notifications yet
-                          </div>
-                        ) : (
-                          notifications.map((item) => (
-                            <div 
-                              key={item.id} 
-                              onClick={() => toggleRead(item.id)}
-                              className={`p-3 flex gap-2.5 hover:bg-surface-2 cursor-pointer transition-colors ${!item.read ? 'bg-primary/10' : ''}`}
-                            >
-                              <div className="mt-0.5">
-                                {item.type === "success" && <div className="w-1.5 h-1.5 rounded-full bg-success mt-1.5" />}
-                                {item.type === "warning" && <div className="w-1.5 h-1.5 rounded-full bg-warning mt-1.5" />}
-                                {item.type === "info" && <div className="w-1.5 h-1.5 rounded-full bg-primary mt-1.5" />}
-                              </div>
-                              <div className="flex-1 min-w-0">
-                                <div className="flex items-center justify-between gap-1">
-                                  <p className={`text-xs font-semibold truncate ${!item.read ? 'text-fg' : 'text-fg-muted'}`}>
-                                    {item.title}
-                                  </p>
-                                  <span className="text-2xs text-fg-subtle shrink-0">{item.time}</span>
-                                </div>
-                                <p className="text-2xs text-fg-muted mt-0.5 line-clamp-2 leading-relaxed">
-                                  {item.description}
-                                </p>
-                              </div>
-                            </div>
-                          ))
-                        )}
-                      </div>
-
-                      {notifications.length > 0 && (
-                        <div className="p-2 bg-surface-2 border-t border-border text-center">
-                          <button 
-                            onClick={clearAll}
-                            className="text-2xs text-fg-muted hover:text-danger-text font-semibold w-full py-1"
-                          >
-                            Clear all
-                          </button>
-                        </div>
-                      )}
-                    </motion.div>
-                  </>
-                )}
-              </AnimatePresence>
-            </div>
-          </div>
-        </header>
-
-        {/* Page Content */}
-        <div className="flex-1 overflow-y-auto pb-20 lg:pb-8">
-          <div className="p-4 lg:p-8 max-w-[1600px] mx-auto w-full">
+          ) : null}
+          <div key={session.sectionId ?? "all"} className="mx-auto w-full max-w-[88rem] px-4 py-6 sm:px-6 lg:px-10 lg:py-8">
             {children}
           </div>
-        </div>
+        </main>
+      </div>
 
-        {/* ── Mobile Bottom Navigation ── */}
-        <nav className="lg:hidden fixed bottom-0 left-0 right-0 z-40 bg-canvas/90 backdrop-blur-xl border-t border-border pb-safe">
-          <div className="flex items-center justify-around px-2 h-16">
-            {mobileNavItems.map((item) => {
-              const isActive = pathname === item.href || pathname.startsWith(`${item.href}/`);
-              return (
+      {/* ── Tablet drawer ── */}
+      <Sheet open={drawerOpen} onOpenChange={setDrawerOpen} swipeDirection="left">
+        <SheetContent side="left" showClose={false} className="w-72">
+          <SheetTitle className="sr-only">Navigation</SheetTitle>
+          <SidebarContent
+            groups={groups}
+            pathname={pathname}
+            collapsed={false}
+            session={session}
+            showSections={showSections}
+            sections={assignedSections}
+            onSearch={() => {
+              setDrawerOpen(false);
+              setPaletteOpen(true);
+            }}
+            onHelp={() => setHelpOpen(true)}
+            onLogout={handleLogout}
+            signingOut={signingOut}
+          />
+        </SheetContent>
+      </Sheet>
+
+      {/* ── Phone bottom bar ── */}
+      <nav
+        aria-label="Primary"
+        className="fixed inset-x-0 bottom-0 z-40 border-t border-border bg-canvas/90 backdrop-blur-xl pb-safe md:hidden"
+      >
+        <ul className="grid h-16" style={{ gridTemplateColumns: `repeat(${primary.length + 1}, minmax(0, 1fr))` }}>
+          {primary.map((item) => (
+            <li key={item.href}>
+              <BottomLink label={shortLabel(item.label)} href={item.href} icon={item.icon} active={isActive(pathname, item.href)} />
+            </li>
+          ))}
+          <li>
+            <button
+              type="button"
+              onClick={() => setMoreOpen(true)}
+              aria-expanded={moreOpen}
+              className="flex h-full w-full flex-col items-center justify-center gap-1 text-fg-muted"
+            >
+              <MoreHorizontal className="size-5" />
+              <span className="text-2xs font-medium">More</span>
+            </button>
+          </li>
+        </ul>
+      </nav>
+
+      <Sheet open={moreOpen} onOpenChange={setMoreOpen} swipeDirection="down">
+        <SheetContent side="bottom" showClose={false}>
+          <SheetTitle className="sr-only">More</SheetTitle>
+          <div className="overflow-y-auto px-3 pb-4 pt-3">
+            <div className="mb-3 flex items-center gap-3 rounded-control border border-border bg-surface-2/50 p-3">
+              <Avatar name={session.name} />
+              <div className="min-w-0 flex-1">
+                <p className="truncate text-sm font-medium">{session.name}</p>
+                <p className="truncate text-xs text-fg-muted">{ROLE_LABEL[session.role]}</p>
+              </div>
+            </div>
+            <NavList groups={groups} pathname={pathname} collapsed={false} large />
+            <div className="mt-3 grid grid-cols-2 gap-2">
+              <Link href="/faculty/settings" className="flex h-11 items-center justify-center gap-2 rounded-control border border-border text-sm font-medium">
+                <Settings className="size-4" /> Settings
+              </Link>
+              <button
+                type="button"
+                onClick={handleLogout}
+                className="flex h-11 items-center justify-center gap-2 rounded-control border border-border text-sm font-medium text-danger-text"
+              >
+                <LogOut className="size-4" /> Sign out
+              </button>
+            </div>
+          </div>
+        </SheetContent>
+      </Sheet>
+
+      <CommandPalette open={paletteOpen} onOpenChange={setPaletteOpen} commands={commands} />
+      <ShortcutsDialog open={helpOpen} onOpenChange={setHelpOpen} groups={groups} />
+    </div>
+  );
+}
+
+function shortLabel(label: string) {
+  return label.split(/[\s&]+/)[0];
+}
+
+function BottomLink({ label, href, icon: Icon, active }: { label: string; href: string; icon: LucideIcon; active: boolean }) {
+  return (
+    <Link
+      href={href}
+      aria-current={active ? "page" : undefined}
+      className={cn("relative flex h-full flex-col items-center justify-center gap-1 transition-colors", active ? "text-fg" : "text-fg-muted")}
+    >
+      {active ? <motion.span layoutId="bottom-active" transition={spring.snappy} className="absolute inset-x-5 top-0 h-0.5 rounded-full bg-primary" /> : null}
+      <Icon className="size-5" />
+      <span className="text-2xs font-medium">{label}</span>
+    </Link>
+  );
+}
+
+function SidebarContent({
+  groups,
+  pathname,
+  collapsed,
+  session,
+  showSections,
+  sections,
+  onSearch,
+  onToggle,
+  onHelp,
+  onLogout,
+  signingOut,
+}: {
+  groups: NavGroup[];
+  pathname: string;
+  collapsed: boolean;
+  session: UserSession;
+  showSections: boolean;
+  sections: AssignedSection[];
+  onSearch: () => void;
+  onToggle?: () => void;
+  onHelp: () => void;
+  onLogout: () => void;
+  signingOut: boolean;
+}) {
+  return (
+    <div className="flex h-full min-h-0 flex-col">
+      <div className={cn("flex h-14 shrink-0 items-center gap-2", collapsed ? "justify-center px-2" : "px-4")}>
+        <Link href="/faculty/dashboard" aria-label="Electify dashboard" className="flex items-center gap-2.5 rounded-control">
+          <BrandMark size="sm" />
+          {!collapsed ? <span className="text-sm font-semibold tracking-tight">Electify</span> : null}
+        </Link>
+        {!collapsed ? (
+          <div className="ml-auto">
+            <RealtimeStatus compact />
+          </div>
+        ) : null}
+      </div>
+
+      <div className={cn("space-y-2 pb-3", collapsed ? "px-3" : "px-3")}>
+        {showSections ? <SectionSwitcher sections={sections} activeId={session.sectionId} collapsed={collapsed} /> : null}
+        {collapsed ? (
+          <Tooltip content="Search and jump" shortcut={<><Kbd>⌘</Kbd><Kbd>K</Kbd></>} side="right">
+            <button
+              type="button"
+              aria-label="Search and jump"
+              onClick={onSearch}
+              className="flex size-10 items-center justify-center rounded-control text-fg-muted hover:bg-surface-2 hover:text-fg"
+            >
+              <Search className="size-4" />
+            </button>
+          </Tooltip>
+        ) : (
+          <button
+            type="button"
+            onClick={onSearch}
+            className="flex h-9 w-full items-center gap-2 rounded-control border border-border bg-surface-2/50 px-2.5 text-sm text-fg-subtle transition-colors hover:border-border-strong hover:text-fg-muted"
+          >
+            <Search className="size-4" />
+            <span className="flex-1 text-left">Search or jump to</span>
+            <span className="flex gap-0.5">
+              <Kbd>⌘</Kbd>
+              <Kbd>K</Kbd>
+            </span>
+          </button>
+        )}
+      </div>
+
+      <nav aria-label="Main" className="min-h-0 flex-1 overflow-y-auto overflow-x-hidden px-3 pb-3 scrollbar-thin">
+        <NavList groups={groups} pathname={pathname} collapsed={collapsed} />
+      </nav>
+
+      <div className={cn("shrink-0 space-y-1 border-t border-border p-3", collapsed && "flex flex-col items-center")}>
+        <UserMenu session={session} collapsed={collapsed} onHelp={onHelp} onLogout={onLogout} signingOut={signingOut} />
+        {onToggle ? (
+          <Tooltip content={collapsed ? "Expand sidebar" : "Collapse sidebar"} shortcut={<Kbd>[</Kbd>} side="right">
+            <button
+              type="button"
+              onClick={onToggle}
+              aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"}
+              className={cn(
+                "flex h-9 items-center gap-2.5 rounded-control text-sm text-fg-subtle transition-colors hover:bg-surface-2 hover:text-fg",
+                collapsed ? "w-10 justify-center" : "w-full px-2.5"
+              )}
+            >
+              {collapsed ? <ChevronsRight className="size-4" /> : <ChevronsLeft className="size-4" />}
+              {!collapsed ? <span>Collapse</span> : null}
+            </button>
+          </Tooltip>
+        ) : null}
+      </div>
+    </div>
+  );
+}
+
+function NavList({ groups, pathname, collapsed, large }: { groups: NavGroup[]; pathname: string; collapsed: boolean; large?: boolean }) {
+  return (
+    <div className="space-y-5">
+      {groups.map((group) => (
+        <div key={group.label}>
+          {!collapsed ? <p className="mb-1 px-2.5 text-xs font-medium text-fg-subtle">{group.label}</p> : <div className="mx-auto mb-2 h-px w-6 bg-border" />}
+          <ul className="space-y-0.5">
+            {group.items.map((item) => {
+              const active = isActive(pathname, item.href);
+              const link = (
                 <Link
-                  key={item.href}
                   href={item.href}
-                  className="flex flex-col items-center justify-center w-16 h-full gap-1"
+                  aria-current={active ? "page" : undefined}
+                  className={cn(
+                    "group relative flex items-center gap-2.5 rounded-control text-sm transition-colors",
+                    large ? "h-11 px-3" : "h-9 px-2.5",
+                    collapsed && "w-10 justify-center px-0",
+                    active ? "bg-surface-2 font-medium text-fg" : "text-fg-muted hover:bg-surface-2/60 hover:text-fg"
+                  )}
                 >
-                  <div className={`flex items-center justify-center w-8 h-8 rounded-full transition-colors ${isActive ? 'bg-surface-2 text-fg' : 'text-fg-muted'}`}>
-                    <item.icon className={`w-5 h-5 ${isActive ? item.color : ''}`} />
-                  </div>
-                  <span className={`text-2xs font-medium ${isActive ? 'text-fg' : 'text-fg-muted'}`}>
-                    {item.name.split(' ')[0]}
-                  </span>
+                  {active ? (
+                    <motion.span
+                      layoutId={large ? "nav-active-sheet" : "nav-active"}
+                      transition={spring.snappy}
+                      className="absolute -left-3 top-1/2 h-5 w-0.75 -translate-y-1/2 rounded-r-full bg-primary"
+                    />
+                  ) : null}
+                  <item.icon className={cn("size-4 shrink-0", active ? "text-fg" : "text-fg-subtle group-hover:text-fg-muted")} />
+                  {!collapsed ? <span className="truncate">{item.label}</span> : null}
                 </Link>
               );
+              return (
+                <li key={item.href}>
+                  {collapsed ? (
+                    <Tooltip content={item.label} side="right" shortcut={item.key ? <><Kbd>G</Kbd><Kbd>{item.key.toUpperCase()}</Kbd></> : undefined}>
+                      {link}
+                    </Tooltip>
+                  ) : (
+                    link
+                  )}
+                </li>
+              );
             })}
-            <button className="flex flex-col items-center justify-center w-16 h-full gap-1">
-              <div className="flex items-center justify-center w-8 h-8 rounded-full text-fg-muted">
-                <Menu className="w-5 h-5" />
-              </div>
-              <span className="text-2xs font-medium text-fg-muted">More</span>
-            </button>
-          </div>
-        </nav>
-      </main>
+          </ul>
+        </div>
+      ))}
     </div>
+  );
+}
+
+function UserMenu({
+  session,
+  collapsed,
+  onHelp,
+  onLogout,
+  signingOut,
+}: {
+  session: UserSession;
+  collapsed: boolean;
+  onHelp: () => void;
+  onLogout: () => void;
+  signingOut: boolean;
+}) {
+  const { theme, setTheme } = useTheme();
+  return (
+    <Menu>
+      <MenuTrigger
+        aria-label="Account menu"
+        className={cn(
+          "flex items-center gap-2.5 rounded-control text-left transition-colors hover:bg-surface-2 data-popup-open:bg-surface-2",
+          collapsed ? "size-10 justify-center" : "w-full px-2 py-1.5"
+        )}
+      >
+        <Avatar name={session.name} size="sm" />
+        {!collapsed ? (
+          <span className="min-w-0 flex-1">
+            <span className="block truncate text-sm font-medium text-fg">{session.name}</span>
+            <span className="block truncate text-xs text-fg-muted">{ROLE_LABEL[session.role] ?? session.role}</span>
+          </span>
+        ) : null}
+      </MenuTrigger>
+      <MenuContent side={collapsed ? "right" : "top"} align="start" className="w-60">
+        <div className="px-2.5 py-2">
+          <p className="truncate text-sm font-medium text-fg">{session.name}</p>
+          <p className="truncate text-xs text-fg-muted">{session.email}</p>
+        </div>
+        <MenuSeparator />
+        <MenuLinkItem href="/faculty/settings">
+          <Settings /> Profile and settings
+        </MenuLinkItem>
+        {session.role === "COURSE_COORDINATOR" ? (
+          <MenuLinkItem href="/faculty/portal-select">
+            <Layers /> Switch portal
+          </MenuLinkItem>
+        ) : null}
+        <MenuItem onClick={onHelp}>
+          <Keyboard /> Keyboard shortcuts
+        </MenuItem>
+        <MenuSeparator />
+        <MenuLabel>Theme</MenuLabel>
+        <div className="grid grid-cols-3 gap-1 px-1 pb-1">
+          {([
+            ["system", Monitor, "System"],
+            ["light", Sun, "Light"],
+            ["dark", Moon, "Dark"],
+          ] as const).map(([value, Icon, label]) => (
+            <button
+              key={value}
+              type="button"
+              onClick={() => setTheme(value)}
+              aria-pressed={theme === value}
+              className="flex h-14 flex-col items-center justify-center gap-1 rounded-badge text-xs text-fg-muted hover:bg-surface-2 aria-pressed:bg-surface-2 aria-pressed:text-fg"
+            >
+              <Icon className="size-4" />
+              {label}
+            </button>
+          ))}
+        </div>
+        <MenuSeparator />
+        <MenuItem tone="danger" onClick={onLogout} disabled={signingOut}>
+          <LogOut /> {signingOut ? "Signing out" : "Sign out"}
+        </MenuItem>
+      </MenuContent>
+    </Menu>
   );
 }
