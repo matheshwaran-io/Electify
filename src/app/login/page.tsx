@@ -24,19 +24,19 @@ export default function UnifiedLoginPage() {
         <div className="lg:col-span-7 space-y-16 animate-fade-in-up">
           {/* Logo square and titles */}
           <div className="space-y-8">
-            <div className="w-14 h-14 rounded-2xl bg-white/80 dark:bg-white/[0.03] backdrop-blur-xl border border-slate-200 dark:border-white/10 p-2.5 shadow-md flex items-center justify-center">
+            <div className="w-14 h-14 rounded-2xl bg-white/80 dark:bg-white/3 backdrop-blur-xl border border-slate-200 dark:border-white/10 p-2.5 shadow-md flex items-center justify-center">
               <Image src="/logo.png" alt="Electify Logo" width={36} height={36} className="w-full h-full object-contain" />
             </div>
 
             <div className="space-y-4">
-              <h1 className="text-4xl sm:text-7xl font-bold text-slate-900 dark:text-transparent dark:bg-clip-text dark:bg-gradient-to-b dark:from-white dark:to-white/70 tracking-[-0.05em] leading-[0.9]">
+              <h1 className="text-4xl sm:text-7xl font-bold text-slate-900 dark:text-transparent dark:bg-clip-text dark:bg-linear-to-b dark:from-white dark:to-white/70 tracking-tighter leading-[0.9]">
                 Electify Portal <br />
-                <span className="text-slate-800 dark:text-transparent dark:bg-clip-text dark:bg-gradient-to-br dark:from-indigo-300 dark:to-purple-400">
+                <span className="text-slate-800 dark:text-transparent dark:bg-clip-text dark:bg-linear-to-br dark:from-indigo-300 dark:to-purple-400">
                   Authentication.
                 </span>
               </h1>
 
-              <p className="text-slate-600 dark:text-slate-400 text-[18px] leading-[1.8] max-w-[560px]">
+              <p className="text-slate-600 dark:text-slate-400 text-[18px] leading-[1.8] max-w-140">
                 Smart elective selection portal. Access elective selections, check real-time seat distributions, and verify your registrations.
               </p>
             </div>
@@ -45,7 +45,7 @@ export default function UnifiedLoginPage() {
           {/* Interactive Feature Grid Showcase */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 pt-4">
             {/* Feature 1 */}
-            <div className="space-y-3 p-5 rounded-2xl bg-white/40 dark:bg-white/[0.01] border border-slate-200/50 dark:border-white/[0.05] backdrop-blur-md shadow-sm premium-card-hover group animate-fade-in-up delay-100">
+            <div className="space-y-3 p-5 rounded-2xl bg-white/40 dark:bg-white/1 border border-slate-200/50 dark:border-white/5 backdrop-blur-md shadow-sm premium-card-hover group animate-fade-in-up delay-100">
               <div className="w-9 h-9 rounded-xl bg-indigo-50/50 dark:bg-indigo-950/20 text-[#4F8CFF] flex items-center justify-center border border-indigo-100/50 dark:border-indigo-500/10">
                 <Zap className="w-4.5 h-4.5" />
               </div>
@@ -56,7 +56,7 @@ export default function UnifiedLoginPage() {
             </div>
 
             {/* Feature 2 */}
-            <div className="space-y-3 p-5 rounded-2xl bg-white/40 dark:bg-white/[0.01] border border-slate-200/50 dark:border-white/[0.05] backdrop-blur-md shadow-sm premium-card-hover group animate-fade-in-up delay-200">
+            <div className="space-y-3 p-5 rounded-2xl bg-white/40 dark:bg-white/1 border border-slate-200/50 dark:border-white/5 backdrop-blur-md shadow-sm premium-card-hover group animate-fade-in-up delay-200">
               <div className="w-9 h-9 rounded-xl bg-purple-50/50 dark:bg-purple-950/20 text-[#6D5DFE] flex items-center justify-center border border-purple-100/50 dark:border-purple-500/10">
                 <ShieldCheck className="w-4.5 h-4.5" />
               </div>
@@ -67,7 +67,7 @@ export default function UnifiedLoginPage() {
             </div>
 
             {/* Feature 3 */}
-            <div className="space-y-3 p-5 rounded-2xl bg-white/40 dark:bg-white/[0.01] border border-slate-200/50 dark:border-white/[0.05] backdrop-blur-md shadow-sm premium-card-hover group animate-fade-in-up delay-300">
+            <div className="space-y-3 p-5 rounded-2xl bg-white/40 dark:bg-white/1 border border-slate-200/50 dark:border-white/5 backdrop-blur-md shadow-sm premium-card-hover group animate-fade-in-up delay-300">
               <div className="w-9 h-9 rounded-xl bg-emerald-50/50 dark:bg-emerald-950/20 text-emerald-500 flex items-center justify-center border border-emerald-100/50 dark:border-emerald-500/10">
                 <FileText className="w-4.5 h-4.5" />
               </div>
@@ -78,7 +78,7 @@ export default function UnifiedLoginPage() {
             </div>
 
             {/* Feature 4 */}
-            <div className="space-y-3 p-5 rounded-2xl bg-white/40 dark:bg-white/[0.01] border border-slate-200/50 dark:border-white/[0.05] backdrop-blur-md shadow-sm premium-card-hover group animate-fade-in-up delay-400">
+            <div className="space-y-3 p-5 rounded-2xl bg-white/40 dark:bg-white/1 border border-slate-200/50 dark:border-white/5 backdrop-blur-md shadow-sm premium-card-hover group animate-fade-in-up delay-400">
               <div className="w-9 h-9 rounded-xl bg-amber-50/50 dark:bg-amber-950/20 text-amber-500 flex items-center justify-center border border-amber-100/50 dark:border-amber-500/10">
                 <LayoutGrid className="w-4.5 h-4.5" />
               </div>

@@ -49,7 +49,7 @@ export function HeroStatus({
   }
 
   return (
-    <div className="col-span-1 lg:col-span-8 bg-[var(--card)] border border-[var(--border)] rounded-3xl p-8 shadow-lg relative overflow-hidden flex flex-col justify-between">
+    <div className="col-span-1 lg:col-span-8 bg-(--card) border border-(--border) rounded-3xl p-8 shadow-lg relative overflow-hidden flex flex-col justify-between">
       {/* Background Glow */}
       <div className={`absolute -right-20 -top-20 w-96 h-96 opacity-20 blur-3xl rounded-full ${statusDot}`} />
       
@@ -67,10 +67,10 @@ export function HeroStatus({
           </div>
 
           <div>
-            <h2 className="text-3xl lg:text-4xl font-bold text-[var(--foreground)] tracking-tight">
+            <h2 className="text-3xl lg:text-4xl font-bold text-(--foreground) tracking-tight">
               {event.name}
             </h2>
-            <p className="text-[var(--muted-foreground)] mt-2 max-w-lg">
+            <p className="text-(--muted-foreground) mt-2 max-w-lg">
               {statusText === "LIVE" ? "Students are currently submitting their elective preferences." : "Portal is currently not accepting registrations."}
             </p>
           </div>
@@ -78,22 +78,22 @@ export function HeroStatus({
 
         <div className="mt-8 md:mt-0 flex flex-col items-start md:items-end space-y-4">
           <div className="text-left md:text-right">
-            <p className="text-xs font-bold text-[var(--muted-foreground)] uppercase tracking-wider mb-2">Countdown</p>
-            <div className="font-mono text-4xl lg:text-5xl font-bold text-[var(--foreground)] drop-shadow-md">
+            <p className="text-xs font-bold text-(--muted-foreground) uppercase tracking-wider mb-2">Countdown</p>
+            <div className="font-mono text-4xl lg:text-5xl font-bold text-(--foreground) drop-shadow-md">
               {timeString}
             </div>
           </div>
 
-          <div className="flex items-center gap-6 mt-4 pt-4 border-t border-[var(--border)] w-full justify-start md:justify-end">
+          <div className="flex items-center gap-6 mt-4 pt-4 border-t border-(--border) w-full justify-start md:justify-end">
             <div className="text-left">
-              <p className="text-[10px] text-[var(--muted-foreground)] uppercase font-bold tracking-wider mb-1">Opens</p>
-              <p className="text-sm font-semibold text-[var(--foreground)]">
+              <p className="text-[10px] text-(--muted-foreground) uppercase font-bold tracking-wider mb-1">Opens</p>
+              <p className="text-sm font-semibold text-(--foreground)">
                 {event.openDate ? format(new Date(event.openDate), "dd MMM yyyy, hh:mm a") : "Not Set"}
               </p>
             </div>
             <div className="text-left">
-              <p className="text-[10px] text-[var(--muted-foreground)] uppercase font-bold tracking-wider mb-1">Closes</p>
-              <p className="text-sm font-semibold text-[var(--foreground)]">
+              <p className="text-[10px] text-(--muted-foreground) uppercase font-bold tracking-wider mb-1">Closes</p>
+              <p className="text-sm font-semibold text-(--foreground)">
                 {event.closeDate ? format(new Date(event.closeDate), "dd MMM yyyy, hh:mm a") : "Not Set"}
               </p>
             </div>

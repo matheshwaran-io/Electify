@@ -11,7 +11,7 @@ export function TimelineSlider({
 }) {
   return (
     <div className="flex-1 relative h-6 flex items-center group">
-      <div className="absolute inset-x-0 h-2 bg-[var(--accent)] rounded-full overflow-hidden">
+      <div className="absolute inset-x-0 h-2 bg-(--accent) rounded-full overflow-hidden">
         <div 
           className="h-full bg-indigo-500 transition-all duration-300 ease-linear"
           style={{ width: `${progress}%` }}

@@ -7,7 +7,7 @@ import { Button, buttonVariants } from "@/components/ui/button";
 
 export function MaintenanceView() {
   return (
-    <main className="flex min-h-screen flex-col items-center justify-center relative bg-gradient-to-br from-amber-50 via-white to-slate-50 dark:from-slate-950 dark:via-slate-900 dark:to-slate-950 p-4 overflow-hidden">
+    <main className="flex min-h-screen flex-col items-center justify-center relative bg-linear-to-br from-amber-50 via-white to-slate-50 dark:from-slate-950 dark:via-slate-900 dark:to-slate-950 p-4 overflow-hidden">
       {/* Decorative Blur Spheres */}
       <div className="absolute top-[-10%] left-[-10%] w-[40rem] h-[40rem] rounded-full bg-amber-200/20 dark:bg-amber-900/5 blur-[120px] pointer-events-none" />
       <div className="absolute bottom-[-10%] right-[-10%] w-[40rem] h-[40rem] rounded-full bg-slate-200/40 dark:bg-slate-900/10 blur-[120px] pointer-events-none" />

@@ -235,8 +235,8 @@ export function SectionClient({ reportData, session }: { reportData: ReportData;
   return (
     <div className="space-y-8 relative">
       <div>
-        <h1 className="text-3xl font-bold text-[var(--foreground)]">Student Directory</h1>
-        <p className="text-[var(--muted-foreground)] mt-1">Review student registrations and eligibility for your section.</p>
+        <h1 className="text-3xl font-bold text-(--foreground)">Student Directory</h1>
+        <p className="text-(--muted-foreground) mt-1">Review student registrations and eligibility for your section.</p>
       </div>
 
       {!session.sectionId && (
@@ -247,54 +247,54 @@ export function SectionClient({ reportData, session }: { reportData: ReportData;
 
       {/* Top Statistic Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-        <div className="bg-[var(--card)] border border-[var(--border)] rounded-2xl p-6 flex items-center justify-between shadow-sm">
+        <div className="bg-(--card) border border-(--border) rounded-2xl p-6 flex items-center justify-between shadow-sm">
           <div>
             <div className="w-10 h-10 rounded-full bg-blue-500/10 flex items-center justify-center mb-3">
               <Users className="w-5 h-5 text-blue-500" />
             </div>
-            <p className="text-xs font-semibold text-[var(--muted-foreground)] uppercase tracking-wider">Intake Count</p>
-            <p className="text-3xl font-bold text-[var(--foreground)] mt-1">{totalStudents}</p>
+            <p className="text-xs font-semibold text-(--muted-foreground) uppercase tracking-wider">Intake Count</p>
+            <p className="text-3xl font-bold text-(--foreground) mt-1">{totalStudents}</p>
           </div>
         </div>
 
-        <div className="bg-[var(--card)] border border-[var(--border)] rounded-2xl p-6 flex items-center justify-between shadow-sm">
+        <div className="bg-(--card) border border-(--border) rounded-2xl p-6 flex items-center justify-between shadow-sm">
           <div>
             <div className="w-10 h-10 rounded-full bg-orange-500/10 flex items-center justify-center mb-3">
               <Clock className="w-5 h-5 text-orange-500" />
             </div>
-            <p className="text-xs font-semibold text-[var(--muted-foreground)] uppercase tracking-wider">Submitted Count</p>
-            <p className="text-3xl font-bold text-[var(--foreground)] mt-1">{registeredCount}</p>
+            <p className="text-xs font-semibold text-(--muted-foreground) uppercase tracking-wider">Submitted Count</p>
+            <p className="text-3xl font-bold text-(--foreground) mt-1">{registeredCount}</p>
           </div>
         </div>
       </div>
 
       {/* Directory Table Area */}
-      <div className="bg-[var(--card)] border border-[var(--border)] rounded-3xl shadow-sm overflow-hidden">
-        <div className="px-6 py-6 border-b border-[var(--border)] flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+      <div className="bg-(--card) border border-(--border) rounded-3xl shadow-sm overflow-hidden">
+        <div className="px-6 py-6 border-b border-(--border) flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div>
-            <h2 className="text-xl font-bold text-[var(--foreground)] flex items-center gap-2">
-              <Users className="w-5 h-5 text-[var(--muted-foreground)]" />
+            <h2 className="text-xl font-bold text-(--foreground) flex items-center gap-2">
+              <Users className="w-5 h-5 text-(--muted-foreground)" />
               Student Directory
             </h2>
-            <p className="text-sm text-[var(--muted-foreground)] mt-1">
+            <p className="text-sm text-(--muted-foreground) mt-1">
               Verify registration eligibility status and submission receipts.
             </p>
           </div>
           
           <div className="flex items-center gap-3 w-full sm:w-auto shrink-0 flex-wrap sm:flex-nowrap">
             <div className="relative w-full sm:w-64">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[var(--muted-foreground)]" />
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-(--muted-foreground)" />
               <input
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
                 placeholder="Search students..."
-                className="w-full pl-9 pr-4 py-2 bg-[var(--background)] border border-[var(--border)] rounded-xl text-sm text-[var(--foreground)] placeholder:text-[var(--muted-foreground)] focus:outline-none focus:ring-2 focus:ring-indigo-500/50"
+                className="w-full pl-9 pr-4 py-2 bg-(--background) border border-(--border) rounded-xl text-sm text-(--foreground) placeholder:text-(--muted-foreground) focus:outline-none focus:ring-2 focus:ring-indigo-500/50"
               />
             </div>
             
             <button 
               onClick={handleDownloadTemplate}
-              className="bg-[var(--background)] border border-[var(--border)] text-[var(--foreground)] px-4 py-2 rounded-xl text-sm font-medium hover:bg-[var(--accent)] transition flex items-center gap-2"
+              className="bg-(--background) border border-(--border) text-(--foreground) px-4 py-2 rounded-xl text-sm font-medium hover:bg-(--accent) transition flex items-center gap-2"
             >
               <Download className="w-4 h-4" /> Download Template
             </button>
@@ -309,7 +309,7 @@ export function SectionClient({ reportData, session }: { reportData: ReportData;
             <button 
               onClick={() => fileInputRef.current?.click()}
               disabled={isUploading}
-              className="bg-[var(--background)] border border-[var(--border)] text-[var(--foreground)] px-4 py-2 rounded-xl text-sm font-medium hover:bg-[var(--accent)] transition flex items-center gap-2 disabled:opacity-50"
+              className="bg-(--background) border border-(--border) text-(--foreground) px-4 py-2 rounded-xl text-sm font-medium hover:bg-(--accent) transition flex items-center gap-2 disabled:opacity-50"
             >
               <Upload className="w-4 h-4" /> {isUploading ? "Importing..." : "Import CSV"}
             </button>
@@ -344,11 +344,11 @@ export function SectionClient({ reportData, session }: { reportData: ReportData;
         <div className="overflow-x-auto">
           <table className="w-full text-sm text-left">
             <thead>
-              <tr className="bg-[var(--background)]/50 border-b border-[var(--border)]">
+              <tr className="bg-(--background)/50 border-b border-(--border)">
                 <th className="px-6 py-4 w-12">
                   <input 
                     type="checkbox" 
-                    className="w-4 h-4 rounded border-[var(--border)] text-indigo-600 focus:ring-indigo-500/50 cursor-pointer"
+                    className="w-4 h-4 rounded border-(--border) text-indigo-600 focus:ring-indigo-500/50 cursor-pointer"
                     checked={filtered.length > 0 && selectedIds.size === filtered.length}
                     onChange={(e) => {
                       if (e.target.checked) setSelectedIds(new Set(filtered.map(s => s.id)));
@@ -356,17 +356,17 @@ export function SectionClient({ reportData, session }: { reportData: ReportData;
                     }}
                   />
                 </th>
-                <th className="px-6 py-4 font-semibold text-[var(--muted-foreground)] text-xs tracking-wider uppercase">Name</th>
-                <th className="px-6 py-4 font-semibold text-[var(--muted-foreground)] text-xs tracking-wider uppercase">Register Number</th>
-                <th className="px-6 py-4 font-semibold text-[var(--muted-foreground)] text-xs tracking-wider uppercase">SRM Email</th>
-                <th className="px-6 py-4 font-semibold text-[var(--muted-foreground)] text-xs tracking-wider uppercase">Submitted</th>
-                <th className="px-6 py-4 font-semibold text-[var(--muted-foreground)] text-xs tracking-wider uppercase text-right">Actions</th>
+                <th className="px-6 py-4 font-semibold text-(--muted-foreground) text-xs tracking-wider uppercase">Name</th>
+                <th className="px-6 py-4 font-semibold text-(--muted-foreground) text-xs tracking-wider uppercase">Register Number</th>
+                <th className="px-6 py-4 font-semibold text-(--muted-foreground) text-xs tracking-wider uppercase">SRM Email</th>
+                <th className="px-6 py-4 font-semibold text-(--muted-foreground) text-xs tracking-wider uppercase">Submitted</th>
+                <th className="px-6 py-4 font-semibold text-(--muted-foreground) text-xs tracking-wider uppercase text-right">Actions</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-[var(--border)]">
+            <tbody className="divide-y divide-(--border)">
               {filtered.length === 0 ? (
                 <tr>
-                  <td colSpan={8} className="text-center py-16 text-[var(--muted-foreground)]">
+                  <td colSpan={8} className="text-center py-16 text-(--muted-foreground)">
                     No students match your search.
                   </td>
                 </tr>
@@ -379,12 +379,12 @@ export function SectionClient({ reportData, session }: { reportData: ReportData;
                       initial={{ opacity: 0 }}
                       animate={{ opacity: 1 }}
                       transition={{ delay: i * 0.02 }}
-                      className="hover:bg-[var(--accent)]/10 transition-colors"
+                      className="hover:bg-(--accent)/10 transition-colors"
                     >
                       <td className="px-6 py-4">
                         <input 
                           type="checkbox" 
-                          className="w-4 h-4 rounded border-[var(--border)] text-indigo-600 focus:ring-indigo-500/50 cursor-pointer"
+                          className="w-4 h-4 rounded border-(--border) text-indigo-600 focus:ring-indigo-500/50 cursor-pointer"
                           checked={selectedIds.has(s.id)}
                           onChange={(e) => {
                             const newSet = new Set(selectedIds);
@@ -394,7 +394,7 @@ export function SectionClient({ reportData, session }: { reportData: ReportData;
                           }}
                         />
                       </td>
-                      <td className="px-6 py-4 text-[var(--foreground)] font-medium">
+                      <td className="px-6 py-4 text-(--foreground) font-medium">
                         <div className="flex items-center gap-2">
                           {s.name}
                           {onlineUserIds.has(s.id) && (
@@ -402,10 +402,10 @@ export function SectionClient({ reportData, session }: { reportData: ReportData;
                           )}
                         </div>
                       </td>
-                      <td className="px-6 py-4 font-medium text-[var(--foreground)]">
+                      <td className="px-6 py-4 font-medium text-(--foreground)">
                         {s.registerNumber ?? "—"}
                       </td>
-                      <td className="px-6 py-4 text-[var(--muted-foreground)]">
+                      <td className="px-6 py-4 text-(--muted-foreground)">
                         {s.email ?? "—"}
                       </td>
                       <td className="px-6 py-4">
@@ -445,41 +445,41 @@ export function SectionClient({ reportData, session }: { reportData: ReportData;
               initial={{ opacity: 0, scale: 0.95, y: 20 }}
               animate={{ opacity: 1, scale: 1, y: 0 }}
               exit={{ opacity: 0, scale: 0.95, y: 20 }}
-              className="bg-[var(--card)] border border-[var(--border)] rounded-2xl w-full max-w-md shadow-xl overflow-hidden"
+              className="bg-(--card) border border-(--border) rounded-2xl w-full max-w-md shadow-xl overflow-hidden"
             >
-              <div className="flex justify-between items-center p-6 border-b border-[var(--border)]">
-                <h3 className="text-xl font-bold text-[var(--foreground)]">Add New Student</h3>
-                <button onClick={() => setIsModalOpen(false)} className="text-[var(--muted-foreground)] hover:text-[var(--foreground)] transition-colors">
+              <div className="flex justify-between items-center p-6 border-b border-(--border)">
+                <h3 className="text-xl font-bold text-(--foreground)">Add New Student</h3>
+                <button onClick={() => setIsModalOpen(false)} className="text-(--muted-foreground) hover:text-(--foreground) transition-colors">
                   <X className="w-5 h-5" />
                 </button>
               </div>
               <div className="p-6 space-y-4">
                 <div>
-                  <label className="block text-xs font-bold text-[var(--muted-foreground)] mb-1 uppercase">Full Name</label>
+                  <label className="block text-xs font-bold text-(--muted-foreground) mb-1 uppercase">Full Name</label>
                   <input 
                     value={newName} onChange={e => setNewName(e.target.value)}
                     placeholder="e.g. John Doe"
-                    className="w-full px-4 py-2 bg-[var(--background)] border border-[var(--border)] rounded-xl text-sm"
+                    className="w-full px-4 py-2 bg-(--background) border border-(--border) rounded-xl text-sm"
                   />
                 </div>
                 <div>
-                  <label className="block text-xs font-bold text-[var(--muted-foreground)] mb-1 uppercase">Register Number</label>
+                  <label className="block text-xs font-bold text-(--muted-foreground) mb-1 uppercase">Register Number</label>
                   <input 
                     value={newRegNo} onChange={e => setNewRegNo(e.target.value)}
                     placeholder="e.g. RA2211003010xxx"
-                    className="w-full px-4 py-2 bg-[var(--background)] border border-[var(--border)] rounded-xl text-sm"
+                    className="w-full px-4 py-2 bg-(--background) border border-(--border) rounded-xl text-sm"
                   />
                 </div>
                 <div>
-                  <label className="block text-xs font-bold text-[var(--muted-foreground)] mb-1 uppercase">SRM Email</label>
+                  <label className="block text-xs font-bold text-(--muted-foreground) mb-1 uppercase">SRM Email</label>
                   <input 
                     value={newEmail} onChange={e => setNewEmail(e.target.value)}
                     placeholder="e.g. jd1234@srmist.edu.in"
-                    className="w-full px-4 py-2 bg-[var(--background)] border border-[var(--border)] rounded-xl text-sm"
+                    className="w-full px-4 py-2 bg-(--background) border border-(--border) rounded-xl text-sm"
                   />
                 </div>
               </div>
-              <div className="p-6 bg-[var(--background)] border-t border-[var(--border)] flex justify-end gap-3">
+              <div className="p-6 bg-(--background) border-t border-(--border) flex justify-end gap-3">
                 <button 
                   onClick={() => setIsModalOpen(false)}
                   className="px-4 py-2 rounded-xl text-sm font-medium hover:bg-black/10 transition-colors"
@@ -507,44 +507,44 @@ export function SectionClient({ reportData, session }: { reportData: ReportData;
               initial={{ opacity: 0, scale: 0.95, y: 20 }}
               animate={{ opacity: 1, scale: 1, y: 0 }}
               exit={{ opacity: 0, scale: 0.95, y: 20 }}
-              className="bg-[var(--card)] border border-[var(--border)] rounded-2xl w-full max-w-md shadow-xl overflow-hidden"
+              className="bg-(--card) border border-(--border) rounded-2xl w-full max-w-md shadow-xl overflow-hidden"
             >
-              <div className="flex justify-between items-center p-6 border-b border-[var(--border)]">
-                <h3 className="text-xl font-bold text-[var(--foreground)]">Edit Student</h3>
-                <button onClick={() => setIsEditModalOpen(false)} className="text-[var(--muted-foreground)] hover:text-[var(--foreground)] transition-colors">
+              <div className="flex justify-between items-center p-6 border-b border-(--border)">
+                <h3 className="text-xl font-bold text-(--foreground)">Edit Student</h3>
+                <button onClick={() => setIsEditModalOpen(false)} className="text-(--muted-foreground) hover:text-(--foreground) transition-colors">
                   <X className="w-5 h-5" />
                 </button>
               </div>
               <div className="p-6 space-y-4">
                 <div>
-                  <label className="block text-xs font-bold text-[var(--muted-foreground)] mb-1 uppercase">Full Name</label>
+                  <label className="block text-xs font-bold text-(--muted-foreground) mb-1 uppercase">Full Name</label>
                   <input 
                     value={newName} onChange={e => setNewName(e.target.value)}
                     placeholder="e.g. John Doe"
-                    className="w-full px-4 py-2 bg-[var(--background)] border border-[var(--border)] rounded-xl text-sm focus:ring-2 focus:ring-blue-500/50 outline-none"
+                    className="w-full px-4 py-2 bg-(--background) border border-(--border) rounded-xl text-sm focus:ring-2 focus:ring-blue-500/50 outline-none"
                   />
                 </div>
                 <div>
-                  <label className="block text-xs font-bold text-[var(--muted-foreground)] mb-1 uppercase">Register Number</label>
+                  <label className="block text-xs font-bold text-(--muted-foreground) mb-1 uppercase">Register Number</label>
                   <input 
                     value={newRegNo} onChange={e => setNewRegNo(e.target.value)}
                     placeholder="e.g. RA2211003010xxx"
-                    className="w-full px-4 py-2 bg-[var(--background)] border border-[var(--border)] rounded-xl text-sm focus:ring-2 focus:ring-blue-500/50 outline-none"
+                    className="w-full px-4 py-2 bg-(--background) border border-(--border) rounded-xl text-sm focus:ring-2 focus:ring-blue-500/50 outline-none"
                   />
                 </div>
                 <div>
-                  <label className="block text-xs font-bold text-[var(--muted-foreground)] mb-1 uppercase">SRM Email</label>
+                  <label className="block text-xs font-bold text-(--muted-foreground) mb-1 uppercase">SRM Email</label>
                   <input 
                     value={newEmail} onChange={e => setNewEmail(e.target.value)}
                     placeholder="e.g. jd1234@srmist.edu.in"
-                    className="w-full px-4 py-2 bg-[var(--background)] border border-[var(--border)] rounded-xl text-sm focus:ring-2 focus:ring-blue-500/50 outline-none"
+                    className="w-full px-4 py-2 bg-(--background) border border-(--border) rounded-xl text-sm focus:ring-2 focus:ring-blue-500/50 outline-none"
                   />
                 </div>
               </div>
-              <div className="p-6 bg-[var(--background)] border-t border-[var(--border)] flex justify-end gap-3">
+              <div className="p-6 bg-(--background) border-t border-(--border) flex justify-end gap-3">
                 <button 
                   onClick={() => setIsEditModalOpen(false)}
-                  className="px-4 py-2 rounded-xl text-sm font-medium hover:bg-[var(--accent)] transition-colors"
+                  className="px-4 py-2 rounded-xl text-sm font-medium hover:bg-(--accent) transition-colors"
                 >
                   Cancel
                 </button>

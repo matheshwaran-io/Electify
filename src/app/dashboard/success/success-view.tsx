@@ -107,7 +107,7 @@ export function SuccessView({
             <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2">
               <h2 className="text-xl font-medium mb-1">Official Registration Receipt</h2>
               {receiptNumber && (
-                <span className="text-xs font-mono bg-slate-100 dark:bg-white/5 border border-slate-200 dark:border-white/10 px-2.5 py-1 rounded-md text-[var(--muted-foreground)]">
+                <span className="text-xs font-mono bg-slate-100 dark:bg-white/5 border border-slate-200 dark:border-white/10 px-2.5 py-1 rounded-md text-(--muted-foreground)">
                   {receiptNumber}
                 </span>
               )}

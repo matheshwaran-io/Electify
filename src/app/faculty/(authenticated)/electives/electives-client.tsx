@@ -12,10 +12,10 @@ export function ElectivesClient({ groups }: { groups: Group[] }) {
     return (
       <div className="space-y-6">
         <div>
-          <h1 className="text-3xl font-bold text-[var(--foreground)]">Electives</h1>
-          <p className="text-[var(--muted-foreground)] mt-1">Elective courses in your programme's events.</p>
+          <h1 className="text-3xl font-bold text-(--foreground)">Electives</h1>
+          <p className="text-(--muted-foreground) mt-1">Elective courses in your programme's events.</p>
         </div>
-        <div className="text-center py-20 text-[var(--muted-foreground)]">
+        <div className="text-center py-20 text-(--muted-foreground)">
           <BookOpen className="w-10 h-10 mx-auto mb-3 opacity-30" />
           <p>No electives configured yet.</p>
         </div>
@@ -33,24 +33,24 @@ export function ElectivesClient({ groups }: { groups: Group[] }) {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-3xl font-bold text-[var(--foreground)]">Electives</h1>
-        <p className="text-[var(--muted-foreground)] mt-1">Elective courses in your programme's events.</p>
+        <h1 className="text-3xl font-bold text-(--foreground)">Electives</h1>
+        <p className="text-(--muted-foreground) mt-1">Elective courses in your programme's events.</p>
       </div>
 
       {Object.entries(byEvent).map(([eventId, eventGroups]) => (
         <div key={eventId} className="space-y-4">
           <div className="flex items-center gap-3">
-            <h2 className="text-lg font-semibold text-[var(--foreground)]">{eventGroups[0].eventName}</h2>
+            <h2 className="text-lg font-semibold text-(--foreground)">{eventGroups[0].eventName}</h2>
             <StatusBadge status={eventGroups[0].eventStatus} />
           </div>
 
           {eventGroups.map((group) => (
-            <div key={group.groupId} className="bg-[var(--card)] border border-[var(--border)] rounded-2xl overflow-hidden">
-              <div className="px-6 py-4 border-b border-[var(--border)] bg-[var(--accent)]/20">
-                <h3 className="font-semibold text-[var(--foreground)]">{group.groupName}</h3>
-                <p className="text-xs text-[var(--muted-foreground)]">{group.electives.length} elective(s)</p>
+            <div key={group.groupId} className="bg-(--card) border border-(--border) rounded-2xl overflow-hidden">
+              <div className="px-6 py-4 border-b border-(--border) bg-(--accent)/20">
+                <h3 className="font-semibold text-(--foreground)">{group.groupName}</h3>
+                <p className="text-xs text-(--muted-foreground)">{group.electives.length} elective(s)</p>
               </div>
-              <div className="divide-y divide-[var(--border)]">
+              <div className="divide-y divide-(--border)">
                 {group.electives.map((elective, i) => (
                   <motion.div
                     key={elective.id}
@@ -63,8 +63,8 @@ export function ElectivesClient({ groups }: { groups: Group[] }) {
                       <BookOpen className="w-4 h-4 text-blue-500" />
                     </div>
                     <div className="flex-1 min-w-0">
-                      <p className="font-medium text-[var(--foreground)]">{elective.name}</p>
-                      <p className="text-xs text-[var(--muted-foreground)]">
+                      <p className="font-medium text-(--foreground)">{elective.name}</p>
+                      <p className="text-xs text-(--muted-foreground)">
                         {elective.courseCode ? `${elective.courseCode} · ` : ""}{elective.credits} credits
                       </p>
                     </div>
@@ -72,7 +72,7 @@ export function ElectivesClient({ groups }: { groups: Group[] }) {
                       <p className={`text-sm font-semibold ${elective.isFull ? "text-red-400" : "text-emerald-400"}`}>
                         {elective.availableSeats}/{elective.maxSeats}
                       </p>
-                      <p className="text-xs text-[var(--muted-foreground)]">seats left</p>
+                      <p className="text-xs text-(--muted-foreground)">seats left</p>
                     </div>
                   </motion.div>
                 ))}

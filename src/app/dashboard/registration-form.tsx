@@ -262,7 +262,7 @@ export function RegistrationForm({
       </div>
 
       <Dialog open={isConfirmOpen} onOpenChange={setIsConfirmOpen}>
-        <DialogContent className="sm:max-w-[425px] p-6 bg-white dark:bg-[#111] border border-slate-200 dark:border-white/10 shadow-lg rounded-md">
+        <DialogContent className="sm:max-w-106.25 p-6 bg-white dark:bg-[#111] border border-slate-200 dark:border-white/10 shadow-lg rounded-md">
           <DialogHeader className="mb-4">
             <DialogTitle className="text-lg font-medium text-slate-900 dark:text-white">
               Confirm Registration
@@ -332,7 +332,7 @@ const ElectiveCard = React.memo(function ElectiveCard({
       onClick={() => {
         if (!isDisabled && isEligible) onSelect(elective.groupId, elective.id);
       }}
-      className={`relative overflow-hidden cursor-pointer rounded-2xl p-5 flex flex-col justify-between min-h-[140px] transition-colors border ${
+      className={`relative overflow-hidden cursor-pointer rounded-2xl p-5 flex flex-col justify-between min-h-35 transition-colors border ${
         isSelected
           ? "border-slate-900 bg-slate-50 dark:border-white dark:bg-[#1a1a1a]"
           : isDisabled

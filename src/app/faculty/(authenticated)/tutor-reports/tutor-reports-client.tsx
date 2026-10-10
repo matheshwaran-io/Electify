@@ -422,8 +422,8 @@ export function TutorReportsClient({ reportData, hasActiveSection = true }: { re
       {/* Page Header */}
       <div className="flex flex-col md:flex-row md:items-start justify-between gap-5">
         <div className="space-y-1">
-          <h1 className="text-2xl font-bold text-[var(--foreground)] tracking-tight">Registration Reports</h1>
-          <p className="text-sm text-[var(--muted-foreground)]">
+          <h1 className="text-2xl font-bold text-(--foreground) tracking-tight">Registration Reports</h1>
+          <p className="text-sm text-(--muted-foreground)">
             {sectionLabel ? `Section ${sectionLabel}` : "Your section"}{programmeName ? ` • ${programmeName}` : ""}{departmentName ? ` • ${departmentName}` : ""}
           </p>
         </div>
@@ -437,14 +437,14 @@ export function TutorReportsClient({ reportData, hasActiveSection = true }: { re
           </button>
           <button
             onClick={exportCSV}
-            className="flex-1 sm:flex-none flex items-center justify-center gap-2 bg-[var(--card)] border border-[var(--border)] rounded-lg text-sm font-medium transition-all duration-200 hover:shadow-md"
+            className="flex-1 sm:flex-none flex items-center justify-center gap-2 bg-(--card) border border-(--border) rounded-lg text-sm font-medium transition-all duration-200 hover:shadow-md"
           >
             <FileSpreadsheet className="w-4 h-4 text-emerald-500" />
             <span>CSV</span>
           </button>
           <button
             onClick={exportPDF}
-            className="group relative flex items-center gap-2 px-4 py-2.5 bg-gradient-to-r from-rose-500 to-orange-500 hover:from-rose-600 hover:to-orange-600 text-white rounded-lg text-sm font-medium transition-all duration-200 hover:shadow-lg hover:shadow-rose-500/25"
+            className="group relative flex items-center gap-2 px-4 py-2.5 bg-linear-to-r from-rose-500 to-orange-500 hover:from-rose-600 hover:to-orange-600 text-white rounded-lg text-sm font-medium transition-all duration-200 hover:shadow-lg hover:shadow-rose-500/25"
           >
             <Download className="w-4 h-4" />
             <span>PDF</span>
@@ -461,15 +461,15 @@ export function TutorReportsClient({ reportData, hasActiveSection = true }: { re
       </div>
 
       {/* Tab Navigation */}
-      <div className="flex items-center gap-1 bg-[var(--card)] border border-[var(--border)] rounded-xl p-1 w-fit">
+      <div className="flex items-center gap-1 bg-(--card) border border-(--border) rounded-xl p-1 w-fit">
         {tabs.map(tab => (
           <button
             key={tab.id}
             onClick={() => setActiveTab(tab.id)}
             className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all duration-200 ${
               activeTab === tab.id
-                ? "bg-[var(--foreground)] text-[var(--background)] shadow-sm"
-                : "text-[var(--muted-foreground)] hover:text-[var(--foreground)] hover:bg-[var(--accent)]"
+                ? "bg-(--foreground) text-(--background) shadow-sm"
+                : "text-(--muted-foreground) hover:text-(--foreground) hover:bg-(--accent)"
             }`}
           >
             <tab.icon className="w-4 h-4" />
@@ -529,14 +529,14 @@ function SummaryCard({ icon: Icon, label, value, color }: { icon: typeof Users; 
   const c = colorClasses[color] || colorClasses.blue;
 
   return (
-    <div className={`bg-[var(--card)] border border-[var(--border)] rounded-xl p-5 ring-1 ${c.ring}`}>
+    <div className={`bg-(--card) border border-(--border) rounded-xl p-5 ring-1 ${c.ring}`}>
       <div className="flex items-center gap-3 mb-3">
         <div className={`w-9 h-9 rounded-lg ${c.bg} flex items-center justify-center`}>
-          <Icon className={`w-[18px] h-[18px] ${c.text}`} />
+          <Icon className={`w-4.5 h-4.5 ${c.text}`} />
         </div>
-        <p className="text-xs font-medium text-[var(--muted-foreground)] uppercase tracking-wider">{label}</p>
+        <p className="text-xs font-medium text-(--muted-foreground) uppercase tracking-wider">{label}</p>
       </div>
-      <p className="text-3xl font-bold text-[var(--foreground)] tabular-nums">{value}</p>
+      <p className="text-3xl font-bold text-(--foreground) tabular-nums">{value}</p>
     </div>
   );
 }
@@ -548,7 +548,7 @@ function CompletionCard({ pct }: { pct: number }) {
   const offset = circ - (pct / 100) * circ;
 
   return (
-    <div className="bg-[var(--card)] border border-[var(--border)] rounded-xl p-5 ring-1 ring-violet-500/20 flex items-center gap-5">
+    <div className="bg-(--card) border border-(--border) rounded-xl p-5 ring-1 ring-violet-500/20 flex items-center gap-5">
       <div className="relative w-16 h-16 shrink-0">
         <svg className="w-full h-full -rotate-90" viewBox="0 0 64 64">
           <circle cx="32" cy="32" r={r} fill="none" stroke="var(--border)" strokeWidth="5" />
@@ -565,11 +565,11 @@ function CompletionCard({ pct }: { pct: number }) {
             </linearGradient>
           </defs>
         </svg>
-        <span className="absolute inset-0 flex items-center justify-center text-sm font-bold text-[var(--foreground)]">{pct}%</span>
+        <span className="absolute inset-0 flex items-center justify-center text-sm font-bold text-(--foreground)">{pct}%</span>
       </div>
       <div>
-        <p className="text-xs font-medium text-[var(--muted-foreground)] uppercase tracking-wider">Completion</p>
-        <p className="text-lg font-bold text-[var(--foreground)] mt-1">Rate</p>
+        <p className="text-xs font-medium text-(--muted-foreground) uppercase tracking-wider">Completion</p>
+        <p className="text-lg font-bold text-(--foreground) mt-1">Rate</p>
       </div>
     </div>
   );
@@ -594,9 +594,9 @@ function OverviewTab({ students, groups, totalStudents, registeredCount, pending
   return (
     <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
       {/* Registration Status Breakdown */}
-      <div className="bg-[var(--card)] border border-[var(--border)] rounded-xl p-6">
-        <h3 className="text-sm font-semibold text-[var(--foreground)] mb-5 flex items-center gap-2">
-          <TrendingUp className="w-4 h-4 text-[var(--muted-foreground)]" />
+      <div className="bg-(--card) border border-(--border) rounded-xl p-6">
+        <h3 className="text-sm font-semibold text-(--foreground) mb-5 flex items-center gap-2">
+          <TrendingUp className="w-4 h-4 text-(--muted-foreground)" />
           Registration Progress
         </h3>
         <div className="space-y-4">
@@ -604,16 +604,16 @@ function OverviewTab({ students, groups, totalStudents, registeredCount, pending
           <ProgressBar label="Pending" value={pendingCount} max={totalStudents} color="amber" />
         </div>
         {/* Visual bar */}
-        <div className="mt-6 h-3 rounded-full bg-[var(--accent)] overflow-hidden flex">
+        <div className="mt-6 h-3 rounded-full bg-(--accent) overflow-hidden flex">
           {registeredCount > 0 && (
             <div
-              className="h-full bg-gradient-to-r from-emerald-500 to-emerald-400 transition-all duration-700"
+              className="h-full bg-linear-to-r from-emerald-500 to-emerald-400 transition-all duration-700"
               style={{ width: `${(registeredCount / totalStudents) * 100}%` }}
             />
           )}
           {pendingCount > 0 && (
             <div
-              className="h-full bg-gradient-to-r from-amber-500 to-amber-400 transition-all duration-700"
+              className="h-full bg-linear-to-r from-amber-500 to-amber-400 transition-all duration-700"
               style={{ width: `${(pendingCount / totalStudents) * 100}%` }}
             />
           )}
@@ -621,26 +621,26 @@ function OverviewTab({ students, groups, totalStudents, registeredCount, pending
       </div>
 
       {/* Top Elective Subjects */}
-      <div className="bg-[var(--card)] border border-[var(--border)] rounded-xl p-6">
-        <h3 className="text-sm font-semibold text-[var(--foreground)] mb-5 flex items-center gap-2">
-          <BookOpen className="w-4 h-4 text-[var(--muted-foreground)]" />
+      <div className="bg-(--card) border border-(--border) rounded-xl p-6">
+        <h3 className="text-sm font-semibold text-(--foreground) mb-5 flex items-center gap-2">
+          <BookOpen className="w-4 h-4 text-(--muted-foreground)" />
           Subject Enrollment
         </h3>
-        <div className="space-y-3 max-h-[280px] overflow-y-auto pr-1">
+        <div className="space-y-3 max-h-70 overflow-y-auto pr-1">
           {groups.length === 0 ? (
-            <p className="text-sm text-[var(--muted-foreground)] text-center py-8">No registrations yet.</p>
+            <p className="text-sm text-(--muted-foreground) text-center py-8">No registrations yet.</p>
           ) : (
             groups.slice(0, 10).map((g, i) => (
               <div key={i} className="space-y-1.5">
                 <div className="flex items-center justify-between text-xs">
-                  <span className="text-[var(--foreground)] font-medium truncate max-w-[70%]">
+                  <span className="text-(--foreground) font-medium truncate max-w-[70%]">
                     {g.courseCode ? `${g.courseCode} — ` : ""}{g.electiveName}
                   </span>
-                  <span className="text-[var(--muted-foreground)] tabular-nums font-medium">{g.count}</span>
+                  <span className="text-(--muted-foreground) tabular-nums font-medium">{g.count}</span>
                 </div>
-                <div className="h-1.5 rounded-full bg-[var(--accent)] overflow-hidden">
+                <div className="h-1.5 rounded-full bg-(--accent) overflow-hidden">
                   <motion.div
-                    className="h-full rounded-full bg-gradient-to-r from-indigo-500 to-violet-500"
+                    className="h-full rounded-full bg-linear-to-r from-indigo-500 to-violet-500"
                     initial={{ width: 0 }}
                     animate={{ width: `${(g.count / maxCount) * 100}%` }}
                     transition={{ duration: 0.6, delay: i * 0.05 }}
@@ -653,11 +653,11 @@ function OverviewTab({ students, groups, totalStudents, registeredCount, pending
       </div>
 
       {/* Registered Students */}
-      <div className="bg-[var(--card)] border border-[var(--border)] rounded-xl p-6 lg:col-span-2">
+      <div className="bg-(--card) border border-(--border) rounded-xl p-6 lg:col-span-2">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4">
           <div className="flex items-center gap-2.5">
             <Clock className="w-4 h-4 text-emerald-500" />
-            <h3 className="text-sm font-semibold text-[var(--foreground)]">
+            <h3 className="text-sm font-semibold text-(--foreground)">
               Registered Students
             </h3>
             <span className="text-xs font-semibold px-2.5 py-0.5 rounded-full bg-emerald-500/10 text-emerald-500 border border-emerald-500/20">
@@ -667,13 +667,13 @@ function OverviewTab({ students, groups, totalStudents, registeredCount, pending
 
           <div className="flex items-center gap-2">
             <div className="relative">
-              <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-[var(--muted-foreground)]" />
+              <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-(--muted-foreground)" />
               <input
                 type="text"
                 value={overviewSearch}
                 onChange={(e) => setOverviewSearch(e.target.value)}
                 placeholder="Search registered..."
-                className="pl-8 pr-3 py-1.5 bg-[var(--accent)]/50 border border-[var(--border)] rounded-lg text-xs text-[var(--foreground)] placeholder:text-[var(--muted-foreground)] focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                className="pl-8 pr-3 py-1.5 bg-(--accent)/50 border border-(--border) rounded-lg text-xs text-(--foreground) placeholder:text-(--muted-foreground) focus:outline-none focus:ring-1 focus:ring-indigo-500"
               />
             </div>
             {confirmedStudents.length > 10 && (
@@ -688,7 +688,7 @@ function OverviewTab({ students, groups, totalStudents, registeredCount, pending
           </div>
         </div>
 
-        <div className="overflow-x-auto max-h-[600px] overflow-y-auto pr-1">
+        <div className="overflow-x-auto max-h-150 overflow-y-auto pr-1">
           {(() => {
             let list = confirmedStudents;
             if (overviewSearch.trim()) {
@@ -703,33 +703,33 @@ function OverviewTab({ students, groups, totalStudents, registeredCount, pending
             const visibleList = showAll ? list : list.slice(0, 10);
 
             if (visibleList.length === 0) {
-              return <p className="text-sm text-[var(--muted-foreground)] text-center py-6">No matching registrations found.</p>;
+              return <p className="text-sm text-(--muted-foreground) text-center py-6">No matching registrations found.</p>;
             }
 
             return (
               <table className="w-full text-sm">
-                <thead className="sticky top-0 bg-[var(--card)] z-10">
-                  <tr className="border-b border-[var(--border)]">
-                    <th className="text-left py-2.5 px-3 text-xs font-medium text-[var(--muted-foreground)]">Student</th>
-                    <th className="text-left py-2.5 px-3 text-xs font-medium text-[var(--muted-foreground)]">Register No.</th>
-                    <th className="text-left py-2.5 px-3 text-xs font-medium text-[var(--muted-foreground)]">Receipt</th>
-                    <th className="text-left py-2.5 px-3 text-xs font-medium text-[var(--muted-foreground)]">Submitted</th>
-                    <th className="text-left py-2.5 px-3 text-xs font-medium text-[var(--muted-foreground)]">Subjects</th>
+                <thead className="sticky top-0 bg-(--card) z-10">
+                  <tr className="border-b border-(--border)">
+                    <th className="text-left py-2.5 px-3 text-xs font-medium text-(--muted-foreground)">Student</th>
+                    <th className="text-left py-2.5 px-3 text-xs font-medium text-(--muted-foreground)">Register No.</th>
+                    <th className="text-left py-2.5 px-3 text-xs font-medium text-(--muted-foreground)">Receipt</th>
+                    <th className="text-left py-2.5 px-3 text-xs font-medium text-(--muted-foreground)">Submitted</th>
+                    <th className="text-left py-2.5 px-3 text-xs font-medium text-(--muted-foreground)">Subjects</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-[var(--border)]">
+                <tbody className="divide-y divide-(--border)">
                   {visibleList.map(s => (
-                    <tr key={s.id} className="hover:bg-[var(--accent)]/30 transition-colors">
-                      <td className="py-3 px-3 font-medium text-[var(--foreground)]">{s.name}</td>
-                      <td className="py-3 px-3 text-[var(--muted-foreground)] font-mono text-xs">{s.registerNumber ?? "—"}</td>
+                    <tr key={s.id} className="hover:bg-(--accent)/30 transition-colors">
+                      <td className="py-3 px-3 font-medium text-(--foreground)">{s.name}</td>
+                      <td className="py-3 px-3 text-(--muted-foreground) font-mono text-xs">{s.registerNumber ?? "—"}</td>
                       <td className="py-3 px-3"><span className="text-xs font-mono bg-emerald-500/10 text-emerald-500 px-2 py-0.5 rounded-md">{s.receiptNumber ?? "—"}</span></td>
-                      <td className="py-3 px-3 text-[var(--muted-foreground)] text-xs">{new Date(s.submittedAt!).toLocaleString("en-IN", { dateStyle: "medium", timeStyle: "short" })}</td>
+                      <td className="py-3 px-3 text-(--muted-foreground) text-xs">{new Date(s.submittedAt!).toLocaleString("en-IN", { dateStyle: "medium", timeStyle: "short" })}</td>
                       <td className="py-3 px-3">
-                        <div className="space-y-1.5 max-w-[280px]">
+                        <div className="space-y-1.5 max-w-70">
                           {s.registrations.map((r, j) => (
                             <div key={j} className="flex items-start gap-1.5">
-                              <span className="text-[10px] font-semibold text-[var(--muted-foreground)] uppercase tracking-wider shrink-0 pt-0.5 min-w-[60px]">{r.groupName}:</span>
-                              <span className="text-xs text-[var(--foreground)] font-medium leading-tight">
+                              <span className="text-[10px] font-semibold text-(--muted-foreground) uppercase tracking-wider shrink-0 pt-0.5 min-w-15">{r.groupName}:</span>
+                              <span className="text-xs text-(--foreground) font-medium leading-tight">
                                 {r.courseCode ? <span className="text-indigo-400">{r.courseCode}</span> : null}
                                 {r.courseCode ? " — " : ""}{r.electiveName}
                               </span>
@@ -757,11 +757,11 @@ function ProgressBar({ label, value, max, color }: { label: string; value: numbe
   };
   return (
     <div className="flex items-center gap-4">
-      <span className="text-xs font-medium text-[var(--muted-foreground)] w-20">{label}</span>
-      <div className="flex-1 h-2 rounded-full bg-[var(--accent)] overflow-hidden">
-        <motion.div className={`h-full rounded-full bg-gradient-to-r ${gradients[color]}`} initial={{ width: 0 }} animate={{ width: `${pct}%` }} transition={{ duration: 0.8 }} />
+      <span className="text-xs font-medium text-(--muted-foreground) w-20">{label}</span>
+      <div className="flex-1 h-2 rounded-full bg-(--accent) overflow-hidden">
+        <motion.div className={`h-full rounded-full bg-linear-to-r ${gradients[color]}`} initial={{ width: 0 }} animate={{ width: `${pct}%` }} transition={{ duration: 0.8 }} />
       </div>
-      <span className="text-xs font-bold text-[var(--foreground)] tabular-nums w-12 text-right">{value} <span className="text-[var(--muted-foreground)] font-normal">/ {max}</span></span>
+      <span className="text-xs font-bold text-(--foreground) tabular-nums w-12 text-right">{value} <span className="text-(--muted-foreground) font-normal">/ {max}</span></span>
     </div>
   );
 }
@@ -788,23 +788,23 @@ function StudentsTab({ filtered, search, setSearch, statusFilter, setStatusFilte
       {/* Search & Filters */}
       <div className="flex flex-col sm:flex-row gap-3">
         <div className="relative flex-1">
-          <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-[var(--muted-foreground)]" />
+          <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-(--muted-foreground)" />
           <input
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             placeholder="Search by name, register number, or receipt..."
-            className="w-full pl-10 pr-4 py-2.5 bg-[var(--card)] border border-[var(--border)] rounded-lg text-sm text-[var(--foreground)] placeholder:text-[var(--muted-foreground)] focus:outline-none focus:ring-2 focus:ring-indigo-500/40 transition-shadow"
+            className="w-full pl-10 pr-4 py-2.5 bg-(--card) border border-(--border) rounded-lg text-sm text-(--foreground) placeholder:text-(--muted-foreground) focus:outline-none focus:ring-2 focus:ring-indigo-500/40 transition-shadow"
           />
         </div>
-        <div className="flex items-center gap-1 bg-[var(--card)] border border-[var(--border)] rounded-lg p-1">
+        <div className="flex items-center gap-1 bg-(--card) border border-(--border) rounded-lg p-1">
           {(["all", "registered", "pending"] as const).map(f => (
             <button
               key={f}
               onClick={() => setStatusFilter(f)}
               className={`px-3 py-1.5 rounded-md text-xs font-medium transition-all ${
                 statusFilter === f
-                  ? "bg-[var(--foreground)] text-[var(--background)]"
-                  : "text-[var(--muted-foreground)] hover:text-[var(--foreground)]"
+                  ? "bg-(--foreground) text-(--background)"
+                  : "text-(--muted-foreground) hover:text-(--foreground)"
               }`}
             >
               {f === "all" ? "All" : f === "registered" ? "Confirmed" : "Pending"}
@@ -814,23 +814,23 @@ function StudentsTab({ filtered, search, setSearch, statusFilter, setStatusFilte
       </div>
 
       {/* Student table */}
-      <div className="bg-[var(--card)] rounded-xl border border-[var(--border)] overflow-hidden">
+      <div className="bg-(--card) rounded-xl border border-(--border) overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
             <thead>
-              <tr className="border-b border-[var(--border)]">
-                <th className="text-left px-5 py-3.5 text-xs font-semibold text-[var(--muted-foreground)] uppercase tracking-wider">Student</th>
-                <th className="text-left px-5 py-3.5 text-xs font-semibold text-[var(--muted-foreground)] uppercase tracking-wider">Register No.</th>
-                <th className="text-left px-5 py-3.5 text-xs font-semibold text-[var(--muted-foreground)] uppercase tracking-wider">Status</th>
-                <th className="text-left px-5 py-3.5 text-xs font-semibold text-[var(--muted-foreground)] uppercase tracking-wider">Receipt</th>
-                <th className="text-left px-5 py-3.5 text-xs font-semibold text-[var(--muted-foreground)] uppercase tracking-wider">Electives</th>
+              <tr className="border-b border-(--border)">
+                <th className="text-left px-5 py-3.5 text-xs font-semibold text-(--muted-foreground) uppercase tracking-wider">Student</th>
+                <th className="text-left px-5 py-3.5 text-xs font-semibold text-(--muted-foreground) uppercase tracking-wider">Register No.</th>
+                <th className="text-left px-5 py-3.5 text-xs font-semibold text-(--muted-foreground) uppercase tracking-wider">Status</th>
+                <th className="text-left px-5 py-3.5 text-xs font-semibold text-(--muted-foreground) uppercase tracking-wider">Receipt</th>
+                <th className="text-left px-5 py-3.5 text-xs font-semibold text-(--muted-foreground) uppercase tracking-wider">Electives</th>
                 <th className="w-10" />
               </tr>
             </thead>
-            <tbody className="divide-y divide-[var(--border)]">
+            <tbody className="divide-y divide-(--border)">
               {filtered.length === 0 ? (
                 <tr>
-                  <td colSpan={6} className="text-center py-16 text-[var(--muted-foreground)]">
+                  <td colSpan={6} className="text-center py-16 text-(--muted-foreground)">
                     No students found.
                   </td>
                 </tr>
@@ -846,7 +846,7 @@ function StudentsTab({ filtered, search, setSearch, statusFilter, setStatusFilte
                         initial={{ opacity: 0 }}
                         animate={{ opacity: 1 }}
                         transition={{ delay: Math.min(i * 0.015, 0.3) }}
-                        className={`hover:bg-[var(--accent)]/30 transition-colors cursor-pointer ${isExpanded ? "bg-[var(--accent)]/20" : ""}`}
+                        className={`hover:bg-(--accent)/30 transition-colors cursor-pointer ${isExpanded ? "bg-(--accent)/20" : ""}`}
                         onClick={() => hasRegs && toggleExpanded(s.id)}
                       >
                         <td className="px-5 py-3.5">
@@ -854,22 +854,22 @@ function StudentsTab({ filtered, search, setSearch, statusFilter, setStatusFilte
                             <div className="relative">
                               <div className={`w-8 h-8 rounded-full flex items-center justify-center text-white text-xs font-bold shrink-0 ${
                                 isRegistered
-                                  ? "bg-gradient-to-br from-emerald-500 to-teal-600"
-                                  : "bg-gradient-to-br from-slate-400 to-slate-500"
+                                  ? "bg-linear-to-br from-emerald-500 to-teal-600"
+                                  : "bg-linear-to-br from-slate-400 to-slate-500"
                               }`}>
                                 {s.name.charAt(0).toUpperCase()}
                               </div>
                               {onlineUserIds.has(s.id) && (
-                                <span className="absolute bottom-0 -right-0.5 w-3 h-3 bg-emerald-500 border-2 border-[var(--background)] rounded-full animate-pulse" />
+                                <span className="absolute bottom-0 -right-0.5 w-3 h-3 bg-emerald-500 border-2 border-(--background) rounded-full animate-pulse" />
                               )}
                             </div>
                             <div>
-                              <span className="font-medium text-[var(--foreground)] block leading-tight">{s.name}</span>
-                              <span className="text-[10px] text-[var(--muted-foreground)]">{s.email}</span>
+                              <span className="font-medium text-(--foreground) block leading-tight">{s.name}</span>
+                              <span className="text-[10px] text-(--muted-foreground)">{s.email}</span>
                             </div>
                           </div>
                         </td>
-                        <td className="px-5 py-3.5 text-[var(--muted-foreground)] font-mono text-xs">{s.registerNumber ?? "—"}</td>
+                        <td className="px-5 py-3.5 text-(--muted-foreground) font-mono text-xs">{s.registerNumber ?? "—"}</td>
                         <td className="px-5 py-3.5">
                           <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-semibold ${
                             isRegistered
@@ -890,9 +890,9 @@ function StudentsTab({ filtered, search, setSearch, statusFilter, setStatusFilte
                         </td>
                         <td className="px-5 py-3.5">
                           {s.receiptNumber ? (
-                            <span className="text-xs font-mono bg-[var(--accent)] px-2 py-0.5 rounded-md text-[var(--foreground)]">{s.receiptNumber}</span>
+                            <span className="text-xs font-mono bg-(--accent) px-2 py-0.5 rounded-md text-(--foreground)">{s.receiptNumber}</span>
                           ) : (
-                            <span className="text-xs text-[var(--muted-foreground)]">—</span>
+                            <span className="text-xs text-(--muted-foreground)">—</span>
                           )}
                         </td>
                         <td className="px-5 py-3.5">
@@ -900,20 +900,20 @@ function StudentsTab({ filtered, search, setSearch, statusFilter, setStatusFilte
                             <div className="space-y-1">
                               {s.registrations.map((r, j) => (
                                 <div key={j} className="flex items-center gap-1.5">
-                                  <span className="text-[10px] font-medium text-[var(--muted-foreground)] shrink-0">{r.groupName}:</span>
-                                  <span className="text-[11px] bg-indigo-500/10 text-indigo-400 px-2 py-0.5 rounded-md font-medium truncate max-w-[200px]">
+                                  <span className="text-[10px] font-medium text-(--muted-foreground) shrink-0">{r.groupName}:</span>
+                                  <span className="text-[11px] bg-indigo-500/10 text-indigo-400 px-2 py-0.5 rounded-md font-medium truncate max-w-50">
                                     {r.courseCode ? `${r.courseCode} — ` : ""}{r.electiveName}
                                   </span>
                                 </div>
                               ))}
                             </div>
                           ) : (
-                            <span className="text-xs text-[var(--muted-foreground)]">—</span>
+                            <span className="text-xs text-(--muted-foreground)">—</span>
                           )}
                         </td>
                         <td className="px-3 py-3.5">
                           {hasRegs && (
-                            <ChevronDown className={`w-4 h-4 text-[var(--muted-foreground)] transition-transform duration-200 ${isExpanded ? "rotate-180" : ""}`} />
+                            <ChevronDown className={`w-4 h-4 text-(--muted-foreground) transition-transform duration-200 ${isExpanded ? "rotate-180" : ""}`} />
                           )}
                         </td>
                       </motion.tr>
@@ -926,20 +926,20 @@ function StudentsTab({ filtered, search, setSearch, statusFilter, setStatusFilte
                                 animate={{ height: "auto", opacity: 1 }}
                                 exit={{ height: 0, opacity: 0 }}
                                 transition={{ duration: 0.2 }}
-                                className="border-t border-[var(--border)] bg-[var(--accent)]/30 px-5 py-4 overflow-hidden"
+                                className="border-t border-(--border) bg-(--accent)/30 px-5 py-4 overflow-hidden"
                               >
-                                <p className="text-xs font-semibold text-[var(--muted-foreground)] uppercase tracking-wider mb-3">
+                                <p className="text-xs font-semibold text-(--muted-foreground) uppercase tracking-wider mb-3">
                                   {s.name}&apos;s Elective Selections
                                 </p>
                                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
                                   {s.registrations.map((r, j) => (
-                                    <div key={j} className="flex items-start gap-3 bg-[var(--card)] border border-[var(--border)] rounded-lg p-3">
+                                    <div key={j} className="flex items-start gap-3 bg-(--card) border border-(--border) rounded-lg p-3">
                                       <div className="w-8 h-8 rounded-lg bg-indigo-500/10 flex items-center justify-center shrink-0 mt-0.5">
                                         <BookOpen className="w-4 h-4 text-indigo-500" />
                                       </div>
                                       <div className="min-w-0">
-                                        <p className="text-[10px] font-medium text-[var(--muted-foreground)] uppercase tracking-wider">{r.groupName}</p>
-                                        <p className="text-sm font-medium text-[var(--foreground)] mt-0.5 leading-tight">
+                                        <p className="text-[10px] font-medium text-(--muted-foreground) uppercase tracking-wider">{r.groupName}</p>
+                                        <p className="text-sm font-medium text-(--foreground) mt-0.5 leading-tight">
                                           {r.courseCode ? <span className="text-indigo-400">{r.courseCode}</span> : null}
                                           {r.courseCode ? " — " : ""}{r.electiveName}
                                         </p>
@@ -961,7 +961,7 @@ function StudentsTab({ filtered, search, setSearch, statusFilter, setStatusFilte
         </div>
       </div>
 
-      <p className="text-xs text-[var(--muted-foreground)] text-right">Showing {filtered.length} student{filtered.length !== 1 ? "s" : ""}</p>
+      <p className="text-xs text-(--muted-foreground) text-right">Showing {filtered.length} student{filtered.length !== 1 ? "s" : ""}</p>
       
       <AnimatePresence>
         {registeringStudent && eventId && (
@@ -1022,22 +1022,22 @@ function ManualRegisterModal({ student, eventId, availableElectives, onClose }: 
         initial={{ opacity: 0, scale: 0.95 }}
         animate={{ opacity: 1, scale: 1 }}
         exit={{ opacity: 0, scale: 0.95 }}
-        className="w-full max-w-lg bg-[var(--card)] border border-[var(--border)] rounded-2xl shadow-xl overflow-hidden"
+        className="w-full max-w-lg bg-(--card) border border-(--border) rounded-2xl shadow-xl overflow-hidden"
       >
         <div className="p-6">
-          <h2 className="text-xl font-bold text-[var(--foreground)] mb-1">Manual Registration</h2>
-          <p className="text-sm text-[var(--muted-foreground)] mb-6">
+          <h2 className="text-xl font-bold text-(--foreground) mb-1">Manual Registration</h2>
+          <p className="text-sm text-(--muted-foreground) mb-6">
             Register subjects for {student.name} ({student.registerNumber})
           </p>
           
           <div className="space-y-5">
             {groupOptions.map(g => (
               <div key={g.groupId}>
-                <label className="block text-sm font-medium text-[var(--foreground)] mb-2">{g.groupName}</label>
+                <label className="block text-sm font-medium text-(--foreground) mb-2">{g.groupName}</label>
                 <select
                   value={selections[g.groupId] || ""}
                   onChange={(e) => setSelections(prev => ({ ...prev, [g.groupId]: e.target.value }))}
-                  className="w-full bg-[var(--background)] border border-[var(--border)] rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                  className="w-full bg-(--background) border border-(--border) rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
                 >
                   <option value="" disabled>Select a subject</option>
                   {g.electives.map(e => (
@@ -1050,11 +1050,11 @@ function ManualRegisterModal({ student, eventId, availableElectives, onClose }: 
             ))}
           </div>
         </div>
-        <div className="flex items-center justify-end gap-3 px-6 py-4 bg-[var(--accent)]/30 border-t border-[var(--border)]">
+        <div className="flex items-center justify-end gap-3 px-6 py-4 bg-(--accent)/30 border-t border-(--border)">
           <button
             onClick={onClose}
             disabled={isSubmitting}
-            className="px-4 py-2 text-sm font-medium text-[var(--muted-foreground)] hover:text-[var(--foreground)] transition-colors"
+            className="px-4 py-2 text-sm font-medium text-(--muted-foreground) hover:text-(--foreground) transition-colors"
           >
             Cancel
           </button>
@@ -1117,9 +1117,9 @@ function SubjectsTab({ groupedSubjects, totalStudents, students }: { groupedSubj
 
   if (groupedSubjects.length === 0) {
     return (
-      <div className="bg-[var(--card)] border border-[var(--border)] rounded-xl p-12 text-center">
-        <BookOpen className="w-10 h-10 text-[var(--muted-foreground)] mx-auto mb-3 opacity-50" />
-        <p className="text-[var(--muted-foreground)]">No elective subjects have been selected yet.</p>
+      <div className="bg-(--card) border border-(--border) rounded-xl p-12 text-center">
+        <BookOpen className="w-10 h-10 text-(--muted-foreground) mx-auto mb-3 opacity-50" />
+        <p className="text-(--muted-foreground)">No elective subjects have been selected yet.</p>
       </div>
     );
   }
@@ -1128,13 +1128,13 @@ function SubjectsTab({ groupedSubjects, totalStudents, students }: { groupedSubj
     <div className="space-y-3">
       {/* Search */}
       <div className="relative">
-        <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[var(--muted-foreground)]" />
+        <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-(--muted-foreground)" />
         <input
           type="text"
           placeholder="Search students by name or register number..."
           value={subjectSearch}
           onChange={(e) => setSubjectSearch(e.target.value)}
-          className="w-full pl-9 pr-4 py-2.5 bg-[var(--card)] border border-[var(--border)] rounded-xl text-sm text-[var(--foreground)] placeholder:text-[var(--muted-foreground)] focus:outline-none focus:ring-2 focus:ring-indigo-500/50"
+          className="w-full pl-9 pr-4 py-2.5 bg-(--card) border border-(--border) rounded-xl text-sm text-(--foreground) placeholder:text-(--muted-foreground) focus:outline-none focus:ring-2 focus:ring-indigo-500/50"
         />
       </div>
 
@@ -1143,21 +1143,21 @@ function SubjectsTab({ groupedSubjects, totalStudents, students }: { groupedSubj
         const groupTotal = subjects.reduce((sum, s) => sum + s.count, 0);
 
         return (
-          <div key={groupName} className="bg-[var(--card)] border border-[var(--border)] rounded-xl overflow-hidden">
+          <div key={groupName} className="bg-(--card) border border-(--border) rounded-xl overflow-hidden">
             <button
               onClick={() => toggleGroup(groupName)}
-              className="w-full flex items-center justify-between p-5 hover:bg-[var(--accent)]/30 transition-colors"
+              className="w-full flex items-center justify-between p-5 hover:bg-(--accent)/30 transition-colors"
             >
               <div className="flex items-center gap-3">
                 <div className="w-9 h-9 rounded-lg bg-indigo-500/10 flex items-center justify-center">
-                  <BookOpen className="w-[18px] h-[18px] text-indigo-500" />
+                  <BookOpen className="w-4.5 h-4.5 text-indigo-500" />
                 </div>
                 <div className="text-left">
-                  <h3 className="text-sm font-semibold text-[var(--foreground)]">{groupName}</h3>
-                  <p className="text-xs text-[var(--muted-foreground)]">{subjects.length} subject{subjects.length !== 1 ? "s" : ""} • {groupTotal} enrollment{groupTotal !== 1 ? "s" : ""}</p>
+                  <h3 className="text-sm font-semibold text-(--foreground)">{groupName}</h3>
+                  <p className="text-xs text-(--muted-foreground)">{subjects.length} subject{subjects.length !== 1 ? "s" : ""} • {groupTotal} enrollment{groupTotal !== 1 ? "s" : ""}</p>
                 </div>
               </div>
-              <ChevronDown className={`w-4 h-4 text-[var(--muted-foreground)] transition-transform duration-200 ${isOpen ? "rotate-180" : ""}`} />
+              <ChevronDown className={`w-4 h-4 text-(--muted-foreground) transition-transform duration-200 ${isOpen ? "rotate-180" : ""}`} />
             </button>
             <AnimatePresence>
               {isOpen && (
@@ -1166,7 +1166,7 @@ function SubjectsTab({ groupedSubjects, totalStudents, students }: { groupedSubj
                   animate={{ height: "auto", opacity: 1 }}
                   exit={{ height: 0, opacity: 0 }}
                   transition={{ duration: 0.2 }}
-                  className="border-t border-[var(--border)]"
+                  className="border-t border-(--border)"
                 >
                   <div className="p-4 space-y-2">
                     {subjects.map((sub, idx) => {
@@ -1188,31 +1188,31 @@ function SubjectsTab({ groupedSubjects, totalStudents, students }: { groupedSubj
                       if (q && filteredStudents.length === 0) return null;
 
                       return (
-                        <div key={idx} className="rounded-lg border border-[var(--border)] overflow-hidden">
+                        <div key={idx} className="rounded-lg border border-(--border) overflow-hidden">
                           <button
                             onClick={() => toggleSubject(subjectKey)}
-                            className="w-full flex items-center gap-4 p-3 hover:bg-[var(--accent)]/20 transition-colors"
+                            className="w-full flex items-center gap-4 p-3 hover:bg-(--accent)/20 transition-colors"
                           >
                             <div className="flex-1 min-w-0">
                               <div className="flex items-center gap-2">
                                 {sub.courseCode && (
                                   <span className="text-[10px] font-mono font-semibold text-indigo-400 bg-indigo-500/10 px-1.5 py-0.5 rounded">{sub.courseCode}</span>
                                 )}
-                                <span className="text-sm font-medium text-[var(--foreground)] truncate">{sub.electiveName}</span>
+                                <span className="text-sm font-medium text-(--foreground) truncate">{sub.electiveName}</span>
                               </div>
                             </div>
                             <div className="flex items-center gap-3 shrink-0">
-                              <div className="w-24 h-1.5 rounded-full bg-[var(--accent)] overflow-hidden">
+                              <div className="w-24 h-1.5 rounded-full bg-(--accent) overflow-hidden">
                                 <motion.div
-                                  className="h-full rounded-full bg-gradient-to-r from-indigo-500 to-violet-500"
+                                  className="h-full rounded-full bg-linear-to-r from-indigo-500 to-violet-500"
                                   initial={{ width: 0 }}
                                   animate={{ width: `${pct}%` }}
                                   transition={{ duration: 0.5 }}
                                 />
                               </div>
-                              <span className="text-xs font-bold text-[var(--foreground)] tabular-nums w-8 text-right">{sub.count}</span>
-                              <span className="text-[10px] text-[var(--muted-foreground)] tabular-nums w-8">({pct}%)</span>
-                              <ChevronDown className={`w-3.5 h-3.5 text-[var(--muted-foreground)] transition-transform duration-200 ${isSubjectExpanded ? "rotate-180" : ""}`} />
+                              <span className="text-xs font-bold text-(--foreground) tabular-nums w-8 text-right">{sub.count}</span>
+                              <span className="text-[10px] text-(--muted-foreground) tabular-nums w-8">({pct}%)</span>
+                              <ChevronDown className={`w-3.5 h-3.5 text-(--muted-foreground) transition-transform duration-200 ${isSubjectExpanded ? "rotate-180" : ""}`} />
                             </div>
                           </button>
 
@@ -1223,35 +1223,35 @@ function SubjectsTab({ groupedSubjects, totalStudents, students }: { groupedSubj
                                 animate={{ height: "auto", opacity: 1 }}
                                 exit={{ height: 0, opacity: 0 }}
                                 transition={{ duration: 0.2 }}
-                                className="border-t border-[var(--border)] bg-[var(--background)]/50"
+                                className="border-t border-(--border) bg-(--background)/50"
                               >
                                 <div className="p-3">
                                   {/* Table Header */}
-                                  <div className="grid grid-cols-[40px_1fr_1fr] gap-2 px-2 pb-2 mb-1 border-b border-[var(--border)]">
-                                    <span className="text-[10px] font-bold uppercase tracking-wider text-[var(--muted-foreground)]">#</span>
-                                    <span className="text-[10px] font-bold uppercase tracking-wider text-[var(--muted-foreground)]">Student Name</span>
-                                    <span className="text-[10px] font-bold uppercase tracking-wider text-[var(--muted-foreground)]">Register Number</span>
+                                  <div className="grid grid-cols-[40px_1fr_1fr] gap-2 px-2 pb-2 mb-1 border-b border-(--border)">
+                                    <span className="text-[10px] font-bold uppercase tracking-wider text-(--muted-foreground)">#</span>
+                                    <span className="text-[10px] font-bold uppercase tracking-wider text-(--muted-foreground)">Student Name</span>
+                                    <span className="text-[10px] font-bold uppercase tracking-wider text-(--muted-foreground)">Register Number</span>
                                   </div>
 
                                   {filteredStudents.length > 0 ? (
-                                    <div className="space-y-0.5 max-h-[320px] overflow-y-auto custom-scrollbar">
+                                    <div className="space-y-0.5 max-h-80 overflow-y-auto custom-scrollbar">
                                       {filteredStudents.map((s, sIdx) => (
                                         <div
                                           key={s.id}
-                                          className="grid grid-cols-[40px_1fr_1fr] gap-2 px-2 py-2 rounded-md hover:bg-[var(--accent)]/30 transition-colors items-center"
+                                          className="grid grid-cols-[40px_1fr_1fr] gap-2 px-2 py-2 rounded-md hover:bg-(--accent)/30 transition-colors items-center"
                                         >
-                                          <span className="text-xs font-mono text-[var(--muted-foreground)]">{sIdx + 1}</span>
-                                          <span className="text-sm text-[var(--foreground)] font-medium truncate">{s.name}</span>
-                                          <span className="text-xs font-mono text-[var(--muted-foreground)]">{s.registerNumber || "—"}</span>
+                                          <span className="text-xs font-mono text-(--muted-foreground)">{sIdx + 1}</span>
+                                          <span className="text-sm text-(--foreground) font-medium truncate">{s.name}</span>
+                                          <span className="text-xs font-mono text-(--muted-foreground)">{s.registerNumber || "—"}</span>
                                         </div>
                                       ))}
                                     </div>
                                   ) : (
-                                    <p className="text-xs text-[var(--muted-foreground)] text-center py-4">No students found.</p>
+                                    <p className="text-xs text-(--muted-foreground) text-center py-4">No students found.</p>
                                   )}
 
-                                  <div className="mt-2 pt-2 border-t border-[var(--border)] flex justify-between items-center px-2">
-                                    <span className="text-[10px] text-[var(--muted-foreground)]">
+                                  <div className="mt-2 pt-2 border-t border-(--border) flex justify-between items-center px-2">
+                                    <span className="text-[10px] text-(--muted-foreground)">
                                       Showing {filteredStudents.length} of {enrolledStudents.length} student{enrolledStudents.length !== 1 ? "s" : ""}
                                     </span>
                                     <span className="text-[10px] font-bold text-indigo-500">

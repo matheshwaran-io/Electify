@@ -150,7 +150,7 @@ export function PortalSelectClient({
             <button
               onClick={() => handleSelectPortal("COORDINATOR")}
               disabled={loadingPortal !== null}
-              className="w-full py-3.5 px-5 rounded-xl font-semibold text-sm transition-all duration-200 flex items-center justify-center gap-2 cursor-pointer bg-indigo-600 hover:bg-indigo-700 dark:bg-gradient-to-r dark:from-indigo-600 dark:to-indigo-500 dark:hover:from-indigo-500 dark:hover:to-indigo-400 text-white shadow-md shadow-indigo-600/25 active:scale-[0.99] disabled:opacity-50"
+              className="w-full py-3.5 px-5 rounded-xl font-semibold text-sm transition-all duration-200 flex items-center justify-center gap-2 cursor-pointer bg-indigo-600 hover:bg-indigo-700 dark:bg-linear-to-r dark:from-indigo-600 dark:to-indigo-500 dark:hover:from-indigo-500 dark:hover:to-indigo-400 text-white shadow-md shadow-indigo-600/25 active:scale-[0.99] disabled:opacity-50"
             >
               {loadingPortal === "COORDINATOR" ? (
                 "Launching Coordinator Portal..."
@@ -237,7 +237,7 @@ export function PortalSelectClient({
             <button
               onClick={() => handleSelectPortal("TUTOR")}
               disabled={loadingPortal !== null}
-              className="w-full py-3.5 px-5 rounded-xl font-semibold text-sm transition-all duration-200 flex items-center justify-center gap-2 cursor-pointer bg-purple-600 hover:bg-purple-700 dark:bg-gradient-to-r dark:from-purple-600 dark:to-purple-500 dark:hover:from-purple-500 dark:hover:to-purple-400 text-white shadow-md shadow-purple-600/25 active:scale-[0.99] disabled:opacity-50"
+              className="w-full py-3.5 px-5 rounded-xl font-semibold text-sm transition-all duration-200 flex items-center justify-center gap-2 cursor-pointer bg-purple-600 hover:bg-purple-700 dark:bg-linear-to-r dark:from-purple-600 dark:to-purple-500 dark:hover:from-purple-500 dark:hover:to-purple-400 text-white shadow-md shadow-purple-600/25 active:scale-[0.99] disabled:opacity-50"
             >
               {loadingPortal === "TUTOR" ? (
                 "Launching Class Tutor Portal..."
