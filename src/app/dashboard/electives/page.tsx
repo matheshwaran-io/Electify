@@ -1,16 +1,15 @@
 import * as React from "react";
-import Image from "next/image";
 import { redirect } from "next/navigation";
 import { getSession } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { users, registrationEvents, electiveGroups, electives, studentRegistrations, registrations, systemSettings } from "@/lib/db/schema";
 import { eq, and, inArray, desc } from "drizzle-orm";
 import { RegistrationForm } from "../registration-form";
-import { ThemeToggle } from "@/components/theme-toggle";
-import { logout } from "@/app/actions/auth";
-import { FileCheck, ShieldAlert } from "lucide-react";
+import { Users } from "lucide-react";
+import { StudentHeader, StudentStatus } from "@/components/student/student-chrome";
 
 export const dynamic = "force-dynamic";
+export const metadata = { title: "Choose your electives" };
 
 export default async function StudentElectivesPage() {
   const session = await getSession();
@@ -31,15 +30,9 @@ export default async function StudentElectivesPage() {
 
   if (!student.academicBatchId) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-canvas">
-        <div className="text-center p-8 bg-surface rounded-badge border border-border shadow-1 max-w-md">
-          <ShieldAlert className="w-12 h-12 text-danger-text mx-auto mb-4" />
-          <h2 className="text-xl font-medium text-fg mb-2">Missing Batch</h2>
-          <p className="text-sm text-fg-muted">
-            Your account is not assigned to an academic batch.
-          </p>
-        </div>
-      </div>
+      <StudentStatus icon={<Users />} tone="warning" title="You're not in a batch yet" next="Ask your class tutor to add you to your section. Once they do, sign in again.">
+        <p>Electives are offered per batch, so we can&apos;t show you any until your account is linked to one.</p>
+      </StudentStatus>
     );
   }
 
@@ -102,84 +95,42 @@ export default async function StudentElectivesPage() {
   const currentRegistrations = await db.select().from(studentRegistrations)
     .where(and(eq(studentRegistrations.studentId, student.id), eq(studentRegistrations.eventId, event.id)));
 
-  async function handleLogoutAction() {
-    "use server";
-    await logout();
-    redirect("/login");
-  }
-
   return (
-    <div className="min-h-screen bg-canvas flex flex-col relative">
-      <header className="sticky top-0 z-40 w-full border-b border-border bg-surface">
-        <div className="max-w-6xl mx-auto px-4 h-14 flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <div className="inline-flex items-center justify-center w-8 h-8 rounded-badge bg-surface border border-border p-1">
-              <Image src="/logo.png" alt="Electify Logo" width={24} height={24} className="w-full h-full object-contain" />
-            </div>
-            <span className="font-semibold text-sm text-fg tracking-tight">Electify</span>
-          </div>
-          <div className="flex items-center gap-4">
-            <ThemeToggle />
-            <form action={handleLogoutAction}>
-              <button
-                type="submit"
-                className="text-sm font-medium text-fg-muted hover:text-fg transition-colors"
-              >
-                Sign Out
-              </button>
-            </form>
-          </div>
-        </div>
-      </header>
+    <div className="flex min-h-dvh flex-col">
+      <StudentHeader />
 
-      <main className="flex-1 max-w-5xl w-full mx-auto px-4 py-6 sm:py-10 sm:px-6 space-y-6 sm:space-y-8 relative z-10 pb-20 sm:pb-32">
-        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 sm:gap-6">
-          <div className="space-y-1">
-            <h1 className="text-2xl font-semibold tracking-tight text-fg">{student.name}</h1>
-            <p className="text-xs sm:text-sm text-fg-muted">
-              {student.registerNumber} <span className="mx-2 text-fg-subtle">|</span> {event.name}
-            </p>
-          </div>
-
-          <div className="w-full sm:w-auto bg-surface rounded-control sm:rounded-full p-3 sm:pr-5 sm:pl-3 border border-border flex items-center gap-3 sm:gap-4 shadow-1">
-            <div className="w-8 h-8 sm:w-9 sm:h-9 rounded-full bg-surface-2 text-fg flex items-center justify-center">
-              <FileCheck className="w-4 h-4 sm:w-4 sm:h-4" />
-            </div>
-            <div className="flex-1 flex sm:flex-col sm:items-start items-center justify-between sm:justify-center">
-              <p className="text-2xs sm:text-2xs uppercase font-bold tracking-wider text-fg-muted">Status</p>
-              <p className="text-sm sm:text-sm font-semibold text-fg">
-                Pending Selection
-              </p>
-            </div>
-          </div>
+      <main className="mx-auto w-full max-w-6xl flex-1 px-4 pt-6 sm:px-6 sm:pt-10">
+        <div className="mb-2 flex flex-col gap-1 animate-enter">
+          <p className="text-sm text-fg-muted">{event.name}</p>
+          <h1 className="text-2xl font-semibold tracking-tight text-fg sm:text-3xl">Choose your electives</h1>
+          <p className="text-sm text-fg-muted">
+            {student.name}
+            <span aria-hidden className="mx-2 text-border-strong">/</span>
+            <span className="font-mono">{student.registerNumber}</span>
+          </p>
         </div>
 
-        <div className="border-t border-border pt-8">
-          <RegistrationForm
-            event={{
-              id: event.id,
-              name: event.name,
-              openDate: event.openDate,
-              closeDate: event.closeDate,
-              status: event.status,
-            }}
-            student={{
-              id: student.id,
-              name: student.name,
-              registerNumber: student.registerNumber || "",
-              isEligible: student.isEligible,
-              hasSubmitted: false,
-            }}
-            groups={groups}
-            electives={allElectives}
-            initialRegistrations={currentRegistrations}
-          />
-        </div>
+        <RegistrationForm
+          event={{
+            id: event.id,
+            name: event.name,
+            openDate: event.openDate,
+            closeDate: event.closeDate,
+            status: event.status,
+          }}
+          student={{
+            id: student.id,
+            name: student.name,
+            registerNumber: student.registerNumber || "",
+            isEligible: student.isEligible,
+            hasSubmitted: false,
+          }}
+          groups={groups}
+          electives={allElectives}
+          initialRegistrations={currentRegistrations}
+          serverNow={now.getTime()}
+        />
       </main>
-
-      <footer className="py-6 border-t border-border text-center text-xs text-fg-muted">
-        <p>© {new Date().getFullYear()} Electify. Enterprise Registration System.</p>
-      </footer>
     </div>
   );
 }

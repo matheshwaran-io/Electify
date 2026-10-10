@@ -5,9 +5,9 @@ import { db } from "@/lib/db";
 import { users, registrationEvents, registrations, systemSettings } from "@/lib/db/schema";
 import { eq, and, inArray, desc } from "drizzle-orm";
 import { SuccessView } from "./success-view";
-import { ThemeToggle } from "@/components/theme-toggle";
 
 export const dynamic = "force-dynamic";
+export const metadata = { title: "Registration receipt" };
 
 interface ReceiptSnapshot {
   receiptNumber: string;
@@ -20,9 +20,14 @@ interface ReceiptSnapshot {
     degree?: string;
     section?: string;
   };
+  // Snapshots written by registerElectives carry `electiveName`; rows written by
+  // the seed/fix scripts carry `name` + `courseCode`. Read both.
   electives: {
     groupName: string;
-    electiveName: string;
+    electiveName?: string;
+    name?: string;
+    courseCode?: string | null;
+    credits?: number;
   }[];
 }
 
@@ -83,7 +88,7 @@ export default async function RegistrationSuccessPage() {
   
   const formattedRegistrations = (snapshot?.electives || []).map(e => ({
     groupName: e.groupName,
-    electiveName: e.electiveName,
+    electiveName: e.electiveName ?? (e.courseCode ? `${e.courseCode} - ${e.name ?? ""}` : e.name ?? ""),
     submittedAt: new Date(snapshot.submittedAt || userRegistration.submittedAt || new Date()),
   }));
 
@@ -91,29 +96,21 @@ export default async function RegistrationSuccessPage() {
   const allowRegistrationEdit = false;
 
   return (
-    <main className="flex min-h-screen flex-col items-center justify-center relative bg-canvas p-4 overflow-hidden print:bg-surface print:p-0">
-
-      {/* Header Utilities */}
-      <div className="absolute top-4 right-4 print:hidden z-50">
-        <ThemeToggle />
-      </div>
-
-      <SuccessView
-        student={{
-          name: snapshot?.student?.name || student.name,
-          registerNumber: snapshot?.student?.registerNumber || student.registerNumber || "N/A",
-          email: snapshot?.student?.email || student.email,
-          department: snapshot?.student?.department,
-          degree: snapshot?.student?.degree,
-          section: snapshot?.student?.section,
-        }}
-        event={{
-          name: event.name,
-        }}
-        registrations={formattedRegistrations}
-        allowRegistrationEdit={allowRegistrationEdit}
-        receiptNumber={snapshot?.receiptNumber || userRegistration.receiptNumber || "N/A"}
-      />
-    </main>
+    <SuccessView
+      student={{
+        name: snapshot?.student?.name || student.name,
+        registerNumber: snapshot?.student?.registerNumber || student.registerNumber || "N/A",
+        email: snapshot?.student?.email || student.email,
+        department: snapshot?.student?.department,
+        degree: snapshot?.student?.degree,
+        section: snapshot?.student?.section,
+      }}
+      event={{
+        name: event.name,
+      }}
+      registrations={formattedRegistrations}
+      allowRegistrationEdit={allowRegistrationEdit}
+      receiptNumber={snapshot?.receiptNumber || userRegistration.receiptNumber || "N/A"}
+    />
   );
 }
