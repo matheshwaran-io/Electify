@@ -4,11 +4,12 @@ import { getSession } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { users, systemSettings, registrationEvents, registrations } from "@/lib/db/schema";
 import { eq, and, inArray, desc } from "drizzle-orm";
-import { ThemeToggle } from "@/components/theme-toggle";
-import { logout } from "@/app/actions/auth";
-import { ShieldAlert } from "lucide-react";
+import { CalendarX2, Clock3, UserX, Users } from "lucide-react";
+import { StudentStatus } from "@/components/student/student-chrome";
+import { formatDateTime } from "@/lib/format";
 
 export const dynamic = "force-dynamic";
+export const metadata = { title: "Registration" };
 
 export default async function StudentDashboardRouterPage() {
   const session = await getSession();
@@ -31,29 +32,17 @@ export default async function StudentDashboardRouterPage() {
 
   if (!student) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-canvas">
-        <div className="text-center p-8 bg-surface rounded-badge border border-border shadow-1 max-w-md">
-          <ShieldAlert className="w-12 h-12 text-danger-text mx-auto mb-4" />
-          <h2 className="text-xl font-medium text-fg mb-2">Account Error</h2>
-          <p className="text-sm text-fg-muted">
-            Your student account is not found in the system.
-          </p>
-        </div>
-      </div>
+      <StudentStatus icon={<UserX />} tone="danger" title="We couldn't find your student record" next="Ask your class tutor to check that your account exists, then sign in again.">
+        <p>You&apos;re signed in, but there&apos;s no student profile attached to this account.</p>
+      </StudentStatus>
     );
   }
 
   if (!student.academicBatchId) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-canvas">
-        <div className="text-center p-8 bg-surface rounded-badge border border-border shadow-1 max-w-md">
-          <ShieldAlert className="w-12 h-12 text-danger-text mx-auto mb-4" />
-          <h2 className="text-xl font-medium text-fg mb-2">Missing Batch</h2>
-          <p className="text-sm text-fg-muted">
-            Your account is not assigned to an academic batch.
-          </p>
-        </div>
-      </div>
+      <StudentStatus icon={<Users />} tone="warning" title="You're not in a batch yet" next="Ask your class tutor to add you to your section. Once they do, sign in again and registration will appear here.">
+        <p>Electives are offered per batch, so we can&apos;t show you any until your account is linked to one.</p>
+      </StudentStatus>
     );
   }
 
@@ -68,25 +57,9 @@ export default async function StudentDashboardRouterPage() {
 
   if (!event) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-canvas">
-        <div className="text-center p-8 bg-surface rounded-card border border-border shadow-1 max-w-md relative overflow-hidden">
-          <div className="absolute top-4 right-4"><ThemeToggle /></div>
-          <ShieldAlert className="w-12 h-12 text-danger-text mx-auto mb-4" />
-          <h2 className="text-xl font-medium text-fg mb-2">No Active Registration</h2>
-          <p className="text-sm text-fg-muted">
-            Elective registration is currently closed.
-          </p>
-          <form action={async () => {
-            "use server";
-            await logout();
-            redirect("/login");
-          }} className="mt-6">
-            <button type="submit" className="text-xs font-semibold text-fg-muted hover:text-fg-muted">
-              Sign Out
-            </button>
-          </form>
-        </div>
-      </div>
+      <StudentStatus icon={<Clock3 />} title="No registration scheduled yet" next="Your class tutor will share the opening time. This page shows a countdown as soon as a window is scheduled.">
+        <p>There isn&apos;t an elective registration window for your batch right now.</p>
+      </StudentStatus>
     );
   }
 
@@ -126,25 +99,16 @@ export default async function StudentDashboardRouterPage() {
 
   if (isRegistrationEnded && !hasSubmitted) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-canvas">
-        <div className="text-center p-8 bg-surface rounded-card border border-border shadow-1 max-w-md relative overflow-hidden">
-          <div className="absolute top-4 right-4"><ThemeToggle /></div>
-          <ShieldAlert className="w-12 h-12 text-danger-text mx-auto mb-4" />
-          <h2 className="text-xl font-medium text-fg mb-2">Registration Closed</h2>
-          <p className="text-sm text-fg-muted">
-            Registration period has ended.
-          </p>
-          <form action={async () => {
-            "use server";
-            await logout();
-            redirect("/login");
-          }} className="mt-6">
-            <button type="submit" className="text-xs font-semibold text-fg-muted hover:text-fg-muted">
-              Sign Out
-            </button>
-          </form>
-        </div>
-      </div>
+      <StudentStatus
+        icon={<CalendarX2 />}
+        title="Registration has closed"
+        next="If you missed the window, contact your class tutor. Tutors can register you manually after it closes."
+      >
+        <p>
+          The window for <span className="font-medium text-fg">{event.name}</span> ended
+          {event.closeDate ? ` on ${formatDateTime(event.closeDate)}` : ""}.
+        </p>
+      </StudentStatus>
     );
   }
 

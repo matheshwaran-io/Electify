@@ -2,201 +2,110 @@
 
 import * as React from "react";
 import { useRouter } from "next/navigation";
-import { motion } from "framer-motion";
-import { toast } from "sonner";
-import { Calendar, Clock, RefreshCw } from "lucide-react";
+import { AnimatePresence, motion } from "framer-motion";
+import { spring } from "@/lib/motion";
+import { pad2, splitDuration } from "@/lib/format";
+import { useServerClock, useTicker } from "@/lib/use-server-clock";
+import { Spinner } from "@/components/ui/spinner";
 
 interface CountdownTimerProps {
   startDateStr: string;
   registrationEnabled: boolean;
+  /** Server time at render, so the countdown follows the server clock. */
+  serverNow: number;
 }
 
-export function CountdownTimer({ startDateStr, registrationEnabled }: CountdownTimerProps) {
+export function CountdownTimer({ startDateStr, registrationEnabled, serverNow }: CountdownTimerProps) {
   const router = useRouter();
-  const targetTime = React.useMemo(() => new Date(startDateStr).getTime(), [startDateStr]);
+  const now = useServerClock(serverNow);
+  const target = React.useMemo(() => new Date(startDateStr).getTime(), [startDateStr]);
+  const remaining = Math.max(0, target - now());
+  const isOver = remaining <= 0;
+  useTicker(!isOver, 1000);
 
-  const [timeLeft, setTimeLeft] = React.useState({
-    days: 0,
-    hours: 0,
-    minutes: 0,
-    seconds: 0,
-    isOver: false,
-    totalRemainingMs: 0,
-  });
-
-  const totalDuration = React.useMemo(() => {
-    return 24 * 60 * 60 * 1000; // 24 hours max fallback
-  }, []);
-
+  // Same behaviour as before: at zero, move into the portal if registration is
+  // enabled; otherwise refresh. Polling every 5s only happens when the page
+  // was loaded after the opening time, exactly as the previous timer did.
+  const overAtMount = React.useRef(isOver);
   React.useEffect(() => {
-    const calculateTimeLeft = () => {
-      const difference = targetTime - Date.now();
-
-      if (difference <= 0) {
-        setTimeLeft({ days: 0, hours: 0, minutes: 0, seconds: 0, isOver: true, totalRemainingMs: 0 });
-        return true;
-      }
-
-      setTimeLeft({
-        days: Math.floor(difference / (1000 * 60 * 60 * 24)),
-        hours: Math.floor((difference / (1000 * 60 * 60)) % 24),
-        minutes: Math.floor((difference / 1000 / 60) % 60),
-        seconds: Math.floor((difference / 1000) % 60),
-        isOver: false,
-        totalRemainingMs: difference,
-      });
-
-      return false;
-    };
-
-    const isOver = calculateTimeLeft();
-    if (isOver) {
-      if (registrationEnabled) {
-        router.push("/dashboard");
-      } else {
-        // Just refresh to get the latest settings
-        router.refresh();
-      }
+    if (!isOver) return;
+    if (registrationEnabled) {
+      router.push("/dashboard");
       return;
     }
+    router.refresh();
+    if (!overAtMount.current) return;
+    const poll = setInterval(() => router.refresh(), 5000);
+    return () => clearInterval(poll);
+  }, [isOver, registrationEnabled, router]);
 
-    const timer = setInterval(() => {
-      const isOver = calculateTimeLeft();
-      if (isOver) {
-        clearInterval(timer);
-        if (registrationEnabled) {
-          toast.success("Registration is now open! Navigating...");
-          router.push("/dashboard");
-        } else {
-          router.refresh();
-        }
-      }
-    }, 1000);
+  const { days, hours, minutes, seconds } = splitDuration(remaining);
 
-    // If the timer is over and registration is still not enabled, poll every 5 seconds to check if settings changed
-    let pollTimer: NodeJS.Timeout;
-    if (isOver && !registrationEnabled) {
-      pollTimer = setInterval(() => {
-        router.refresh();
-      }, 5000);
-    }
-
-    return () => {
-      clearInterval(timer);
-      if (pollTimer) clearInterval(pollTimer);
-    };
-  }, [targetTime, router, registrationEnabled]);
-
-  const formattedDate = React.useMemo(() => {
-    return new Date(startDateStr).toLocaleDateString("en-US", {
-      weekday: "long",
-      year: "numeric",
-      month: "long",
-      day: "numeric",
-    });
-  }, [startDateStr]);
-
-  const formattedTime = React.useMemo(() => {
-    return new Date(startDateStr).toLocaleTimeString("en-US", {
-      hour: "2-digit",
-      minute: "2-digit",
-      hour12: true,
-    });
-  }, [startDateStr]);
-
-  if (timeLeft.isOver) {
+  if (isOver) {
     return (
-      <div className="text-center py-6 space-y-3">
-        <RefreshCw className="h-8 w-8 animate-spin mx-auto text-primary-text" />
-        <p className="font-semibold text-fg-muted">
-          {!registrationEnabled
-            ? "Waiting for coordinator to enable registration..."
-            : "Registration is open! Loading dashboard..."}
+      <div role="status" className="flex flex-col items-center gap-3 py-6 text-center">
+        <Spinner className="size-6 text-primary-text" />
+        <p className="text-lg font-medium text-fg">{registrationEnabled ? "Opening registration" : "Waiting for your tutor to open registration"}</p>
+        <p className="text-sm text-fg-muted">
+          {registrationEnabled ? "Taking you to the electives now." : "This page checks again every few seconds. No need to refresh."}
         </p>
       </div>
     );
   }
 
-  // Calculate circular stroke offset
-  const size = 200;
-  const strokeWidth = 10;
-  const radius = (size - strokeWidth) / 2;
-  const circumference = radius * 2 * Math.PI;
-  const remainingFraction = Math.min(1, timeLeft.totalRemainingMs / totalDuration);
-  const strokeDashoffset = circumference - remainingFraction * circumference;
-
-  const timeBlocks = [
-    { label: "Days", value: timeLeft.days },
-    { label: "Hours", value: timeLeft.hours },
-    { label: "Mins", value: timeLeft.minutes },
-    { label: "Secs", value: timeLeft.seconds },
+  const units = [
+    ...(days > 0 ? [{ label: days === 1 ? "day" : "days", value: pad2(days) }] : []),
+    { label: "hours", value: pad2(hours) },
+    { label: "minutes", value: pad2(minutes) },
+    { label: "seconds", value: pad2(seconds) },
   ];
 
   return (
-    <div className="flex flex-col items-center space-y-8">
-      {/* Circular Timer Visualizer */}
-      <div className="relative inline-flex items-center justify-center" style={{ width: size, height: size }}>
-        <svg width={size} height={size} className="transform -rotate-90">
-          {/* Track circle */}
-          <circle
-            className="stroke-surface-3"
-            fill="transparent"
-            strokeWidth={strokeWidth}
-            r={radius}
-            cx={size / 2}
-            cy={size / 2}
-          />
-          {/* Animated Progress Indicator */}
-          <motion.circle
-            stroke="var(--primary)"
-            fill="transparent"
-            strokeWidth={strokeWidth}
-            strokeDasharray={circumference}
-            initial={{ strokeDashoffset: circumference }}
-            animate={{ strokeDashoffset }}
-            // Linear 1s sweep tracks the 1s clock tick; not a UI transition.
-            transition={{ duration: 1, ease: "linear" }}
-            r={radius}
-            cx={size / 2}
-            cy={size / 2}
-            strokeLinecap="round"
-          />
-        </svg>
-
-        {/* Center Digital Clock Display */}
-        <div className="absolute flex flex-col items-center">
-          <span className="text-4xl font-extrabold tracking-tighter text-fg tabular-nums">
-            {String(timeLeft.hours).padStart(2, "0")}:{String(timeLeft.minutes).padStart(2, "0")}:{String(timeLeft.seconds).padStart(2, "0")}
-          </span>
-          <span className="text-2xs font-bold text-fg-subtle uppercase tracking-widest mt-1">
-            Remaining Time
-          </span>
-        </div>
-      </div>
-
-      {/* Structured Time Blocks */}
-      <div className="grid grid-cols-4 gap-3 w-full max-w-sm">
-        {timeBlocks.map((block) => (
-          <div key={block.label} className="border border-border bg-surface shadow-1 rounded-control p-3 flex flex-col items-center justify-center">
-            <span className="text-xl sm:text-2xl font-extrabold text-primary-text tabular-nums">
-              {String(block.value).padStart(2, "0")}
-            </span>
-            <span className="text-2xs font-bold text-fg-subtle uppercase tracking-widest mt-1">
-              {block.label}
-            </span>
-          </div>
+    <div>
+      <div
+        role="timer"
+        aria-label={`Registration opens in ${days ? `${days} days, ` : ""}${hours} hours, ${minutes} minutes`}
+        className="flex items-start justify-center gap-2 sm:gap-4"
+      >
+        {units.map((u, i) => (
+          <React.Fragment key={u.label}>
+            {i > 0 ? (
+              <span aria-hidden className="pt-2 font-mono text-4xl font-light text-fg-subtle sm:pt-3 sm:text-6xl">
+                :
+              </span>
+            ) : null}
+            <div className="flex flex-col items-center">
+              <span aria-hidden className="flex font-mono text-5xl font-medium tracking-tight text-fg tabular-nums sm:text-7xl" suppressHydrationWarning>
+                {u.value.split("").map((digit, d) => (
+                  <RollingDigit key={d} digit={digit} />
+                ))}
+              </span>
+              <span className="mt-2 text-xs text-fg-muted">{u.label}</span>
+            </div>
+          </React.Fragment>
         ))}
       </div>
-
-      {/* Date & Time Widget */}
-      <div className="flex flex-col items-center justify-center gap-1.5 text-xs text-fg-muted font-semibold bg-surface-2/50 border border-border px-4 py-2.5 rounded-control">
-        <span className="flex items-center gap-1.5 text-fg-muted">
-          <Calendar className="w-3.5 h-3.5" /> {formattedDate}
-        </span>
-        <span className="flex items-center gap-1.5 text-fg-muted">
-          <Clock className="w-3.5 h-3.5 text-fg-subtle" /> Opens at {formattedTime}
-        </span>
-      </div>
     </div>
+  );
+}
+
+/** One digit that rolls up when it changes. Fixed width, so nothing shifts. */
+function RollingDigit({ digit }: { digit: string }) {
+  return (
+    <span className="relative inline-flex h-[1.1em] w-[1ch] justify-center overflow-hidden">
+      <AnimatePresence initial={false} mode="popLayout">
+        <motion.span
+          key={digit}
+          initial={{ y: "70%", opacity: 0 }}
+          animate={{ y: 0, opacity: 1 }}
+          exit={{ y: "-70%", opacity: 0 }}
+          transition={spring.snappy}
+          className="inline-block"
+          suppressHydrationWarning
+        >
+          {digit}
+        </motion.span>
+      </AnimatePresence>
+    </span>
   );
 }

@@ -1,17 +1,16 @@
 import * as React from "react";
-import Image from "next/image";
 import { redirect } from "next/navigation";
 import { getSession } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { users, systemSettings, registrationEvents, registrations } from "@/lib/db/schema";
 import { eq, and, inArray, desc } from "drizzle-orm";
+import { CalendarClock, CalendarX2, Clock3, Lock, RadioTower, UserX, Users } from "lucide-react";
 import { CountdownTimer } from "./countdown-timer";
-import { ThemeToggle } from "@/components/theme-toggle";
-import { logout } from "@/app/actions/auth";
-import { LogOut, AlertCircle } from "lucide-react";
-import { GlassCard } from "@/components/premium/glass-card";
+import { StudentHeader, StudentStatus } from "@/components/student/student-chrome";
+import { formatDateTime, formatOpening } from "@/lib/format";
 
 export const dynamic = "force-dynamic";
+export const metadata = { title: "Registration opens soon" };
 
 export default async function CountdownPage() {
   const session = await getSession();
@@ -34,29 +33,17 @@ export default async function CountdownPage() {
 
   if (!student) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-canvas">
-        <div className="text-center p-8 bg-surface rounded-card border border-danger/20 shadow-3 max-w-md">
-          <AlertCircle className="w-12 h-12 text-danger-text mx-auto mb-4" />
-          <h2 className="text-xl font-bold text-fg mb-2">Account Not Found</h2>
-          <p className="text-sm text-fg-muted">
-            Your student record could not be found. Please check your credentials or contact the admin.
-          </p>
-        </div>
-      </div>
+      <StudentStatus icon={<UserX />} tone="danger" title="We couldn't find your student record" next="Ask your class tutor to check that your account exists, then sign in again.">
+        <p>You&apos;re signed in, but there&apos;s no student profile attached to this account.</p>
+      </StudentStatus>
     );
   }
 
   if (!student.academicBatchId) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-canvas">
-        <div className="text-center p-8 bg-surface rounded-card border border-danger/20 shadow-3 max-w-md">
-          <AlertCircle className="w-12 h-12 text-danger-text mx-auto mb-4" />
-          <h2 className="text-xl font-bold text-fg mb-2">Missing Batch</h2>
-          <p className="text-sm text-fg-muted">
-            Your account is not assigned to an academic batch.
-          </p>
-        </div>
-      </div>
+      <StudentStatus icon={<Users />} tone="warning" title="You're not in a batch yet" next="Ask your class tutor to add you to your section. Once they do, sign in again and the countdown will appear here.">
+        <p>Electives are offered per batch, so we can&apos;t show you any until your account is linked to one.</p>
+      </StudentStatus>
     );
   }
 
@@ -70,22 +57,16 @@ export default async function CountdownPage() {
 
   if (!event) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-canvas">
-        <div className="text-center p-8 bg-surface rounded-card border border-danger/20 shadow-3 max-w-md">
-          <AlertCircle className="w-12 h-12 text-danger-text mx-auto mb-4 animate-pulse" />
-          <h2 className="text-xl font-bold text-fg mb-2">No Active Registration</h2>
-          <p className="text-sm text-fg-muted">
-            There are no registration events configured for your batch at this time.
-          </p>
-        </div>
-      </div>
+      <StudentStatus icon={<Clock3 />} title="No registration scheduled yet" next="Your class tutor will share the opening time. This page shows a countdown as soon as a window is scheduled.">
+        <p>There isn&apos;t an elective registration window for your batch right now.</p>
+      </StudentStatus>
     );
   }
 
   // Check confirmed registration status from registrations table
   const [userRegistration] = await db.select().from(registrations)
     .where(and(eq(registrations.studentId, student.id), eq(registrations.eventId, event.id))).limit(1);
-  
+
   const hasSubmitted = userRegistration?.status === "CONFIRMED";
 
   const now = new Date();
@@ -112,84 +93,79 @@ export default async function CountdownPage() {
     redirect("/dashboard/success");
   }
 
-  async function handleLogoutAction() {
-    "use server";
-    await logout();
-    redirect("/login");
+  if (isRegistrationEnded) {
+    return (
+      <StudentStatus
+        icon={<CalendarX2 />}
+        title="Registration has closed"
+        next="If you missed the window, contact your class tutor. Tutors can register you manually after it closes."
+      >
+        <p>
+          The window for <span className="font-medium text-fg">{event.name}</span> ended
+          {event.closeDate ? ` on ${formatDateTime(event.closeDate)}` : ""}.
+        </p>
+      </StudentStatus>
+    );
   }
 
   return (
-    <div className="min-h-screen bg-canvas flex flex-col relative overflow-hidden">
+    <div className="flex min-h-dvh flex-col">
+      <StudentHeader />
 
-      <header className="absolute top-0 w-full z-40">
-        <div className="max-w-6xl mx-auto px-4 h-16 flex items-center justify-between">
-          <div className="flex items-center gap-2.5">
-            <div className="inline-flex items-center justify-center w-9 h-9 rounded-control overflow-hidden bg-surface shadow-2 p-0.5 border border-border">
-              <Image src="/logo.png" alt="Electify Logo" width={36} height={36} className="w-full h-full object-contain" />
-            </div>
-            <span className="font-extrabold text-lg text-fg tracking-tight">Electify</span>
+      <main className="relative flex flex-1 flex-col items-center justify-center overflow-hidden px-5 py-12">
+        <div
+          aria-hidden
+          className="pointer-events-none absolute inset-x-0 top-0 -z-10 h-[50vh]"
+          style={{ background: "radial-gradient(ellipse 50% 70% at 50% 0%, color-mix(in oklab, var(--primary) 12%, transparent), transparent)" }}
+        />
+
+        <div className="w-full max-w-3xl text-center">
+          <p className="inline-flex items-center gap-2 rounded-full border border-border bg-surface px-3 py-1.5 text-sm text-fg-muted shadow-1 animate-enter">
+            <CalendarClock className="size-4 text-primary-text" />
+            {event.openDate ? `Opens ${formatOpening(event.openDate)}` : "Opening time not set yet"}
+          </p>
+
+          <h1 className="mt-6 text-3xl font-semibold tracking-tight text-fg sm:text-4xl animate-enter [animation-delay:60ms]">
+            {event.name}
+          </h1>
+
+          <div className="mt-10 animate-enter [animation-delay:120ms]">
+            {event.openDate ? (
+              <CountdownTimer
+                startDateStr={event.openDate.toISOString()}
+                registrationEnabled={event.status === "PUBLISHED" || event.status === "OPEN"}
+                serverNow={now.getTime()}
+              />
+            ) : (
+              <p className="text-fg-muted">Your class tutor hasn&apos;t set an opening time. Check back soon.</p>
+            )}
           </div>
-          <div className="flex items-center gap-2">
-            <ThemeToggle />
-            <form action={handleLogoutAction}>
-              <button
-                type="submit"
-                className="inline-flex items-center gap-1.5 px-3 py-2 rounded-control text-xs font-semibold text-fg-muted hover:text-fg hover:bg-surface-2 transition-colors"
-              >
-                <LogOut className="w-3.5 h-3.5" />
-                <span className="hidden sm:inline">Sign Out</span>
-              </button>
-            </form>
-          </div>
+
+          <p className="mx-auto mt-10 max-w-md text-sm text-fg-muted animate-enter [animation-delay:180ms]">
+            The picker opens on this page automatically when the countdown ends. No need to refresh.
+          </p>
         </div>
-      </header>
 
-      <main className="flex-1 flex flex-col items-center justify-center w-full px-4 relative z-10">
-        <div className="w-full max-w-2xl text-center space-y-8">
-          <div className="space-y-4">
-            <h1 className="text-3xl sm:text-5xl font-extrabold tracking-tight text-fg">
-              {isRegistrationEnded ? "Registration Closed" : "Registration Begins Soon"}
-            </h1>
-            <p className="text-lg text-fg-muted max-w-lg mx-auto leading-relaxed">
-              {isRegistrationEnded 
-                ? "The elective registration window has closed. If you missed the deadline, please contact your Class Tutor."
-                : `Get ready to choose your electives for ${event.name}. The portal will automatically open when the countdown reaches zero.`
-              }
+        <div className="mt-12 grid w-full max-w-3xl gap-3 sm:grid-cols-3 animate-enter [animation-delay:240ms]">
+          <div className="rounded-card border border-border bg-surface p-4 text-left shadow-1">
+            <p className="text-xs text-fg-muted">Signed in as</p>
+            <p className="mt-1 truncate text-sm font-medium text-fg">{student.name}</p>
+            <p className="mt-0.5 truncate font-mono text-xs text-fg-muted">{student.registerNumber}</p>
+          </div>
+          <div className="flex gap-3 rounded-card border border-border bg-surface p-4 text-left shadow-1">
+            <RadioTower className="mt-0.5 size-4 shrink-0 text-fg-subtle" />
+            <p className="text-sm text-fg-muted">
+              <span className="font-medium text-fg">Seats are live.</span> Counts update as classmates confirm.
             </p>
           </div>
-
-          <GlassCard glow={isRegistrationEnded ? "none" : "indigo"} className="p-8 sm:p-10 border-border shadow-3">
-            {isRegistrationEnded ? (
-              <div className="flex flex-col items-center justify-center space-y-4 py-8">
-                <div className="w-16 h-16 rounded-full bg-danger/10 flex items-center justify-center text-danger-text border border-danger/20 mb-2">
-                  <AlertCircle className="w-8 h-8" />
-                </div>
-                <h2 className="text-2xl font-bold text-fg">Event Concluded</h2>
-                <p className="text-fg-muted text-center max-w-sm">
-                  The registration window ended on {event.closeDate ? event.closeDate.toLocaleDateString() : "unknown date"}. 
-                  Your faculty administrator is currently reviewing the submissions.
-                </p>
-              </div>
-            ) : (
-              <>
-                {event.openDate ? (
-                  <CountdownTimer
-                    startDateStr={event.openDate.toISOString()}
-                    registrationEnabled={event.status === "PUBLISHED" || event.status === "OPEN"}
-                  />
-                ) : (
-                  <div className="py-8 text-fg-muted">Opening date is not yet scheduled.</div>
-                )}
-
-              </>
-            )}
-          </GlassCard>
+          <div className="flex gap-3 rounded-card border border-border bg-surface p-4 text-left shadow-1">
+            <Lock className="mt-0.5 size-4 shrink-0 text-fg-subtle" />
+            <p className="text-sm text-fg-muted">
+              <span className="font-medium text-fg">Choices are final.</span> You can&apos;t change them after you confirm.
+            </p>
+          </div>
         </div>
       </main>
-
-      <footer className="py-6 text-center text-xs font-semibold text-fg-subtle relative z-10">
-        <p>© {new Date().getFullYear()} Electify. SRMIST MCA F Batch.</p>
-      </footer>
     </div>
   );
 }
