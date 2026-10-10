@@ -31,11 +31,11 @@ export default async function StudentElectivesPage() {
 
   if (!student.academicBatchId) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-slate-50 dark:bg-black">
-        <div className="text-center p-8 bg-white dark:bg-[#111] rounded-md border border-slate-200 dark:border-white/10 shadow-sm max-w-md">
-          <ShieldAlert className="w-12 h-12 text-rose-500 mx-auto mb-4" />
-          <h2 className="text-xl font-medium text-slate-900 dark:text-white mb-2">Missing Batch</h2>
-          <p className="text-sm text-slate-500 dark:text-slate-400">
+      <div className="flex min-h-screen items-center justify-center bg-canvas">
+        <div className="text-center p-8 bg-surface rounded-badge border border-border shadow-1 max-w-md">
+          <ShieldAlert className="w-12 h-12 text-danger-text mx-auto mb-4" />
+          <h2 className="text-xl font-medium text-fg mb-2">Missing Batch</h2>
+          <p className="text-sm text-fg-muted">
             Your account is not assigned to an academic batch.
           </p>
         </div>
@@ -109,21 +109,21 @@ export default async function StudentElectivesPage() {
   }
 
   return (
-    <div className="min-h-screen bg-slate-50 dark:bg-black flex flex-col relative">
-      <header className="sticky top-0 z-40 w-full border-b border-slate-200 dark:border-white/10 bg-white dark:bg-black">
+    <div className="min-h-screen bg-canvas flex flex-col relative">
+      <header className="sticky top-0 z-40 w-full border-b border-border bg-surface">
         <div className="max-w-6xl mx-auto px-4 h-14 flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <div className="inline-flex items-center justify-center w-8 h-8 rounded-md bg-slate-900 dark:bg-white text-white dark:text-slate-900 p-1.5">
-              <Image src="/logo.png" alt="Electify Logo" width={24} height={24} className="w-full h-full object-contain invert dark:invert-0" />
+            <div className="inline-flex items-center justify-center w-8 h-8 rounded-badge bg-surface border border-border p-1">
+              <Image src="/logo.png" alt="Electify Logo" width={24} height={24} className="w-full h-full object-contain" />
             </div>
-            <span className="font-semibold text-sm text-slate-900 dark:text-white tracking-tight">Electify</span>
+            <span className="font-semibold text-sm text-fg tracking-tight">Electify</span>
           </div>
           <div className="flex items-center gap-4">
             <ThemeToggle />
             <form action={handleLogoutAction}>
               <button
                 type="submit"
-                className="text-sm font-medium text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white transition-colors"
+                className="text-sm font-medium text-fg-muted hover:text-fg transition-colors"
               >
                 Sign Out
               </button>
@@ -135,26 +135,26 @@ export default async function StudentElectivesPage() {
       <main className="flex-1 max-w-5xl w-full mx-auto px-4 py-6 sm:py-10 sm:px-6 space-y-6 sm:space-y-8 relative z-10 pb-20 sm:pb-32">
         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 sm:gap-6">
           <div className="space-y-1">
-            <h1 className="text-2xl font-semibold tracking-tight text-slate-900 dark:text-white">{student.name}</h1>
-            <p className="text-xs sm:text-sm text-slate-500 dark:text-slate-400">
-              {student.registerNumber} <span className="mx-2 text-slate-300 dark:text-slate-700">|</span> {event.name}
+            <h1 className="text-2xl font-semibold tracking-tight text-fg">{student.name}</h1>
+            <p className="text-xs sm:text-sm text-fg-muted">
+              {student.registerNumber} <span className="mx-2 text-fg-subtle">|</span> {event.name}
             </p>
           </div>
 
-          <div className="w-full sm:w-auto bg-white/50 dark:bg-white/5 backdrop-blur-sm rounded-xl sm:rounded-full p-3 sm:pr-5 sm:pl-3 border border-slate-200/60 dark:border-white/10 flex items-center gap-3 sm:gap-4 shadow-sm">
-            <div className="w-8 h-8 sm:w-9 sm:h-9 rounded-full bg-slate-100 dark:bg-white/10 text-slate-900 dark:text-white flex items-center justify-center">
+          <div className="w-full sm:w-auto bg-surface rounded-control sm:rounded-full p-3 sm:pr-5 sm:pl-3 border border-border flex items-center gap-3 sm:gap-4 shadow-1">
+            <div className="w-8 h-8 sm:w-9 sm:h-9 rounded-full bg-surface-2 text-fg flex items-center justify-center">
               <FileCheck className="w-4 h-4 sm:w-4 sm:h-4" />
             </div>
             <div className="flex-1 flex sm:flex-col sm:items-start items-center justify-between sm:justify-center">
-              <p className="text-[10px] sm:text-[10px] uppercase font-bold tracking-wider text-slate-500 dark:text-slate-400">Status</p>
-              <p className="text-sm sm:text-sm font-semibold text-slate-900 dark:text-white">
+              <p className="text-2xs sm:text-2xs uppercase font-bold tracking-wider text-fg-muted">Status</p>
+              <p className="text-sm sm:text-sm font-semibold text-fg">
                 Pending Selection
               </p>
             </div>
           </div>
         </div>
 
-        <div className="border-t border-slate-200 dark:border-white/10 pt-8">
+        <div className="border-t border-border pt-8">
           <RegistrationForm
             event={{
               id: event.id,
@@ -177,7 +177,7 @@ export default async function StudentElectivesPage() {
         </div>
       </main>
 
-      <footer className="py-6 border-t border-slate-200 dark:border-white/10 text-center text-xs text-slate-500">
+      <footer className="py-6 border-t border-border text-center text-xs text-fg-muted">
         <p>© {new Date().getFullYear()} Electify. Enterprise Registration System.</p>
       </footer>
     </div>

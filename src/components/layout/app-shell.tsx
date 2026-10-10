@@ -30,6 +30,7 @@ import {
 import { logout } from "@/app/actions/auth";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { HeroGeometricBackground } from "@/components/background/hero-geometric-background";
+import { transition } from "@/lib/motion";
 
 interface UserSession {
   userId: string;
@@ -111,48 +112,48 @@ export function AppShell({ children, session, assignedSections = [], activeWorks
   const navItems = React.useMemo(() => {
     const items: { name: string; href: string; icon: React.ComponentType<{ className?: string }>; color: string }[] = [];
 
-    items.push({ name: "Dashboard", href: "/faculty/dashboard", icon: LayoutDashboard, color: "text-indigo-500" });
+    items.push({ name: "Dashboard", href: "/faculty/dashboard", icon: LayoutDashboard, color: "text-fg" });
 
     if (session.role === "SYSTEM_ADMIN") {
       items.push(
-        { name: "Global Events", href: "/faculty/events", icon: Calendar, color: "text-purple-500" },
-        { name: "Event Templates", href: "/faculty/templates", icon: Layers, color: "text-purple-500" },
-        { name: "Users", href: "/faculty/users", icon: Users, color: "text-blue-500" },
-        { name: "Audit Logs", href: "/faculty/audit", icon: FileText, color: "text-emerald-500" },
-        { name: "Departments", href: "/faculty/departments", icon: Building, color: "text-slate-500" },
-        { name: "Invite Codes", href: "/faculty/invites", icon: Mail, color: "text-slate-500" },
-        { name: "Registration Replay", href: "/faculty/replay", icon: History, color: "text-indigo-500" },
-        { name: "Database", href: "/faculty/database", icon: Database, color: "text-red-500" },
-        { name: "Settings", href: "/faculty/settings", icon: Settings, color: "text-slate-500" },
+        { name: "Global Events", href: "/faculty/events", icon: Calendar, color: "text-fg" },
+        { name: "Event Templates", href: "/faculty/templates", icon: Layers, color: "text-fg" },
+        { name: "Users", href: "/faculty/users", icon: Users, color: "text-fg" },
+        { name: "Audit Logs", href: "/faculty/audit", icon: FileText, color: "text-fg" },
+        { name: "Departments", href: "/faculty/departments", icon: Building, color: "text-fg" },
+        { name: "Invite Codes", href: "/faculty/invites", icon: Mail, color: "text-fg" },
+        { name: "Registration Replay", href: "/faculty/replay", icon: History, color: "text-fg" },
+        { name: "Database", href: "/faculty/database", icon: Database, color: "text-fg" },
+        { name: "Settings", href: "/faculty/settings", icon: Settings, color: "text-fg" },
       );
     } else if (session.role === "COURSE_COORDINATOR") {
       if (activeWorkspace === "TUTOR") {
         items.push(
-          { name: "Subjects & Groups", href: "/faculty/tutor-electives", icon: BookOpen, color: "text-purple-500" },
-          { name: "Student Directory", href: "/faculty/section", icon: GraduationCap, color: "text-blue-500" },
-          { name: "Reports", href: "/faculty/tutor-reports", icon: FileText, color: "text-emerald-500" },
-          { name: "Reg Control Center", href: "/faculty/window", icon: Clock, color: "text-amber-500" },
-          { name: "Registration Replay", href: "/faculty/replay", icon: History, color: "text-indigo-500" },
-          { name: "Database", href: "/faculty/database", icon: Database, color: "text-red-500" },
+          { name: "Subjects & Groups", href: "/faculty/tutor-electives", icon: BookOpen, color: "text-fg" },
+          { name: "Student Directory", href: "/faculty/section", icon: GraduationCap, color: "text-fg" },
+          { name: "Reports", href: "/faculty/tutor-reports", icon: FileText, color: "text-fg" },
+          { name: "Reg Control Center", href: "/faculty/window", icon: Clock, color: "text-fg" },
+          { name: "Registration Replay", href: "/faculty/replay", icon: History, color: "text-fg" },
+          { name: "Database", href: "/faculty/database", icon: Database, color: "text-fg" },
         );
       } else {
         items.push(
-          { name: "Event Templates", href: "/faculty/templates", icon: Layers, color: "text-purple-500" },
-          { name: "Electives", href: "/faculty/electives", icon: BookOpen, color: "text-purple-500" },
-          { name: "Student Directory", href: "/faculty/students", icon: GraduationCap, color: "text-blue-500" },
-          { name: "Reports", href: "/faculty/reports", icon: FileText, color: "text-emerald-500" },
-          { name: "Registration Replay", href: "/faculty/replay", icon: History, color: "text-indigo-500" },
-          { name: "Database", href: "/faculty/database", icon: Database, color: "text-red-500" },
+          { name: "Event Templates", href: "/faculty/templates", icon: Layers, color: "text-fg" },
+          { name: "Electives", href: "/faculty/electives", icon: BookOpen, color: "text-fg" },
+          { name: "Student Directory", href: "/faculty/students", icon: GraduationCap, color: "text-fg" },
+          { name: "Reports", href: "/faculty/reports", icon: FileText, color: "text-fg" },
+          { name: "Registration Replay", href: "/faculty/replay", icon: History, color: "text-fg" },
+          { name: "Database", href: "/faculty/database", icon: Database, color: "text-fg" },
         );
       }
     } else if (session.role === "CLASS_TUTOR") {
       items.push(
-        { name: "Subjects & Groups", href: "/faculty/tutor-electives", icon: BookOpen, color: "text-purple-500" },
-        { name: "Student Directory", href: "/faculty/section", icon: GraduationCap, color: "text-blue-500" },
-        { name: "Reports", href: "/faculty/tutor-reports", icon: FileText, color: "text-emerald-500" },
-        { name: "Reg Control Center", href: "/faculty/window", icon: Clock, color: "text-amber-500" },
-        { name: "Registration Replay", href: "/faculty/replay", icon: History, color: "text-indigo-500" },
-        { name: "Database", href: "/faculty/database", icon: Database, color: "text-red-500" },
+        { name: "Subjects & Groups", href: "/faculty/tutor-electives", icon: BookOpen, color: "text-fg" },
+        { name: "Student Directory", href: "/faculty/section", icon: GraduationCap, color: "text-fg" },
+        { name: "Reports", href: "/faculty/tutor-reports", icon: FileText, color: "text-fg" },
+        { name: "Reg Control Center", href: "/faculty/window", icon: Clock, color: "text-fg" },
+        { name: "Registration Replay", href: "/faculty/replay", icon: History, color: "text-fg" },
+        { name: "Database", href: "/faculty/database", icon: Database, color: "text-fg" },
       );
     }
 
@@ -163,22 +164,22 @@ export function AppShell({ children, session, assignedSections = [], activeWorks
   // If on Portal Selection screen after login, render clean standalone layout without dashboard sidebar
   if (pathname === "/faculty/portal-select") {
     return (
-      <div className="min-h-screen w-full flex flex-col font-sans overflow-x-hidden relative bg-slate-50/70 dark:bg-[#030712] text-slate-900 dark:text-slate-100 transition-colors duration-500">
+      <div className="min-h-screen w-full flex flex-col font-sans overflow-x-hidden relative bg-surface-2/70 text-fg transition-colors duration-500">
         <HeroGeometricBackground />
 
-        <header className="flex items-center justify-between h-16 px-6 sm:px-12 border-b border-slate-200/80 dark:border-white/6 bg-white/75 dark:bg-slate-900/60 backdrop-blur-md sticky top-0 z-30 shadow-xs">
+        <header className="flex items-center justify-between h-16 px-6 sm:px-12 border-b border-border bg-surface/70 backdrop-blur-md sticky top-0 z-30 shadow-1">
           <div className="flex items-center gap-3">
-            <div className="w-8 h-8 rounded-xl bg-white dark:bg-white/5 border border-slate-200/80 dark:border-white/10 p-1 shadow-xs flex items-center justify-center">
+            <div className="w-8 h-8 rounded-control bg-surface border border-border p-1 shadow-1 flex items-center justify-center">
               <Image src="/logo.png" alt="Electify Logo" width={28} height={28} className="w-full h-full object-contain" />
             </div>
-            <span className="text-[17px] font-bold tracking-tight text-slate-900 dark:text-white">Electify</span>
+            <span className="text-lg font-bold tracking-tight text-fg">Electify</span>
           </div>
           <div className="flex items-center gap-3">
             <ThemeToggle />
             <button 
               onClick={handleLogout} 
               disabled={isLoggingOut} 
-              className="text-xs sm:text-sm font-medium text-slate-600 dark:text-slate-400 hover:text-rose-600 dark:hover:text-rose-400 transition-colors cursor-pointer flex items-center gap-1.5 px-3 py-1.5 rounded-xl hover:bg-slate-100 dark:hover:bg-white/5 border border-transparent hover:border-slate-200 dark:hover:border-white/10"
+              className="text-xs sm:text-sm font-medium text-fg-muted hover:text-danger-text transition-colors cursor-pointer flex items-center gap-1.5 px-3 py-1.5 rounded-control hover:bg-surface-2 border border-transparent hover:border-border"
             >
               <LogOut className="w-3.5 h-3.5" />
               <span>{isLoggingOut ? "Logging out..." : "Log out"}</span>
@@ -196,13 +197,13 @@ export function AppShell({ children, session, assignedSections = [], activeWorks
   const mobileNavItems = navItems.slice(0, 4);
 
   return (
-    <div className="flex h-screen w-full bg-(--background) text-(--foreground) overflow-hidden font-sans">
+    <div className="flex h-screen w-full bg-canvas text-fg overflow-hidden font-sans">
       
       {/* ── Desktop Sidebar ── */}
-      <aside className="hidden lg:flex w-65 shrink-0 flex-col bg-(--background) border-r border-(--border) relative z-20">
+      <aside className="hidden lg:flex w-65 shrink-0 flex-col bg-canvas border-r border-border relative z-20">
         <div className="flex items-center gap-3 h-16 px-6 shrink-0 mt-2">
-          <Image src="/logo.png" alt="Electify Logo" width={32} height={32} className="w-8 h-8 rounded-lg" />
-          <span className="text-[17px] font-semibold tracking-tight text-(--foreground)">Electify</span>
+          <Image src="/logo.png" alt="Electify Logo" width={32} height={32} className="w-8 h-8 rounded-control" />
+          <span className="text-lg font-semibold tracking-tight text-fg">Electify</span>
         </div>
 
 
@@ -210,12 +211,12 @@ export function AppShell({ children, session, assignedSections = [], activeWorks
         {((session.role === "CLASS_TUTOR") || (session.role === "COURSE_COORDINATOR" && activeWorkspace === "TUTOR")) && assignedSections.length > 0 && (
           <div className="px-4 mb-4 mt-2">
             <div className="flex items-center justify-between mb-2 pl-2 pr-1">
-              <label className="text-xs font-semibold text-(--muted-foreground) uppercase tracking-wider block">
+              <label className="text-xs font-semibold text-fg-muted uppercase tracking-wider block">
                 Active Section
               </label>
               <Link 
                 href="/faculty/assign-sections" 
-                className="text-xs font-medium text-indigo-500 hover:text-indigo-600 transition-colors"
+                className="text-xs font-medium text-primary-text hover:underline underline-offset-2"
                 title="Manage Sections"
               >
                 Manage
@@ -242,7 +243,7 @@ export function AppShell({ children, session, assignedSections = [], activeWorks
                   toast.error(error.message || "Failed to switch section", { id: "switch-section" });
                 }
               }}
-              className="w-full bg-(--accent)/50 border border-(--border) text-(--foreground) text-sm rounded-lg px-3 py-2.5 focus:outline-none focus:ring-2 focus:ring-indigo-500/50 appearance-none font-medium cursor-pointer"
+              className="w-full bg-surface border border-border-strong text-fg text-sm rounded-control px-3 py-2.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring appearance-none font-medium cursor-pointer"
             >
               <option value="" disabled>Select a section</option>
               {assignedSections.map(s => (
@@ -257,17 +258,17 @@ export function AppShell({ children, session, assignedSections = [], activeWorks
 
 
         {/* Navigation */}
-        <nav className="flex-1 px-3 py-2 space-y-0.5 overflow-y-auto custom-scrollbar">
+        <nav className="flex-1 px-3 py-2 space-y-0.5 overflow-y-auto scrollbar-thin">
                 {navItems.map((item) => {
                   const isActive = pathname === item.href || pathname.startsWith(`${item.href}/`);
                   return (
                     <Link
                       key={item.href}
                       href={item.href}
-                      className={`flex items-center justify-between px-3 py-2 rounded-lg transition-all duration-200 group relative ${
+                      className={`flex items-center justify-between px-3 py-2 rounded-control transition-all duration-200 group relative ${
                         isActive
-                          ? "bg-(--accent) text-(--foreground) font-medium"
-                          : "text-(--muted-foreground) hover:bg-(--accent)/50 hover:text-(--foreground)"
+                          ? "bg-surface-2 text-fg font-medium"
+                          : "text-fg-muted hover:bg-surface-2/50 hover:text-fg"
                       }`}
                     >
                       <div className="flex items-center gap-2.5">
@@ -275,7 +276,7 @@ export function AppShell({ children, session, assignedSections = [], activeWorks
                         <span className="text-sm">{item.name}</span>
                       </div>
                       {isActive && (
-                        <motion.div layoutId="active-nav-indicator" className="absolute left-0 top-1/2 -translate-y-1/2 w-0.75 h-4 bg-current rounded-r-full" style={{ color: "var(--foreground)" }} />
+                        <motion.div layoutId="active-nav-indicator" className="absolute left-0 top-1/2 -translate-y-1/2 w-0.75 h-4 bg-fg rounded-r-full" />
                       )}
                     </Link>
                   );
@@ -283,19 +284,19 @@ export function AppShell({ children, session, assignedSections = [], activeWorks
         </nav>
 
         {/* User Profile */}
-        <div className="p-3 shrink-0 border-t border-(--border)/50 relative">
+        <div className="p-3 shrink-0 border-t border-border/50 relative">
           <div 
             onClick={() => setShowProfileMenu(!showProfileMenu)}
-            className="flex items-center gap-3 px-3 py-2.5 rounded-lg hover:bg-(--accent)/50 transition-colors cursor-pointer group border border-transparent hover:border-(--border)/50 shadow-sm"
+            className="flex items-center gap-3 px-3 py-2.5 rounded-control hover:bg-surface-2/50 transition-colors cursor-pointer group border border-transparent hover:border-border/50 shadow-1"
           >
-            <div className="w-8 h-8 rounded-full bg-(--accent) flex items-center justify-center text-(--foreground) font-semibold text-xs shrink-0 border border-(--border)">
+            <div className="w-8 h-8 rounded-full bg-surface-2 flex items-center justify-center text-fg font-semibold text-xs shrink-0 border border-border">
               {session.name.charAt(0)}
             </div>
             <div className="flex-1 min-w-0">
-              <p className="text-[13px] font-semibold truncate text-(--foreground)">{session.name}</p>
-              <p className="text-[11px] font-medium text-(--muted-foreground) truncate">{ROLE_DISPLAY[session.role] ?? session.role.replace(/_/g, " ")}</p>
+              <p className="text-sm font-semibold truncate text-fg">{session.name}</p>
+              <p className="text-xs font-medium text-fg-muted truncate">{ROLE_DISPLAY[session.role] ?? session.role.replace(/_/g, " ")}</p>
             </div>
-            <ChevronRight className={`w-4 h-4 text-(--muted-foreground) transition-all duration-200 ${showProfileMenu ? 'rotate-90 opacity-100' : 'opacity-0 group-hover:opacity-100'}`} />
+            <ChevronRight className={`w-4 h-4 text-fg-muted transition-all duration-200 ${showProfileMenu ? 'rotate-90 opacity-100' : 'opacity-0 group-hover:opacity-100'}`} />
           </div>
 
           <AnimatePresence>
@@ -309,32 +310,32 @@ export function AppShell({ children, session, assignedSections = [], activeWorks
                   initial={{ opacity: 0, y: 8, scale: 0.95 }}
                   animate={{ opacity: 1, y: 0, scale: 1 }}
                   exit={{ opacity: 0, y: 8, scale: 0.95 }}
-                  transition={{ duration: 0.15, ease: "easeOut" }}
-                  className="absolute bottom-full left-3 right-3 mb-2 bg-(--card) border border-(--border) rounded-xl shadow-xl shadow-black/10 overflow-hidden z-50"
+                  transition={transition.fast}
+                  className="absolute bottom-full left-3 right-3 mb-2 bg-surface border border-border rounded-control shadow-3 overflow-hidden z-50"
                 >
                   <div className="p-1.5">
                     <Link
                       href="/faculty/settings"
                       onClick={() => setShowProfileMenu(false)}
-                      className="flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm text-(--foreground) hover:bg-(--accent) transition-colors"
+                      className="flex items-center gap-2.5 px-3 py-2 rounded-control text-sm text-fg hover:bg-surface-2 transition-colors"
                     >
-                      <User className="w-4 h-4 text-(--muted-foreground)" />
+                      <User className="w-4 h-4 text-fg-muted" />
                       Edit Profile
                     </Link>
                     {session.role === "COURSE_COORDINATOR" && (
                       <Link
                         href="/faculty/portal-select"
                         onClick={() => setShowProfileMenu(false)}
-                        className="flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm text-(--foreground) hover:bg-(--accent) transition-colors"
+                        className="flex items-center gap-2.5 px-3 py-2 rounded-control text-sm text-fg hover:bg-surface-2 transition-colors"
                       >
-                        <Layers className="w-4 h-4 text-(--muted-foreground)" />
+                        <Layers className="w-4 h-4 text-fg-muted" />
                         Switch Portal
                       </Link>
                     )}
                     <button
                       onClick={handleLogout}
                       disabled={isLoggingOut}
-                      className="flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm text-red-500 hover:bg-red-500/10 transition-colors w-full text-left"
+                      className="flex items-center gap-2.5 px-3 py-2 rounded-control text-sm text-danger-text hover:bg-danger/10 transition-colors w-full text-left"
                     >
                       <LogOut className="w-4 h-4" />
                       {isLoggingOut ? "Logging out..." : "Log out"}
@@ -350,7 +351,7 @@ export function AppShell({ children, session, assignedSections = [], activeWorks
       {/* ── Main Content Area ── */}
       <main className="flex-1 flex flex-col min-w-0 h-full relative z-10">
         {/* Top Header (Desktop & Tablet) */}
-        <header className={`hidden lg:flex items-center justify-between h-16 px-8 sticky top-0 z-30 transition-all duration-200 ${scrolled ? 'bg-(--background)/80 backdrop-blur-md border-b border-(--border)' : 'bg-transparent'}`}>
+        <header className={`hidden lg:flex items-center justify-between h-16 px-8 sticky top-0 z-30 transition-all duration-200 ${scrolled ? 'bg-canvas/80 backdrop-blur-md border-b border-border' : 'bg-transparent'}`}>
           <div className="flex-1" />
           <div className="flex items-center gap-4">
             <ThemeToggle />
@@ -358,11 +359,11 @@ export function AppShell({ children, session, assignedSections = [], activeWorks
             <div className="relative">
               <button 
                 onClick={() => setShowNotifications(!showNotifications)}
-                className="relative p-2 text-(--muted-foreground) hover:bg-(--accent) rounded-full transition-colors focus:outline-none"
+                className="relative p-2 text-fg-muted hover:bg-surface-2 rounded-full transition-colors focus-visible:outline-none"
               >
                 <Bell className="w-5 h-5" />
                 {hasUnread && (
-                  <span className="absolute top-1.5 right-1.5 w-2 h-2 bg-indigo-500 rounded-full border-2 border-(--background)" />
+                  <span className="absolute top-1.5 right-1.5 w-2 h-2 bg-primary rounded-full border-2 border-canvas" />
                 )}
               </button>
 
@@ -378,24 +379,24 @@ export function AppShell({ children, session, assignedSections = [], activeWorks
                       initial={{ opacity: 0, y: 10, scale: 0.95 }}
                       animate={{ opacity: 1, y: 0, scale: 1 }}
                       exit={{ opacity: 0, y: 10, scale: 0.95 }}
-                      transition={{ duration: 0.15, ease: "easeOut" }}
-                      className="absolute right-0 mt-2 w-80 bg-white dark:bg-slate-900 border border-slate-200 dark:border-white/8 shadow-[0_10px_30px_rgba(0,0,0,0.1)] dark:shadow-[0_10px_30px_rgba(0,0,0,0.4)] rounded-2xl overflow-hidden z-50 backdrop-blur-xl"
+                      transition={transition.fast}
+                      className="absolute right-0 mt-2 w-80 bg-surface border border-border shadow-2 rounded-card overflow-hidden z-50"
                     >
-                      <div className="p-4 border-b border-slate-100 dark:border-white/5 flex items-center justify-between">
-                        <h3 className="font-semibold text-sm text-slate-900 dark:text-white">Notifications</h3>
+                      <div className="p-4 border-b border-border flex items-center justify-between">
+                        <h3 className="font-semibold text-sm text-fg">Notifications</h3>
                         {hasUnread && (
                           <button 
                             onClick={markAllAsRead}
-                            className="text-[11px] text-indigo-500 hover:text-indigo-600 dark:hover:text-indigo-400 font-semibold"
+                            className="text-xs text-primary-text hover:underline underline-offset-2 font-semibold"
                           >
                             Mark all as read
                           </button>
                         )}
                       </div>
 
-                      <div className="max-h-70 overflow-y-auto divide-y divide-slate-50 dark:divide-white/2">
+                      <div className="max-h-70 overflow-y-auto divide-y divide-border">
                         {notifications.length === 0 ? (
-                          <div className="p-6 text-center text-slate-400 dark:text-slate-500 text-xs">
+                          <div className="p-6 text-center text-fg-subtle text-xs">
                             No notifications yet
                           </div>
                         ) : (
@@ -403,21 +404,21 @@ export function AppShell({ children, session, assignedSections = [], activeWorks
                             <div 
                               key={item.id} 
                               onClick={() => toggleRead(item.id)}
-                              className={`p-4 flex gap-3 hover:bg-slate-50 dark:hover:bg-white/2 cursor-pointer transition-colors ${!item.read ? 'bg-indigo-50/20 dark:bg-indigo-950/10' : ''}`}
+                              className={`p-4 flex gap-3 hover:bg-surface-2 cursor-pointer transition-colors ${!item.read ? 'bg-primary/10' : ''}`}
                             >
                               <div className="mt-0.5">
-                                {item.type === "success" && <div className="w-2 h-2 rounded-full bg-emerald-500 mt-1.5" />}
-                                {item.type === "warning" && <div className="w-2 h-2 rounded-full bg-amber-500 mt-1.5" />}
-                                {item.type === "info" && <div className="w-2 h-2 rounded-full bg-indigo-500 mt-1.5" />}
+                                {item.type === "success" && <div className="w-2 h-2 rounded-full bg-success mt-1.5" />}
+                                {item.type === "warning" && <div className="w-2 h-2 rounded-full bg-warning mt-1.5" />}
+                                {item.type === "info" && <div className="w-2 h-2 rounded-full bg-primary mt-1.5" />}
                               </div>
                               <div className="flex-1 min-w-0">
                                 <div className="flex items-center justify-between gap-2">
-                                  <p className={`text-xs font-semibold truncate ${!item.read ? 'text-slate-900 dark:text-white' : 'text-slate-600 dark:text-slate-400'}`}>
+                                  <p className={`text-xs font-semibold truncate ${!item.read ? 'text-fg' : 'text-fg-muted'}`}>
                                     {item.title}
                                   </p>
-                                  <span className="text-[10px] text-slate-400 dark:text-slate-500 shrink-0">{item.time}</span>
+                                  <span className="text-2xs text-fg-subtle shrink-0">{item.time}</span>
                                 </div>
-                                <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5 line-clamp-2 leading-relaxed">
+                                <p className="text-xs text-fg-muted mt-0.5 line-clamp-2 leading-relaxed">
                                   {item.description}
                                 </p>
                               </div>
@@ -427,10 +428,10 @@ export function AppShell({ children, session, assignedSections = [], activeWorks
                       </div>
 
                       {notifications.length > 0 && (
-                        <div className="p-2 bg-slate-50 dark:bg-white/1 border-t border-slate-100 dark:border-white/5 text-center">
+                        <div className="p-2 bg-surface-2 border-t border-border text-center">
                           <button 
                             onClick={clearAll}
-                            className="text-[11px] text-slate-500 dark:text-slate-400 hover:text-rose-500 dark:hover:text-rose-400 font-semibold w-full py-1.5"
+                            className="text-xs text-fg-muted hover:text-danger-text font-semibold w-full py-1.5"
                           >
                             Clear all notifications
                           </button>
@@ -442,16 +443,16 @@ export function AppShell({ children, session, assignedSections = [], activeWorks
               </AnimatePresence>
             </div>
 
-            <button onClick={handleLogout} disabled={isLoggingOut} className="text-sm font-medium text-(--muted-foreground) hover:text-red-500 transition-colors">
+            <button onClick={handleLogout} disabled={isLoggingOut} className="text-sm font-medium text-fg-muted hover:text-danger-text transition-colors">
               {isLoggingOut ? "Logging out..." : "Log out"}
             </button>
           </div>
         </header>
 
         {/* Mobile Header */}
-        <header className="lg:hidden flex items-center justify-between h-14 px-4 sticky top-0 z-30 bg-(--background)/80 backdrop-blur-md border-b border-(--border)">
+        <header className="lg:hidden flex items-center justify-between h-14 px-4 sticky top-0 z-30 bg-canvas/80 backdrop-blur-md border-b border-border">
           <div className="flex items-center gap-2">
-            <div className="flex items-center justify-center w-7 h-7 rounded-lg bg-indigo-500 text-white">
+            <div className="flex items-center justify-center w-7 h-7 rounded-control bg-primary text-primary-fg">
               <BookOpen className="w-3 h-3" />
             </div>
             <span className="text-lg font-bold tracking-tight">Electify</span>
@@ -462,11 +463,11 @@ export function AppShell({ children, session, assignedSections = [], activeWorks
             <div className="relative">
               <button 
                 onClick={() => setShowNotifications(!showNotifications)}
-                className="relative p-2 text-(--muted-foreground) hover:bg-(--accent) rounded-full transition-colors focus:outline-none"
+                className="relative p-2 text-fg-muted hover:bg-surface-2 rounded-full transition-colors focus-visible:outline-none"
               >
                 <Bell className="w-5 h-5" />
                 {hasUnread && (
-                  <span className="absolute top-1.5 right-1.5 w-2 h-2 bg-indigo-500 rounded-full border-2 border-(--background)" />
+                  <span className="absolute top-1.5 right-1.5 w-2 h-2 bg-primary rounded-full border-2 border-canvas" />
                 )}
               </button>
 
@@ -482,24 +483,24 @@ export function AppShell({ children, session, assignedSections = [], activeWorks
                       initial={{ opacity: 0, y: 10, scale: 0.95 }}
                       animate={{ opacity: 1, y: 0, scale: 1 }}
                       exit={{ opacity: 0, y: 10, scale: 0.95 }}
-                      transition={{ duration: 0.15, ease: "easeOut" }}
-                      className="absolute right-0 mt-2 w-72 bg-white dark:bg-slate-900 border border-slate-200 dark:border-white/8 shadow-[0_10px_30px_rgba(0,0,0,0.1)] dark:shadow-[0_10px_30px_rgba(0,0,0,0.4)] rounded-2xl overflow-hidden z-50 backdrop-blur-xl"
+                      transition={transition.fast}
+                      className="absolute right-0 mt-2 w-72 bg-surface border border-border shadow-2 rounded-card overflow-hidden z-50"
                     >
-                      <div className="p-4 border-b border-slate-100 dark:border-white/5 flex items-center justify-between">
-                        <h3 className="font-semibold text-sm text-slate-900 dark:text-white">Notifications</h3>
+                      <div className="p-4 border-b border-border flex items-center justify-between">
+                        <h3 className="font-semibold text-sm text-fg">Notifications</h3>
                         {hasUnread && (
                           <button 
                             onClick={markAllAsRead}
-                            className="text-[11px] text-indigo-500 hover:text-indigo-600 dark:hover:text-indigo-400 font-semibold"
+                            className="text-xs text-primary-text hover:underline underline-offset-2 font-semibold"
                           >
                             Mark
                           </button>
                         )}
                       </div>
 
-                      <div className="max-h-60 overflow-y-auto divide-y divide-slate-50 dark:divide-white/2">
+                      <div className="max-h-60 overflow-y-auto divide-y divide-border">
                         {notifications.length === 0 ? (
-                          <div className="p-6 text-center text-slate-400 dark:text-slate-500 text-xs">
+                          <div className="p-6 text-center text-fg-subtle text-xs">
                             No notifications yet
                           </div>
                         ) : (
@@ -507,21 +508,21 @@ export function AppShell({ children, session, assignedSections = [], activeWorks
                             <div 
                               key={item.id} 
                               onClick={() => toggleRead(item.id)}
-                              className={`p-3 flex gap-2.5 hover:bg-slate-50 dark:hover:bg-white/2 cursor-pointer transition-colors ${!item.read ? 'bg-indigo-50/20 dark:bg-indigo-950/10' : ''}`}
+                              className={`p-3 flex gap-2.5 hover:bg-surface-2 cursor-pointer transition-colors ${!item.read ? 'bg-primary/10' : ''}`}
                             >
                               <div className="mt-0.5">
-                                {item.type === "success" && <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 mt-1.5" />}
-                                {item.type === "warning" && <div className="w-1.5 h-1.5 rounded-full bg-amber-500 mt-1.5" />}
-                                {item.type === "info" && <div className="w-1.5 h-1.5 rounded-full bg-indigo-500 mt-1.5" />}
+                                {item.type === "success" && <div className="w-1.5 h-1.5 rounded-full bg-success mt-1.5" />}
+                                {item.type === "warning" && <div className="w-1.5 h-1.5 rounded-full bg-warning mt-1.5" />}
+                                {item.type === "info" && <div className="w-1.5 h-1.5 rounded-full bg-primary mt-1.5" />}
                               </div>
                               <div className="flex-1 min-w-0">
                                 <div className="flex items-center justify-between gap-1">
-                                  <p className={`text-[11px] font-semibold truncate ${!item.read ? 'text-slate-900 dark:text-white' : 'text-slate-600 dark:text-slate-400'}`}>
+                                  <p className={`text-xs font-semibold truncate ${!item.read ? 'text-fg' : 'text-fg-muted'}`}>
                                     {item.title}
                                   </p>
-                                  <span className="text-[9px] text-slate-400 dark:text-slate-500 shrink-0">{item.time}</span>
+                                  <span className="text-2xs text-fg-subtle shrink-0">{item.time}</span>
                                 </div>
-                                <p className="text-[10px] text-slate-500 dark:text-slate-400 mt-0.5 line-clamp-2 leading-relaxed">
+                                <p className="text-2xs text-fg-muted mt-0.5 line-clamp-2 leading-relaxed">
                                   {item.description}
                                 </p>
                               </div>
@@ -531,10 +532,10 @@ export function AppShell({ children, session, assignedSections = [], activeWorks
                       </div>
 
                       {notifications.length > 0 && (
-                        <div className="p-2 bg-slate-50 dark:bg-white/1 border-t border-slate-100 dark:border-white/5 text-center">
+                        <div className="p-2 bg-surface-2 border-t border-border text-center">
                           <button 
                             onClick={clearAll}
-                            className="text-[10px] text-slate-500 dark:text-slate-400 hover:text-rose-500 dark:hover:text-rose-400 font-semibold w-full py-1"
+                            className="text-2xs text-fg-muted hover:text-danger-text font-semibold w-full py-1"
                           >
                             Clear all
                           </button>
@@ -556,7 +557,7 @@ export function AppShell({ children, session, assignedSections = [], activeWorks
         </div>
 
         {/* ── Mobile Bottom Navigation ── */}
-        <nav className="lg:hidden fixed bottom-0 left-0 right-0 z-40 bg-(--background)/90 backdrop-blur-xl border-t border-(--border) pb-safe">
+        <nav className="lg:hidden fixed bottom-0 left-0 right-0 z-40 bg-canvas/90 backdrop-blur-xl border-t border-border pb-safe">
           <div className="flex items-center justify-around px-2 h-16">
             {mobileNavItems.map((item) => {
               const isActive = pathname === item.href || pathname.startsWith(`${item.href}/`);
@@ -566,20 +567,20 @@ export function AppShell({ children, session, assignedSections = [], activeWorks
                   href={item.href}
                   className="flex flex-col items-center justify-center w-16 h-full gap-1"
                 >
-                  <div className={`flex items-center justify-center w-8 h-8 rounded-full transition-colors ${isActive ? 'bg-(--accent) text-(--foreground)' : 'text-(--muted-foreground)'}`}>
+                  <div className={`flex items-center justify-center w-8 h-8 rounded-full transition-colors ${isActive ? 'bg-surface-2 text-fg' : 'text-fg-muted'}`}>
                     <item.icon className={`w-5 h-5 ${isActive ? item.color : ''}`} />
                   </div>
-                  <span className={`text-[10px] font-medium ${isActive ? 'text-(--foreground)' : 'text-(--muted-foreground)'}`}>
+                  <span className={`text-2xs font-medium ${isActive ? 'text-fg' : 'text-fg-muted'}`}>
                     {item.name.split(' ')[0]}
                   </span>
                 </Link>
               );
             })}
             <button className="flex flex-col items-center justify-center w-16 h-full gap-1">
-              <div className="flex items-center justify-center w-8 h-8 rounded-full text-(--muted-foreground)">
+              <div className="flex items-center justify-center w-8 h-8 rounded-full text-fg-muted">
                 <Menu className="w-5 h-5" />
               </div>
-              <span className="text-[10px] font-medium text-(--muted-foreground)">More</span>
+              <span className="text-2xs font-medium text-fg-muted">More</span>
             </button>
           </div>
         </nav>

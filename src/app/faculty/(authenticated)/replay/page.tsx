@@ -42,8 +42,8 @@ export default async function ReplayIndexPage() {
   return (
     <div className="space-y-8">
       <div>
-        <h1 className="text-3xl font-bold tracking-tight text-(--foreground)">Registration Replay</h1>
-        <p className="text-(--muted-foreground) mt-2">
+        <h1 className="text-3xl font-bold tracking-tight text-fg">Registration Replay</h1>
+        <p className="text-fg-muted mt-2">
           Select an event to replay the entire registration session chronologically.
         </p>
       </div>
@@ -51,31 +51,31 @@ export default async function ReplayIndexPage() {
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
         {events.map((event) => (
           <Link key={event.id} href={`/faculty/replay/${event.id}`}>
-            <div className="bg-(--card) hover:bg-(--accent) border border-(--border) rounded-2xl p-6 transition-colors group cursor-pointer h-full flex flex-col">
+            <div className="bg-surface hover:bg-surface-2 border border-border rounded-card p-6 transition-colors group cursor-pointer h-full flex flex-col">
               <div className="flex justify-between items-start mb-4">
-                <div className="w-12 h-12 rounded-full bg-indigo-500/10 flex items-center justify-center group-hover:scale-110 transition-transform">
-                  <PlayCircle className="w-6 h-6 text-indigo-500" />
+                <div className="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center group-hover:scale-110 transition-transform">
+                  <PlayCircle className="w-6 h-6 text-primary-text" />
                 </div>
                 <span className={`px-3 py-1 rounded-full text-xs font-medium uppercase tracking-wider ${
-                  event.status === "OPEN" ? "bg-emerald-500/10 text-emerald-500" :
-                  event.status === "CLOSED" ? "bg-red-500/10 text-red-500" :
-                  "bg-(--muted) text-(--muted-foreground)"
+                  event.status === "OPEN" ? "bg-success/10 text-success-text" :
+                  event.status === "CLOSED" ? "bg-danger/10 text-danger-text" :
+                  "bg-surface-2 text-fg-muted"
                 }`}>
                   {event.status}
                 </span>
               </div>
               
-              <h3 className="text-lg font-bold text-(--foreground) mb-2 line-clamp-2">
+              <h3 className="text-lg font-bold text-fg mb-2 line-clamp-2">
                 {event.name}
               </h3>
               
               <div className="mt-auto pt-4 space-y-2">
-                <div className="flex items-center text-sm text-(--muted-foreground)">
+                <div className="flex items-center text-sm text-fg-muted">
                   <CalendarDays className="w-4 h-4 mr-2" />
                   <span>Created {format(new Date(event.createdAt), "MMM d, yyyy")}</span>
                 </div>
                 {event.openDate && (
-                  <div className="flex items-center text-sm text-(--muted-foreground)">
+                  <div className="flex items-center text-sm text-fg-muted">
                     <Clock className="w-4 h-4 mr-2" />
                     <span>Opened {format(new Date(event.openDate), "MMM d, yyyy")}</span>
                   </div>
@@ -86,8 +86,8 @@ export default async function ReplayIndexPage() {
         ))}
 
         {events.length === 0 && (
-          <div className="col-span-full py-12 text-center border border-dashed border-(--border) rounded-2xl">
-            <p className="text-(--muted-foreground)">No registration events found.</p>
+          <div className="col-span-full py-12 text-center border border-dashed border-border rounded-card">
+            <p className="text-fg-muted">No registration events found.</p>
           </div>
         )}
       </div>

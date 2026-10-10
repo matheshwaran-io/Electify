@@ -8,6 +8,7 @@ import { createStudent, importStudentsCSV, updateStudent, deleteStudent, unlockS
 import { useRouter } from "next/navigation";
 import { TutorSectionOnboarding } from "@/components/tutor-section-onboarding";
 import { toast } from "sonner";
+import { listDelay, transition } from "@/lib/motion";
 
 type Registration = { studentId: string; electiveName: string; groupName: string; eventName: string };
 type Student = { 
@@ -137,7 +138,7 @@ export function SectionClient({ reportData, session }: { reportData: ReportData;
   }
 
   async function handleDeleteStudent(id: string) {
-    if (!confirm("Are you sure you want to delete this student? Their registration selections will also be deleted permanently.")) return;
+    if (!confirm("Are you sure want to delete this student? Their registration selections will also be deleted permanently.")) return;
     try {
       await deleteStudent(id);
       router.refresh();
@@ -147,7 +148,7 @@ export function SectionClient({ reportData, session }: { reportData: ReportData;
   }
 
   async function handleUnlockStudent(id: string) {
-    if (!confirm("Are you sure you want to unlock this student's registration? This allows them to edit their locked choices.")) return;
+    if (!confirm("Are you sure want to unlock this student's registration? This allows them edit their locked choices.")) return;
     try {
       await unlockStudentRegistration(id);
       router.refresh();
@@ -159,7 +160,7 @@ export function SectionClient({ reportData, session }: { reportData: ReportData;
 
   async function handleDeleteSelected() {
     if (selectedIds.size === 0) return;
-    if (!confirm(`Are you sure you want to delete ${selectedIds.size} selected students?`)) return;
+    if (!confirm(`Are you sure want to delete ${selectedIds.size} selected students?`)) return;
     
     setIsDeletingBulk(true);
     try {
@@ -175,7 +176,7 @@ export function SectionClient({ reportData, session }: { reportData: ReportData;
   }
 
   async function handleDeleteAll() {
-    const confirmDelete = window.prompt("Type 'CONFIRM' to delete ALL students in your section. This will also erase their registrations. This action cannot be undone.");
+    const confirmDelete = window.prompt("Type 'CONFIRM' to delete ALL students in your section. This will also erase their registrations. action cannot be undone.");
     if (confirmDelete !== "CONFIRM") return;
     setIsDeletingAll(true);
     try {
@@ -235,66 +236,66 @@ export function SectionClient({ reportData, session }: { reportData: ReportData;
   return (
     <div className="space-y-8 relative">
       <div>
-        <h1 className="text-3xl font-bold text-(--foreground)">Student Directory</h1>
-        <p className="text-(--muted-foreground) mt-1">Review student registrations and eligibility for your section.</p>
+        <h1 className="text-3xl font-bold text-fg">Student Directory</h1>
+        <p className="text-fg-muted mt-1">Review student registrations and eligibility for your section.</p>
       </div>
 
       {!session.sectionId && (
-        <div className="bg-orange-500/10 border border-orange-500/30 rounded-2xl p-6 text-sm text-orange-400">
+        <div className="bg-warning/10 border border-warning/30 rounded-card p-6 text-sm text-warning-text">
           ⚠ Your account doesn't have a section assigned. Please contact the System Administrator.
         </div>
       )}
 
       {/* Top Statistic Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-        <div className="bg-(--card) border border-(--border) rounded-2xl p-6 flex items-center justify-between shadow-sm">
+        <div className="bg-surface border border-border rounded-card p-6 flex items-center justify-between shadow-1">
           <div>
-            <div className="w-10 h-10 rounded-full bg-blue-500/10 flex items-center justify-center mb-3">
-              <Users className="w-5 h-5 text-blue-500" />
+            <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center mb-3">
+              <Users className="w-5 h-5 text-primary-text" />
             </div>
-            <p className="text-xs font-semibold text-(--muted-foreground) uppercase tracking-wider">Intake Count</p>
-            <p className="text-3xl font-bold text-(--foreground) mt-1">{totalStudents}</p>
+            <p className="text-xs font-semibold text-fg-muted uppercase tracking-wider">Intake Count</p>
+            <p className="text-3xl font-bold text-fg mt-1">{totalStudents}</p>
           </div>
         </div>
 
-        <div className="bg-(--card) border border-(--border) rounded-2xl p-6 flex items-center justify-between shadow-sm">
+        <div className="bg-surface border border-border rounded-card p-6 flex items-center justify-between shadow-1">
           <div>
-            <div className="w-10 h-10 rounded-full bg-orange-500/10 flex items-center justify-center mb-3">
-              <Clock className="w-5 h-5 text-orange-500" />
+            <div className="w-10 h-10 rounded-full bg-warning/10 flex items-center justify-center mb-3">
+              <Clock className="w-5 h-5 text-warning-text" />
             </div>
-            <p className="text-xs font-semibold text-(--muted-foreground) uppercase tracking-wider">Submitted Count</p>
-            <p className="text-3xl font-bold text-(--foreground) mt-1">{registeredCount}</p>
+            <p className="text-xs font-semibold text-fg-muted uppercase tracking-wider">Submitted Count</p>
+            <p className="text-3xl font-bold text-fg mt-1">{registeredCount}</p>
           </div>
         </div>
       </div>
 
       {/* Directory Table Area */}
-      <div className="bg-(--card) border border-(--border) rounded-3xl shadow-sm overflow-hidden">
-        <div className="px-6 py-6 border-b border-(--border) flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+      <div className="bg-surface border border-border rounded-panel shadow-1 overflow-hidden">
+        <div className="px-6 py-6 border-b border-border flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div>
-            <h2 className="text-xl font-bold text-(--foreground) flex items-center gap-2">
-              <Users className="w-5 h-5 text-(--muted-foreground)" />
+            <h2 className="text-xl font-bold text-fg flex items-center gap-2">
+              <Users className="w-5 h-5 text-fg-muted" />
               Student Directory
             </h2>
-            <p className="text-sm text-(--muted-foreground) mt-1">
+            <p className="text-sm text-fg-muted mt-1">
               Verify registration eligibility status and submission receipts.
             </p>
           </div>
           
           <div className="flex items-center gap-3 w-full sm:w-auto shrink-0 flex-wrap sm:flex-nowrap">
             <div className="relative w-full sm:w-64">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-(--muted-foreground)" />
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-fg-muted" />
               <input
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
                 placeholder="Search students..."
-                className="w-full pl-9 pr-4 py-2 bg-(--background) border border-(--border) rounded-xl text-sm text-(--foreground) placeholder:text-(--muted-foreground) focus:outline-none focus:ring-2 focus:ring-indigo-500/50"
+                className="w-full pl-9 pr-4 py-2 bg-surface border border-border-strong rounded-control text-sm text-fg placeholder:text-fg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
               />
             </div>
             
             <button 
               onClick={handleDownloadTemplate}
-              className="bg-(--background) border border-(--border) text-(--foreground) px-4 py-2 rounded-xl text-sm font-medium hover:bg-(--accent) transition flex items-center gap-2"
+              className="bg-surface border border-border text-fg px-4 py-2 rounded-control text-sm font-medium hover:bg-surface-2 transition flex items-center gap-2"
             >
               <Download className="w-4 h-4" /> Download Template
             </button>
@@ -309,14 +310,14 @@ export function SectionClient({ reportData, session }: { reportData: ReportData;
             <button 
               onClick={() => fileInputRef.current?.click()}
               disabled={isUploading}
-              className="bg-(--background) border border-(--border) text-(--foreground) px-4 py-2 rounded-xl text-sm font-medium hover:bg-(--accent) transition flex items-center gap-2 disabled:opacity-50"
+              className="bg-surface border border-border text-fg px-4 py-2 rounded-control text-sm font-medium hover:bg-surface-2 transition flex items-center gap-2 disabled:opacity-50"
             >
               <Upload className="w-4 h-4" /> {isUploading ? "Importing..." : "Import CSV"}
             </button>
 
             <button 
               onClick={() => setIsModalOpen(true)}
-              className="bg-indigo-600 text-white px-4 py-2 rounded-xl text-sm font-medium hover:bg-indigo-500 transition shadow-md shadow-indigo-500/20 whitespace-nowrap flex items-center gap-2"
+              className="bg-primary text-primary-fg px-4 py-2 rounded-control text-sm font-medium hover:bg-primary-strong transition whitespace-nowrap flex items-center gap-2"
             >
               <Plus className="w-4 h-4" /> Add Student
             </button>
@@ -324,7 +325,7 @@ export function SectionClient({ reportData, session }: { reportData: ReportData;
             <button 
               onClick={handleDeleteAll}
               disabled={isDeletingAll || students.length === 0}
-              className="bg-red-500/10 text-red-500 px-4 py-2 rounded-xl text-sm font-medium hover:bg-red-500/20 transition whitespace-nowrap flex items-center gap-2 disabled:opacity-50"
+              className="bg-danger/10 text-danger-text px-4 py-2 rounded-control text-sm font-medium hover:bg-danger/20 transition whitespace-nowrap flex items-center gap-2 disabled:opacity-50"
             >
               <Trash2 className="w-4 h-4" /> {isDeletingAll ? "Deleting..." : "Delete All"}
             </button>
@@ -333,7 +334,7 @@ export function SectionClient({ reportData, session }: { reportData: ReportData;
               <button 
                 onClick={handleDeleteSelected}
                 disabled={isDeletingBulk}
-                className="bg-red-500 text-white px-4 py-2 rounded-xl text-sm font-medium hover:bg-red-600 transition flex items-center gap-2 disabled:opacity-50"
+                className="bg-danger-strong text-primary-fg px-4 py-2 rounded-control text-sm font-medium hover:bg-danger-strong transition flex items-center gap-2 disabled:opacity-50"
               >
                 <Trash2 className="w-4 h-4" /> {isDeletingBulk ? "Deleting..." : `Delete (${selectedIds.size})`}
               </button>
@@ -344,11 +345,11 @@ export function SectionClient({ reportData, session }: { reportData: ReportData;
         <div className="overflow-x-auto">
           <table className="w-full text-sm text-left">
             <thead>
-              <tr className="bg-(--background)/50 border-b border-(--border)">
+              <tr className="bg-surface-2 border-b border-border">
                 <th className="px-6 py-4 w-12">
                   <input 
                     type="checkbox" 
-                    className="w-4 h-4 rounded border-(--border) text-indigo-600 focus:ring-indigo-500/50 cursor-pointer"
+                    className="w-4 h-4 rounded-badge border-border-strong text-primary-text focus-visible:ring-ring cursor-pointer"
                     checked={filtered.length > 0 && selectedIds.size === filtered.length}
                     onChange={(e) => {
                       if (e.target.checked) setSelectedIds(new Set(filtered.map(s => s.id)));
@@ -356,17 +357,17 @@ export function SectionClient({ reportData, session }: { reportData: ReportData;
                     }}
                   />
                 </th>
-                <th className="px-6 py-4 font-semibold text-(--muted-foreground) text-xs tracking-wider uppercase">Name</th>
-                <th className="px-6 py-4 font-semibold text-(--muted-foreground) text-xs tracking-wider uppercase">Register Number</th>
-                <th className="px-6 py-4 font-semibold text-(--muted-foreground) text-xs tracking-wider uppercase">SRM Email</th>
-                <th className="px-6 py-4 font-semibold text-(--muted-foreground) text-xs tracking-wider uppercase">Submitted</th>
-                <th className="px-6 py-4 font-semibold text-(--muted-foreground) text-xs tracking-wider uppercase text-right">Actions</th>
+                <th className="px-6 py-4 font-semibold text-fg-muted text-xs tracking-wider uppercase">Name</th>
+                <th className="px-6 py-4 font-semibold text-fg-muted text-xs tracking-wider uppercase">Register Number</th>
+                <th className="px-6 py-4 font-semibold text-fg-muted text-xs tracking-wider uppercase">SRM Email</th>
+                <th className="px-6 py-4 font-semibold text-fg-muted text-xs tracking-wider uppercase">Submitted</th>
+                <th className="px-6 py-4 font-semibold text-fg-muted text-xs tracking-wider uppercase text-right">Actions</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-(--border)">
+            <tbody className="divide-y divide-border">
               {filtered.length === 0 ? (
                 <tr>
-                  <td colSpan={8} className="text-center py-16 text-(--muted-foreground)">
+                  <td colSpan={8} className="text-center py-16 text-fg-muted">
                     No students match your search.
                   </td>
                 </tr>
@@ -378,13 +379,13 @@ export function SectionClient({ reportData, session }: { reportData: ReportData;
                       key={s.id}
                       initial={{ opacity: 0 }}
                       animate={{ opacity: 1 }}
-                      transition={{ delay: i * 0.02 }}
-                      className="hover:bg-(--accent)/10 transition-colors"
+                      transition={{ ...transition.fade, delay: listDelay(i, 0.02) }}
+                      className="hover:bg-surface-2/10 transition-colors"
                     >
                       <td className="px-6 py-4">
                         <input 
                           type="checkbox" 
-                          className="w-4 h-4 rounded border-(--border) text-indigo-600 focus:ring-indigo-500/50 cursor-pointer"
+                          className="w-4 h-4 rounded-badge border-border-strong text-primary-text focus-visible:ring-ring cursor-pointer"
                           checked={selectedIds.has(s.id)}
                           onChange={(e) => {
                             const newSet = new Set(selectedIds);
@@ -394,36 +395,36 @@ export function SectionClient({ reportData, session }: { reportData: ReportData;
                           }}
                         />
                       </td>
-                      <td className="px-6 py-4 text-(--foreground) font-medium">
+                      <td className="px-6 py-4 text-fg font-medium">
                         <div className="flex items-center gap-2">
                           {s.name}
                           {onlineUserIds.has(s.id) && (
-                            <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse shadow-[0_0_8px_rgba(16,185,129,0.8)]" title="Online now" />
+                            <span className="w-2 h-2 rounded-full bg-success" title="Online now" />
                           )}
                         </div>
                       </td>
-                      <td className="px-6 py-4 font-medium text-(--foreground)">
+                      <td className="px-6 py-4 font-medium text-fg">
                         {s.registerNumber ?? "—"}
                       </td>
-                      <td className="px-6 py-4 text-(--muted-foreground)">
+                      <td className="px-6 py-4 text-fg-muted">
                         {s.email ?? "—"}
                       </td>
                       <td className="px-6 py-4">
-                        <span className={`inline-flex px-2 py-1 rounded-md text-xs font-bold ${isRegistered ? "text-emerald-500 bg-emerald-500/10" : "text-red-500 bg-red-500/10"}`}>
+                        <span className={`inline-flex px-2 py-1 rounded-badge text-xs font-bold ${isRegistered ? "text-success-text bg-success/10" : "text-danger-text bg-danger/10"}`}>
                           {isRegistered ? "YES" : "NO"}
                         </span>
                       </td>
                       <td className="px-6 py-4 text-right">
                         <div className="flex items-center justify-end gap-2">
                           {(session.role === "SUPER_ADMIN" || session.role === "COURSE_COORDINATOR") && isRegistered && (
-                            <button onClick={() => handleUnlockStudent(s.id)} className="p-1.5 text-orange-500 hover:bg-orange-500/10 rounded-md transition-colors" title="Unlock Registration">
+                            <button onClick={() => handleUnlockStudent(s.id)} className="p-1.5 text-warning-text hover:bg-warning/10 rounded-badge transition-colors" title="Unlock Registration">
                               <ShieldCheck className="w-4 h-4" />
                             </button>
                           )}
-                          <button onClick={() => openEditModal(s)} className="p-1.5 text-blue-500 hover:bg-blue-500/10 rounded-md transition-colors" title="Edit">
+                          <button onClick={() => openEditModal(s)} className="p-1.5 text-primary-text hover:bg-primary/10 rounded-badge transition-colors" title="Edit">
                             <Pencil className="w-4 h-4" />
                           </button>
-                          <button onClick={() => handleDeleteStudent(s.id)} className="p-1.5 text-red-500 hover:bg-red-500/10 rounded-md transition-colors" title="Delete">
+                          <button onClick={() => handleDeleteStudent(s.id)} className="p-1.5 text-danger-text hover:bg-danger/10 rounded-badge transition-colors" title="Delete">
                             <Trash2 className="w-4 h-4" />
                           </button>
                         </div>
@@ -440,56 +441,56 @@ export function SectionClient({ reportData, session }: { reportData: ReportData;
       {/* Add Student Modal */}
       <AnimatePresence>
         {isModalOpen && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-overlay backdrop-blur-sm">
             <motion.div
               initial={{ opacity: 0, scale: 0.95, y: 20 }}
               animate={{ opacity: 1, scale: 1, y: 0 }}
               exit={{ opacity: 0, scale: 0.95, y: 20 }}
-              className="bg-(--card) border border-(--border) rounded-2xl w-full max-w-md shadow-xl overflow-hidden"
+              className="bg-surface border border-border rounded-card w-full max-w-md shadow-3 overflow-hidden"
             >
-              <div className="flex justify-between items-center p-6 border-b border-(--border)">
-                <h3 className="text-xl font-bold text-(--foreground)">Add New Student</h3>
-                <button onClick={() => setIsModalOpen(false)} className="text-(--muted-foreground) hover:text-(--foreground) transition-colors">
+              <div className="flex justify-between items-center p-6 border-b border-border">
+                <h3 className="text-xl font-bold text-fg">Add New Student</h3>
+                <button onClick={() => setIsModalOpen(false)} className="text-fg-muted hover:text-fg transition-colors">
                   <X className="w-5 h-5" />
                 </button>
               </div>
               <div className="p-6 space-y-4">
                 <div>
-                  <label className="block text-xs font-bold text-(--muted-foreground) mb-1 uppercase">Full Name</label>
+                  <label className="block text-xs font-bold text-fg-muted mb-1 uppercase">Full Name</label>
                   <input 
                     value={newName} onChange={e => setNewName(e.target.value)}
                     placeholder="e.g. John Doe"
-                    className="w-full px-4 py-2 bg-(--background) border border-(--border) rounded-xl text-sm"
+                    className="w-full px-4 py-2 bg-surface border border-border-strong rounded-control text-sm"
                   />
                 </div>
                 <div>
-                  <label className="block text-xs font-bold text-(--muted-foreground) mb-1 uppercase">Register Number</label>
+                  <label className="block text-xs font-bold text-fg-muted mb-1 uppercase">Register Number</label>
                   <input 
                     value={newRegNo} onChange={e => setNewRegNo(e.target.value)}
                     placeholder="e.g. RA2211003010xxx"
-                    className="w-full px-4 py-2 bg-(--background) border border-(--border) rounded-xl text-sm"
+                    className="w-full px-4 py-2 bg-surface border border-border-strong rounded-control text-sm"
                   />
                 </div>
                 <div>
-                  <label className="block text-xs font-bold text-(--muted-foreground) mb-1 uppercase">SRM Email</label>
+                  <label className="block text-xs font-bold text-fg-muted mb-1 uppercase">SRM Email</label>
                   <input 
                     value={newEmail} onChange={e => setNewEmail(e.target.value)}
                     placeholder="e.g. jd1234@srmist.edu.in"
-                    className="w-full px-4 py-2 bg-(--background) border border-(--border) rounded-xl text-sm"
+                    className="w-full px-4 py-2 bg-surface border border-border-strong rounded-control text-sm"
                   />
                 </div>
               </div>
-              <div className="p-6 bg-(--background) border-t border-(--border) flex justify-end gap-3">
+              <div className="p-6 bg-surface-2 border-t border-border flex justify-end gap-3">
                 <button 
                   onClick={() => setIsModalOpen(false)}
-                  className="px-4 py-2 rounded-xl text-sm font-medium hover:bg-black/10 transition-colors"
+                  className="px-4 py-2 rounded-control text-sm font-medium hover:bg-surface-3 transition-colors"
                 >
                   Cancel
                 </button>
                 <button 
                   onClick={handleAddStudent}
                   disabled={isSaving}
-                  className="bg-indigo-600 text-white px-6 py-2 rounded-xl text-sm font-medium hover:bg-indigo-500 transition-colors shadow-md disabled:opacity-50"
+                  className="bg-primary text-primary-fg px-6 py-2 rounded-control text-sm font-medium hover:bg-primary-strong transition-colors disabled:opacity-50"
                 >
                   {isSaving ? "Saving..." : "Add Student"}
                 </button>
@@ -502,56 +503,56 @@ export function SectionClient({ reportData, session }: { reportData: ReportData;
       {/* Edit Student Modal */}
       <AnimatePresence>
         {isEditModalOpen && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-overlay backdrop-blur-sm">
             <motion.div
               initial={{ opacity: 0, scale: 0.95, y: 20 }}
               animate={{ opacity: 1, scale: 1, y: 0 }}
               exit={{ opacity: 0, scale: 0.95, y: 20 }}
-              className="bg-(--card) border border-(--border) rounded-2xl w-full max-w-md shadow-xl overflow-hidden"
+              className="bg-surface border border-border rounded-card w-full max-w-md shadow-3 overflow-hidden"
             >
-              <div className="flex justify-between items-center p-6 border-b border-(--border)">
-                <h3 className="text-xl font-bold text-(--foreground)">Edit Student</h3>
-                <button onClick={() => setIsEditModalOpen(false)} className="text-(--muted-foreground) hover:text-(--foreground) transition-colors">
+              <div className="flex justify-between items-center p-6 border-b border-border">
+                <h3 className="text-xl font-bold text-fg">Edit Student</h3>
+                <button onClick={() => setIsEditModalOpen(false)} className="text-fg-muted hover:text-fg transition-colors">
                   <X className="w-5 h-5" />
                 </button>
               </div>
               <div className="p-6 space-y-4">
                 <div>
-                  <label className="block text-xs font-bold text-(--muted-foreground) mb-1 uppercase">Full Name</label>
+                  <label className="block text-xs font-bold text-fg-muted mb-1 uppercase">Full Name</label>
                   <input 
                     value={newName} onChange={e => setNewName(e.target.value)}
                     placeholder="e.g. John Doe"
-                    className="w-full px-4 py-2 bg-(--background) border border-(--border) rounded-xl text-sm focus:ring-2 focus:ring-blue-500/50 outline-none"
+                    className="w-full px-4 py-2 bg-surface border border-border-strong rounded-control text-sm focus-visible:ring-2 focus-visible:ring-ring outline-none"
                   />
                 </div>
                 <div>
-                  <label className="block text-xs font-bold text-(--muted-foreground) mb-1 uppercase">Register Number</label>
+                  <label className="block text-xs font-bold text-fg-muted mb-1 uppercase">Register Number</label>
                   <input 
                     value={newRegNo} onChange={e => setNewRegNo(e.target.value)}
                     placeholder="e.g. RA2211003010xxx"
-                    className="w-full px-4 py-2 bg-(--background) border border-(--border) rounded-xl text-sm focus:ring-2 focus:ring-blue-500/50 outline-none"
+                    className="w-full px-4 py-2 bg-surface border border-border-strong rounded-control text-sm focus-visible:ring-2 focus-visible:ring-ring outline-none"
                   />
                 </div>
                 <div>
-                  <label className="block text-xs font-bold text-(--muted-foreground) mb-1 uppercase">SRM Email</label>
+                  <label className="block text-xs font-bold text-fg-muted mb-1 uppercase">SRM Email</label>
                   <input 
                     value={newEmail} onChange={e => setNewEmail(e.target.value)}
                     placeholder="e.g. jd1234@srmist.edu.in"
-                    className="w-full px-4 py-2 bg-(--background) border border-(--border) rounded-xl text-sm focus:ring-2 focus:ring-blue-500/50 outline-none"
+                    className="w-full px-4 py-2 bg-surface border border-border-strong rounded-control text-sm focus-visible:ring-2 focus-visible:ring-ring outline-none"
                   />
                 </div>
               </div>
-              <div className="p-6 bg-(--background) border-t border-(--border) flex justify-end gap-3">
+              <div className="p-6 bg-surface-2 border-t border-border flex justify-end gap-3">
                 <button 
                   onClick={() => setIsEditModalOpen(false)}
-                  className="px-4 py-2 rounded-xl text-sm font-medium hover:bg-(--accent) transition-colors"
+                  className="px-4 py-2 rounded-control text-sm font-medium hover:bg-surface-2 transition-colors"
                 >
                   Cancel
                 </button>
                 <button 
                   onClick={handleEditSave}
                   disabled={isSaving}
-                  className="bg-blue-600 text-white px-6 py-2 rounded-xl text-sm font-medium hover:bg-blue-500 transition-colors shadow-md disabled:opacity-50"
+                  className="bg-primary text-primary-fg px-6 py-2 rounded-control text-sm font-medium hover:bg-primary-strong transition-colors disabled:opacity-50"
                 >
                   {isSaving ? "Saving..." : "Save Changes"}
                 </button>

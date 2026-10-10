@@ -1,7 +1,8 @@
 "use client";
 
 import * as React from "react";
-import { animate } from "framer-motion";
+import { animate, useReducedMotion } from "framer-motion";
+import { transition } from "@/lib/motion";
 
 interface AnimatedCounterProps {
   value: number;
@@ -9,21 +10,25 @@ interface AnimatedCounterProps {
 
 export function AnimatedCounter({ value }: AnimatedCounterProps) {
   const nodeRef = React.useRef<HTMLSpanElement>(null);
+  const reduceMotion = useReducedMotion();
 
   React.useEffect(() => {
     const node = nodeRef.current;
     if (!node) return;
+    if (reduceMotion) {
+      node.textContent = value.toLocaleString();
+      return;
+    }
 
     const controls = animate(0, value, {
-      duration: 1.5,
-      ease: "easeOut",
+      ...transition.value,
       onUpdate(v) {
         node.textContent = Math.round(v).toLocaleString();
       },
     });
 
     return () => controls.stop();
-  }, [value]);
+  }, [value, reduceMotion]);
 
   return <span ref={nodeRef}>0</span>;
 }

@@ -198,22 +198,22 @@ export function RegistrationForm({
 
         return (
           <div key={group.id} className="space-y-4">
-            <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-2 pb-4 border-b border-slate-200 dark:border-white/10">
+            <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-2 pb-4 border-b border-border">
               <div>
-                <h2 className="text-lg font-medium text-slate-900 dark:text-white">
+                <h2 className="text-lg font-medium text-fg">
                   {group.name}
                 </h2>
-                <p className="text-sm text-slate-500 mt-1">
+                <p className="text-sm text-fg-muted mt-1">
                   Select {group.minChoices === group.maxChoices ? group.minChoices : `${group.minChoices} to ${group.maxChoices}`} elective{group.maxChoices !== 1 && 's'}.
                 </p>
               </div>
               <div className="flex items-center">
                 {selectedForGroup.length >= group.minChoices && selectedForGroup.length <= group.maxChoices ? (
-                  <span className="flex items-center gap-1.5 text-xs font-medium text-emerald-600 dark:text-emerald-500">
+                  <span className="flex items-center gap-1.5 text-xs font-medium text-success-text">
                     <CheckCircle2 className="w-4 h-4" /> Valid Selection
                   </span>
                 ) : (
-                  <span className="text-xs font-medium text-slate-400">
+                  <span className="text-xs font-medium text-fg-subtle">
                     Selection Required
                   </span>
                 )}
@@ -241,17 +241,17 @@ export function RegistrationForm({
       })}
 
       <div className="sticky bottom-0 z-40 pt-4 sm:pt-6 pb-6 sm:pb-6 pointer-events-none">
-        <div className="bg-white/80 dark:bg-black/80 backdrop-blur-xl border-t sm:border border-slate-200 dark:border-white/10 sm:rounded-2xl p-4 sm:p-5 shadow-[0_-8px_30px_-4px_rgba(0,0,0,0.1)] dark:shadow-[0_-8px_30px_-4px_rgba(0,0,0,0.5)] flex flex-col sm:flex-row items-center justify-between gap-4 -mx-4 sm:mx-0 pointer-events-auto transition-all">
+        <div className="bg-surface/80 backdrop-blur-xl border-t sm:border border-border sm:rounded-card p-4 sm:p-5 shadow-2 flex flex-col sm:flex-row items-center justify-between gap-4 -mx-4 sm:mx-0 pointer-events-auto transition-all">
           <div className="w-full sm:w-auto text-center sm:text-left">
-            <h3 className="font-semibold text-sm text-slate-900 dark:text-white">Ready to submit?</h3>
-            <p className="text-xs text-slate-500 font-medium mt-0.5">
+            <h3 className="font-semibold text-sm text-fg">Ready to submit?</h3>
+            <p className="text-xs text-fg-muted font-medium mt-0.5">
               Review your choices before confirming.
             </p>
           </div>
           <PremiumButton
             onClick={() => setIsConfirmOpen(true)}
             disabled={!canSubmit || isSubmitting || !student.isEligible}
-            className="w-full sm:w-auto shadow-lg shadow-indigo-500/20"
+            className="w-full sm:w-auto"
           >
             <span className="flex items-center gap-2">
               {isSubmitting ? "Processing..." : student.hasSubmitted ? "Update Selections" : "Confirm Selections"}
@@ -262,12 +262,12 @@ export function RegistrationForm({
       </div>
 
       <Dialog open={isConfirmOpen} onOpenChange={setIsConfirmOpen}>
-        <DialogContent className="sm:max-w-106.25 p-6 bg-white dark:bg-[#111] border border-slate-200 dark:border-white/10 shadow-lg rounded-md">
+        <DialogContent className="sm:max-w-106.25 p-6 bg-surface border border-border shadow-3 rounded-card">
           <DialogHeader className="mb-4">
-            <DialogTitle className="text-lg font-medium text-slate-900 dark:text-white">
+            <DialogTitle className="text-lg font-medium text-fg">
               Confirm Registration
             </DialogTitle>
-            <DialogDescription className="text-sm text-slate-500 pt-2">
+            <DialogDescription className="text-sm text-fg-muted pt-2">
               Once submitted you cannot modify your electives.
             </DialogDescription>
           </DialogHeader>
@@ -278,13 +278,13 @@ export function RegistrationForm({
               if (sel.length === 0) return null;
               
               return (
-                <div key={group.id} className="border-l-2 border-slate-200 dark:border-white/10 pl-3">
-                  <p className="text-xs font-medium text-slate-500 mb-2">{group.name}</p>
+                <div key={group.id} className="border-l-2 border-border pl-3">
+                  <p className="text-xs font-medium text-fg-muted mb-2">{group.name}</p>
                   <ul className="space-y-1.5">
                     {sel.map(eid => {
                       const elective = localElectives.find(e => e.id === eid);
                       return (
-                        <li key={eid} className="font-medium text-slate-900 dark:text-slate-200 text-sm">
+                        <li key={eid} className="font-medium text-fg text-sm">
                           {elective?.courseCode ? `${elective.courseCode} - ` : ""}{elective?.name}
                         </li>
                       );
@@ -295,7 +295,7 @@ export function RegistrationForm({
             })}
           </div>
 
-          <DialogFooter className="flex-col-reverse sm:flex-row gap-3 sm:gap-2 mt-6 border-t border-slate-100 dark:border-white/5 pt-4">
+          <DialogFooter className="flex-col-reverse sm:flex-row gap-3 sm:gap-2 mt-6 border-t border-border pt-4">
             <PremiumButton variant="outline" onClick={() => setIsConfirmOpen(false)} disabled={isSubmitting}>
               Cancel
             </PremiumButton>
@@ -332,26 +332,26 @@ const ElectiveCard = React.memo(function ElectiveCard({
       onClick={() => {
         if (!isDisabled && isEligible) onSelect(elective.groupId, elective.id);
       }}
-      className={`relative overflow-hidden cursor-pointer rounded-2xl p-5 flex flex-col justify-between min-h-35 transition-colors border ${
+      className={`relative overflow-hidden cursor-pointer rounded-card p-5 flex flex-col justify-between min-h-35 transition-colors border ${
         isSelected
-          ? "border-slate-900 bg-slate-50 dark:border-white dark:bg-[#1a1a1a]"
+          ? "border-primary bg-primary/5 ring-1 ring-primary"
           : isDisabled
-          ? "opacity-50 bg-slate-50 dark:bg-[#0a0a0a] border-slate-200 dark:border-white/5 cursor-not-allowed"
-          : "border-slate-200 dark:border-white/10 bg-white dark:bg-[#111] hover:border-slate-300 dark:hover:border-white/20"
+          ? "opacity-50 bg-surface-2 border-border cursor-not-allowed"
+          : "border-border bg-surface hover:border-border-strong"
       }`}
     >
       <div className="space-y-3 relative z-10">
         <div className="flex justify-between items-start gap-4">
           <div>
             {elective.courseCode && (
-              <p className="text-[10px] font-semibold tracking-widest text-slate-500 mb-1">{elective.courseCode}</p>
+              <p className="text-2xs font-semibold tracking-widest text-fg-muted mb-1">{elective.courseCode}</p>
             )}
-            <h3 className={`font-medium text-sm leading-tight ${isSelected ? 'text-slate-900 dark:text-white' : 'text-slate-700 dark:text-slate-200'}`}>
+            <h3 className={`font-medium text-sm leading-tight ${isSelected ? 'text-fg' : 'text-fg-muted'}`}>
               {elective.name}
             </h3>
           </div>
           {isSelected && (
-            <div className="bg-slate-900 dark:bg-white text-white dark:text-black rounded-full p-0.5 shrink-0">
+            <div className="bg-primary text-primary-fg rounded-full p-0.5 shrink-0">
               <Check className="w-3 h-3" strokeWidth={3} />
             </div>
           )}
@@ -360,13 +360,13 @@ const ElectiveCard = React.memo(function ElectiveCard({
 
       <div className="mt-6 flex items-center justify-between">
         <div className="text-xs">
-          <span className="text-slate-500 mr-1">Available:</span>
-          <span className={`font-medium ${isFull ? 'text-rose-500' : 'text-slate-900 dark:text-white'}`}>
+          <span className="text-fg-muted mr-1">Available:</span>
+          <span className={`font-medium ${isFull ? 'text-danger-text' : 'text-fg'}`}>
             {elective.availableSeats} / {elective.maxSeats}
           </span>
         </div>
         {isFull && !isInitiallySelected && (
-          <span className="text-[10px] font-medium text-rose-500 bg-rose-500/10 px-2 py-0.5 rounded-sm">
+          <span className="text-2xs font-medium text-danger-text bg-danger/10 px-2 py-0.5 rounded-badge">
             Full
           </span>
         )}

@@ -7,6 +7,7 @@ import { StatusBadge } from "@/components/ui/status-badge";
 import { format } from "date-fns";
 import { toast } from "sonner";
 import { createInviteCode, revokeInviteCode } from "@/app/actions/admin";
+import { listDelay, spring, transition } from "@/lib/motion";
 
 type InviteCode = {
   id: string;
@@ -84,14 +85,14 @@ export function InvitesClient({
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <h1 className="text-3xl font-bold text-(--foreground)">Invite Codes</h1>
-          <p className="text-(--muted-foreground) mt-1">
+          <h1 className="text-3xl font-bold text-fg">Invite Codes</h1>
+          <p className="text-fg-muted mt-1">
             Generate one-time codes to invite staff members.
           </p>
         </div>
         <button
           onClick={() => setShowModal(true)}
-          className="flex items-center gap-2 px-5 py-3 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl font-medium transition-colors cursor-pointer shadow-md shadow-indigo-500/20"
+          className="flex items-center gap-2 px-5 py-3 bg-primary hover:bg-primary-strong text-primary-fg rounded-control font-medium transition-colors cursor-pointer"
         >
           <Plus className="w-4 h-4" />
           Generate Invite
@@ -99,24 +100,24 @@ export function InvitesClient({
       </div>
 
       {/* Table */}
-      <div className="bg-(--card) rounded-2xl border border-(--border) overflow-hidden">
+      <div className="bg-surface rounded-card border border-border overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
             <thead>
-              <tr className="border-b border-(--border) bg-(--accent)/30">
-                <th className="text-left px-6 py-4 font-semibold text-(--muted-foreground)">Code</th>
-                <th className="text-left px-6 py-4 font-semibold text-(--muted-foreground)">Role</th>
-                <th className="text-left px-6 py-4 font-semibold text-(--muted-foreground)">Status</th>
-                <th className="text-left px-6 py-4 font-semibold text-(--muted-foreground)">Uses</th>
-                <th className="text-left px-6 py-4 font-semibold text-(--muted-foreground)">Expires</th>
-                <th className="text-left px-6 py-4 font-semibold text-(--muted-foreground)">Created</th>
-                <th className="text-left px-6 py-4 font-semibold text-(--muted-foreground)">Actions</th>
+              <tr className="border-b border-border bg-surface-2/30">
+                <th className="text-left px-6 py-4 font-semibold text-fg-muted">Code</th>
+                <th className="text-left px-6 py-4 font-semibold text-fg-muted">Role</th>
+                <th className="text-left px-6 py-4 font-semibold text-fg-muted">Status</th>
+                <th className="text-left px-6 py-4 font-semibold text-fg-muted">Uses</th>
+                <th className="text-left px-6 py-4 font-semibold text-fg-muted">Expires</th>
+                <th className="text-left px-6 py-4 font-semibold text-fg-muted">Created</th>
+                <th className="text-left px-6 py-4 font-semibold text-fg-muted">Actions</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-(--border)">
+            <tbody className="divide-y divide-border">
               {codes.length === 0 ? (
                 <tr>
-                  <td colSpan={7} className="text-center py-16 text-(--muted-foreground)">
+                  <td colSpan={7} className="text-center py-16 text-fg-muted">
                     <Mail className="w-8 h-8 mx-auto mb-2 opacity-30" />
                     No invite codes generated yet.
                   </td>
@@ -127,20 +128,20 @@ export function InvitesClient({
                     key={c.id}
                     initial={{ opacity: 0 }}
                     animate={{ opacity: 1 }}
-                    transition={{ delay: i * 0.02 }}
-                    className="hover:bg-(--accent)/20 transition-colors"
+                    transition={{ ...transition.fade, delay: listDelay(i, 0.02) }}
+                    className="hover:bg-surface-2/20 transition-colors"
                   >
                     <td className="px-6 py-4">
                       <div className="flex items-center gap-2">
-                        <span className="font-mono font-bold text-(--foreground) tracking-widest">
+                        <span className="font-mono font-bold text-fg tracking-widest">
                           {c.code}
                         </span>
                         <button
                           onClick={() => copyCode(c.code, c.id)}
-                          className="p-1.5 rounded-lg hover:bg-(--accent) transition-colors cursor-pointer text-(--muted-foreground)"
+                          className="p-1.5 rounded-control hover:bg-surface-2 transition-colors cursor-pointer text-fg-muted"
                         >
                           {copiedId === c.id ? (
-                            <Check className="w-3.5 h-3.5 text-emerald-400" />
+                            <Check className="w-3.5 h-3.5 text-success-text" />
                           ) : (
                             <Copy className="w-3.5 h-3.5" />
                           )}
@@ -153,13 +154,13 @@ export function InvitesClient({
                     <td className="px-6 py-4">
                       <StatusBadge status={c.status} />
                     </td>
-                    <td className="px-6 py-4 text-(--muted-foreground)">
+                    <td className="px-6 py-4 text-fg-muted">
                       {c.usedCount} / {c.maxUses}
                     </td>
-                    <td className="px-6 py-4 text-(--muted-foreground)">
+                    <td className="px-6 py-4 text-fg-muted">
                       {format(new Date(c.expiresAt), "MMM d, yyyy")}
                     </td>
-                    <td className="px-6 py-4 text-(--muted-foreground)">
+                    <td className="px-6 py-4 text-fg-muted">
                       {format(new Date(c.createdAt), "MMM d, yyyy")}
                     </td>
                     <td className="px-6 py-4">
@@ -167,7 +168,7 @@ export function InvitesClient({
                         <button
                           onClick={() => handleRevoke(c.id)}
                           disabled={isPending}
-                          className="flex items-center gap-1.5 text-xs text-red-400 hover:text-red-300 transition-colors disabled:opacity-50 cursor-pointer"
+                          className="flex items-center gap-1.5 text-xs text-danger-text hover:text-danger-text transition-colors disabled:opacity-50 cursor-pointer"
                         >
                           <Trash2 className="w-3.5 h-3.5" />
                           Revoke
@@ -192,26 +193,26 @@ export function InvitesClient({
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
               onClick={() => setShowModal(false)}
-              className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm"
+              className="fixed inset-0 z-50 bg-overlay backdrop-blur-sm"
             />
             <motion.div
               key="modal"
               initial={{ opacity: 0, scale: 0.95, y: 20 }}
               animate={{ opacity: 1, scale: 1, y: 0 }}
               exit={{ opacity: 0, scale: 0.95, y: 20 }}
-              transition={{ type: "spring", stiffness: 300, damping: 25 }}
+              transition={spring.gentle}
               className="fixed inset-0 z-50 flex items-center justify-center p-4 pointer-events-none"
             >
-              <div className="bg-(--card) border border-(--border) rounded-3xl shadow-2xl w-full max-w-lg pointer-events-auto">
+              <div className="bg-surface border border-border rounded-card shadow-3 w-full max-w-lg pointer-events-auto">
                 {/* Modal Header */}
-                <div className="flex items-center justify-between px-6 py-5 border-b border-(--border)">
+                <div className="flex items-center justify-between px-6 py-5 border-b border-border">
                   <div>
-                    <h2 className="text-xl font-bold text-(--foreground)">Generate Invite Code</h2>
-                    <p className="text-sm text-(--muted-foreground) mt-0.5">Configure and generate a staff invite link.</p>
+                    <h2 className="text-xl font-bold text-fg">Generate Invite Code</h2>
+                    <p className="text-sm text-fg-muted mt-0.5">Configure and generate a staff invite link.</p>
                   </div>
                   <button
                     onClick={() => setShowModal(false)}
-                    className="p-2 rounded-xl hover:bg-(--accent) text-(--muted-foreground) transition-colors cursor-pointer"
+                    className="p-2 rounded-control hover:bg-surface-2 text-fg-muted transition-colors cursor-pointer"
                   >
                     <X className="w-5 h-5" />
                   </button>
@@ -221,13 +222,13 @@ export function InvitesClient({
                 <div className="px-6 py-5 space-y-5">
                   {/* Role */}
                   <div className="space-y-2">
-                    <label className="text-sm font-medium text-(--foreground)">Role *</label>
+                    <label className="text-sm font-medium text-fg">Role *</label>
                     <div className="flex gap-3">
                       {(["COURSE_COORDINATOR", "CLASS_TUTOR"] as const).map((r) => (
                         <button
                           key={r}
                           onClick={() => setRole(r)}
-                          className={`flex-1 py-2.5 px-4 rounded-xl text-sm font-medium border transition-all cursor-pointer ${role === r ? "bg-indigo-600 text-white border-indigo-600" : "bg-transparent text-(--muted-foreground) border-(--border) hover:border-indigo-500/50"}`}
+                          className={`flex-1 py-2.5 px-4 rounded-control text-sm font-medium border transition-all cursor-pointer ${role === r ? "bg-primary text-primary-fg border-primary" : "bg-transparent text-fg-muted border-border hover:border-primary/50"}`}
                         >
                           {r.replace("_", " ")}
                         </button>
@@ -239,42 +240,42 @@ export function InvitesClient({
                   {/* Max Uses + Expiry */}
                   <div className="grid grid-cols-2 gap-4">
                     <div className="space-y-2">
-                      <label className="text-sm font-medium text-(--foreground)">Max Uses</label>
+                      <label className="text-sm font-medium text-fg">Max Uses</label>
                       <input
                         type="number"
                         min={1}
                         max={50}
                         value={maxUses}
                         onChange={(e) => setMaxUses(Number(e.target.value))}
-                        className="w-full px-4 py-2.5 bg-(--background) border border-(--border) rounded-xl text-sm text-(--foreground) focus:outline-none focus:ring-2 focus:ring-indigo-500/50"
+                        className="w-full px-4 py-2.5 bg-surface border border-border-strong rounded-control text-sm text-fg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                       />
                     </div>
                     <div className="space-y-2">
-                      <label className="text-sm font-medium text-(--foreground)">Expires In (days)</label>
+                      <label className="text-sm font-medium text-fg">Expires In (days)</label>
                       <input
                         type="number"
                         min={1}
                         max={90}
                         value={expiresInDays}
                         onChange={(e) => setExpiresInDays(Number(e.target.value))}
-                        className="w-full px-4 py-2.5 bg-(--background) border border-(--border) rounded-xl text-sm text-(--foreground) focus:outline-none focus:ring-2 focus:ring-indigo-500/50"
+                        className="w-full px-4 py-2.5 bg-surface border border-border-strong rounded-control text-sm text-fg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                       />
                     </div>
                   </div>
                 </div>
 
                 {/* Modal Footer */}
-                <div className="px-6 py-5 border-t border-(--border) flex gap-3">
+                <div className="px-6 py-5 border-t border-border flex gap-3">
                   <button
                     onClick={() => setShowModal(false)}
-                    className="flex-1 py-2.5 rounded-xl border border-(--border) text-sm font-medium text-(--muted-foreground) hover:bg-(--accent) transition-colors cursor-pointer"
+                    className="flex-1 py-2.5 rounded-control border border-border text-sm font-medium text-fg-muted hover:bg-surface-2 transition-colors cursor-pointer"
                   >
                     Cancel
                   </button>
                   <button
                     onClick={handleCreate}
                     disabled={isPending}
-                    className="flex-1 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-medium transition-colors disabled:opacity-50 cursor-pointer shadow-md shadow-indigo-500/20"
+                    className="flex-1 py-2.5 rounded-control bg-primary hover:bg-primary-strong text-primary-fg text-sm font-medium transition-colors disabled:opacity-50 cursor-pointer"
                   >
                     {isPending ? "Generating…" : "Generate Code"}
                   </button>
