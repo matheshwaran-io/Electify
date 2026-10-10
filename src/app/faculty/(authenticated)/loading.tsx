@@ -1,32 +1,24 @@
+import { Skeleton } from "@/components/ui/feedback";
+
 export default function Loading() {
   return (
-    <div className="flex-1 w-full h-full p-8 flex flex-col gap-8 animate-pulse">
-      {/* Header Skeleton */}
-      <div className="flex flex-col gap-2 border-b border-border/50 pb-6">
-        <div className="h-8 w-1/3 bg-surface-2 rounded-control" />
-        <div className="h-4 w-1/4 bg-surface-2 rounded-control" />
+    <div aria-busy="true" aria-label="Loading" className="space-y-8">
+      <div className="space-y-2.5 pb-2">
+        <Skeleton className="h-8 w-64" />
+        <Skeleton className="h-4 w-96 max-w-full" />
       </div>
-
-      {/* Grid Skeleton */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-        {[1, 2, 3, 4].map((i) => (
-          <div key={i} className="bg-surface p-6 rounded-card border border-border h-32 flex flex-col justify-between">
-            <div className="h-8 w-8 bg-surface-2 rounded-control" />
-            <div className="space-y-2">
-              <div className="h-3 w-1/2 bg-surface-2 rounded-control" />
-              <div className="h-6 w-1/3 bg-surface-2 rounded-control" />
-            </div>
+      <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+        {[0, 1, 2, 3].map((i) => (
+          <div key={i} className="space-y-4 rounded-card border border-border bg-surface p-5">
+            <Skeleton className="h-4 w-24" />
+            <Skeleton className="h-8 w-16" />
           </div>
         ))}
       </div>
-
-      {/* Main Content Area Skeleton */}
-      <div className="flex-1 bg-surface rounded-card border border-border p-6 space-y-4">
-        <div className="h-6 w-1/4 bg-surface-2 rounded-control mb-8" />
-        {[1, 2, 3, 4, 5].map((i) => (
-          <div key={i} className="flex gap-4">
-            <div className="h-10 w-full bg-surface-2/50 rounded-control" />
-          </div>
+      <div className="space-y-3 rounded-card border border-border bg-surface p-5">
+        <Skeleton className="h-9 w-72 max-w-full" />
+        {[0, 1, 2, 3, 4, 5].map((i) => (
+          <Skeleton key={i} className="h-10 w-full" />
         ))}
       </div>
     </div>

@@ -1,0 +1,163 @@
+"use client"
+
+import * as React from "react"
+import Link from "next/link"
+import { useRouter } from "next/navigation"
+import { toast } from "sonner"
+import { Check, ChevronsUpDown, Search, Settings2 } from "lucide-react"
+import { cn } from "@/lib/utils"
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
+import { Spinner } from "@/components/ui/spinner"
+import { Tooltip } from "@/components/ui/tooltip"
+
+export type AssignedSection = { id: string; label: string; batch: string; programme: string }
+
+export function sectionName(s: AssignedSection) {
+  return `Section ${s.label}`
+}
+
+/** Switches the active section through the existing API, then refreshes server data in place. */
+export function useSwitchSection() {
+  const router = useRouter()
+  const [pending, startTransition] = React.useTransition()
+  const [target, setTarget] = React.useState<string | null>(null)
+
+  const switchTo = React.useCallback(
+    async (section: AssignedSection) => {
+      setTarget(section.id)
+      try {
+        const res = await fetch("/api/switch-section", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ sectionId: section.id }),
+        })
+        if (!res.ok) {
+          const data = await res.json().catch(() => ({}))
+          throw new Error(data.error || "Couldn't switch section")
+        }
+        startTransition(() => router.refresh())
+        toast.success(`Now viewing ${sectionName(section)}`, { description: `${section.programme} · ${section.batch}` })
+      } catch (err) {
+        toast.error(err instanceof Error ? err.message : "Couldn't switch section")
+      } finally {
+        setTarget(null)
+      }
+    },
+    [router]
+  )
+
+  return { switchTo, pending: pending || target !== null, target }
+}
+
+export function SectionSwitcher({
+  sections,
+  activeId,
+  collapsed,
+}: {
+  sections: AssignedSection[]
+  activeId?: string
+  collapsed?: boolean
+}) {
+  const [open, setOpen] = React.useState(false)
+  const [query, setQuery] = React.useState("")
+  const { switchTo, pending, target } = useSwitchSection()
+  const active = sections.find((s) => s.id === activeId) ?? sections[0]
+
+  const filtered = sections.filter((s) =>
+    `${s.programme} ${s.batch} ${s.label}`.toLowerCase().includes(query.trim().toLowerCase())
+  )
+
+  if (!active) return null
+
+  const trigger = (
+    <PopoverTrigger
+      aria-label={`Active section: ${sectionName(active)}, ${active.programme} ${active.batch}. Change section`}
+      className={cn(
+        "group flex w-full items-center gap-2.5 rounded-control border border-border bg-surface text-left shadow-1 transition-colors hover:border-border-strong",
+        collapsed ? "size-10 justify-center p-0" : "px-2.5 py-2"
+      )}
+    >
+      <span className="inline-flex size-7 shrink-0 items-center justify-center rounded-badge bg-surface-2 font-mono text-xs font-semibold text-fg">
+        {pending ? <Spinner className="size-3.5" /> : active.label}
+      </span>
+      {!collapsed ? (
+        <>
+          <span className="min-w-0 flex-1">
+            <span className="block truncate text-sm font-medium text-fg">{sectionName(active)}</span>
+            <span className="block truncate text-xs text-fg-muted">
+              {active.programme} · {active.batch}
+            </span>
+          </span>
+          <ChevronsUpDown className="size-4 shrink-0 text-fg-subtle" />
+        </>
+      ) : null}
+    </PopoverTrigger>
+  )
+
+  return (
+    <Popover open={open} onOpenChange={setOpen}>
+      {collapsed ? (
+        <Tooltip content={`${sectionName(active)} · ${active.programme}`} side="right">
+          {trigger}
+        </Tooltip>
+      ) : (
+        trigger
+      )}
+      <PopoverContent side={collapsed ? "right" : "bottom"} className="w-72 p-0">
+        {sections.length > 4 ? (
+          <div className="flex items-center gap-2 border-b border-border px-3">
+            <Search className="size-4 text-fg-subtle" />
+            <input
+              autoFocus
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              placeholder="Find a section"
+              aria-label="Find a section"
+              className="h-10 flex-1 bg-transparent text-sm outline-none placeholder:text-fg-subtle"
+            />
+          </div>
+        ) : null}
+        <div role="listbox" aria-label="Your sections" className="max-h-72 overflow-y-auto p-1">
+          {filtered.length === 0 ? <p className="px-3 py-6 text-center text-sm text-fg-muted">No sections match</p> : null}
+          {filtered.map((s) => {
+            const isActive = s.id === active.id
+            return (
+              <button
+                key={s.id}
+                type="button"
+                role="option"
+                aria-selected={isActive}
+                disabled={pending}
+                onClick={() => {
+                  setOpen(false)
+                  if (!isActive) switchTo(s)
+                }}
+                className="flex w-full items-center gap-3 rounded-badge px-2.5 py-2 text-left hover:bg-surface-2 disabled:opacity-60"
+              >
+                <span className="inline-flex size-7 shrink-0 items-center justify-center rounded-badge border border-border font-mono text-xs font-semibold">
+                  {target === s.id ? <Spinner className="size-3.5" /> : s.label}
+                </span>
+                <span className="min-w-0 flex-1">
+                  <span className="block truncate text-sm font-medium text-fg">{sectionName(s)}</span>
+                  <span className="block truncate text-xs text-fg-muted">
+                    {s.programme} · {s.batch}
+                  </span>
+                </span>
+                {isActive ? <Check className="size-4 text-primary-text" /> : null}
+              </button>
+            )
+          })}
+        </div>
+        <div className="border-t border-border p-1">
+          <Link
+            href="/faculty/assign-sections"
+            onClick={() => setOpen(false)}
+            className="flex items-center gap-2.5 rounded-badge px-2.5 py-2 text-sm text-fg-muted hover:bg-surface-2 hover:text-fg"
+          >
+            <Settings2 className="size-4" /> Manage sections
+          </Link>
+        </div>
+      </PopoverContent>
+    </Popover>
+  )
+}

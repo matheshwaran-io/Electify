@@ -1,120 +1,166 @@
 "use client";
 
-import { useState, useEffect } from "react";
-import { Users, Check } from "lucide-react";
-import { getAllAvailableSections, claimTutorSection } from "@/app/actions/tutor";
+import { useEffect, useMemo, useState } from "react";
+import { Check, LayoutGrid, Search } from "lucide-react";
 import { toast } from "sonner";
+import { claimTutorSection, getAllAvailableSections } from "@/app/actions/tutor";
+import { cn } from "@/lib/utils";
+import { Button } from "@/components/ui/button";
+import { EmptyState, ErrorState, Skeleton } from "@/components/ui/feedback";
+import { Input } from "@/components/ui/input";
 
 type SectionData = { id: string; label: string; batch: string; programme: string };
+
+const MAX = 5;
 
 export function TutorSectionOnboarding({ isManageMode = false }: { isManageMode?: boolean }) {
   const [sections, setSections] = useState<SectionData[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState(false);
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [isSaving, setIsSaving] = useState(false);
+  const [query, setQuery] = useState("");
 
-  useEffect(() => {
+  const load = () => {
+    setIsLoading(true);
+    setLoadError(false);
     getAllAvailableSections()
-      .then(data => {
+      .then((data) => {
         setSections(data);
         setIsLoading(false);
       })
       .catch(() => {
-        toast.error("Failed to load sections");
+        setLoadError(true);
         setIsLoading(false);
       });
-  }, []);
+  };
+
+  useEffect(load, []);
 
   const handleClaim = async () => {
     if (selectedIds.length === 0) return;
     setIsSaving(true);
     try {
-      toast.loading("Assigning sections...", { id: "claim" });
       await claimTutorSection(selectedIds);
-      toast.success("Successfully assigned!", { id: "claim" });
-      window.location.reload(); // Reload to refresh session and server components fully
+      toast.success(`${selectedIds.length} section${selectedIds.length > 1 ? "s" : ""} assigned to you`);
+      window.location.reload(); // refresh the session cookie and every server component
     } catch (err: any) {
-      toast.error(err.message || "Failed to assign sections", { id: "claim" });
+      toast.error(err.message || "Couldn't assign those sections");
       setIsSaving(false);
     }
   };
 
   const toggleSection = (id: string) => {
-    setSelectedIds(prev => {
-      if (prev.includes(id)) return prev.filter(x => x !== id);
-      if (prev.length >= 5) {
-        toast.error("You can only select up to 5 sections.");
+    setSelectedIds((prev) => {
+      if (prev.includes(id)) return prev.filter((x) => x !== id);
+      if (prev.length >= MAX) {
+        toast.error(`You can manage up to ${MAX} sections.`);
         return prev;
       }
       return [...prev, id];
     });
   };
 
-  // Group by programme > batch
-  const grouped = sections.reduce((acc, sec) => {
-    const key = `${sec.programme} (${sec.batch})`;
-    if (!acc[key]) acc[key] = [];
-    acc[key].push(sec);
-    return acc;
-  }, {} as Record<string, SectionData[]>);
+  const grouped = useMemo(() => {
+    const q = query.trim().toLowerCase();
+    return sections
+      .filter((s) => !q || `${s.programme} ${s.batch} ${s.label}`.toLowerCase().includes(q))
+      .reduce((acc, sec) => {
+        const key = `${sec.programme} · ${sec.batch}`;
+        (acc[key] ??= []).push(sec);
+        return acc;
+      }, {} as Record<string, SectionData[]>);
+  }, [sections, query]);
 
   return (
-    <div className="space-y-6 flex flex-col items-center justify-center min-h-[60vh] text-center w-full">
-      <div className="w-16 h-16 rounded-full bg-surface-2 flex items-center justify-center mb-4 ring-8 ring-canvas">
-        <Users className="w-8 h-8 text-primary-text" />
+    <div className="mx-auto flex w-full max-w-xl flex-col py-6 sm:py-10">
+      <div className="mb-6 space-y-2">
+        <span className="inline-flex size-11 items-center justify-center rounded-control border border-border bg-surface text-primary-text shadow-1">
+          <LayoutGrid className="size-5" />
+        </span>
+        <h1 className="pt-2 text-2xl font-semibold tracking-tight text-fg">
+          {isManageMode ? "Add the sections you tutor" : "Pick the sections you tutor"}
+        </h1>
+        <p className="text-fg-muted">
+          {isManageMode
+            ? `Sections already claimed by another tutor aren't listed. You can manage up to ${MAX} in total.`
+            : `You don't have a section yet. Choose up to ${MAX} to get started; only unclaimed sections are listed.`}
+        </p>
       </div>
-      <h2 className="text-2xl font-bold text-fg">
-        {isManageMode ? "Manage Your Sections" : "Welcome to Electify"}
-      </h2>
-      <p className="text-fg-muted max-w-md">
-        {isManageMode 
-          ? "Select additional sections you are tutoring. You can manage up to 5 in total." 
-          : "You haven't been assigned an active section yet. Please select up to 5 sections you are tutoring below get started."}
-      </p>
 
-      <div className="w-full max-w-lg mt-8 bg-surface border border-border rounded-card p-6 shadow-3 text-left">
-        {isLoading ? (
-          <div className="py-12 text-center text-fg-muted">Loading available sections...</div>
-        ) : sections.length === 0 ? (
-          <div className="py-12 text-center text-fg-muted">No sections available in the system.</div>
-        ) : (
-          <div className="space-y-6 max-h-75 overflow-y-auto scrollbar-thin pr-2">
-            {Object.entries(grouped).map(([groupName, secs]) => (
-              <div key={groupName} className="space-y-3">
-                <h3 className="text-xs font-bold text-fg-muted uppercase tracking-wider sticky top-0 bg-surface py-1 z-10">{groupName}</h3>
-                <div className="grid grid-cols-2 gap-3">
-                  {secs.map(sec => {
-                    const isSelected = selectedIds.includes(sec.id);
-                    return (
-                      <button
-                        key={sec.id}
-                        onClick={() => toggleSection(sec.id)}
-                        className={`flex items-center gap-2 p-3 rounded-control border text-sm font-semibold transition-all text-left ${
-                          isSelected 
-                            ? "bg-primary border-primary text-primary-fg" 
-                            : "bg-surface-2/30 border-border text-fg-muted hover:border-primary/30 hover:text-fg"
-                        }`}
-                      >
-                        <div className={`w-4 h-4 rounded-full border-2 flex items-center justify-center shrink-0 ${isSelected ? "border-border bg-surface/20" : "border-border-strong"}`}>
-                          {isSelected && <Check className="w-2.5 h-2.5 text-primary-fg" strokeWidth={3} />}
-                        </div>
-                        Sec {sec.label}
-                      </button>
-                    );
-                  })}
+      <div className="overflow-hidden rounded-card border border-border bg-surface shadow-2">
+        <div className="border-b border-border p-3">
+          <Input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Filter by programme, year or section" aria-label="Filter sections" leading={<Search />} inputSize="sm" className="h-9" />
+        </div>
+
+        <div className="max-h-[50dvh] min-h-48 overflow-y-auto px-4 py-3 scrollbar-thin">
+          {isLoading ? (
+            <div className="space-y-5 py-2">
+              {[0, 1].map((g) => (
+                <div key={g} className="space-y-2.5">
+                  <Skeleton className="h-3.5 w-40" />
+                  <div className="grid grid-cols-3 gap-2 sm:grid-cols-4">
+                    {[0, 1, 2, 3].map((i) => (
+                      <Skeleton key={i} className="h-11 rounded-control" />
+                    ))}
+                  </div>
                 </div>
-              </div>
-            ))}
-          </div>
-        )}
+              ))}
+            </div>
+          ) : loadError ? (
+            <ErrorState title="Sections didn't load" onRetry={load} />
+          ) : sections.length === 0 ? (
+            <EmptyState compact icon={<LayoutGrid />} title="No unclaimed sections" description="Every section already has a tutor. Ask your administrator if one should be reassigned." />
+          ) : Object.keys(grouped).length === 0 ? (
+            <EmptyState compact icon={<Search />} title="No sections match" description="Try a programme name or year." />
+          ) : (
+            <div className="space-y-5">
+              {Object.entries(grouped).map(([groupName, secs]) => (
+                <section key={groupName} aria-label={groupName}>
+                  <h2 className="sticky top-0 z-10 bg-surface py-1.5 text-xs font-medium text-fg-muted">{groupName}</h2>
+                  <div className="grid grid-cols-3 gap-2 sm:grid-cols-4">
+                    {secs.map((sec) => {
+                      const selected = selectedIds.includes(sec.id);
+                      return (
+                        <button
+                          key={sec.id}
+                          type="button"
+                          aria-pressed={selected}
+                          onClick={() => toggleSection(sec.id)}
+                          className={cn(
+                            "flex h-11 items-center justify-between gap-2 rounded-control border px-3 text-sm font-medium transition-[background-color,border-color,color,transform] duration-150 ease-snappy active:scale-[0.97]",
+                            selected
+                              ? "border-primary bg-primary/10 text-primary-text"
+                              : "border-border bg-surface text-fg-muted hover:border-border-strong hover:text-fg"
+                          )}
+                        >
+                          Section {sec.label}
+                          <span
+                            className={cn(
+                              "inline-flex size-4 items-center justify-center rounded-full transition-colors",
+                              selected ? "bg-primary text-primary-fg" : "border border-border-strong"
+                            )}
+                          >
+                            {selected ? <Check className="size-3" strokeWidth={3} /> : null}
+                          </span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </section>
+              ))}
+            </div>
+          )}
+        </div>
 
-        <button
-          onClick={handleClaim}
-          disabled={selectedIds.length === 0 || isSaving || isLoading}
-          className="w-full mt-6 py-3.5 bg-primary hover:bg-primary-strong disabled:opacity-50 disabled:hover:bg-primary-strong text-primary-fg rounded-control font-bold text-sm transition-all"
-        >
-          {isSaving ? "Assigning..." : "Assign to me"}
-        </button>
+        <div className="flex items-center justify-between gap-3 border-t border-border bg-surface-2/50 px-4 py-3">
+          <p className="text-sm text-fg-muted" aria-live="polite">
+            <span className="font-mono font-medium tabular-nums text-fg">{selectedIds.length}</span> of {MAX} selected
+          </p>
+          <Button onClick={handleClaim} disabled={selectedIds.length === 0 || isLoading} loading={isSaving} loadingText="Assigning">
+            Assign to me
+          </Button>
+        </div>
       </div>
     </div>
   );

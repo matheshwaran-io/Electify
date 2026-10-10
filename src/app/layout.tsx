@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import localFont from "next/font/local";
 import "./globals.css";
 import { cn } from "@/lib/utils";
@@ -20,8 +20,16 @@ const geistMono = localFont({
 });
 
 export const metadata: Metadata = {
-  title: "Electify - Smart Elective Registration",
-  description: "Smart Elective Registration System For MCA F",
+  title: { default: "Electify", template: "%s · Electify" },
+  description: "Elective registration for SRMIST: live seat counts, locked-in choices and an instant receipt.",
+  applicationName: "Electify",
+};
+
+export const viewport: Viewport = {
+  themeColor: [
+    { media: "(prefers-color-scheme: light)", color: "#F8FAFC" },
+    { media: "(prefers-color-scheme: dark)", color: "#07090E" },
+  ],
 };
 
 export default function RootLayout({

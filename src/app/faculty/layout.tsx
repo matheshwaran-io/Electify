@@ -41,6 +41,7 @@ export default async function FacultyLayout({
   const { cookies } = await import("next/headers");
   const cookieStore = await cookies();
   const activeWorkspace = cookieStore.get("electify_active_workspace")?.value || "COORDINATOR";
+  const sidebarCollapsed = cookieStore.get("electify_sidebar")?.value === "collapsed";
 
   let assignedSections: any[] = [];
   if (session.role === "CLASS_TUTOR" || session.role === "COURSE_COORDINATOR") {
@@ -62,5 +63,9 @@ export default async function FacultyLayout({
     }
   }
 
-  return <AppShell session={session} assignedSections={assignedSections} activeWorkspace={activeWorkspace}>{children}</AppShell>;
+  return (
+    <AppShell session={session} assignedSections={assignedSections} activeWorkspace={activeWorkspace} initialCollapsed={sidebarCollapsed}>
+      {children}
+    </AppShell>
+  );
 }
