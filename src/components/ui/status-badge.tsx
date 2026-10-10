@@ -1,39 +1,41 @@
-"use client";
+import { Badge, type BadgeTone } from "@/components/ui/badge"
 
-const statusStyles: Record<string, string> = {
-  // Events
-  DRAFT:        "bg-fg-subtle/15 text-fg-subtle border-border-strong",
-  PUBLISHED:    "bg-primary/15 text-primary-text border-primary/20",
-  OPEN:         "bg-success/15 text-success-text border-success/20",
-  CLOSED:       "bg-warning/15 text-warning-text border-warning/20",
-  VERIFICATION: "bg-primary/15 text-primary-text border-primary/20",
-  FINALIZED:    "bg-success/15 text-success-text border-success/20",
-  ARCHIVED:     "bg-fg-subtle/15 text-fg-subtle border-border-strong",
-  // Invite
-  ACTIVE:       "bg-success/15 text-success-text border-success/20",
-  USED:         "bg-fg-subtle/15 text-fg-subtle border-border-strong",
-  EXPIRED:      "bg-danger/15 text-danger-text border-danger/20",
-  REVOKED:      "bg-danger/15 text-danger-text border-danger/20",
-  // Roles
-  SYSTEM_ADMIN:       "bg-danger/15 text-danger-text border-danger/20",
-  COURSE_COORDINATOR: "bg-primary/15 text-primary-text border-primary/20",
-  CLASS_TUTOR:        "bg-primary/15 text-primary-text border-primary/20",
-  STUDENT:            "bg-fg-subtle/15 text-fg-subtle border-border-strong",
-};
+/** Every status string the backend emits, mapped to meaning. */
+const STATUS: Record<string, { tone: BadgeTone; label: string; dot?: boolean }> = {
+  // Registration events
+  DRAFT: { tone: "neutral", label: "Draft" },
+  PUBLISHED: { tone: "primary", label: "Published" },
+  OPEN: { tone: "live", label: "Open", dot: true },
+  ACTIVE: { tone: "success", label: "Active" },
+  CLOSED: { tone: "neutral", label: "Closed" },
+  VERIFICATION: { tone: "warning", label: "In verification" },
+  FINALIZED: { tone: "success", label: "Finalized" },
+  ARCHIVED: { tone: "outline", label: "Archived" },
+  // Student registrations
+  CONFIRMED: { tone: "success", label: "Confirmed" },
+  NOT_REGISTERED: { tone: "warning", label: "Pending" },
+  RESET_BY_COORDINATOR: { tone: "outline", label: "Reset" },
+  CANCELLED: { tone: "outline", label: "Cancelled" },
+  // Invite codes
+  USED: { tone: "neutral", label: "Used" },
+  EXPIRED: { tone: "warning", label: "Expired" },
+  REVOKED: { tone: "danger", label: "Revoked" },
+  // Roles (identity, not state: neutral on purpose)
+  SYSTEM_ADMIN: { tone: "outline", label: "System admin" },
+  COURSE_COORDINATOR: { tone: "outline", label: "Course coordinator" },
+  CLASS_TUTOR: { tone: "outline", label: "Class tutor" },
+  STUDENT: { tone: "outline", label: "Student" },
+}
 
-const ROLE_DISPLAY: Record<string, string> = {
-  SYSTEM_ADMIN: "System Administrator",
-  COURSE_COORDINATOR: "Course Coordinator",
-  CLASS_TUTOR: "Class Tutor",
-  STUDENT: "Student",
-};
+export function statusLabel(status: string) {
+  return STATUS[status]?.label ?? status.replace(/_/g, " ").toLowerCase().replace(/^\w/, (c) => c.toUpperCase())
+}
 
-export function StatusBadge({ status }: { status: string }) {
-  const style = statusStyles[status] ?? "bg-fg-subtle/15 text-fg-subtle border-border-strong";
-  const label = ROLE_DISPLAY[status] ?? status.replace(/_/g, " ");
+export function StatusBadge({ status, size }: { status: string; size?: "sm" | "md" }) {
+  const meta = STATUS[status]
   return (
-    <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium border ${style}`}>
-      {label}
-    </span>
-  );
+    <Badge tone={meta?.tone ?? "neutral"} size={size} dot={meta?.dot}>
+      {statusLabel(status)}
+    </Badge>
+  )
 }
