@@ -6,6 +6,7 @@ import { GraduationCap, Search, Trash2, Download, Filter, ChevronLeft, ChevronRi
 import { deleteMultipleStudents } from "@/app/actions/coordinator";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
+import { listDelay, transition } from "@/lib/motion";
 
 type Student = { id: string; name: string; email: string; registerNumber: string | null; isActive: boolean; isEligible: boolean; createdAt: Date; sectionLabel: string | null };
 
@@ -90,7 +91,7 @@ export function StudentsClient({ students }: { students: Student[] }) {
 
   async function handleDeleteSelected() {
     if (selectedIds.size === 0) return;
-    if (!confirm(`Are you sure you want to delete ${selectedIds.size} selected students? This cannot be undone.`)) return;
+    if (!confirm(`Are you sure want to delete ${selectedIds.size} selected students? This cannot be undone.`)) return;
     
     setIsDeleting(true);
     try {
@@ -131,13 +132,13 @@ export function StudentsClient({ students }: { students: Student[] }) {
     <div className="space-y-6 pb-20">
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
-          <h1 className="text-3xl font-bold text-(--foreground)">Student Directory</h1>
-          <p className="text-(--muted-foreground) mt-1">{students.length} total students enrolled.</p>
+          <h1 className="text-3xl font-bold text-fg">Student Directory</h1>
+          <p className="text-fg-muted mt-1">{students.length} total students enrolled.</p>
         </div>
         <div className="flex items-center gap-3">
           <button 
             onClick={handleExportCSV}
-            className="bg-(--card) border border-(--border) text-(--foreground) px-4 py-2.5 rounded-xl text-sm font-medium hover:bg-(--accent) transition shadow-sm flex items-center gap-2 outline-none"
+            className="bg-surface border border-border text-fg px-4 py-2.5 rounded-control text-sm font-medium hover:bg-surface-2 transition shadow-1 flex items-center gap-2 outline-none"
           >
             <Download className="w-4 h-4" /> Export CSV
           </button>
@@ -145,24 +146,24 @@ export function StudentsClient({ students }: { students: Student[] }) {
       </div>
 
       {/* Filters Bar */}
-      <div className="bg-(--card) p-4 rounded-2xl border border-(--border) shadow-sm flex flex-col lg:flex-row gap-4 items-center justify-between">
+      <div className="bg-surface p-4 rounded-card border border-border shadow-1 flex flex-col lg:flex-row gap-4 items-center justify-between">
         <div className="relative w-full lg:max-w-sm">
-          <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-(--muted-foreground)" />
+          <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-fg-muted" />
           <input
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             placeholder="Search students..."
-            className="w-full pl-11 pr-4 py-2.5 bg-(--background) border border-(--border) rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/50 outline-none"
+            className="w-full pl-11 pr-4 py-2.5 bg-surface border border-border-strong rounded-control text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring outline-none"
           />
         </div>
 
         <div className="flex flex-wrap items-center gap-3 w-full lg:w-auto">
           {sections.length > 0 && (
-            <div className="flex items-center gap-2 bg-(--background) border border-(--border) rounded-xl px-3 py-1">
-              <Filter className="w-3.5 h-3.5 text-(--muted-foreground)" />
+            <div className="flex items-center gap-2 bg-surface border border-border rounded-control px-3 py-1">
+              <Filter className="w-3.5 h-3.5 text-fg-muted" />
               <select 
                 value={sectionFilter} onChange={e => setSectionFilter(e.target.value)}
-                className="bg-transparent text-sm font-medium text-(--foreground) focus:outline-none py-1.5 outline-none cursor-pointer"
+                className="bg-transparent text-sm font-medium text-fg focus-visible:outline-none py-1.5 outline-none cursor-pointer"
               >
                 <option value="ALL">All Sections</option>
                 {sections.map(sec => (
@@ -179,16 +180,16 @@ export function StudentsClient({ students }: { students: Student[] }) {
         {selectedIds.size > 0 && (
           <motion.div 
             initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }}
-            className="bg-indigo-500/10 border border-indigo-500/20 rounded-2xl p-4 flex flex-col sm:flex-row items-center justify-between gap-4"
+            className="bg-primary/10 border border-primary/20 rounded-card p-4 flex flex-col sm:flex-row items-center justify-between gap-4"
           >
-            <div className="text-indigo-600 font-medium text-sm flex items-center gap-2">
+            <div className="text-primary-text font-medium text-sm flex items-center gap-2">
               <CheckCircle className="w-5 h-5" />
               {selectedIds.size} student{selectedIds.size > 1 ? 's' : ''} selected
             </div>
             <div className="flex flex-wrap items-center gap-2">
               <button 
                 onClick={handleDeleteSelected} disabled={isDeleting}
-                className="px-3 py-1.5 bg-red-500 text-white text-xs font-bold rounded-lg hover:bg-red-600 transition flex items-center gap-1.5 outline-none"
+                className="px-3 py-1.5 bg-danger-strong text-primary-fg text-xs font-bold rounded-control hover:bg-danger-strong transition flex items-center gap-1.5 outline-none"
               >
                 <Trash2 className="w-3.5 h-3.5" /> Delete
               </button>
@@ -198,15 +199,15 @@ export function StudentsClient({ students }: { students: Student[] }) {
       </AnimatePresence>
 
       {/* Main Table */}
-      <div className="bg-(--card) rounded-3xl border border-(--border) overflow-hidden shadow-sm">
+      <div className="bg-surface rounded-panel border border-border overflow-hidden shadow-1">
         <div className="overflow-x-auto">
           <table className="w-full text-sm text-left">
             <thead>
-              <tr className="bg-(--background) border-b border-(--border)">
+              <tr className="bg-surface-2 border-b border-border">
                 <th className="px-6 py-4 w-12">
                   <input 
                     type="checkbox" 
-                    className="w-4 h-4 rounded border-(--border) text-indigo-600 focus:ring-indigo-500/50 cursor-pointer"
+                    className="w-4 h-4 rounded-badge border-border-strong text-primary-text focus-visible:ring-ring cursor-pointer"
                     checked={currentData.length > 0 && selectedIds.size === filteredAndSorted.length}
                     onChange={(e) => {
                       if (e.target.checked) {
@@ -218,34 +219,34 @@ export function StudentsClient({ students }: { students: Student[] }) {
                   />
                 </th>
                 <th className="px-6 py-4">
-                  <button onClick={() => toggleSort("NAME")} className="flex items-center gap-2 font-bold text-xs uppercase tracking-wider text-(--muted-foreground) hover:text-(--foreground) transition outline-none">
+                  <button onClick={() => toggleSort("NAME")} className="flex items-center gap-2 font-bold text-xs uppercase tracking-wider text-fg-muted hover:text-fg transition outline-none">
                     Student <ArrowUpDown className="w-3 h-3" />
                   </button>
                 </th>
                 <th className="px-6 py-4">
-                  <button onClick={() => toggleSort("REG_NO")} className="flex items-center gap-2 font-bold text-xs uppercase tracking-wider text-(--muted-foreground) hover:text-(--foreground) transition outline-none">
+                  <button onClick={() => toggleSort("REG_NO")} className="flex items-center gap-2 font-bold text-xs uppercase tracking-wider text-fg-muted hover:text-fg transition outline-none">
                     Register No. <ArrowUpDown className="w-3 h-3" />
                   </button>
                 </th>
-                <th className="px-6 py-4 font-bold text-xs uppercase tracking-wider text-(--muted-foreground)">Section</th>
+                <th className="px-6 py-4 font-bold text-xs uppercase tracking-wider text-fg-muted">Section</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-(--border)">
+            <tbody className="divide-y divide-border">
               {currentData.length === 0 ? (
                 <tr>
                   <td colSpan={4} className="text-center py-20">
-                    <GraduationCap className="w-10 h-10 mx-auto mb-3 text-(--muted-foreground) opacity-50" />
-                    <p className="text-(--foreground) font-medium mb-1">No students found</p>
-                    <p className="text-(--muted-foreground) text-sm">Try adjusting your search or filters.</p>
+                    <GraduationCap className="w-10 h-10 mx-auto mb-3 text-fg-muted opacity-50" />
+                    <p className="text-fg font-medium mb-1">No students found</p>
+                    <p className="text-fg-muted text-sm">Try adjusting your search or filters.</p>
                   </td>
                 </tr>
               ) : (
                 currentData.map((s, i) => (
-                  <motion.tr key={s.id} initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: i * 0.02 }} className="hover:bg-(--accent)/30 transition-colors">
+                  <motion.tr key={s.id} initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ ...transition.fade, delay: listDelay(i, 0.02) }} className="hover:bg-surface-2/30 transition-colors">
                     <td className="px-6 py-4">
                       <input 
                         type="checkbox" 
-                        className="w-4 h-4 rounded border-(--border) text-indigo-600 focus:ring-indigo-500/50 cursor-pointer"
+                        className="w-4 h-4 rounded-badge border-border-strong text-primary-text focus-visible:ring-ring cursor-pointer"
                         checked={selectedIds.has(s.id)}
                         onChange={(e) => {
                           const newSet = new Set(selectedIds);
@@ -257,19 +258,19 @@ export function StudentsClient({ students }: { students: Student[] }) {
                     </td>
                     <td className="px-6 py-4">
                       <div className="flex items-center gap-3">
-                        <div className="w-10 h-10 rounded-full bg-indigo-500/10 flex items-center justify-center text-indigo-600 text-sm font-bold shrink-0 ring-2 ring-(--background)">
+                        <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center text-primary-text text-sm font-bold shrink-0 ring-2 ring-canvas">
                           {s.name.charAt(0).toUpperCase()}
                         </div>
                         <div>
-                          <p className="font-bold text-(--foreground)">{s.name}</p>
-                          <p className="text-xs text-(--muted-foreground) font-medium">{s.email}</p>
+                          <p className="font-bold text-fg">{s.name}</p>
+                          <p className="text-xs text-fg-muted font-medium">{s.email}</p>
                         </div>
                       </div>
                     </td>
-                    <td className="px-6 py-4 font-mono text-xs font-semibold text-(--muted-foreground) bg-(--background)/50 rounded-lg inline-block my-4 mx-6 px-2 py-1">{s.registerNumber ?? "—"}</td>
+                    <td className="px-6 py-4 font-mono text-xs font-semibold text-fg-muted bg-surface-2 rounded-badge inline-block my-4 mx-6 px-2 py-1">{s.registerNumber ?? "—"}</td>
                     <td className="px-6 py-4">
                       {s.sectionLabel ? (
-                        <span className="inline-flex items-center px-2.5 py-1 rounded-md text-xs font-bold uppercase tracking-wider bg-indigo-500/10 text-indigo-500">
+                        <span className="inline-flex items-center px-2.5 py-1 rounded-badge text-xs font-bold uppercase tracking-wider bg-primary/10 text-primary-text">
                           Sec {s.sectionLabel}
                         </span>
                       ) : "—"}
@@ -283,25 +284,25 @@ export function StudentsClient({ students }: { students: Student[] }) {
         
         {/* Pagination Footer */}
         {totalPages > 1 && (
-          <div className="p-4 border-t border-(--border) bg-(--background) flex items-center justify-between">
-            <p className="text-xs font-medium text-(--muted-foreground)">
-              Showing <span className="text-(--foreground) font-bold">{(currentPage - 1) * itemsPerPage + 1}</span> to <span className="text-(--foreground) font-bold">{Math.min(currentPage * itemsPerPage, filteredAndSorted.length)}</span> of <span className="text-(--foreground) font-bold">{filteredAndSorted.length}</span> students
+          <div className="p-4 border-t border-border bg-surface-2 flex items-center justify-between">
+            <p className="text-xs font-medium text-fg-muted">
+              Showing <span className="text-fg font-bold">{(currentPage - 1) * itemsPerPage + 1}</span> to <span className="text-fg font-bold">{Math.min(currentPage * itemsPerPage, filteredAndSorted.length)}</span> of <span className="text-fg font-bold">{filteredAndSorted.length}</span> students
             </p>
             <div className="flex items-center gap-2">
               <button 
                 onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
                 disabled={currentPage === 1}
-                className="p-1.5 rounded-lg border border-(--border) text-(--foreground) hover:bg-(--accent) disabled:opacity-50 transition outline-none"
+                className="p-1.5 rounded-control border border-border text-fg hover:bg-surface-2 disabled:opacity-50 transition outline-none"
               >
                 <ChevronLeft className="w-4 h-4" />
               </button>
-              <div className="text-xs font-bold text-(--muted-foreground) px-2">
+              <div className="text-xs font-bold text-fg-muted px-2">
                 Page {currentPage} of {totalPages}
               </div>
               <button 
                 onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
                 disabled={currentPage === totalPages}
-                className="p-1.5 rounded-lg border border-(--border) text-(--foreground) hover:bg-(--accent) disabled:opacity-50 transition outline-none"
+                className="p-1.5 rounded-control border border-border text-fg hover:bg-surface-2 disabled:opacity-50 transition outline-none"
               >
                 <ChevronRight className="w-4 h-4" />
               </button>

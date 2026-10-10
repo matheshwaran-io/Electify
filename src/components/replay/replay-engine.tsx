@@ -15,6 +15,7 @@ import {
   Award,
 } from "lucide-react";
 import { format } from "date-fns";
+import { listDelay, transition } from "@/lib/motion";
 
 export function ReplayEngine({ eventId }: { eventId: string }) {
   const [loading, setLoading] = useState(true);
@@ -68,14 +69,14 @@ export function ReplayEngine({ eventId }: { eventId: string }) {
   if (loading) {
     return (
       <div className="flex items-center justify-center h-full">
-        <Loader2 className="w-8 h-8 animate-spin text-(--muted-foreground)" />
+        <Loader2 className="w-8 h-8 animate-spin text-fg-muted" />
       </div>
     );
   }
 
   if (!registrations.length) {
     return (
-      <div className="flex items-center justify-center h-full text-(--muted-foreground)">
+      <div className="flex items-center justify-center h-full text-fg-muted">
         No registrations found for this event yet.
       </div>
     );
@@ -84,25 +85,25 @@ export function ReplayEngine({ eventId }: { eventId: string }) {
   function getRankBadge(rank: number) {
     if (rank === 1)
       return (
-        <div className="w-8 h-8 rounded-full bg-amber-500/20 flex items-center justify-center shrink-0">
-          <Trophy className="w-4 h-4 text-amber-500" />
+        <div className="w-8 h-8 rounded-full bg-warning/20 flex items-center justify-center shrink-0">
+          <Trophy className="w-4 h-4 text-warning-text" />
         </div>
       );
     if (rank === 2)
       return (
-        <div className="w-8 h-8 rounded-full bg-slate-400/20 flex items-center justify-center shrink-0">
-          <Medal className="w-4 h-4 text-slate-400" />
+        <div className="w-8 h-8 rounded-full bg-fg-subtle/20 flex items-center justify-center shrink-0">
+          <Medal className="w-4 h-4 text-fg-subtle" />
         </div>
       );
     if (rank === 3)
       return (
-        <div className="w-8 h-8 rounded-full bg-amber-700/20 flex items-center justify-center shrink-0">
-          <Award className="w-4 h-4 text-amber-700" />
+        <div className="w-8 h-8 rounded-full bg-warning/20 flex items-center justify-center shrink-0">
+          <Award className="w-4 h-4 text-warning-text" />
         </div>
       );
     return (
-      <div className="w-8 h-8 rounded-full bg-(--accent) flex items-center justify-center shrink-0">
-        <span className="text-xs font-bold text-(--muted-foreground)">
+      <div className="w-8 h-8 rounded-full bg-surface-2 flex items-center justify-center shrink-0">
+        <span className="text-xs font-bold text-fg-muted">
           {rank}
         </span>
       </div>
@@ -130,38 +131,38 @@ export function ReplayEngine({ eventId }: { eventId: string }) {
   return (
     <div className="flex flex-col h-full gap-4">
       {/* Header Stats */}
-      <div className="bg-(--card) border border-(--border) rounded-2xl p-6 shadow-sm shrink-0">
+      <div className="bg-surface border border-border rounded-card p-6 shadow-1 shrink-0">
         <div className="flex items-center justify-between flex-wrap gap-4">
           <div>
-            <h2 className="text-xl font-bold text-(--foreground)">
+            <h2 className="text-xl font-bold text-fg">
               Registration Replay
             </h2>
-            <p className="text-sm text-(--muted-foreground) mt-0.5">
+            <p className="text-sm text-fg-muted mt-0.5">
               {eventDetails?.name}
             </p>
           </div>
           <div className="flex items-center gap-6">
-            <div className="text-center px-4 py-2 bg-indigo-500/10 rounded-xl">
-              <p className="text-xs font-bold uppercase tracking-wider text-indigo-400">
+            <div className="text-center px-4 py-2 bg-primary/10 rounded-control">
+              <p className="text-xs font-bold uppercase tracking-wider text-primary-text">
                 Total
               </p>
-              <p className="text-2xl font-mono font-bold text-indigo-500">
+              <p className="text-2xl font-mono font-bold text-primary-text">
                 {data?.totalRegistered || 0}
               </p>
             </div>
-            <div className="text-center px-4 py-2 bg-emerald-500/10 rounded-xl">
-              <p className="text-xs font-bold uppercase tracking-wider text-emerald-400">
+            <div className="text-center px-4 py-2 bg-success/10 rounded-control">
+              <p className="text-xs font-bold uppercase tracking-wider text-success-text">
                 Self
               </p>
-              <p className="text-2xl font-mono font-bold text-emerald-500">
+              <p className="text-2xl font-mono font-bold text-success-text">
                 {data?.totalSelfRegistered || 0}
               </p>
             </div>
-            <div className="text-center px-4 py-2 bg-amber-500/10 rounded-xl">
-              <p className="text-xs font-bold uppercase tracking-wider text-amber-400">
+            <div className="text-center px-4 py-2 bg-warning/10 rounded-control">
+              <p className="text-xs font-bold uppercase tracking-wider text-warning-text">
                 Manual
               </p>
-              <p className="text-2xl font-mono font-bold text-amber-500">
+              <p className="text-2xl font-mono font-bold text-warning-text">
                 {data?.totalManual || 0}
               </p>
             </div>
@@ -170,27 +171,27 @@ export function ReplayEngine({ eventId }: { eventId: string }) {
       </div>
 
       {/* Search & Filters */}
-      <div className="bg-(--card) border border-(--border) rounded-2xl px-5 py-3 shadow-sm shrink-0 flex items-center gap-4 flex-wrap">
+      <div className="bg-surface border border-border rounded-card px-5 py-3 shadow-1 shrink-0 flex items-center gap-4 flex-wrap">
         <div className="relative flex-1 min-w-50">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-(--muted-foreground)" />
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-fg-muted" />
           <input
             type="text"
             placeholder="Search by name, register number, or elective..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full pl-9 pr-4 py-2 bg-(--background) border border-(--border) rounded-lg text-sm text-(--foreground) placeholder:text-(--muted-foreground) focus:outline-none focus:ring-2 focus:ring-indigo-500/50"
+            className="w-full pl-9 pr-4 py-2 bg-surface border border-border-strong rounded-control text-sm text-fg placeholder:text-fg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
           />
         </div>
 
-        <div className="flex items-center gap-1 bg-(--background) rounded-lg p-1 border border-(--border)">
+        <div className="flex items-center gap-1 bg-surface-2 rounded-control p-1 border border-border">
           {(["all", "self", "manual"] as const).map((type) => (
             <button
               key={type}
               onClick={() => setFilterType(type)}
-              className={`px-3 py-1.5 rounded-md text-xs font-bold capitalize transition-colors ${
+              className={`px-3 py-1.5 rounded-badge text-xs font-bold capitalize transition-colors ${
                 filterType === type
-                  ? "bg-indigo-500/20 text-indigo-500"
-                  : "text-(--muted-foreground) hover:bg-(--accent)"
+                  ? "bg-primary/20 text-primary-text"
+                  : "text-fg-muted hover:bg-surface-2"
               }`}
             >
               {type === "all"
@@ -204,7 +205,7 @@ export function ReplayEngine({ eventId }: { eventId: string }) {
       </div>
 
       {/* Registration List */}
-      <div className="flex-1 overflow-y-auto min-h-0 space-y-2 pr-1 custom-scrollbar">
+      <div className="flex-1 overflow-y-auto min-h-0 space-y-2 pr-1 scrollbar-thin">
         <AnimatePresence initial={false}>
           {filteredRegistrations.map((reg, idx) => {
             const isExpanded = expandedId === reg.id;
@@ -215,18 +216,18 @@ export function ReplayEngine({ eventId }: { eventId: string }) {
                 initial={{ opacity: 0, y: 10 }}
                 animate={{ opacity: 1, y: 0 }}
                 exit={{ opacity: 0, y: -10 }}
-                transition={{ delay: idx * 0.015, duration: 0.2 }}
-                className={`bg-(--card) border rounded-xl transition-all duration-200 overflow-hidden ${
+                transition={{ ...transition.fade, delay: listDelay(idx, 0.015) }}
+                className={`bg-surface border rounded-control transition-all duration-200 overflow-hidden ${
                   reg.rank <= 3
-                    ? "border-amber-500/30 shadow-sm"
-                    : "border-(--border)"
+                    ? "border-warning/30 shadow-1"
+                    : "border-border"
                 }`}
               >
                 <button
                   onClick={() =>
                     setExpandedId(isExpanded ? null : reg.id)
                   }
-                  className="w-full text-left px-4 py-3 flex items-center gap-3 hover:bg-(--accent)/30 transition-colors"
+                  className="w-full text-left px-4 py-3 flex items-center gap-3 hover:bg-surface-2/30 transition-colors"
                 >
                   {/* Rank Badge */}
                   {getRankBadge(reg.rank)}
@@ -234,17 +235,17 @@ export function ReplayEngine({ eventId }: { eventId: string }) {
                   {/* Student Info */}
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2">
-                      <span className="text-sm font-bold text-(--foreground) truncate">
+                      <span className="text-sm font-bold text-fg truncate">
                         {reg.studentName}
                       </span>
                       {reg.isManual && (
-                        <span className="px-1.5 py-0.5 bg-amber-500/15 text-amber-500 text-[10px] font-bold rounded uppercase tracking-wider shrink-0">
+                        <span className="px-1.5 py-0.5 bg-warning/15 text-warning-text text-2xs font-bold rounded-badge uppercase tracking-wider shrink-0">
                           Manual
                         </span>
                       )}
                     </div>
                     {reg.registerNumber && (
-                      <p className="text-xs text-(--muted-foreground) mt-0.5">
+                      <p className="text-xs text-fg-muted mt-0.5">
                         {reg.registerNumber}
                       </p>
                     )}
@@ -252,17 +253,17 @@ export function ReplayEngine({ eventId }: { eventId: string }) {
 
                   {/* Timestamp */}
                   <div className="text-right shrink-0">
-                    <p className="text-xs font-mono text-(--foreground)">
+                    <p className="text-xs font-mono text-fg">
                       {format(
                         new Date(reg.submittedAt),
                         "dd MMM yyyy, hh:mm:ss a"
                       )}
                     </p>
                     <p
-                      className={`text-[10px] font-bold mt-0.5 ${
+                      className={`text-2xs font-bold mt-0.5 ${
                         reg.rank === 1
-                          ? "text-amber-500"
-                          : "text-(--muted-foreground)"
+                          ? "text-warning-text"
+                          : "text-fg-muted"
                       }`}
                     >
                       {getTimeDiff(reg.submittedAt)}
@@ -270,7 +271,7 @@ export function ReplayEngine({ eventId }: { eventId: string }) {
                   </div>
 
                   {/* Expand Icon */}
-                  <div className="shrink-0 text-(--muted-foreground)">
+                  <div className="shrink-0 text-fg-muted">
                     {isExpanded ? (
                       <ChevronUp className="w-4 h-4" />
                     ) : (
@@ -286,25 +287,25 @@ export function ReplayEngine({ eventId }: { eventId: string }) {
                       initial={{ height: 0, opacity: 0 }}
                       animate={{ height: "auto", opacity: 1 }}
                       exit={{ height: 0, opacity: 0 }}
-                      transition={{ duration: 0.2 }}
-                      className="border-t border-(--border) overflow-hidden"
+                      transition={transition.fade}
+                      className="border-t border-border overflow-hidden"
                     >
-                      <div className="px-4 py-3 bg-(--background)/50">
+                      <div className="px-4 py-3 bg-surface-2/50">
                         <div className="grid grid-cols-2 gap-3 mb-3">
-                          <div className="flex items-center gap-2 text-xs text-(--muted-foreground)">
+                          <div className="flex items-center gap-2 text-xs text-fg-muted">
                             <Hash className="w-3.5 h-3.5" />
                             <span>
                               Receipt:{" "}
-                              <span className="font-mono text-(--foreground)">
+                              <span className="font-mono text-fg">
                                 {reg.receiptNumber || "N/A"}
                               </span>
                             </span>
                           </div>
-                          <div className="flex items-center gap-2 text-xs text-(--muted-foreground)">
+                          <div className="flex items-center gap-2 text-xs text-fg-muted">
                             <Clock className="w-3.5 h-3.5" />
                             <span>
                               Rank:{" "}
-                              <span className="font-bold text-(--foreground)">
+                              <span className="font-bold text-fg">
                                 #{reg.rank}
                               </span>{" "}
                               of {data?.totalRegistered}
@@ -312,7 +313,7 @@ export function ReplayEngine({ eventId }: { eventId: string }) {
                           </div>
                         </div>
 
-                        <p className="text-[10px] uppercase font-bold tracking-wider text-(--muted-foreground) mb-2">
+                        <p className="text-2xs uppercase font-bold tracking-wider text-fg-muted mb-2">
                           Selected Electives
                         </p>
                         <div className="space-y-1.5">
@@ -320,23 +321,23 @@ export function ReplayEngine({ eventId }: { eventId: string }) {
                             reg.selections.map((sel, sIdx) => (
                               <div
                                 key={sIdx}
-                                className="flex items-center gap-2 px-3 py-2 bg-(--card) border border-(--border) rounded-lg"
+                                className="flex items-center gap-2 px-3 py-2 bg-surface border border-border rounded-control"
                               >
-                                <div className="w-1.5 h-1.5 rounded-full bg-indigo-500 shrink-0" />
+                                <div className="w-1.5 h-1.5 rounded-full bg-primary shrink-0" />
                                 <div className="flex-1 min-w-0">
-                                  <p className="text-xs font-medium text-(--foreground) truncate">
+                                  <p className="text-xs font-medium text-fg truncate">
                                     {sel.courseCode
                                       ? `${sel.courseCode} - ${sel.electiveName}`
                                       : sel.electiveName}
                                   </p>
-                                  <p className="text-[10px] text-(--muted-foreground)">
+                                  <p className="text-2xs text-fg-muted">
                                     {sel.groupName}
                                   </p>
                                 </div>
                               </div>
                             ))
                           ) : (
-                            <p className="text-xs text-(--muted-foreground) italic">
+                            <p className="text-xs text-fg-muted italic">
                               Elective selections not available (may have been
                               reset)
                             </p>
@@ -352,7 +353,7 @@ export function ReplayEngine({ eventId }: { eventId: string }) {
         </AnimatePresence>
 
         {filteredRegistrations.length === 0 && (
-          <div className="text-center py-12 text-(--muted-foreground) text-sm">
+          <div className="text-center py-12 text-fg-muted text-sm">
             No registrations match your search.
           </div>
         )}

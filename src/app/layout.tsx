@@ -3,17 +3,20 @@ import localFont from "next/font/local";
 import "./globals.css";
 import { cn } from "@/lib/utils";
 import { ThemeProvider } from "@/components/theme-provider";
-import { Toaster } from "sonner";
+import { MotionProvider } from "@/components/motion-provider";
+import { AppToaster } from "@/components/app-toaster";
 
 const geistSans = localFont({
   src: "./fonts/GeistVF.woff",
-  variable: "--font-sans",
+  variable: "--font-geist-sans",
   weight: "100 900",
+  display: "swap",
 });
 const geistMono = localFont({
   src: "./fonts/GeistMonoVF.woff",
   variable: "--font-geist-mono",
   weight: "100 900",
+  display: "swap",
 });
 
 export const metadata: Metadata = {
@@ -27,23 +30,18 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en" className={cn("font-sans", geistSans.variable)} suppressHydrationWarning>
-      <body
-        className={`${geistSans.variable} ${geistMono.variable} antialiased min-h-screen bg-background text-foreground relative`}
-      >
+    <html lang="en" className={cn(geistSans.variable, geistMono.variable)} suppressHydrationWarning>
+      <body className="min-h-screen bg-canvas font-sans text-fg antialiased">
         <ThemeProvider
           attribute="class"
           defaultTheme="system"
           enableSystem
           disableTransitionOnChange
         >
-          {/* Subtle Global SaaS Grid and Noise Overlays */}
-          <div className="fixed inset-0 grid-overlay pointer-events-none z-0" />
-          <div className="fixed inset-0 noise-overlay pointer-events-none z-0" />
-          <div className="relative z-10 flex flex-col min-h-screen">
-            {children}
-          </div>
-          <Toaster richColors position="top-right" closeButton />
+          <MotionProvider>
+            <div className="flex min-h-screen flex-col">{children}</div>
+            <AppToaster />
+          </MotionProvider>
         </ThemeProvider>
       </body>
     </html>

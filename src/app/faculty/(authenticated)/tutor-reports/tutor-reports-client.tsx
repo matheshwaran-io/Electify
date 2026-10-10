@@ -1,5 +1,6 @@
 "use client";
 
+import { listDelay, transition } from "@/lib/motion";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   Users, CheckCircle, Search, Download, ChevronDown,
@@ -422,8 +423,8 @@ export function TutorReportsClient({ reportData, hasActiveSection = true }: { re
       {/* Page Header */}
       <div className="flex flex-col md:flex-row md:items-start justify-between gap-5">
         <div className="space-y-1">
-          <h1 className="text-2xl font-bold text-(--foreground) tracking-tight">Registration Reports</h1>
-          <p className="text-sm text-(--muted-foreground)">
+          <h1 className="text-2xl font-bold text-fg tracking-tight">Registration Reports</h1>
+          <p className="text-sm text-fg-muted">
             {sectionLabel ? `Section ${sectionLabel}` : "Your section"}{programmeName ? ` • ${programmeName}` : ""}{departmentName ? ` • ${departmentName}` : ""}
           </p>
         </div>
@@ -431,20 +432,20 @@ export function TutorReportsClient({ reportData, hasActiveSection = true }: { re
           <button
             onClick={handleReset}
             disabled={isResetting}
-            className="flex-1 sm:flex-none flex items-center justify-center gap-2 bg-red-500/10 text-red-500 px-4 py-2.5 rounded-xl text-sm font-medium hover:bg-red-500/20 transition-colors disabled:opacity-50"
+            className="flex-1 sm:flex-none flex items-center justify-center gap-2 bg-danger/10 text-danger-text px-4 py-2.5 rounded-control text-sm font-medium hover:bg-danger/20 transition-colors disabled:opacity-50"
           >
             {isResetting ? "Resetting..." : "Reset Registrations"}
           </button>
           <button
             onClick={exportCSV}
-            className="flex-1 sm:flex-none flex items-center justify-center gap-2 bg-(--card) border border-(--border) rounded-lg text-sm font-medium transition-all duration-200 hover:shadow-md"
+            className="flex-1 sm:flex-none flex items-center justify-center gap-2 bg-surface border border-border rounded-control text-sm font-medium transition-colors duration-150 hover:bg-surface-2"
           >
-            <FileSpreadsheet className="w-4 h-4 text-emerald-500" />
+            <FileSpreadsheet className="w-4 h-4 text-success-text" />
             <span>CSV</span>
           </button>
           <button
             onClick={exportPDF}
-            className="group relative flex items-center gap-2 px-4 py-2.5 bg-linear-to-r from-rose-500 to-orange-500 hover:from-rose-600 hover:to-orange-600 text-white rounded-lg text-sm font-medium transition-all duration-200 hover:shadow-lg hover:shadow-rose-500/25"
+            className="group relative flex items-center gap-2 px-4 py-2.5 bg-primary hover:bg-primary-strong text-primary-fg rounded-control text-sm font-medium transition-colors duration-150"
           >
             <Download className="w-4 h-4" />
             <span>PDF</span>
@@ -461,15 +462,15 @@ export function TutorReportsClient({ reportData, hasActiveSection = true }: { re
       </div>
 
       {/* Tab Navigation */}
-      <div className="flex items-center gap-1 bg-(--card) border border-(--border) rounded-xl p-1 w-fit">
+      <div className="flex items-center gap-1 bg-surface-2 border border-border rounded-control p-1 w-fit">
         {tabs.map(tab => (
           <button
             key={tab.id}
             onClick={() => setActiveTab(tab.id)}
-            className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all duration-200 ${
+            className={`flex items-center gap-2 px-4 py-2 rounded-badge text-sm font-medium transition-colors duration-150 ${
               activeTab === tab.id
-                ? "bg-(--foreground) text-(--background) shadow-sm"
-                : "text-(--muted-foreground) hover:text-(--foreground) hover:bg-(--accent)"
+                ? "bg-surface text-fg shadow-1"
+                : "text-fg-muted hover:text-fg hover:bg-surface-2"
             }`}
           >
             <tab.icon className="w-4 h-4" />
@@ -481,7 +482,7 @@ export function TutorReportsClient({ reportData, hasActiveSection = true }: { re
       {/* Tab Content */}
       <AnimatePresence mode="wait">
         {activeTab === "overview" && (
-          <motion.div key="overview" initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }} transition={{ duration: 0.2 }}>
+          <motion.div key="overview" initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }} transition={transition.fade}>
             <OverviewTab
               students={students}
               groups={groups}
@@ -492,7 +493,7 @@ export function TutorReportsClient({ reportData, hasActiveSection = true }: { re
           </motion.div>
         )}
         {activeTab === "students" && (
-          <motion.div key="students" initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }} transition={{ duration: 0.2 }}>
+          <motion.div key="students" initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }} transition={transition.fade}>
             <StudentsTab
               filtered={filtered}
               search={search}
@@ -510,7 +511,7 @@ export function TutorReportsClient({ reportData, hasActiveSection = true }: { re
           </motion.div>
         )}
         {activeTab === "subjects" && (
-          <motion.div key="subjects" initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }} transition={{ duration: 0.2 }}>
+          <motion.div key="subjects" initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }} transition={transition.fade}>
             <SubjectsTab groupedSubjects={groupedSubjects} totalStudents={totalStudents} students={students} />
           </motion.div>
         )}
@@ -522,21 +523,21 @@ export function TutorReportsClient({ reportData, hasActiveSection = true }: { re
 // ── Summary Card ───────────────────────────────────────────────────────────
 function SummaryCard({ icon: Icon, label, value, color }: { icon: typeof Users; label: string; value: number; color: string }) {
   const colorClasses: Record<string, { bg: string; text: string; ring: string }> = {
-    blue: { bg: "bg-blue-500/10", text: "text-blue-500", ring: "ring-blue-500/20" },
-    emerald: { bg: "bg-emerald-500/10", text: "text-emerald-500", ring: "ring-emerald-500/20" },
-    amber: { bg: "bg-amber-500/10", text: "text-amber-500", ring: "ring-amber-500/20" },
+    blue: { bg: "bg-primary/10", text: "text-primary-text", ring: "ring-primary/20" },
+    emerald: { bg: "bg-success/10", text: "text-success-text", ring: "ring-success/20" },
+    amber: { bg: "bg-warning/10", text: "text-warning-text", ring: "ring-warning/20" },
   };
   const c = colorClasses[color] || colorClasses.blue;
 
   return (
-    <div className={`bg-(--card) border border-(--border) rounded-xl p-5 ring-1 ${c.ring}`}>
+    <div className={`bg-surface border border-border rounded-card p-5 ring-1 ${c.ring}`}>
       <div className="flex items-center gap-3 mb-3">
-        <div className={`w-9 h-9 rounded-lg ${c.bg} flex items-center justify-center`}>
+        <div className={`w-9 h-9 rounded-control ${c.bg} flex items-center justify-center`}>
           <Icon className={`w-4.5 h-4.5 ${c.text}`} />
         </div>
-        <p className="text-xs font-medium text-(--muted-foreground) uppercase tracking-wider">{label}</p>
+        <p className="text-xs font-medium text-fg-muted uppercase tracking-wider">{label}</p>
       </div>
-      <p className="text-3xl font-bold text-(--foreground) tabular-nums">{value}</p>
+      <p className="text-3xl font-bold text-fg tabular-nums">{value}</p>
     </div>
   );
 }
@@ -548,28 +549,22 @@ function CompletionCard({ pct }: { pct: number }) {
   const offset = circ - (pct / 100) * circ;
 
   return (
-    <div className="bg-(--card) border border-(--border) rounded-xl p-5 ring-1 ring-violet-500/20 flex items-center gap-5">
+    <div className="bg-surface border border-border rounded-card p-5 ring-1 ring-primary/20 flex items-center gap-5">
       <div className="relative w-16 h-16 shrink-0">
         <svg className="w-full h-full -rotate-90" viewBox="0 0 64 64">
           <circle cx="32" cy="32" r={r} fill="none" stroke="var(--border)" strokeWidth="5" />
           <circle
             cx="32" cy="32" r={r} fill="none"
-            stroke="url(#grad)" strokeWidth="5" strokeLinecap="round"
+            stroke="var(--primary)" strokeWidth="5" strokeLinecap="round"
             strokeDasharray={circ} strokeDashoffset={offset}
             className="transition-all duration-1000 ease-out"
           />
-          <defs>
-            <linearGradient id="grad" x1="0%" y1="0%" x2="100%" y2="100%">
-              <stop offset="0%" stopColor="#8b5cf6" />
-              <stop offset="100%" stopColor="#6366f1" />
-            </linearGradient>
-          </defs>
         </svg>
-        <span className="absolute inset-0 flex items-center justify-center text-sm font-bold text-(--foreground)">{pct}%</span>
+        <span className="absolute inset-0 flex items-center justify-center text-sm font-bold text-fg">{pct}%</span>
       </div>
       <div>
-        <p className="text-xs font-medium text-(--muted-foreground) uppercase tracking-wider">Completion</p>
-        <p className="text-lg font-bold text-(--foreground) mt-1">Rate</p>
+        <p className="text-xs font-medium text-fg-muted uppercase tracking-wider">Completion</p>
+        <p className="text-lg font-bold text-fg mt-1">Rate</p>
       </div>
     </div>
   );
@@ -594,9 +589,9 @@ function OverviewTab({ students, groups, totalStudents, registeredCount, pending
   return (
     <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
       {/* Registration Status Breakdown */}
-      <div className="bg-(--card) border border-(--border) rounded-xl p-6">
-        <h3 className="text-sm font-semibold text-(--foreground) mb-5 flex items-center gap-2">
-          <TrendingUp className="w-4 h-4 text-(--muted-foreground)" />
+      <div className="bg-surface border border-border rounded-card p-6">
+        <h3 className="text-sm font-semibold text-fg mb-5 flex items-center gap-2">
+          <TrendingUp className="w-4 h-4 text-fg-muted" />
           Registration Progress
         </h3>
         <div className="space-y-4">
@@ -604,16 +599,16 @@ function OverviewTab({ students, groups, totalStudents, registeredCount, pending
           <ProgressBar label="Pending" value={pendingCount} max={totalStudents} color="amber" />
         </div>
         {/* Visual bar */}
-        <div className="mt-6 h-3 rounded-full bg-(--accent) overflow-hidden flex">
+        <div className="mt-6 h-3 rounded-full bg-surface-2 overflow-hidden flex">
           {registeredCount > 0 && (
             <div
-              className="h-full bg-linear-to-r from-emerald-500 to-emerald-400 transition-all duration-700"
+              className="h-full bg-success transition-all duration-700"
               style={{ width: `${(registeredCount / totalStudents) * 100}%` }}
             />
           )}
           {pendingCount > 0 && (
             <div
-              className="h-full bg-linear-to-r from-amber-500 to-amber-400 transition-all duration-700"
+              className="h-full bg-warning transition-all duration-700"
               style={{ width: `${(pendingCount / totalStudents) * 100}%` }}
             />
           )}
@@ -621,29 +616,29 @@ function OverviewTab({ students, groups, totalStudents, registeredCount, pending
       </div>
 
       {/* Top Elective Subjects */}
-      <div className="bg-(--card) border border-(--border) rounded-xl p-6">
-        <h3 className="text-sm font-semibold text-(--foreground) mb-5 flex items-center gap-2">
-          <BookOpen className="w-4 h-4 text-(--muted-foreground)" />
+      <div className="bg-surface border border-border rounded-card p-6">
+        <h3 className="text-sm font-semibold text-fg mb-5 flex items-center gap-2">
+          <BookOpen className="w-4 h-4 text-fg-muted" />
           Subject Enrollment
         </h3>
         <div className="space-y-3 max-h-70 overflow-y-auto pr-1">
           {groups.length === 0 ? (
-            <p className="text-sm text-(--muted-foreground) text-center py-8">No registrations yet.</p>
+            <p className="text-sm text-fg-muted text-center py-8">No registrations yet.</p>
           ) : (
             groups.slice(0, 10).map((g, i) => (
               <div key={i} className="space-y-1.5">
                 <div className="flex items-center justify-between text-xs">
-                  <span className="text-(--foreground) font-medium truncate max-w-[70%]">
+                  <span className="text-fg font-medium truncate max-w-[70%]">
                     {g.courseCode ? `${g.courseCode} — ` : ""}{g.electiveName}
                   </span>
-                  <span className="text-(--muted-foreground) tabular-nums font-medium">{g.count}</span>
+                  <span className="text-fg-muted tabular-nums font-medium">{g.count}</span>
                 </div>
-                <div className="h-1.5 rounded-full bg-(--accent) overflow-hidden">
+                <div className="h-1.5 rounded-full bg-surface-2 overflow-hidden">
                   <motion.div
-                    className="h-full rounded-full bg-linear-to-r from-indigo-500 to-violet-500"
+                    className="h-full rounded-full bg-brand"
                     initial={{ width: 0 }}
                     animate={{ width: `${(g.count / maxCount) * 100}%` }}
-                    transition={{ duration: 0.6, delay: i * 0.05 }}
+                    transition={{ ...transition.value, delay: listDelay(i, 0.05) }}
                   />
                 </div>
               </div>
@@ -653,34 +648,34 @@ function OverviewTab({ students, groups, totalStudents, registeredCount, pending
       </div>
 
       {/* Registered Students */}
-      <div className="bg-(--card) border border-(--border) rounded-xl p-6 lg:col-span-2">
+      <div className="bg-surface border border-border rounded-card p-6 lg:col-span-2">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4">
           <div className="flex items-center gap-2.5">
-            <Clock className="w-4 h-4 text-emerald-500" />
-            <h3 className="text-sm font-semibold text-(--foreground)">
+            <Clock className="w-4 h-4 text-success-text" />
+            <h3 className="text-sm font-semibold text-fg">
               Registered Students
             </h3>
-            <span className="text-xs font-semibold px-2.5 py-0.5 rounded-full bg-emerald-500/10 text-emerald-500 border border-emerald-500/20">
+            <span className="text-xs font-semibold px-2.5 py-0.5 rounded-full bg-success/10 text-success-text border border-success/20">
               {confirmedStudents.length} Confirmed
             </span>
           </div>
 
           <div className="flex items-center gap-2">
             <div className="relative">
-              <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-(--muted-foreground)" />
+              <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-fg-muted" />
               <input
                 type="text"
                 value={overviewSearch}
                 onChange={(e) => setOverviewSearch(e.target.value)}
                 placeholder="Search registered..."
-                className="pl-8 pr-3 py-1.5 bg-(--accent)/50 border border-(--border) rounded-lg text-xs text-(--foreground) placeholder:text-(--muted-foreground) focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                className="pl-8 pr-3 py-1.5 bg-surface border border-border-strong rounded-control text-xs text-fg placeholder:text-fg-muted focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
               />
             </div>
             {confirmedStudents.length > 10 && (
               <button
                 type="button"
                 onClick={() => setShowAll(!showAll)}
-                className="text-xs font-semibold text-indigo-500 hover:text-indigo-600 bg-indigo-500/10 hover:bg-indigo-500/20 px-3 py-1.5 rounded-lg transition-colors shrink-0"
+                className="text-xs font-semibold text-primary-text hover:text-primary-text bg-primary/10 hover:bg-primary/20 px-3 py-1.5 rounded-control transition-colors shrink-0"
               >
                 {showAll ? "Show Top 10" : `Show All (${confirmedStudents.length})`}
               </button>
@@ -703,34 +698,34 @@ function OverviewTab({ students, groups, totalStudents, registeredCount, pending
             const visibleList = showAll ? list : list.slice(0, 10);
 
             if (visibleList.length === 0) {
-              return <p className="text-sm text-(--muted-foreground) text-center py-6">No matching registrations found.</p>;
+              return <p className="text-sm text-fg-muted text-center py-6">No matching registrations found.</p>;
             }
 
             return (
               <table className="w-full text-sm">
-                <thead className="sticky top-0 bg-(--card) z-10">
-                  <tr className="border-b border-(--border)">
-                    <th className="text-left py-2.5 px-3 text-xs font-medium text-(--muted-foreground)">Student</th>
-                    <th className="text-left py-2.5 px-3 text-xs font-medium text-(--muted-foreground)">Register No.</th>
-                    <th className="text-left py-2.5 px-3 text-xs font-medium text-(--muted-foreground)">Receipt</th>
-                    <th className="text-left py-2.5 px-3 text-xs font-medium text-(--muted-foreground)">Submitted</th>
-                    <th className="text-left py-2.5 px-3 text-xs font-medium text-(--muted-foreground)">Subjects</th>
+                <thead className="sticky top-0 bg-surface z-10">
+                  <tr className="border-b border-border">
+                    <th className="text-left py-2.5 px-3 text-xs font-medium text-fg-muted">Student</th>
+                    <th className="text-left py-2.5 px-3 text-xs font-medium text-fg-muted">Register No.</th>
+                    <th className="text-left py-2.5 px-3 text-xs font-medium text-fg-muted">Receipt</th>
+                    <th className="text-left py-2.5 px-3 text-xs font-medium text-fg-muted">Submitted</th>
+                    <th className="text-left py-2.5 px-3 text-xs font-medium text-fg-muted">Subjects</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-(--border)">
+                <tbody className="divide-y divide-border">
                   {visibleList.map(s => (
-                    <tr key={s.id} className="hover:bg-(--accent)/30 transition-colors">
-                      <td className="py-3 px-3 font-medium text-(--foreground)">{s.name}</td>
-                      <td className="py-3 px-3 text-(--muted-foreground) font-mono text-xs">{s.registerNumber ?? "—"}</td>
-                      <td className="py-3 px-3"><span className="text-xs font-mono bg-emerald-500/10 text-emerald-500 px-2 py-0.5 rounded-md">{s.receiptNumber ?? "—"}</span></td>
-                      <td className="py-3 px-3 text-(--muted-foreground) text-xs">{new Date(s.submittedAt!).toLocaleString("en-IN", { dateStyle: "medium", timeStyle: "short" })}</td>
+                    <tr key={s.id} className="hover:bg-surface-2/30 transition-colors">
+                      <td className="py-3 px-3 font-medium text-fg">{s.name}</td>
+                      <td className="py-3 px-3 text-fg-muted font-mono text-xs">{s.registerNumber ?? "—"}</td>
+                      <td className="py-3 px-3"><span className="text-xs font-mono bg-success/10 text-success-text px-2 py-0.5 rounded-badge">{s.receiptNumber ?? "—"}</span></td>
+                      <td className="py-3 px-3 text-fg-muted text-xs">{new Date(s.submittedAt!).toLocaleString("en-IN", { dateStyle: "medium", timeStyle: "short" })}</td>
                       <td className="py-3 px-3">
                         <div className="space-y-1.5 max-w-70">
                           {s.registrations.map((r, j) => (
                             <div key={j} className="flex items-start gap-1.5">
-                              <span className="text-[10px] font-semibold text-(--muted-foreground) uppercase tracking-wider shrink-0 pt-0.5 min-w-15">{r.groupName}:</span>
-                              <span className="text-xs text-(--foreground) font-medium leading-tight">
-                                {r.courseCode ? <span className="text-indigo-400">{r.courseCode}</span> : null}
+                              <span className="text-2xs font-semibold text-fg-muted uppercase tracking-wider shrink-0 pt-0.5 min-w-15">{r.groupName}:</span>
+                              <span className="text-xs text-fg font-medium leading-tight">
+                                {r.courseCode ? <span className="text-primary-text">{r.courseCode}</span> : null}
                                 {r.courseCode ? " — " : ""}{r.electiveName}
                               </span>
                             </div>
@@ -751,17 +746,17 @@ function OverviewTab({ students, groups, totalStudents, registeredCount, pending
 
 function ProgressBar({ label, value, max, color }: { label: string; value: number; max: number; color: string }) {
   const pct = max > 0 ? Math.round((value / max) * 100) : 0;
-  const gradients: Record<string, string> = {
-    emerald: "from-emerald-500 to-emerald-400",
-    amber: "from-amber-500 to-amber-400",
+  const fills: Record<string, string> = {
+    emerald: "bg-success",
+    amber: "bg-warning",
   };
   return (
     <div className="flex items-center gap-4">
-      <span className="text-xs font-medium text-(--muted-foreground) w-20">{label}</span>
-      <div className="flex-1 h-2 rounded-full bg-(--accent) overflow-hidden">
-        <motion.div className={`h-full rounded-full bg-linear-to-r ${gradients[color]}`} initial={{ width: 0 }} animate={{ width: `${pct}%` }} transition={{ duration: 0.8 }} />
+      <span className="text-xs font-medium text-fg-muted w-20">{label}</span>
+      <div className="flex-1 h-2 rounded-full bg-surface-2 overflow-hidden">
+        <motion.div className={`h-full rounded-full ${fills[color]}`} initial={{ width: 0 }} animate={{ width: `${pct}%` }} transition={transition.value} />
       </div>
-      <span className="text-xs font-bold text-(--foreground) tabular-nums w-12 text-right">{value} <span className="text-(--muted-foreground) font-normal">/ {max}</span></span>
+      <span className="text-xs font-bold text-fg tabular-nums w-12 text-right">{value} <span className="text-fg-muted font-normal">/ {max}</span></span>
     </div>
   );
 }
@@ -788,23 +783,23 @@ function StudentsTab({ filtered, search, setSearch, statusFilter, setStatusFilte
       {/* Search & Filters */}
       <div className="flex flex-col sm:flex-row gap-3">
         <div className="relative flex-1">
-          <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-(--muted-foreground)" />
+          <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-fg-muted" />
           <input
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             placeholder="Search by name, register number, or receipt..."
-            className="w-full pl-10 pr-4 py-2.5 bg-(--card) border border-(--border) rounded-lg text-sm text-(--foreground) placeholder:text-(--muted-foreground) focus:outline-none focus:ring-2 focus:ring-indigo-500/40 transition-shadow"
+            className="w-full pl-10 pr-4 py-2.5 bg-surface border border-border-strong rounded-control text-sm text-fg placeholder:text-fg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring transition-shadow"
           />
         </div>
-        <div className="flex items-center gap-1 bg-(--card) border border-(--border) rounded-lg p-1">
+        <div className="flex items-center gap-1 bg-surface-2 border border-border rounded-control p-1">
           {(["all", "registered", "pending"] as const).map(f => (
             <button
               key={f}
               onClick={() => setStatusFilter(f)}
-              className={`px-3 py-1.5 rounded-md text-xs font-medium transition-all ${
+              className={`px-3 py-1.5 rounded-badge text-xs font-medium transition-all ${
                 statusFilter === f
-                  ? "bg-(--foreground) text-(--background)"
-                  : "text-(--muted-foreground) hover:text-(--foreground)"
+                  ? "bg-surface text-fg shadow-1"
+                  : "text-fg-muted hover:text-fg"
               }`}
             >
               {f === "all" ? "All" : f === "registered" ? "Confirmed" : "Pending"}
@@ -814,23 +809,23 @@ function StudentsTab({ filtered, search, setSearch, statusFilter, setStatusFilte
       </div>
 
       {/* Student table */}
-      <div className="bg-(--card) rounded-xl border border-(--border) overflow-hidden">
+      <div className="bg-surface rounded-card border border-border overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
             <thead>
-              <tr className="border-b border-(--border)">
-                <th className="text-left px-5 py-3.5 text-xs font-semibold text-(--muted-foreground) uppercase tracking-wider">Student</th>
-                <th className="text-left px-5 py-3.5 text-xs font-semibold text-(--muted-foreground) uppercase tracking-wider">Register No.</th>
-                <th className="text-left px-5 py-3.5 text-xs font-semibold text-(--muted-foreground) uppercase tracking-wider">Status</th>
-                <th className="text-left px-5 py-3.5 text-xs font-semibold text-(--muted-foreground) uppercase tracking-wider">Receipt</th>
-                <th className="text-left px-5 py-3.5 text-xs font-semibold text-(--muted-foreground) uppercase tracking-wider">Electives</th>
+              <tr className="border-b border-border">
+                <th className="text-left px-5 py-3.5 text-xs font-semibold text-fg-muted uppercase tracking-wider">Student</th>
+                <th className="text-left px-5 py-3.5 text-xs font-semibold text-fg-muted uppercase tracking-wider">Register No.</th>
+                <th className="text-left px-5 py-3.5 text-xs font-semibold text-fg-muted uppercase tracking-wider">Status</th>
+                <th className="text-left px-5 py-3.5 text-xs font-semibold text-fg-muted uppercase tracking-wider">Receipt</th>
+                <th className="text-left px-5 py-3.5 text-xs font-semibold text-fg-muted uppercase tracking-wider">Electives</th>
                 <th className="w-10" />
               </tr>
             </thead>
-            <tbody className="divide-y divide-(--border)">
+            <tbody className="divide-y divide-border">
               {filtered.length === 0 ? (
                 <tr>
-                  <td colSpan={6} className="text-center py-16 text-(--muted-foreground)">
+                  <td colSpan={6} className="text-center py-16 text-fg-muted">
                     No students found.
                   </td>
                 </tr>
@@ -845,44 +840,44 @@ function StudentsTab({ filtered, search, setSearch, statusFilter, setStatusFilte
                       <motion.tr
                         initial={{ opacity: 0 }}
                         animate={{ opacity: 1 }}
-                        transition={{ delay: Math.min(i * 0.015, 0.3) }}
-                        className={`hover:bg-(--accent)/30 transition-colors cursor-pointer ${isExpanded ? "bg-(--accent)/20" : ""}`}
+                        transition={{ ...transition.fade, delay: listDelay(i, 0.015) }}
+                        className={`hover:bg-surface-2/30 transition-colors cursor-pointer ${isExpanded ? "bg-surface-2/20" : ""}`}
                         onClick={() => hasRegs && toggleExpanded(s.id)}
                       >
                         <td className="px-5 py-3.5">
                           <div className="flex items-center gap-3">
                             <div className="relative">
-                              <div className={`w-8 h-8 rounded-full flex items-center justify-center text-white text-xs font-bold shrink-0 ${
+                              <div className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold shrink-0 ${
                                 isRegistered
-                                  ? "bg-linear-to-br from-emerald-500 to-teal-600"
-                                  : "bg-linear-to-br from-slate-400 to-slate-500"
+                                  ? "bg-success/15 text-success-text"
+                                  : "bg-surface-3 text-fg-muted"
                               }`}>
                                 {s.name.charAt(0).toUpperCase()}
                               </div>
                               {onlineUserIds.has(s.id) && (
-                                <span className="absolute bottom-0 -right-0.5 w-3 h-3 bg-emerald-500 border-2 border-(--background) rounded-full animate-pulse" />
+                                <span className="absolute bottom-0 -right-0.5 w-3 h-3 bg-success border-2 border-surface rounded-full" />
                               )}
                             </div>
                             <div>
-                              <span className="font-medium text-(--foreground) block leading-tight">{s.name}</span>
-                              <span className="text-[10px] text-(--muted-foreground)">{s.email}</span>
+                              <span className="font-medium text-fg block leading-tight">{s.name}</span>
+                              <span className="text-2xs text-fg-muted">{s.email}</span>
                             </div>
                           </div>
                         </td>
-                        <td className="px-5 py-3.5 text-(--muted-foreground) font-mono text-xs">{s.registerNumber ?? "—"}</td>
+                        <td className="px-5 py-3.5 text-fg-muted font-mono text-xs">{s.registerNumber ?? "—"}</td>
                         <td className="px-5 py-3.5">
-                          <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-semibold ${
+                          <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold ${
                             isRegistered
-                              ? "bg-emerald-500/10 text-emerald-500 ring-1 ring-emerald-500/20"
-                              : "bg-amber-500/10 text-amber-500 ring-1 ring-amber-500/20"
+                              ? "bg-success/10 text-success-text ring-1 ring-success/20"
+                              : "bg-warning/10 text-warning-text ring-1 ring-warning/20"
                           }`}>
-                            <span className={`w-1.5 h-1.5 rounded-full ${isRegistered ? "bg-emerald-500" : "bg-amber-500"}`} />
+                            <span className={`w-1.5 h-1.5 rounded-full ${isRegistered ? "bg-success" : "bg-warning"}`} />
                             {isRegistered ? "Confirmed" : "Pending"}
                           </span>
                           {!isRegistered && eventStatus === "CLOSED" && (
                             <button
                               onClick={(e) => { e.stopPropagation(); setRegisteringStudent(s); }}
-                              className="ml-3 inline-flex items-center gap-1 bg-indigo-500 text-white px-2 py-1 rounded text-[10px] font-medium hover:bg-indigo-600 transition-colors"
+                              className="ml-3 inline-flex items-center gap-1 bg-primary text-primary-fg px-2 py-1 rounded-badge text-2xs font-medium hover:bg-primary-strong transition-colors"
                             >
                               Manual Register
                             </button>
@@ -890,9 +885,9 @@ function StudentsTab({ filtered, search, setSearch, statusFilter, setStatusFilte
                         </td>
                         <td className="px-5 py-3.5">
                           {s.receiptNumber ? (
-                            <span className="text-xs font-mono bg-(--accent) px-2 py-0.5 rounded-md text-(--foreground)">{s.receiptNumber}</span>
+                            <span className="text-xs font-mono bg-surface-2 px-2 py-0.5 rounded-badge text-fg">{s.receiptNumber}</span>
                           ) : (
-                            <span className="text-xs text-(--muted-foreground)">—</span>
+                            <span className="text-xs text-fg-muted">—</span>
                           )}
                         </td>
                         <td className="px-5 py-3.5">
@@ -900,20 +895,20 @@ function StudentsTab({ filtered, search, setSearch, statusFilter, setStatusFilte
                             <div className="space-y-1">
                               {s.registrations.map((r, j) => (
                                 <div key={j} className="flex items-center gap-1.5">
-                                  <span className="text-[10px] font-medium text-(--muted-foreground) shrink-0">{r.groupName}:</span>
-                                  <span className="text-[11px] bg-indigo-500/10 text-indigo-400 px-2 py-0.5 rounded-md font-medium truncate max-w-50">
+                                  <span className="text-2xs font-medium text-fg-muted shrink-0">{r.groupName}:</span>
+                                  <span className="text-xs bg-primary/10 text-primary-text px-2 py-0.5 rounded-badge font-medium truncate max-w-50">
                                     {r.courseCode ? `${r.courseCode} — ` : ""}{r.electiveName}
                                   </span>
                                 </div>
                               ))}
                             </div>
                           ) : (
-                            <span className="text-xs text-(--muted-foreground)">—</span>
+                            <span className="text-xs text-fg-muted">—</span>
                           )}
                         </td>
                         <td className="px-3 py-3.5">
                           {hasRegs && (
-                            <ChevronDown className={`w-4 h-4 text-(--muted-foreground) transition-transform duration-200 ${isExpanded ? "rotate-180" : ""}`} />
+                            <ChevronDown className={`w-4 h-4 text-fg-muted transition-transform duration-200 ${isExpanded ? "rotate-180" : ""}`} />
                           )}
                         </td>
                       </motion.tr>
@@ -925,22 +920,22 @@ function StudentsTab({ filtered, search, setSearch, statusFilter, setStatusFilte
                                 initial={{ height: 0, opacity: 0 }}
                                 animate={{ height: "auto", opacity: 1 }}
                                 exit={{ height: 0, opacity: 0 }}
-                                transition={{ duration: 0.2 }}
-                                className="border-t border-(--border) bg-(--accent)/30 px-5 py-4 overflow-hidden"
+                                transition={transition.fade}
+                                className="border-t border-border bg-surface-2/30 px-5 py-4 overflow-hidden"
                               >
-                                <p className="text-xs font-semibold text-(--muted-foreground) uppercase tracking-wider mb-3">
+                                <p className="text-xs font-semibold text-fg-muted uppercase tracking-wider mb-3">
                                   {s.name}&apos;s Elective Selections
                                 </p>
                                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
                                   {s.registrations.map((r, j) => (
-                                    <div key={j} className="flex items-start gap-3 bg-(--card) border border-(--border) rounded-lg p-3">
-                                      <div className="w-8 h-8 rounded-lg bg-indigo-500/10 flex items-center justify-center shrink-0 mt-0.5">
-                                        <BookOpen className="w-4 h-4 text-indigo-500" />
+                                    <div key={j} className="flex items-start gap-3 bg-surface border border-border rounded-control p-3">
+                                      <div className="w-8 h-8 rounded-control bg-primary/10 flex items-center justify-center shrink-0 mt-0.5">
+                                        <BookOpen className="w-4 h-4 text-primary-text" />
                                       </div>
                                       <div className="min-w-0">
-                                        <p className="text-[10px] font-medium text-(--muted-foreground) uppercase tracking-wider">{r.groupName}</p>
-                                        <p className="text-sm font-medium text-(--foreground) mt-0.5 leading-tight">
-                                          {r.courseCode ? <span className="text-indigo-400">{r.courseCode}</span> : null}
+                                        <p className="text-2xs font-medium text-fg-muted uppercase tracking-wider">{r.groupName}</p>
+                                        <p className="text-sm font-medium text-fg mt-0.5 leading-tight">
+                                          {r.courseCode ? <span className="text-primary-text">{r.courseCode}</span> : null}
                                           {r.courseCode ? " — " : ""}{r.electiveName}
                                         </p>
                                       </div>
@@ -961,7 +956,7 @@ function StudentsTab({ filtered, search, setSearch, statusFilter, setStatusFilte
         </div>
       </div>
 
-      <p className="text-xs text-(--muted-foreground) text-right">Showing {filtered.length} student{filtered.length !== 1 ? "s" : ""}</p>
+      <p className="text-xs text-fg-muted text-right">Showing {filtered.length} student{filtered.length !== 1 ? "s" : ""}</p>
       
       <AnimatePresence>
         {registeringStudent && eventId && (
@@ -1017,27 +1012,27 @@ function ManualRegisterModal({ student, eventId, availableElectives, onClose }: 
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-overlay backdrop-blur-sm">
       <motion.div
         initial={{ opacity: 0, scale: 0.95 }}
         animate={{ opacity: 1, scale: 1 }}
         exit={{ opacity: 0, scale: 0.95 }}
-        className="w-full max-w-lg bg-(--card) border border-(--border) rounded-2xl shadow-xl overflow-hidden"
+        className="w-full max-w-lg bg-surface border border-border rounded-card shadow-3 overflow-hidden"
       >
         <div className="p-6">
-          <h2 className="text-xl font-bold text-(--foreground) mb-1">Manual Registration</h2>
-          <p className="text-sm text-(--muted-foreground) mb-6">
+          <h2 className="text-xl font-bold text-fg mb-1">Manual Registration</h2>
+          <p className="text-sm text-fg-muted mb-6">
             Register subjects for {student.name} ({student.registerNumber})
           </p>
           
           <div className="space-y-5">
             {groupOptions.map(g => (
               <div key={g.groupId}>
-                <label className="block text-sm font-medium text-(--foreground) mb-2">{g.groupName}</label>
+                <label className="block text-sm font-medium text-fg mb-2">{g.groupName}</label>
                 <select
                   value={selections[g.groupId] || ""}
                   onChange={(e) => setSelections(prev => ({ ...prev, [g.groupId]: e.target.value }))}
-                  className="w-full bg-(--background) border border-(--border) rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                  className="w-full bg-surface border border-border-strong rounded-control px-3 py-2.5 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                 >
                   <option value="" disabled>Select a subject</option>
                   {g.electives.map(e => (
@@ -1050,18 +1045,18 @@ function ManualRegisterModal({ student, eventId, availableElectives, onClose }: 
             ))}
           </div>
         </div>
-        <div className="flex items-center justify-end gap-3 px-6 py-4 bg-(--accent)/30 border-t border-(--border)">
+        <div className="flex items-center justify-end gap-3 px-6 py-4 bg-surface-2/30 border-t border-border">
           <button
             onClick={onClose}
             disabled={isSubmitting}
-            className="px-4 py-2 text-sm font-medium text-(--muted-foreground) hover:text-(--foreground) transition-colors"
+            className="px-4 py-2 text-sm font-medium text-fg-muted hover:text-fg transition-colors"
           >
             Cancel
           </button>
           <button
             onClick={handleSubmit}
             disabled={isSubmitting}
-            className="px-5 py-2 bg-indigo-500 hover:bg-indigo-600 text-white text-sm font-medium rounded-lg transition-colors disabled:opacity-50"
+            className="px-5 py-2 bg-primary hover:bg-primary-strong text-primary-fg text-sm font-medium rounded-control transition-colors disabled:opacity-50"
           >
             {isSubmitting ? "Registering..." : "Confirm Registration"}
           </button>
@@ -1117,9 +1112,9 @@ function SubjectsTab({ groupedSubjects, totalStudents, students }: { groupedSubj
 
   if (groupedSubjects.length === 0) {
     return (
-      <div className="bg-(--card) border border-(--border) rounded-xl p-12 text-center">
-        <BookOpen className="w-10 h-10 text-(--muted-foreground) mx-auto mb-3 opacity-50" />
-        <p className="text-(--muted-foreground)">No elective subjects have been selected yet.</p>
+      <div className="bg-surface border border-border rounded-control p-12 text-center">
+        <BookOpen className="w-10 h-10 text-fg-muted mx-auto mb-3 opacity-50" />
+        <p className="text-fg-muted">No elective subjects have been selected yet.</p>
       </div>
     );
   }
@@ -1128,13 +1123,13 @@ function SubjectsTab({ groupedSubjects, totalStudents, students }: { groupedSubj
     <div className="space-y-3">
       {/* Search */}
       <div className="relative">
-        <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-(--muted-foreground)" />
+        <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-fg-muted" />
         <input
           type="text"
           placeholder="Search students by name or register number..."
           value={subjectSearch}
           onChange={(e) => setSubjectSearch(e.target.value)}
-          className="w-full pl-9 pr-4 py-2.5 bg-(--card) border border-(--border) rounded-xl text-sm text-(--foreground) placeholder:text-(--muted-foreground) focus:outline-none focus:ring-2 focus:ring-indigo-500/50"
+          className="w-full pl-9 pr-4 py-2.5 bg-surface border border-border-strong rounded-control text-sm text-fg placeholder:text-fg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
         />
       </div>
 
@@ -1143,21 +1138,21 @@ function SubjectsTab({ groupedSubjects, totalStudents, students }: { groupedSubj
         const groupTotal = subjects.reduce((sum, s) => sum + s.count, 0);
 
         return (
-          <div key={groupName} className="bg-(--card) border border-(--border) rounded-xl overflow-hidden">
+          <div key={groupName} className="bg-surface border border-border rounded-card overflow-hidden">
             <button
               onClick={() => toggleGroup(groupName)}
-              className="w-full flex items-center justify-between p-5 hover:bg-(--accent)/30 transition-colors"
+              className="w-full flex items-center justify-between p-5 hover:bg-surface-2/30 transition-colors"
             >
               <div className="flex items-center gap-3">
-                <div className="w-9 h-9 rounded-lg bg-indigo-500/10 flex items-center justify-center">
-                  <BookOpen className="w-4.5 h-4.5 text-indigo-500" />
+                <div className="w-9 h-9 rounded-control bg-primary/10 flex items-center justify-center">
+                  <BookOpen className="w-4.5 h-4.5 text-primary-text" />
                 </div>
                 <div className="text-left">
-                  <h3 className="text-sm font-semibold text-(--foreground)">{groupName}</h3>
-                  <p className="text-xs text-(--muted-foreground)">{subjects.length} subject{subjects.length !== 1 ? "s" : ""} • {groupTotal} enrollment{groupTotal !== 1 ? "s" : ""}</p>
+                  <h3 className="text-sm font-semibold text-fg">{groupName}</h3>
+                  <p className="text-xs text-fg-muted">{subjects.length} subject{subjects.length !== 1 ? "s" : ""} • {groupTotal} enrollment{groupTotal !== 1 ? "s" : ""}</p>
                 </div>
               </div>
-              <ChevronDown className={`w-4 h-4 text-(--muted-foreground) transition-transform duration-200 ${isOpen ? "rotate-180" : ""}`} />
+              <ChevronDown className={`w-4 h-4 text-fg-muted transition-transform duration-200 ${isOpen ? "rotate-180" : ""}`} />
             </button>
             <AnimatePresence>
               {isOpen && (
@@ -1165,8 +1160,8 @@ function SubjectsTab({ groupedSubjects, totalStudents, students }: { groupedSubj
                   initial={{ height: 0, opacity: 0 }}
                   animate={{ height: "auto", opacity: 1 }}
                   exit={{ height: 0, opacity: 0 }}
-                  transition={{ duration: 0.2 }}
-                  className="border-t border-(--border)"
+                  transition={transition.fade}
+                  className="border-t border-border"
                 >
                   <div className="p-4 space-y-2">
                     {subjects.map((sub, idx) => {
@@ -1188,31 +1183,31 @@ function SubjectsTab({ groupedSubjects, totalStudents, students }: { groupedSubj
                       if (q && filteredStudents.length === 0) return null;
 
                       return (
-                        <div key={idx} className="rounded-lg border border-(--border) overflow-hidden">
+                        <div key={idx} className="rounded-control border border-border overflow-hidden">
                           <button
                             onClick={() => toggleSubject(subjectKey)}
-                            className="w-full flex items-center gap-4 p-3 hover:bg-(--accent)/20 transition-colors"
+                            className="w-full flex items-center gap-4 p-3 hover:bg-surface-2/20 transition-colors"
                           >
                             <div className="flex-1 min-w-0">
                               <div className="flex items-center gap-2">
                                 {sub.courseCode && (
-                                  <span className="text-[10px] font-mono font-semibold text-indigo-400 bg-indigo-500/10 px-1.5 py-0.5 rounded">{sub.courseCode}</span>
+                                  <span className="text-2xs font-mono font-semibold text-primary-text bg-primary/10 px-1.5 py-0.5 rounded-badge">{sub.courseCode}</span>
                                 )}
-                                <span className="text-sm font-medium text-(--foreground) truncate">{sub.electiveName}</span>
+                                <span className="text-sm font-medium text-fg truncate">{sub.electiveName}</span>
                               </div>
                             </div>
                             <div className="flex items-center gap-3 shrink-0">
-                              <div className="w-24 h-1.5 rounded-full bg-(--accent) overflow-hidden">
+                              <div className="w-24 h-1.5 rounded-full bg-surface-2 overflow-hidden">
                                 <motion.div
-                                  className="h-full rounded-full bg-linear-to-r from-indigo-500 to-violet-500"
+                                  className="h-full rounded-full bg-brand"
                                   initial={{ width: 0 }}
                                   animate={{ width: `${pct}%` }}
-                                  transition={{ duration: 0.5 }}
+                                  transition={transition.value}
                                 />
                               </div>
-                              <span className="text-xs font-bold text-(--foreground) tabular-nums w-8 text-right">{sub.count}</span>
-                              <span className="text-[10px] text-(--muted-foreground) tabular-nums w-8">({pct}%)</span>
-                              <ChevronDown className={`w-3.5 h-3.5 text-(--muted-foreground) transition-transform duration-200 ${isSubjectExpanded ? "rotate-180" : ""}`} />
+                              <span className="text-xs font-bold text-fg tabular-nums w-8 text-right">{sub.count}</span>
+                              <span className="text-2xs text-fg-muted tabular-nums w-8">({pct}%)</span>
+                              <ChevronDown className={`w-3.5 h-3.5 text-fg-muted transition-transform duration-200 ${isSubjectExpanded ? "rotate-180" : ""}`} />
                             </div>
                           </button>
 
@@ -1222,39 +1217,39 @@ function SubjectsTab({ groupedSubjects, totalStudents, students }: { groupedSubj
                                 initial={{ height: 0, opacity: 0 }}
                                 animate={{ height: "auto", opacity: 1 }}
                                 exit={{ height: 0, opacity: 0 }}
-                                transition={{ duration: 0.2 }}
-                                className="border-t border-(--border) bg-(--background)/50"
+                                transition={transition.fade}
+                                className="border-t border-border bg-surface-2/50"
                               >
                                 <div className="p-3">
                                   {/* Table Header */}
-                                  <div className="grid grid-cols-[40px_1fr_1fr] gap-2 px-2 pb-2 mb-1 border-b border-(--border)">
-                                    <span className="text-[10px] font-bold uppercase tracking-wider text-(--muted-foreground)">#</span>
-                                    <span className="text-[10px] font-bold uppercase tracking-wider text-(--muted-foreground)">Student Name</span>
-                                    <span className="text-[10px] font-bold uppercase tracking-wider text-(--muted-foreground)">Register Number</span>
+                                  <div className="grid grid-cols-[40px_1fr_1fr] gap-2 px-2 pb-2 mb-1 border-b border-border">
+                                    <span className="text-2xs font-bold uppercase tracking-wider text-fg-muted">#</span>
+                                    <span className="text-2xs font-bold uppercase tracking-wider text-fg-muted">Student Name</span>
+                                    <span className="text-2xs font-bold uppercase tracking-wider text-fg-muted">Register Number</span>
                                   </div>
 
                                   {filteredStudents.length > 0 ? (
-                                    <div className="space-y-0.5 max-h-80 overflow-y-auto custom-scrollbar">
+                                    <div className="space-y-0.5 max-h-80 overflow-y-auto scrollbar-thin">
                                       {filteredStudents.map((s, sIdx) => (
                                         <div
                                           key={s.id}
-                                          className="grid grid-cols-[40px_1fr_1fr] gap-2 px-2 py-2 rounded-md hover:bg-(--accent)/30 transition-colors items-center"
+                                          className="grid grid-cols-[40px_1fr_1fr] gap-2 px-2 py-2 rounded-badge hover:bg-surface-2/30 transition-colors items-center"
                                         >
-                                          <span className="text-xs font-mono text-(--muted-foreground)">{sIdx + 1}</span>
-                                          <span className="text-sm text-(--foreground) font-medium truncate">{s.name}</span>
-                                          <span className="text-xs font-mono text-(--muted-foreground)">{s.registerNumber || "—"}</span>
+                                          <span className="text-xs font-mono text-fg-muted">{sIdx + 1}</span>
+                                          <span className="text-sm text-fg font-medium truncate">{s.name}</span>
+                                          <span className="text-xs font-mono text-fg-muted">{s.registerNumber || "—"}</span>
                                         </div>
                                       ))}
                                     </div>
                                   ) : (
-                                    <p className="text-xs text-(--muted-foreground) text-center py-4">No students found.</p>
+                                    <p className="text-xs text-fg-muted text-center py-4">No students found.</p>
                                   )}
 
-                                  <div className="mt-2 pt-2 border-t border-(--border) flex justify-between items-center px-2">
-                                    <span className="text-[10px] text-(--muted-foreground)">
+                                  <div className="mt-2 pt-2 border-t border-border flex justify-between items-center px-2">
+                                    <span className="text-2xs text-fg-muted">
                                       Showing {filteredStudents.length} of {enrolledStudents.length} student{enrolledStudents.length !== 1 ? "s" : ""}
                                     </span>
-                                    <span className="text-[10px] font-bold text-indigo-500">
+                                    <span className="text-2xs font-bold text-primary-text">
                                       {pct}% of section
                                     </span>
                                   </div>

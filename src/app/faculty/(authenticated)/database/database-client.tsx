@@ -51,19 +51,19 @@ export function DatabaseClient({ events, role }: { events: any[], role: string }
     const isActive = activeAction === key;
 
     return (
-      <div className={`bg-(--card) border ${isActive ? colorClass : 'border-(--border)'} rounded-xl p-4 flex flex-col justify-between transition-colors`}>
+      <div className={`bg-surface border ${isActive ? colorClass : 'border-border'} rounded-card p-4 flex flex-col justify-between transition-colors`}>
         <div>
           <div className="flex items-center gap-2 mb-2">
-            <Icon className={`w-4 h-4 ${isActive ? colorClass.replace('border-', 'text-') : 'text-(--muted-foreground)'}`} />
-            <h4 className="font-bold text-sm text-(--foreground)">{title}</h4>
+            <Icon className={`w-4 h-4 ${isActive ? colorClass.replace('border-', 'text-') : 'text-fg-muted'}`} />
+            <h4 className="font-bold text-sm text-fg">{title}</h4>
           </div>
-          <p className="text-xs text-(--muted-foreground) mb-4">{desc}</p>
+          <p className="text-xs text-fg-muted mb-4">{desc}</p>
         </div>
         
         {!isActive ? (
           <button 
             onClick={() => setActiveAction(key)}
-            className={`w-full border border-(--border) text-(--muted-foreground) hover:${colorClass.replace('border-', 'text-')} px-4 py-2 rounded-lg text-xs font-bold transition-colors`}
+            className={`w-full border border-border text-fg-muted hover:${colorClass.replace('border-', 'text-')} px-4 py-2 rounded-control text-xs font-bold transition-colors`}
           >
             Select Action
           </button>
@@ -73,20 +73,20 @@ export function DatabaseClient({ events, role }: { events: any[], role: string }
               value={resetConfirmText}
               onChange={(e) => setResetConfirmText(e.target.value)}
               placeholder="Type CONFIRM"
-              className="w-full px-3 py-1.5 bg-(--background) border border-(--border) rounded-lg text-xs outline-none focus:ring-1 focus:ring-red-500"
+              className="w-full px-3 py-1.5 bg-surface border border-border-strong rounded-control text-xs outline-none focus-visible:ring-1 focus-visible:ring-ring"
             />
             <div className="flex gap-2">
               <button 
                 onClick={() => handleAction(key, actionFn, requiresEvent)}
                 disabled={isProcessing}
-                className="flex-1 bg-red-500 text-white px-4 py-1.5 rounded-lg text-xs font-bold transition-colors disabled:opacity-50 flex items-center justify-center"
+                className="flex-1 bg-danger-strong text-primary-fg px-4 py-1.5 rounded-control text-xs font-bold transition-colors disabled:opacity-50 flex items-center justify-center"
               >
                 {isProcessing ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : "Execute"}
               </button>
               <button 
                 onClick={() => { setActiveAction(null); setResetConfirmText(""); }}
                 disabled={isProcessing}
-                className="flex-1 bg-(--muted) text-(--foreground) px-4 py-1.5 rounded-lg text-xs font-bold transition-colors disabled:opacity-50"
+                className="flex-1 bg-surface-2 text-fg px-4 py-1.5 rounded-control text-xs font-bold transition-colors disabled:opacity-50"
               >
                 Cancel
               </button>
@@ -100,18 +100,18 @@ export function DatabaseClient({ events, role }: { events: any[], role: string }
   return (
     <div className="space-y-8 pb-20">
       <div>
-        <h1 className="text-3xl font-bold text-(--foreground) tracking-tight">Database Management</h1>
-        <p className="text-(--muted-foreground) mt-1">Perform destructive actions and data resets.</p>
+        <h1 className="text-3xl font-bold text-fg tracking-tight">Database Management</h1>
+        <p className="text-fg-muted mt-1">Perform destructive actions and data resets.</p>
       </div>
 
-      <div className="border-2 border-red-500/20 bg-red-500/5 rounded-3xl p-6 shadow-sm">
+      <div className="border-2 border-danger/20 bg-danger/5 rounded-panel p-6 shadow-1">
         <div className="flex items-center gap-3 mb-6">
-          <div className="w-10 h-10 rounded-xl bg-red-500/10 flex items-center justify-center">
-            <AlertTriangle className="w-5 h-5 text-red-500" />
+          <div className="w-10 h-10 rounded-control bg-danger/10 flex items-center justify-center">
+            <AlertTriangle className="w-5 h-5 text-danger-text" />
           </div>
           <div>
-            <h3 className="font-bold text-red-500">Danger Zone</h3>
-            <p className="text-xs text-(--muted-foreground)">These actions are permanent and cannot be undone.</p>
+            <h3 className="font-bold text-danger-text">Danger Zone</h3>
+            <p className="text-xs text-fg-muted">These actions are permanent and cannot be undone.</p>
           </div>
         </div>
 
@@ -123,7 +123,7 @@ export function DatabaseClient({ events, role }: { events: any[], role: string }
             title: "Reset Section Data",
             desc: "Clears all registrations for your assigned section for the current event.",
             icon: Users,
-            colorClass: "border-orange-500",
+            colorClass: "border-warning",
             actionFn: async () => await resetSectionRegistrationEvent(event.id)
           })}
           
@@ -132,7 +132,7 @@ export function DatabaseClient({ events, role }: { events: any[], role: string }
             title: "Archive Event",
             desc: "Mark the event as finalized and read-only. Available to all admins.",
             icon: Archive,
-            colorClass: "border-amber-500",
+            colorClass: "border-warning",
             actionFn: async () => await archiveEvent(event.id)
           })}
 
@@ -142,7 +142,7 @@ export function DatabaseClient({ events, role }: { events: any[], role: string }
             title: "Delete All Registrations",
             desc: "Hard deletes all registrations and resets seats across all sections.",
             icon: Trash2,
-            colorClass: "border-red-500",
+            colorClass: "border-danger",
             actionFn: async () => await deleteAllRegistrations(event.id),
             hidden: !isAdminOrCoord
           })}
@@ -152,7 +152,7 @@ export function DatabaseClient({ events, role }: { events: any[], role: string }
             title: "Reset All Seats",
             desc: "Drops all registrations and resets subject seat limits to maximum.",
             icon: Database,
-            colorClass: "border-red-500",
+            colorClass: "border-danger",
             actionFn: async () => await resetAllSeats(event.id),
             hidden: !isAdminOrCoord
           })}
@@ -162,7 +162,7 @@ export function DatabaseClient({ events, role }: { events: any[], role: string }
             title: "Delete All Students",
             desc: "Hard deletes all student accounts. Will cascade to registrations.",
             icon: Users,
-            colorClass: "border-red-500",
+            colorClass: "border-danger",
             actionFn: async () => await deleteAllStudents(),
             requiresEvent: false,
             hidden: !isAdminOrCoord
@@ -173,7 +173,7 @@ export function DatabaseClient({ events, role }: { events: any[], role: string }
             title: "Delete All Subjects",
             desc: "Hard deletes all electives assigned to this event.",
             icon: BookOpen,
-            colorClass: "border-red-500",
+            colorClass: "border-danger",
             actionFn: async () => await deleteAllSubjects(event.id),
             hidden: !isAdminOrCoord
           })}

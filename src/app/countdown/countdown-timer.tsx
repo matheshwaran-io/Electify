@@ -107,8 +107,8 @@ export function CountdownTimer({ startDateStr, registrationEnabled }: CountdownT
   if (timeLeft.isOver) {
     return (
       <div className="text-center py-6 space-y-3">
-        <RefreshCw className="h-8 w-8 animate-spin mx-auto text-indigo-500" />
-        <p className="font-semibold text-slate-700 dark:text-slate-300">
+        <RefreshCw className="h-8 w-8 animate-spin mx-auto text-primary-text" />
+        <p className="font-semibold text-fg-muted">
           {!registrationEnabled
             ? "Waiting for coordinator to enable registration..."
             : "Registration is open! Loading dashboard..."}
@@ -137,15 +137,9 @@ export function CountdownTimer({ startDateStr, registrationEnabled }: CountdownT
       {/* Circular Timer Visualizer */}
       <div className="relative inline-flex items-center justify-center" style={{ width: size, height: size }}>
         <svg width={size} height={size} className="transform -rotate-90">
-          <defs>
-            <linearGradient id="timerGradient" x1="0%" y1="0%" x2="100%" y2="100%">
-              <stop offset="0%" stopColor="#6366f1" />
-              <stop offset="100%" stopColor="#8b5cf6" />
-            </linearGradient>
-          </defs>
           {/* Track circle */}
           <circle
-            className="stroke-slate-100 dark:stroke-slate-900"
+            className="stroke-surface-3"
             fill="transparent"
             strokeWidth={strokeWidth}
             r={radius}
@@ -154,12 +148,13 @@ export function CountdownTimer({ startDateStr, registrationEnabled }: CountdownT
           />
           {/* Animated Progress Indicator */}
           <motion.circle
-            stroke="url(#timerGradient)"
+            stroke="var(--primary)"
             fill="transparent"
             strokeWidth={strokeWidth}
             strokeDasharray={circumference}
             initial={{ strokeDashoffset: circumference }}
             animate={{ strokeDashoffset }}
+            // Linear 1s sweep tracks the 1s clock tick; not a UI transition.
             transition={{ duration: 1, ease: "linear" }}
             r={radius}
             cx={size / 2}
@@ -170,10 +165,10 @@ export function CountdownTimer({ startDateStr, registrationEnabled }: CountdownT
 
         {/* Center Digital Clock Display */}
         <div className="absolute flex flex-col items-center">
-          <span className="text-4xl font-extrabold tracking-tighter text-slate-900 dark:text-white tabular-nums">
+          <span className="text-4xl font-extrabold tracking-tighter text-fg tabular-nums">
             {String(timeLeft.hours).padStart(2, "0")}:{String(timeLeft.minutes).padStart(2, "0")}:{String(timeLeft.seconds).padStart(2, "0")}
           </span>
-          <span className="text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-widest mt-1">
+          <span className="text-2xs font-bold text-fg-subtle uppercase tracking-widest mt-1">
             Remaining Time
           </span>
         </div>
@@ -182,11 +177,11 @@ export function CountdownTimer({ startDateStr, registrationEnabled }: CountdownT
       {/* Structured Time Blocks */}
       <div className="grid grid-cols-4 gap-3 w-full max-w-sm">
         {timeBlocks.map((block) => (
-          <div key={block.label} className="border border-slate-200/50 dark:border-slate-800/50 bg-white/40 dark:bg-slate-950/30 backdrop-blur-sm shadow-sm rounded-inputs p-3 flex flex-col items-center justify-center">
-            <span className="text-xl sm:text-2xl font-extrabold text-indigo-600 dark:text-indigo-400 tabular-nums">
+          <div key={block.label} className="border border-border bg-surface shadow-1 rounded-control p-3 flex flex-col items-center justify-center">
+            <span className="text-xl sm:text-2xl font-extrabold text-primary-text tabular-nums">
               {String(block.value).padStart(2, "0")}
             </span>
-            <span className="text-[9px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-widest mt-1">
+            <span className="text-2xs font-bold text-fg-subtle uppercase tracking-widest mt-1">
               {block.label}
             </span>
           </div>
@@ -194,12 +189,12 @@ export function CountdownTimer({ startDateStr, registrationEnabled }: CountdownT
       </div>
 
       {/* Date & Time Widget */}
-      <div className="flex flex-col items-center justify-center gap-1.5 text-xs text-slate-500 dark:text-slate-400 font-semibold bg-slate-100/50 dark:bg-slate-900/50 border border-slate-200/30 dark:border-slate-800/30 px-4 py-2.5 rounded-buttons">
-        <span className="flex items-center gap-1.5 text-slate-700 dark:text-indigo-400">
+      <div className="flex flex-col items-center justify-center gap-1.5 text-xs text-fg-muted font-semibold bg-surface-2/50 border border-border px-4 py-2.5 rounded-control">
+        <span className="flex items-center gap-1.5 text-fg-muted">
           <Calendar className="w-3.5 h-3.5" /> {formattedDate}
         </span>
-        <span className="flex items-center gap-1.5 text-slate-500">
-          <Clock className="w-3.5 h-3.5 text-slate-400" /> Opens at {formattedTime}
+        <span className="flex items-center gap-1.5 text-fg-muted">
+          <Clock className="w-3.5 h-3.5 text-fg-subtle" /> Opens at {formattedTime}
         </span>
       </div>
     </div>

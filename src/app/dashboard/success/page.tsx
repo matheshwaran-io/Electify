@@ -91,9 +91,7 @@ export default async function RegistrationSuccessPage() {
   const allowRegistrationEdit = false;
 
   return (
-    <main className="flex min-h-screen flex-col items-center justify-center relative bg-slate-50 dark:bg-slate-950 p-4 overflow-hidden print:bg-white print:dark:bg-white print:p-0">
-      <div className="absolute top-[-25%] left-[-15%] w-[60%] h-[60%] rounded-full bg-indigo-500/10 blur-[130px] pointer-events-none print:hidden" />
-      <div className="absolute bottom-[-20%] right-[-10%] w-[50%] h-[50%] rounded-full bg-violet-500/10 blur-[120px] pointer-events-none print:hidden" />
+    <main className="flex min-h-screen flex-col items-center justify-center relative bg-canvas p-4 overflow-hidden print:bg-surface print:p-0">
 
       {/* Header Utilities */}
       <div className="absolute top-4 right-4 print:hidden z-50">

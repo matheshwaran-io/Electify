@@ -31,11 +31,11 @@ export default async function StudentDashboardRouterPage() {
 
   if (!student) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-slate-50 dark:bg-black">
-        <div className="text-center p-8 bg-white dark:bg-[#111] rounded-md border border-slate-200 dark:border-white/10 shadow-sm max-w-md">
-          <ShieldAlert className="w-12 h-12 text-rose-500 mx-auto mb-4" />
-          <h2 className="text-xl font-medium text-slate-900 dark:text-white mb-2">Account Error</h2>
-          <p className="text-sm text-slate-500 dark:text-slate-400">
+      <div className="flex min-h-screen items-center justify-center bg-canvas">
+        <div className="text-center p-8 bg-surface rounded-badge border border-border shadow-1 max-w-md">
+          <ShieldAlert className="w-12 h-12 text-danger-text mx-auto mb-4" />
+          <h2 className="text-xl font-medium text-fg mb-2">Account Error</h2>
+          <p className="text-sm text-fg-muted">
             Your student account is not found in the system.
           </p>
         </div>
@@ -45,11 +45,11 @@ export default async function StudentDashboardRouterPage() {
 
   if (!student.academicBatchId) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-slate-50 dark:bg-black">
-        <div className="text-center p-8 bg-white dark:bg-[#111] rounded-md border border-slate-200 dark:border-white/10 shadow-sm max-w-md">
-          <ShieldAlert className="w-12 h-12 text-rose-500 mx-auto mb-4" />
-          <h2 className="text-xl font-medium text-slate-900 dark:text-white mb-2">Missing Batch</h2>
-          <p className="text-sm text-slate-500 dark:text-slate-400">
+      <div className="flex min-h-screen items-center justify-center bg-canvas">
+        <div className="text-center p-8 bg-surface rounded-badge border border-border shadow-1 max-w-md">
+          <ShieldAlert className="w-12 h-12 text-danger-text mx-auto mb-4" />
+          <h2 className="text-xl font-medium text-fg mb-2">Missing Batch</h2>
+          <p className="text-sm text-fg-muted">
             Your account is not assigned to an academic batch.
           </p>
         </div>
@@ -68,12 +68,12 @@ export default async function StudentDashboardRouterPage() {
 
   if (!event) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-slate-50 dark:bg-black">
-        <div className="text-center p-8 bg-white dark:bg-[#111] rounded-2xl border border-slate-200 dark:border-white/10 shadow-sm max-w-md relative overflow-hidden">
+      <div className="flex min-h-screen items-center justify-center bg-canvas">
+        <div className="text-center p-8 bg-surface rounded-card border border-border shadow-1 max-w-md relative overflow-hidden">
           <div className="absolute top-4 right-4"><ThemeToggle /></div>
-          <ShieldAlert className="w-12 h-12 text-rose-500 mx-auto mb-4" />
-          <h2 className="text-xl font-medium text-slate-900 dark:text-white mb-2">No Active Registration</h2>
-          <p className="text-sm text-slate-500 dark:text-slate-400">
+          <ShieldAlert className="w-12 h-12 text-danger-text mx-auto mb-4" />
+          <h2 className="text-xl font-medium text-fg mb-2">No Active Registration</h2>
+          <p className="text-sm text-fg-muted">
             Elective registration is currently closed.
           </p>
           <form action={async () => {
@@ -81,7 +81,7 @@ export default async function StudentDashboardRouterPage() {
             await logout();
             redirect("/login");
           }} className="mt-6">
-            <button type="submit" className="text-xs font-semibold text-slate-500 hover:text-slate-700 dark:hover:text-slate-300">
+            <button type="submit" className="text-xs font-semibold text-fg-muted hover:text-fg-muted">
               Sign Out
             </button>
           </form>
@@ -126,12 +126,12 @@ export default async function StudentDashboardRouterPage() {
 
   if (isRegistrationEnded && !hasSubmitted) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-slate-50 dark:bg-black">
-        <div className="text-center p-8 bg-white dark:bg-[#111] rounded-2xl border border-slate-200 dark:border-white/10 shadow-sm max-w-md relative overflow-hidden">
+      <div className="flex min-h-screen items-center justify-center bg-canvas">
+        <div className="text-center p-8 bg-surface rounded-card border border-border shadow-1 max-w-md relative overflow-hidden">
           <div className="absolute top-4 right-4"><ThemeToggle /></div>
-          <ShieldAlert className="w-12 h-12 text-rose-500 mx-auto mb-4" />
-          <h2 className="text-xl font-medium text-slate-900 dark:text-white mb-2">Registration Closed</h2>
-          <p className="text-sm text-slate-500 dark:text-slate-400">
+          <ShieldAlert className="w-12 h-12 text-danger-text mx-auto mb-4" />
+          <h2 className="text-xl font-medium text-fg mb-2">Registration Closed</h2>
+          <p className="text-sm text-fg-muted">
             Registration period has ended.
           </p>
           <form action={async () => {
@@ -139,7 +139,7 @@ export default async function StudentDashboardRouterPage() {
             await logout();
             redirect("/login");
           }} className="mt-6">
-            <button type="submit" className="text-xs font-semibold text-slate-500 hover:text-slate-700 dark:hover:text-slate-300">
+            <button type="submit" className="text-xs font-semibold text-fg-muted hover:text-fg-muted">
               Sign Out
             </button>
           </form>

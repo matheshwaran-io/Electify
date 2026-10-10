@@ -35,13 +35,13 @@ export function ConfigurationCard({ event }: { event: any }) {
   }
 
   return (
-    <div className="bg-(--card) border border-(--border) rounded-3xl p-6 shadow-sm col-span-1 lg:col-span-4 flex flex-col h-full">
+    <div className="bg-surface border border-border rounded-panel p-6 shadow-1 col-span-1 lg:col-span-4 flex flex-col h-full">
       <div className="flex justify-between items-center mb-6">
-        <h3 className="font-bold text-(--foreground)">Registration Configuration</h3>
+        <h3 className="font-bold text-fg">Registration Configuration</h3>
         <button 
           onClick={handleSave}
           disabled={isSaving}
-          className="bg-indigo-600 text-white px-4 py-2 rounded-xl text-sm font-medium shadow-md shadow-indigo-500/20 hover:bg-indigo-500 transition-colors disabled:opacity-50 flex items-center gap-2"
+          className="bg-primary text-primary-fg px-4 py-2 rounded-control text-sm font-medium hover:bg-primary-strong transition-colors disabled:opacity-50 flex items-center gap-2"
         >
           {isSaving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
           Save Changes
@@ -51,50 +51,50 @@ export function ConfigurationCard({ event }: { event: any }) {
       <div className="grid grid-cols-1 gap-6 flex-1">
         <div className="space-y-4">
           <div>
-            <label className="block text-[10px] font-bold text-(--muted-foreground) mb-1 uppercase tracking-wider">Portal Opens</label>
+            <label className="block text-2xs font-bold text-fg-muted mb-1 uppercase tracking-wider">Portal Opens</label>
             <input 
               type="datetime-local" 
               value={openDate} 
               onChange={(e) => setOpenDate(e.target.value)}
-              className="w-full px-4 py-2.5 bg-(--background) border border-(--border) rounded-xl text-sm outline-none focus:ring-2 focus:ring-indigo-500/50 transition-shadow text-(--foreground)"
+              className="w-full px-4 py-2.5 bg-surface border border-border-strong rounded-control text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring transition-shadow text-fg"
             />
           </div>
           <div>
-            <label className="block text-[10px] font-bold text-(--muted-foreground) mb-1 uppercase tracking-wider">Portal Closes</label>
+            <label className="block text-2xs font-bold text-fg-muted mb-1 uppercase tracking-wider">Portal Closes</label>
             <input 
               type="datetime-local" 
               value={closeDate} 
               onChange={(e) => setCloseDate(e.target.value)}
-              className="w-full px-4 py-2.5 bg-(--background) border border-(--border) rounded-xl text-sm outline-none focus:ring-2 focus:ring-indigo-500/50 transition-shadow text-(--foreground)"
+              className="w-full px-4 py-2.5 bg-surface border border-border-strong rounded-control text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring transition-shadow text-fg"
             />
           </div>
         </div>
 
         <div className="space-y-4">
-          <label className="flex items-center justify-between p-3 rounded-xl border border-(--border) bg-(--background) cursor-pointer hover:border-indigo-500/30 transition-colors">
-            <span className="text-sm font-medium text-(--foreground)">Allow Editing Before Close</span>
+          <label className="flex items-center justify-between p-3 rounded-control border border-border bg-surface-2 cursor-pointer hover:border-primary/30 transition-colors">
+            <span className="text-sm font-medium text-fg">Allow Editing Before Close</span>
             <input 
               type="checkbox" 
               checked={allowEditing}
               onChange={(e) => setAllowEditing(e.target.checked)}
-              className="w-4 h-4 text-indigo-600 rounded border-gray-300 focus:ring-indigo-500"
+              className="w-4 h-4 text-primary-text rounded-badge border-border-strong focus-visible:ring-ring"
             />
           </label>
-          <label className="flex items-center justify-between p-3 rounded-xl border border-(--border) bg-(--background) cursor-pointer hover:border-indigo-500/30 transition-colors">
-            <span className="text-sm font-medium text-(--foreground)">Auto Close Portal</span>
+          <label className="flex items-center justify-between p-3 rounded-control border border-border bg-surface-2 cursor-pointer hover:border-primary/30 transition-colors">
+            <span className="text-sm font-medium text-fg">Auto Close Portal</span>
             <input 
               type="checkbox" 
               checked={autoClose}
               onChange={(e) => setAutoClose(e.target.checked)}
-              className="w-4 h-4 text-indigo-600 rounded border-gray-300 focus:ring-indigo-500"
+              className="w-4 h-4 text-primary-text rounded-badge border-border-strong focus-visible:ring-ring"
             />
           </label>
-          <label className="flex items-center justify-between p-3 rounded-xl border border-(--border) bg-(--background) cursor-pointer hover:border-indigo-500/30 transition-colors">
+          <label className="flex items-center justify-between p-3 rounded-control border border-border bg-surface-2 cursor-pointer hover:border-primary/30 transition-colors">
             <div className="flex items-center gap-2">
-              <span className="text-sm font-medium text-(--foreground)">Enable Waitlist</span>
+              <span className="text-sm font-medium text-fg">Enable Waitlist</span>
               <div className="group relative">
-                <AlertCircle className="w-3.5 h-3.5 text-amber-500" />
-                <div className="absolute left-1/2 -translate-x-1/2 bottom-full mb-2 w-48 bg-gray-900 text-white text-[10px] p-2 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-10 text-center">
+                <AlertCircle className="w-3.5 h-3.5 text-warning-text" />
+                <div className="absolute left-1/2 -translate-x-1/2 bottom-full mb-2 w-48 bg-fg text-canvas text-2xs p-2 rounded-control opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-10 text-center">
                   Waitlist functionality is currently mocked.
                 </div>
               </div>
@@ -103,7 +103,7 @@ export function ConfigurationCard({ event }: { event: any }) {
               type="checkbox" 
               checked={enableWaitlist}
               onChange={(e) => setEnableWaitlist(e.target.checked)}
-              className="w-4 h-4 text-indigo-600 rounded border-gray-300 focus:ring-indigo-500"
+              className="w-4 h-4 text-primary-text rounded-badge border-border-strong focus-visible:ring-ring"
             />
           </label>
         </div>

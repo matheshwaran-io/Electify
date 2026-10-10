@@ -3,6 +3,7 @@
 import * as React from "react";
 import { motion, HTMLMotionProps } from "framer-motion";
 import { cn } from "@/lib/utils";
+import { spring, variants } from "@/lib/motion";
 
 interface GlassCardProps extends HTMLMotionProps<"div"> {
   children: React.ReactNode;
@@ -19,33 +20,19 @@ export function GlassCard({
 }: GlassCardProps) {
   return (
     <motion.div
-      initial={{ opacity: 0, y: 15 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{
-        type: "spring",
-        stiffness: 100,
-        damping: 15,
-      }}
+      variants={variants.rise}
+      initial="hidden"
+      animate="visible"
       // whileHover lift only fires on pointer/mouse devices via CSS media query.
       // On touch devices (hover: none), this has no visual effect.
-      whileHover={
-        hoverEffect
-          ? {
-              y: -3,
-              transition: { duration: 0.2, ease: "easeOut" },
-            }
-          : undefined
-      }
+      whileHover={hoverEffect ? { y: -2, transition: spring.snappy } : undefined}
       className={cn(
-        "glass-panel rounded-cards p-6 shadow-glass relative overflow-hidden",
-        glow === "indigo" && "indigo-glow",
-        glow === "cyan" && "cyan-glow",
+        "rounded-card border border-border bg-surface p-6 shadow-1 relative overflow-hidden",
+        glow !== "none" && "shadow-2",
         className
       )}
       {...props}
     >
-      {/* Soft internal gradient shine */}
-      <div className="absolute inset-0 bg-linear-to-tr from-transparent via-white/5 to-transparent opacity-0 hover:opacity-100 transition-opacity duration-500 pointer-events-none" />
       <div className="relative z-10">{children}</div>
     </motion.div>
   );

@@ -11,6 +11,7 @@ import { toast } from "sonner";
 import { User, UserCog, Eye, EyeOff, Mail, Lock, Check, KeyRound, Building, GraduationCap } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { motion, AnimatePresence } from "framer-motion";
+import { press, spring, transition } from "@/lib/motion";
 
 // --- Schemas ---
 const studentLoginSchema = z.object({
@@ -177,10 +178,10 @@ export function AuthContainer() {
   };
 
   return (
-    <div className="w-full space-y-6 text-slate-800 dark:text-slate-200 z-10 relative">
+    <div className="w-full space-y-6 text-fg z-10 relative">
       
       {/* Segmented Control Selector (Student vs Staff) */}
-      <div className="bg-slate-100/50 dark:bg-white/2 backdrop-blur-2xl p-1 rounded-2xl border border-slate-200/60 dark:border-white/6 flex relative shadow-[0_15px_40px_rgba(0,0,0,0.03)] dark:shadow-[0_15px_40px_rgba(0,0,0,0.3)] transition-all">
+      <div className="bg-surface-2 p-1 rounded-card border border-border flex relative">
         <button
           onClick={() => {
             setAccountType("STUDENT");
@@ -188,18 +189,18 @@ export function AuthContainer() {
             setAuthState("idle");
           }}
           className={cn(
-            "flex-1 flex items-center justify-center gap-2 py-2.5 text-xs font-semibold rounded-xl transition-all relative z-10",
-            accountType === "STUDENT" ? "text-slate-900 dark:text-slate-100" : "text-slate-500 hover:text-slate-700 dark:hover:text-slate-300"
+            "flex-1 flex items-center justify-center gap-2 py-2.5 text-xs font-semibold rounded-control transition-all relative z-10",
+            accountType === "STUDENT" ? "text-fg" : "text-fg-muted hover:text-fg-muted"
           )}
         >
           {accountType === "STUDENT" && (
             <motion.div
               layoutId="activeAccountType"
-              className="absolute inset-0 bg-white dark:bg-white/4 border border-slate-200/50 dark:border-white/6 shadow-sm dark:shadow-inner rounded-xl -z-10"
-              transition={{ type: "spring", stiffness: 380, damping: 30 }}
+              className="absolute inset-0 bg-surface border border-border shadow-1 rounded-control -z-10"
+              transition={spring.snappy}
             />
           )}
-          <User className="w-3.5 h-3.5 text-[#4F8CFF]" />
+          <User className="w-3.5 h-3.5 text-primary-text" />
           Student Login
         </button>
 
@@ -209,37 +210,37 @@ export function AuthContainer() {
             setAuthState("idle");
           }}
           className={cn(
-            "flex-1 flex items-center justify-center gap-2 py-2.5 text-xs font-semibold rounded-xl transition-all relative z-10",
-            accountType === "STAFF" ? "text-slate-900 dark:text-slate-100" : "text-slate-500 hover:text-slate-700 dark:hover:text-slate-300"
+            "flex-1 flex items-center justify-center gap-2 py-2.5 text-xs font-semibold rounded-control transition-all relative z-10",
+            accountType === "STAFF" ? "text-fg" : "text-fg-muted hover:text-fg-muted"
           )}
         >
           {accountType === "STAFF" && (
             <motion.div
               layoutId="activeAccountType"
-              className="absolute inset-0 bg-white dark:bg-white/4 border border-slate-200/50 dark:border-white/6 shadow-sm dark:shadow-inner rounded-xl -z-10"
-              transition={{ type: "spring", stiffness: 380, damping: 30 }}
+              className="absolute inset-0 bg-surface border border-border shadow-1 rounded-control -z-10"
+              transition={spring.snappy}
             />
           )}
-          <UserCog className="w-3.5 h-3.5 text-[#6D5DFE]" />
+          <UserCog className="w-3.5 h-3.5 text-primary-text" />
           Staff Login
         </button>
       </div>
 
       {/* Staff Login / Register Slider */}
       {accountType === "STAFF" && (
-        <div className="bg-slate-100/30 dark:bg-white/1 backdrop-blur-2xl p-1 rounded-xl border border-slate-200/40 dark:border-white/4 flex relative max-w-50 mx-auto">
+        <div className="bg-surface-2 p-1 rounded-control border border-border flex relative max-w-50 mx-auto">
           <button
             onClick={() => { setAuthMode("LOGIN"); setAuthState("idle"); }}
             className={cn(
-              "flex-1 py-1 text-[11px] font-semibold rounded-lg transition-all relative z-10",
-              authMode === "LOGIN" ? "text-slate-900 dark:text-slate-100" : "text-slate-500 hover:text-slate-300"
+              "flex-1 py-1 text-xs font-semibold rounded-control transition-all relative z-10",
+              authMode === "LOGIN" ? "text-fg" : "text-fg-muted hover:text-fg-subtle"
             )}
           >
             {authMode === "LOGIN" && (
               <motion.div
                 layoutId="activeAuthMode"
-                className="absolute inset-0 bg-white dark:bg-white/5 border border-slate-200/40 dark:border-white/6 rounded-lg -z-10"
-                transition={{ type: "spring", stiffness: 380, damping: 30 }}
+                className="absolute inset-0 bg-surface border border-border rounded-control -z-10"
+                transition={spring.snappy}
               />
             )}
             Sign In
@@ -247,15 +248,15 @@ export function AuthContainer() {
           <button
             onClick={() => { setAuthMode("REGISTER"); setAuthState("idle"); }}
             className={cn(
-              "flex-1 py-1 text-[11px] font-semibold rounded-lg transition-all relative z-10",
-              authMode === "REGISTER" ? "text-slate-900 dark:text-slate-100" : "text-slate-500 hover:text-slate-300"
+              "flex-1 py-1 text-xs font-semibold rounded-control transition-all relative z-10",
+              authMode === "REGISTER" ? "text-fg" : "text-fg-muted hover:text-fg-subtle"
             )}
           >
             {authMode === "REGISTER" && (
               <motion.div
                 layoutId="activeAuthMode"
-                className="absolute inset-0 bg-white dark:bg-white/5 border border-slate-200/40 dark:border-white/6 rounded-lg -z-10"
-                transition={{ type: "spring", stiffness: 380, damping: 30 }}
+                className="absolute inset-0 bg-surface border border-border rounded-control -z-10"
+                transition={spring.snappy}
               />
             )}
             Register
@@ -267,30 +268,11 @@ export function AuthContainer() {
       <div className="relative group">
         
         {/* Depth Orb (5% opacity) */}
-        <div className="absolute -top-5 -left-7.5 w-48 h-48 bg-linear-to-br from-indigo-500 to-[#3B2EFF] rounded-full blur-[80px] opacity-[0.03] dark:opacity-[0.05] pointer-events-none" />
-
-        {/* Depth Thin Ring (5% opacity) */}
-        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-110 h-110 rounded-full border border-slate-900/5 dark:border-white/5 opacity-5 pointer-events-none" />
-
-        {/* Depth Wireframe (5% opacity, static) */}
-        <div className="absolute inset-0 pointer-events-none z-0 flex items-center justify-center opacity-5 transform -rotate-12">
-          <svg className="w-95 h-95 text-slate-900 dark:text-white" viewBox="0 0 100 100">
-            <rect x="15" y="15" width="70" height="70" rx="12" fill="none" stroke="currentColor" strokeWidth="0.1" />
-            <polygon points="50,15 85,50 50,85 15,50" fill="none" stroke="currentColor" strokeWidth="0.08" />
-          </svg>
-        </div>
 
         {/* ── Main Glass Authentication Panel (Static) ─────── */}
         <div
-          className="bg-white/70 dark:bg-slate-900/40 backdrop-blur-2xl p-8 rounded-4xl border border-white/40 dark:border-white/8 shadow-[0_40px_80px_-20px_rgba(0,0,0,0.08)] dark:shadow-[0_40px_80px_-20px_rgba(0,0,0,0.5)] relative overflow-hidden z-10 transition-all duration-300"
+          className="bg-surface p-8 rounded-panel border border-border shadow-2 relative overflow-hidden z-10"
         >
-          {/* Static Glass Edge Highlight layer */}
-          <div 
-            className="absolute inset-0 pointer-events-none opacity-[0.05] dark:opacity-10 z-20"
-            style={{
-              background: "linear-gradient(115deg, rgba(255,255,255,0.1) 0%, transparent 30%, transparent 70%, rgba(255,255,255,0.05) 100%)",
-            }}
-          />
 
           <AnimatePresence mode="wait">
             {/* STUDENT LOGIN */}
@@ -300,55 +282,55 @@ export function AuthContainer() {
                 initial={{ opacity: 0, y: 10 }}
                 animate={{ opacity: 1, y: 0 }}
                 exit={{ opacity: 0, y: -10 }}
-                transition={{ duration: 0.2 }}
+                transition={transition.fade}
                 onSubmit={handleStudentSubmit(onStudentLogin)}
                 className="space-y-5"
               >
                 <div>
-                  <h2 className="text-lg font-bold text-slate-900 dark:text-slate-100 tracking-tight">Student Sign In</h2>
-                  <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-1">
+                  <h2 className="text-lg font-bold text-fg tracking-tight">Student Sign In</h2>
+                  <p className="text-xs text-fg-muted mt-1">
                     Sign in with your official SRM email and register number.
                   </p>
                 </div>
 
                 {/* SRM Email Input */}
                 <div className="space-y-1 relative group/input">
-                  <div className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within/input:text-[#4F8CFF] transition-colors z-10">
+                  <div className="absolute left-4 top-1/2 -translate-y-1/2 text-fg-subtle group-focus-within/input:text-primary-text transition-colors z-10">
                     <Mail className="w-3.5 h-3.5" />
                   </div>
                   <input
                     type="email"
                     placeholder="SRM Email (e.g. jd1234@srmist.edu.in)"
-                    className="w-full pl-10 pr-4 py-2.5 bg-slate-50/50 dark:bg-white/1 border border-slate-200 dark:border-white/6 rounded-xl text-xs text-slate-900 dark:text-slate-100 placeholder-slate-400 dark:placeholder-slate-500 focus:outline-none focus:border-[#4F8CFF]/50 focus:ring-2 focus:ring-[#4F8CFF]/5 dark:focus:ring-[#4F8CFF]/10 hover:border-slate-300 dark:hover:border-white/10 transition-all font-medium"
+                    className="w-full pl-10 pr-4 py-2.5 bg-surface border border-border-strong rounded-control text-xs text-fg placeholder-fg-subtle focus-visible:outline-none focus-visible:border-primary/50 focus-visible:ring-2 focus-visible:ring-primary/5 hover:border-border-strong transition-all font-medium"
                     disabled={authState !== "idle"}
                     {...registerStudent("email")}
                   />
                   {studentErrors.email && (
-                    <p className="text-[10px] text-rose-500 mt-1 pl-2">{studentErrors.email.message}</p>
+                    <p className="text-2xs text-danger-text mt-1 pl-2">{studentErrors.email.message}</p>
                   )}
                 </div>
 
                 {/* Register Number Input */}
                 <div className="space-y-1 relative group/input">
-                  <div className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within/input:text-[#4F8CFF] transition-colors z-10">
+                  <div className="absolute left-4 top-1/2 -translate-y-1/2 text-fg-subtle group-focus-within/input:text-primary-text transition-colors z-10">
                     <User className="w-3.5 h-3.5" />
                   </div>
                   <input
                     type={showPassword ? "text" : "password"}
                     placeholder="Register Number (e.g. RA2682242010126)"
-                    className="w-full pl-10 pr-11 py-2.5 bg-slate-50/50 dark:bg-white/1 border border-slate-200 dark:border-white/6 rounded-xl text-xs text-slate-900 dark:text-slate-100 placeholder-slate-400 dark:placeholder-slate-500 focus:outline-none focus:border-[#4F8CFF]/50 focus:ring-2 focus:ring-[#4F8CFF]/5 dark:focus:ring-[#4F8CFF]/10 hover:border-slate-300 dark:hover:border-white/10 transition-all font-medium"
+                    className="w-full pl-10 pr-11 py-2.5 bg-surface border border-border-strong rounded-control text-xs text-fg placeholder-fg-subtle focus-visible:outline-none focus-visible:border-primary/50 focus-visible:ring-2 focus-visible:ring-primary/5 hover:border-border-strong transition-all font-medium"
                     disabled={authState !== "idle"}
                     {...registerStudent("registerNumber")}
                   />
                   <button
                     type="button"
                     onClick={() => setShowPassword(!showPassword)}
-                    className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 transition-colors z-10"
+                    className="absolute right-4 top-1/2 -translate-y-1/2 text-fg-subtle hover:text-fg-muted transition-colors z-10"
                   >
                     {showPassword ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
                   </button>
                   {studentErrors.registerNumber && (
-                    <p className="text-[10px] text-rose-500 mt-1 pl-2">{studentErrors.registerNumber.message}</p>
+                    <p className="text-2xs text-danger-text mt-1 pl-2">{studentErrors.registerNumber.message}</p>
                   )}
                 </div>
 
@@ -366,55 +348,55 @@ export function AuthContainer() {
                 initial={{ opacity: 0, y: 10 }}
                 animate={{ opacity: 1, y: 0 }}
                 exit={{ opacity: 0, y: -10 }}
-                transition={{ duration: 0.2 }}
+                transition={transition.fade}
                 onSubmit={handleStaffLoginSubmit(onStaffLogin)}
                 className="space-y-5"
               >
                 <div>
-                  <h2 className="text-lg font-bold text-slate-900 dark:text-slate-100 tracking-tight">Staff Sign In</h2>
-                  <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-1">
+                  <h2 className="text-lg font-bold text-fg tracking-tight">Staff Sign In</h2>
+                  <p className="text-xs text-fg-muted mt-1">
                     Coordinator / Tutor console access.
                   </p>
                 </div>
 
                 {/* Email Input */}
                 <div className="space-y-1 relative group/input">
-                  <div className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within/input:text-[#6D5DFE] transition-colors z-10">
+                  <div className="absolute left-4 top-1/2 -translate-y-1/2 text-fg-subtle group-focus-within/input:text-primary-text transition-colors z-10">
                     <Mail className="w-3.5 h-3.5" />
                   </div>
                   <input
                     type="email"
                     placeholder="Staff Email"
-                    className="w-full pl-10 pr-4 py-2.5 bg-slate-50/50 dark:bg-white/1 border border-slate-200 dark:border-white/6 rounded-xl text-xs text-slate-900 dark:text-slate-100 placeholder-slate-400 dark:placeholder-slate-500 focus:outline-none focus:border-[#6D5DFE]/50 focus:ring-2 focus:ring-[#6D5DFE]/5 dark:focus:ring-[#6D5DFE]/10 hover:border-slate-300 dark:hover:border-white/10 transition-all font-medium"
+                    className="w-full pl-10 pr-4 py-2.5 bg-surface border border-border-strong rounded-control text-xs text-fg placeholder-fg-subtle focus-visible:outline-none focus-visible:border-primary/50 focus-visible:ring-2 focus-visible:ring-primary/5 hover:border-border-strong transition-all font-medium"
                     disabled={authState !== "idle"}
                     {...registerStaffLogin("email")}
                   />
                   {staffLoginErrors.email && (
-                    <p className="text-[10px] text-rose-500 mt-1 pl-2">{staffLoginErrors.email.message}</p>
+                    <p className="text-2xs text-danger-text mt-1 pl-2">{staffLoginErrors.email.message}</p>
                   )}
                 </div>
 
                 {/* Password Input */}
                 <div className="space-y-1 relative group/input">
-                  <div className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within/input:text-[#6D5DFE] transition-colors z-10">
+                  <div className="absolute left-4 top-1/2 -translate-y-1/2 text-fg-subtle group-focus-within/input:text-primary-text transition-colors z-10">
                     <Lock className="w-3.5 h-3.5" />
                   </div>
                   <input
                     type={showPassword ? "text" : "password"}
                     placeholder="Password"
-                    className="w-full pl-10 pr-11 py-2.5 bg-slate-50/50 dark:bg-white/1 border border-slate-200 dark:border-white/6 rounded-xl text-xs text-slate-900 dark:text-slate-100 placeholder-slate-400 dark:placeholder-slate-500 focus:outline-none focus:border-[#6D5DFE]/50 focus:ring-2 focus:ring-[#6D5DFE]/5 dark:focus:ring-[#6D5DFE]/10 hover:border-slate-300 dark:hover:border-white/10 transition-all font-medium"
+                    className="w-full pl-10 pr-11 py-2.5 bg-surface border border-border-strong rounded-control text-xs text-fg placeholder-fg-subtle focus-visible:outline-none focus-visible:border-primary/50 focus-visible:ring-2 focus-visible:ring-primary/5 hover:border-border-strong transition-all font-medium"
                     disabled={authState !== "idle"}
                     {...registerStaffLogin("password")}
                   />
                   <button
                     type="button"
                     onClick={() => setShowPassword(!showPassword)}
-                    className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 transition-colors z-10"
+                    className="absolute right-4 top-1/2 -translate-y-1/2 text-fg-subtle hover:text-fg-muted transition-colors z-10"
                   >
                     {showPassword ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
                   </button>
                   {staffLoginErrors.password && (
-                    <p className="text-[10px] text-rose-500 mt-1 pl-2">{staffLoginErrors.password.message}</p>
+                    <p className="text-2xs text-danger-text mt-1 pl-2">{staffLoginErrors.password.message}</p>
                   )}
                 </div>
 
@@ -431,75 +413,75 @@ export function AuthContainer() {
                 initial={{ opacity: 0, y: 10 }}
                 animate={{ opacity: 1, y: 0 }}
                 exit={{ opacity: 0, y: -10 }}
-                transition={{ duration: 0.2 }}
+                transition={transition.fade}
                 onSubmit={handleStaffRegisterSubmit(onStaffRegister)}
                 className="space-y-4"
               >
                 <div>
-                  <h2 className="text-lg font-bold text-slate-900 dark:text-slate-100 tracking-tight">Create Staff Account</h2>
-                  <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-1">
+                  <h2 className="text-lg font-bold text-fg tracking-tight">Create Staff Account</h2>
+                  <p className="text-xs text-fg-muted mt-1">
                     Register with your official SRMist email and valid Invite Code.
                   </p>
                 </div>
 
                 {/* Invite Code */}
                 <div className="space-y-1 relative group/input">
-                  <div className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within/input:text-[#6D5DFE] transition-colors z-10">
+                  <div className="absolute left-4 top-1/2 -translate-y-1/2 text-fg-subtle group-focus-within/input:text-primary-text transition-colors z-10">
                     <KeyRound className="w-3.5 h-3.5" />
                   </div>
                   <input
                     type="text"
                     placeholder="Invite Code (e.g. ELC-CC-...)"
-                    className="w-full pl-10 pr-4 py-2.5 bg-slate-50/50 dark:bg-white/1 border border-slate-200/60 dark:border-white/6 rounded-xl text-xs text-slate-900 dark:text-slate-100 placeholder-slate-400 dark:placeholder-slate-500 focus:outline-none focus:border-[#6D5DFE]/50 focus:ring-2 focus:ring-[#6D5DFE]/5 dark:focus:ring-[#6D5DFE]/10 hover:border-slate-300 dark:hover:border-white/10 transition-all font-medium"
+                    className="w-full pl-10 pr-4 py-2.5 bg-surface border border-border-strong rounded-control text-xs text-fg placeholder-fg-subtle focus-visible:outline-none focus-visible:border-primary/50 focus-visible:ring-2 focus-visible:ring-primary/5 hover:border-border-strong transition-all font-medium"
                     disabled={authState !== "idle"}
                     {...registerStaffForm("inviteCode")}
                   />
                   {staffRegisterErrors.inviteCode && (
-                    <p className="text-[10px] text-rose-500 mt-1 pl-2">{staffRegisterErrors.inviteCode.message}</p>
+                    <p className="text-2xs text-danger-text mt-1 pl-2">{staffRegisterErrors.inviteCode.message}</p>
                   )}
                 </div>
 
                 {/* Full Name */}
                 <div className="space-y-1 relative group/input">
-                  <div className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within/input:text-[#6D5DFE] transition-colors z-10">
+                  <div className="absolute left-4 top-1/2 -translate-y-1/2 text-fg-subtle group-focus-within/input:text-primary-text transition-colors z-10">
                     <User className="w-3.5 h-3.5" />
                   </div>
                   <input
                     type="text"
                     placeholder="Full Name"
-                    className="w-full pl-10 pr-4 py-2.5 bg-slate-50/50 dark:bg-white/1 border border-slate-200/60 dark:border-white/6 rounded-xl text-xs text-slate-900 dark:text-slate-100 placeholder-slate-400 dark:placeholder-slate-500 focus:outline-none focus:border-[#6D5DFE]/50 focus:ring-2 focus:ring-[#6D5DFE]/5 dark:focus:ring-[#6D5DFE]/10 hover:border-slate-300 dark:hover:border-white/10 transition-all font-medium"
+                    className="w-full pl-10 pr-4 py-2.5 bg-surface border border-border-strong rounded-control text-xs text-fg placeholder-fg-subtle focus-visible:outline-none focus-visible:border-primary/50 focus-visible:ring-2 focus-visible:ring-primary/5 hover:border-border-strong transition-all font-medium"
                     disabled={authState !== "idle"}
                     {...registerStaffForm("name")}
                   />
                   {staffRegisterErrors.name && (
-                    <p className="text-[10px] text-rose-500 mt-1 pl-2">{staffRegisterErrors.name.message}</p>
+                    <p className="text-2xs text-danger-text mt-1 pl-2">{staffRegisterErrors.name.message}</p>
                   )}
                 </div>
 
                 {/* SRM Email */}
                 <div className="space-y-1 relative group/input">
-                  <div className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within/input:text-[#6D5DFE] transition-colors z-10">
+                  <div className="absolute left-4 top-1/2 -translate-y-1/2 text-fg-subtle group-focus-within/input:text-primary-text transition-colors z-10">
                     <Mail className="w-3.5 h-3.5" />
                   </div>
                   <input
                     type="email"
                     placeholder="yourname@srmist.edu.in"
-                    className="w-full pl-10 pr-4 py-2.5 bg-slate-50/50 dark:bg-white/1 border border-slate-200/60 dark:border-white/6 rounded-xl text-xs text-slate-900 dark:text-slate-100 placeholder-slate-400 dark:placeholder-slate-500 focus:outline-none focus:border-[#6D5DFE]/50 focus:ring-2 focus:ring-[#6D5DFE]/5 dark:focus:ring-[#6D5DFE]/10 hover:border-slate-300 dark:hover:border-white/10 transition-all font-medium"
+                    className="w-full pl-10 pr-4 py-2.5 bg-surface border border-border-strong rounded-control text-xs text-fg placeholder-fg-subtle focus-visible:outline-none focus-visible:border-primary/50 focus-visible:ring-2 focus-visible:ring-primary/5 hover:border-border-strong transition-all font-medium"
                     disabled={authState !== "idle"}
                     {...registerStaffForm("email")}
                   />
                   {staffRegisterErrors.email && (
-                    <p className="text-[10px] text-rose-500 mt-1 pl-2">{staffRegisterErrors.email.message}</p>
+                    <p className="text-2xs text-danger-text mt-1 pl-2">{staffRegisterErrors.email.message}</p>
                   )}
                 </div>
 
                 {/* Faculty Selector */}
                 <div className="space-y-1 relative group/input">
-                  <div className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within/input:text-[#6D5DFE] transition-colors z-10">
+                  <div className="absolute left-4 top-1/2 -translate-y-1/2 text-fg-subtle group-focus-within/input:text-primary-text transition-colors z-10">
                     <Building className="w-3.5 h-3.5" />
                   </div>
                   <select
-                    className="w-full pl-10 pr-10 py-2.5 bg-slate-50/50 dark:bg-white/1 border border-slate-200/60 dark:border-white/6 rounded-xl text-xs text-slate-950 dark:text-slate-100 placeholder-slate-400 dark:placeholder-slate-500 focus:outline-none focus:border-[#6D5DFE]/50 focus:ring-2 focus:ring-[#6D5DFE]/5 dark:focus:ring-[#6D5DFE]/10 hover:border-slate-300 dark:hover:border-white/10 transition-all font-medium appearance-none cursor-pointer"
+                    className="w-full pl-10 pr-10 py-2.5 bg-surface border border-border-strong rounded-control text-xs text-fg placeholder-fg-subtle focus-visible:outline-none focus-visible:border-primary/50 focus-visible:ring-2 focus-visible:ring-primary/5 hover:border-border-strong transition-all font-medium appearance-none cursor-pointer"
                     disabled={authState !== "idle"}
                     {...registerStaffForm("faculty")}
                   >
@@ -508,20 +490,20 @@ export function AuthContainer() {
                       <option key={f.id} value={f.id}>{f.name}</option>
                     ))}
                   </select>
-                  <div className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none text-slate-400 text-[10px]">▼</div>
+                  <div className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none text-fg-subtle text-2xs">▼</div>
                   {staffRegisterErrors.faculty && (
-                    <p className="text-[10px] text-rose-500 mt-1 pl-2">{staffRegisterErrors.faculty.message}</p>
+                    <p className="text-2xs text-danger-text mt-1 pl-2">{staffRegisterErrors.faculty.message}</p>
                   )}
                 </div>
 
                 {/* Department & Degree (Grid) */}
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div className="space-y-1 relative group/input">
-                    <div className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within/input:text-[#6D5DFE] transition-colors z-10">
+                    <div className="absolute left-4 top-1/2 -translate-y-1/2 text-fg-subtle group-focus-within/input:text-primary-text transition-colors z-10">
                       <UserCog className="w-3.5 h-3.5" />
                     </div>
                     <select
-                      className="w-full pl-10 pr-10 py-2.5 bg-slate-50/50 dark:bg-white/1 border border-slate-200/60 dark:border-white/6 rounded-xl text-xs text-slate-950 dark:text-slate-100 placeholder-slate-400 dark:placeholder-slate-500 focus:outline-none focus:border-[#6D5DFE]/50 focus:ring-2 focus:ring-[#6D5DFE]/5 dark:focus:ring-[#6D5DFE]/10 hover:border-slate-300 dark:hover:border-white/10 transition-all font-medium appearance-none cursor-pointer"
+                      className="w-full pl-10 pr-10 py-2.5 bg-surface border border-border-strong rounded-control text-xs text-fg placeholder-fg-subtle focus-visible:outline-none focus-visible:border-primary/50 focus-visible:ring-2 focus-visible:ring-primary/5 hover:border-border-strong transition-all font-medium appearance-none cursor-pointer"
                       disabled={authState !== "idle" || !selectedFacultyId}
                       {...registerStaffForm("department")}
                     >
@@ -530,18 +512,18 @@ export function AuthContainer() {
                         <option key={d.id} value={d.id}>{d.name}</option>
                       ))}
                     </select>
-                    <div className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none text-slate-400 text-[10px]">▼</div>
+                    <div className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none text-fg-subtle text-2xs">▼</div>
                     {staffRegisterErrors.department && (
-                      <p className="text-[10px] text-rose-500 mt-1 pl-2">{staffRegisterErrors.department.message}</p>
+                      <p className="text-2xs text-danger-text mt-1 pl-2">{staffRegisterErrors.department.message}</p>
                     )}
                   </div>
 
                   <div className="space-y-1 relative group/input">
-                    <div className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within/input:text-[#6D5DFE] transition-colors z-10">
+                    <div className="absolute left-4 top-1/2 -translate-y-1/2 text-fg-subtle group-focus-within/input:text-primary-text transition-colors z-10">
                       <GraduationCap className="w-3.5 h-3.5" />
                     </div>
                     <select
-                      className="w-full pl-10 pr-10 py-2.5 bg-slate-50/50 dark:bg-white/1 border border-slate-200/60 dark:border-white/6 rounded-xl text-xs text-slate-950 dark:text-slate-100 placeholder-slate-400 dark:placeholder-slate-500 focus:outline-none focus:border-[#6D5DFE]/50 focus:ring-2 focus:ring-[#6D5DFE]/5 dark:focus:ring-[#6D5DFE]/10 hover:border-slate-300 dark:hover:border-white/10 transition-all font-medium appearance-none cursor-pointer"
+                      className="w-full pl-10 pr-10 py-2.5 bg-surface border border-border-strong rounded-control text-xs text-fg placeholder-fg-subtle focus-visible:outline-none focus-visible:border-primary/50 focus-visible:ring-2 focus-visible:ring-primary/5 hover:border-border-strong transition-all font-medium appearance-none cursor-pointer"
                       disabled={authState !== "idle" || !selectedDeptId}
                       {...registerStaffForm("degree")}
                     >
@@ -550,9 +532,9 @@ export function AuthContainer() {
                         <option key={p.id} value={p.id}>{p.name}</option>
                       ))}
                     </select>
-                    <div className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none text-slate-400 text-[10px]">▼</div>
+                    <div className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none text-fg-subtle text-2xs">▼</div>
                     {staffRegisterErrors.degree && (
-                      <p className="text-[10px] text-rose-500 mt-1 pl-2">{staffRegisterErrors.degree.message}</p>
+                      <p className="text-2xs text-danger-text mt-1 pl-2">{staffRegisterErrors.degree.message}</p>
                     )}
                   </div>
                 </div>
@@ -561,41 +543,41 @@ export function AuthContainer() {
                 {/* Password & Confirm Password (Grid) */}
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div className="space-y-1 relative group/input">
-                    <div className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within/input:text-[#6D5DFE] transition-colors z-10">
+                    <div className="absolute left-4 top-1/2 -translate-y-1/2 text-fg-subtle group-focus-within/input:text-primary-text transition-colors z-10">
                       <Lock className="w-3.5 h-3.5" />
                     </div>
                     <input
                       type={showPassword ? "text" : "password"}
                       placeholder="Password"
-                      className="w-full pl-10 pr-4 py-2.5 bg-slate-50/50 dark:bg-white/1 border border-slate-200/60 dark:border-white/6 rounded-xl text-xs text-slate-900 dark:text-slate-100 placeholder-slate-400 dark:placeholder-slate-500 focus:outline-none focus:border-[#6D5DFE]/50 focus:ring-2 focus:ring-[#6D5DFE]/5 dark:focus:ring-[#6D5DFE]/10 hover:border-slate-300 dark:hover:border-white/10 transition-all font-medium"
+                      className="w-full pl-10 pr-4 py-2.5 bg-surface border border-border-strong rounded-control text-xs text-fg placeholder-fg-subtle focus-visible:outline-none focus-visible:border-primary/50 focus-visible:ring-2 focus-visible:ring-primary/5 hover:border-border-strong transition-all font-medium"
                       disabled={authState !== "idle"}
                       {...registerStaffForm("password")}
                     />
                     {staffRegisterErrors.password && (
-                      <p className="text-[10px] text-rose-500 mt-1 pl-2">{staffRegisterErrors.password.message}</p>
+                      <p className="text-2xs text-danger-text mt-1 pl-2">{staffRegisterErrors.password.message}</p>
                     )}
                   </div>
 
                   <div className="space-y-1 relative group/input">
-                    <div className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within/input:text-[#6D5DFE] transition-colors z-10">
+                    <div className="absolute left-4 top-1/2 -translate-y-1/2 text-fg-subtle group-focus-within/input:text-primary-text transition-colors z-10">
                       <Lock className="w-3.5 h-3.5" />
                     </div>
                     <input
                       type={showConfirmPassword ? "text" : "password"}
                       placeholder="Confirm"
-                      className="w-full pl-10 pr-10 py-2.5 bg-slate-50/50 dark:bg-white/1 border border-slate-200/60 dark:border-white/6 rounded-xl text-xs text-slate-900 dark:text-slate-100 placeholder-slate-400 dark:placeholder-slate-500 focus:outline-none focus:border-[#6D5DFE]/50 focus:ring-2 focus:ring-[#6D5DFE]/5 dark:focus:ring-[#6D5DFE]/10 hover:border-slate-300 dark:hover:border-white/10 transition-all font-medium"
+                      className="w-full pl-10 pr-10 py-2.5 bg-surface border border-border-strong rounded-control text-xs text-fg placeholder-fg-subtle focus-visible:outline-none focus-visible:border-primary/50 focus-visible:ring-2 focus-visible:ring-primary/5 hover:border-border-strong transition-all font-medium"
                       disabled={authState !== "idle"}
                       {...registerStaffForm("confirmPassword")}
                     />
                     <button
                       type="button"
                       onClick={() => setShowConfirmPassword(!showConfirmPassword)}
-                      className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 transition-colors z-10"
+                      className="absolute right-4 top-1/2 -translate-y-1/2 text-fg-subtle hover:text-fg-muted transition-colors z-10"
                     >
                       {showConfirmPassword ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
                     </button>
                     {staffRegisterErrors.confirmPassword && (
-                      <p className="text-[10px] text-rose-500 mt-1 pl-2">{staffRegisterErrors.confirmPassword.message}</p>
+                      <p className="text-2xs text-danger-text mt-1 pl-2">{staffRegisterErrors.confirmPassword.message}</p>
                     )}
                   </div>
                 </div>
@@ -626,9 +608,8 @@ function AuthSubmitButton({
     <motion.button
       type="submit"
       disabled={authState !== "idle"}
-      className="w-full relative py-3 px-6 rounded-xl bg-slate-900 dark:bg-white text-white dark:text-slate-900 hover:bg-slate-800 dark:hover:bg-slate-100 text-xs font-bold shadow-[0_4px_14px_0_rgb(0,0,0,0.1)] dark:shadow-[0_4px_14px_0_rgb(255,255,255,0.05)] disabled:opacity-90 overflow-hidden select-none transition-all flex items-center justify-center ring-1 ring-slate-900/5 dark:ring-white/10"
-      whileHover={{ scale: authState === "idle" ? 1.01 : 1 }}
-      whileTap={{ scale: authState === "idle" ? 0.98 : 1 }}
+      className="w-full relative py-3 px-6 rounded-control bg-brand text-primary-fg text-xs font-bold disabled:opacity-90 overflow-hidden select-none transition-all flex items-center justify-center ring-1 ring-border"
+      whileTap={authState === "idle" ? press : undefined}
     >
       <AnimatePresence mode="wait">
         {authState === "idle" && (
@@ -651,11 +632,11 @@ function AuthSubmitButton({
             exit={{ opacity: 0 }}
             className="flex flex-col items-center w-full gap-1.5"
           >
-            <div className="text-[10px] font-extrabold uppercase tracking-wider text-slate-500 dark:text-slate-400">
+            <div className="text-2xs font-extrabold uppercase tracking-wider text-fg-muted">
               Authenticating...
             </div>
             {/* SaaS Progress Bar design: [■■■■■■░░░░] */}
-            <div className="flex items-center gap-1 font-mono text-[9px] text-slate-400">
+            <div className="flex items-center gap-1 font-mono text-2xs text-fg-subtle">
               <span>[</span>
               {Array.from({ length: 10 }).map((_, idx) => {
                 const step = idx * 10;
@@ -665,13 +646,13 @@ function AuthSubmitButton({
                     key={idx}
                     className={cn(
                       "inline-block w-1.5 h-2.5 transition-colors",
-                      isFilled ? "bg-slate-900 dark:bg-white" : "bg-slate-300 dark:bg-slate-700"
+                      isFilled ? "bg-fg" : "bg-surface-3"
                     )}
                   />
                 );
               })}
               <span>]</span>
-              <span className="ml-1 text-slate-900 dark:text-white font-bold">{Math.min(100, progress)}%</span>
+              <span className="ml-1 text-fg font-bold">{Math.min(100, progress)}%</span>
             </div>
           </motion.div>
         )}
@@ -682,7 +663,7 @@ function AuthSubmitButton({
             initial={{ opacity: 0, scale: 0.8 }}
             animate={{ opacity: 1, scale: 1 }}
             exit={{ opacity: 0 }}
-            className="flex items-center gap-2 text-emerald-400"
+            className="flex items-center gap-2 text-success-text"
           >
             <Check className="w-3.5 h-3.5 stroke-[3px]" />
             <span className="font-bold text-xs tracking-wider uppercase">Verified ✓</span>
@@ -695,7 +676,7 @@ function AuthSubmitButton({
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="text-rose-400 font-extrabold text-xs uppercase tracking-wider"
+            className="text-danger-text font-extrabold text-xs uppercase tracking-wider"
           >
             Failed
           </motion.span>

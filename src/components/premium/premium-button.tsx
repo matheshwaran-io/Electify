@@ -3,6 +3,7 @@
 import * as React from "react";
 import { motion, HTMLMotionProps } from "framer-motion";
 import { cn } from "@/lib/utils";
+import { press } from "@/lib/motion";
 
 interface PremiumButtonProps extends Omit<HTMLMotionProps<"button">, "type"> {
   children: React.ReactNode;
@@ -23,21 +24,21 @@ export function PremiumButton({
   ...props
 }: PremiumButtonProps) {
   const baseStyles =
-    "inline-flex items-center justify-center font-medium rounded-md transition-all focus:outline-none focus:ring-2 focus:ring-slate-900 focus:ring-offset-2 dark:focus:ring-slate-100 dark:focus:ring-offset-slate-950 relative overflow-hidden disabled:opacity-50 disabled:pointer-events-none select-none";
+    "inline-flex items-center justify-center font-medium rounded-control transition-colors duration-150 ease-snappy relative overflow-hidden disabled:opacity-50 disabled:pointer-events-none select-none";
 
   const variants = {
     primary:
-      "bg-slate-900 dark:bg-white text-white dark:text-slate-900 hover:bg-slate-800 dark:hover:bg-slate-100 border border-transparent shadow-sm",
+      "bg-primary text-primary-fg hover:bg-primary-strong border border-transparent",
     secondary:
-      "bg-white dark:bg-[#111] text-slate-900 dark:text-white border border-slate-200 dark:border-white/10 hover:bg-slate-50 dark:hover:bg-[#1a1a1a] shadow-sm",
+      "bg-surface text-fg border border-border hover:bg-surface-2",
     accent:
-      "bg-indigo-600 dark:bg-indigo-500 text-white hover:bg-indigo-700 dark:hover:bg-indigo-600 shadow-sm border border-transparent",
+      "bg-primary text-primary-fg hover:bg-primary-strong border border-transparent",
     ghost:
-      "bg-transparent hover:bg-slate-100 dark:hover:bg-white/5 text-slate-600 dark:text-slate-400",
+      "bg-transparent hover:bg-surface-2 text-fg-muted",
     danger:
-      "bg-rose-600 dark:bg-rose-500 text-white hover:bg-rose-700 dark:hover:bg-rose-600 shadow-sm border border-transparent",
+      "bg-danger-strong text-primary-fg hover:bg-danger-strong/90 border border-transparent",
     outline:
-      "border border-slate-200 dark:border-white/10 bg-transparent hover:bg-slate-50 dark:hover:bg-[#111] text-slate-900 dark:text-white",
+      "border border-border bg-transparent hover:bg-surface-2 text-fg",
   };
 
   const sizes = {
@@ -49,7 +50,7 @@ export function PremiumButton({
   return (
     <motion.button
       type={type}
-      whileTap={{ scale: 0.98 }}
+      whileTap={press}
       className={cn(baseStyles, variants[variant], sizes[size], className)}
       disabled={disabled || isLoading}
       style={{ touchAction: "manipulation" }}

@@ -2,23 +2,23 @@
 
 const statusStyles: Record<string, string> = {
   // Events
-  DRAFT:        "bg-gray-500/15 text-gray-400 border-gray-500/25",
-  PUBLISHED:    "bg-blue-500/15 text-blue-400 border-blue-500/25",
-  OPEN:         "bg-emerald-500/15 text-emerald-400 border-emerald-500/25",
-  CLOSED:       "bg-orange-500/15 text-orange-400 border-orange-500/25",
-  VERIFICATION: "bg-purple-500/15 text-purple-400 border-purple-500/25",
-  FINALIZED:    "bg-teal-500/15 text-teal-400 border-teal-500/25",
-  ARCHIVED:     "bg-slate-500/15 text-slate-400 border-slate-500/25",
+  DRAFT:        "bg-fg-subtle/15 text-fg-subtle border-border-strong",
+  PUBLISHED:    "bg-primary/15 text-primary-text border-primary/20",
+  OPEN:         "bg-success/15 text-success-text border-success/20",
+  CLOSED:       "bg-warning/15 text-warning-text border-warning/20",
+  VERIFICATION: "bg-primary/15 text-primary-text border-primary/20",
+  FINALIZED:    "bg-success/15 text-success-text border-success/20",
+  ARCHIVED:     "bg-fg-subtle/15 text-fg-subtle border-border-strong",
   // Invite
-  ACTIVE:       "bg-emerald-500/15 text-emerald-400 border-emerald-500/25",
-  USED:         "bg-gray-500/15 text-gray-400 border-gray-500/25",
-  EXPIRED:      "bg-red-500/15 text-red-400 border-red-500/25",
-  REVOKED:      "bg-red-500/15 text-red-400 border-red-500/25",
+  ACTIVE:       "bg-success/15 text-success-text border-success/20",
+  USED:         "bg-fg-subtle/15 text-fg-subtle border-border-strong",
+  EXPIRED:      "bg-danger/15 text-danger-text border-danger/20",
+  REVOKED:      "bg-danger/15 text-danger-text border-danger/20",
   // Roles
-  SYSTEM_ADMIN:       "bg-red-500/15 text-red-400 border-red-500/25",
-  COURSE_COORDINATOR: "bg-indigo-500/15 text-indigo-400 border-indigo-500/25",
-  CLASS_TUTOR:        "bg-blue-500/15 text-blue-400 border-blue-500/25",
-  STUDENT:            "bg-gray-500/15 text-gray-400 border-gray-500/25",
+  SYSTEM_ADMIN:       "bg-danger/15 text-danger-text border-danger/20",
+  COURSE_COORDINATOR: "bg-primary/15 text-primary-text border-primary/20",
+  CLASS_TUTOR:        "bg-primary/15 text-primary-text border-primary/20",
+  STUDENT:            "bg-fg-subtle/15 text-fg-subtle border-border-strong",
 };
 
 const ROLE_DISPLAY: Record<string, string> = {
@@ -29,7 +29,7 @@ const ROLE_DISPLAY: Record<string, string> = {
 };
 
 export function StatusBadge({ status }: { status: string }) {
-  const style = statusStyles[status] ?? "bg-gray-500/15 text-gray-400 border-gray-500/25";
+  const style = statusStyles[status] ?? "bg-fg-subtle/15 text-fg-subtle border-border-strong";
   const label = ROLE_DISPLAY[status] ?? status.replace(/_/g, " ");
   return (
     <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium border ${style}`}>
