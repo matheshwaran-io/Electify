@@ -84,8 +84,8 @@ export function InvitesClient({
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <h1 className="text-3xl font-bold text-[var(--foreground)]">Invite Codes</h1>
-          <p className="text-[var(--muted-foreground)] mt-1">
+          <h1 className="text-3xl font-bold text-(--foreground)">Invite Codes</h1>
+          <p className="text-(--muted-foreground) mt-1">
             Generate one-time codes to invite staff members.
           </p>
         </div>
@@ -99,24 +99,24 @@ export function InvitesClient({
       </div>
 
       {/* Table */}
-      <div className="bg-[var(--card)] rounded-2xl border border-[var(--border)] overflow-hidden">
+      <div className="bg-(--card) rounded-2xl border border-(--border) overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
             <thead>
-              <tr className="border-b border-[var(--border)] bg-[var(--accent)]/30">
-                <th className="text-left px-6 py-4 font-semibold text-[var(--muted-foreground)]">Code</th>
-                <th className="text-left px-6 py-4 font-semibold text-[var(--muted-foreground)]">Role</th>
-                <th className="text-left px-6 py-4 font-semibold text-[var(--muted-foreground)]">Status</th>
-                <th className="text-left px-6 py-4 font-semibold text-[var(--muted-foreground)]">Uses</th>
-                <th className="text-left px-6 py-4 font-semibold text-[var(--muted-foreground)]">Expires</th>
-                <th className="text-left px-6 py-4 font-semibold text-[var(--muted-foreground)]">Created</th>
-                <th className="text-left px-6 py-4 font-semibold text-[var(--muted-foreground)]">Actions</th>
+              <tr className="border-b border-(--border) bg-(--accent)/30">
+                <th className="text-left px-6 py-4 font-semibold text-(--muted-foreground)">Code</th>
+                <th className="text-left px-6 py-4 font-semibold text-(--muted-foreground)">Role</th>
+                <th className="text-left px-6 py-4 font-semibold text-(--muted-foreground)">Status</th>
+                <th className="text-left px-6 py-4 font-semibold text-(--muted-foreground)">Uses</th>
+                <th className="text-left px-6 py-4 font-semibold text-(--muted-foreground)">Expires</th>
+                <th className="text-left px-6 py-4 font-semibold text-(--muted-foreground)">Created</th>
+                <th className="text-left px-6 py-4 font-semibold text-(--muted-foreground)">Actions</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-[var(--border)]">
+            <tbody className="divide-y divide-(--border)">
               {codes.length === 0 ? (
                 <tr>
-                  <td colSpan={7} className="text-center py-16 text-[var(--muted-foreground)]">
+                  <td colSpan={7} className="text-center py-16 text-(--muted-foreground)">
                     <Mail className="w-8 h-8 mx-auto mb-2 opacity-30" />
                     No invite codes generated yet.
                   </td>
@@ -128,16 +128,16 @@ export function InvitesClient({
                     initial={{ opacity: 0 }}
                     animate={{ opacity: 1 }}
                     transition={{ delay: i * 0.02 }}
-                    className="hover:bg-[var(--accent)]/20 transition-colors"
+                    className="hover:bg-(--accent)/20 transition-colors"
                   >
                     <td className="px-6 py-4">
                       <div className="flex items-center gap-2">
-                        <span className="font-mono font-bold text-[var(--foreground)] tracking-widest">
+                        <span className="font-mono font-bold text-(--foreground) tracking-widest">
                           {c.code}
                         </span>
                         <button
                           onClick={() => copyCode(c.code, c.id)}
-                          className="p-1.5 rounded-lg hover:bg-[var(--accent)] transition-colors cursor-pointer text-[var(--muted-foreground)]"
+                          className="p-1.5 rounded-lg hover:bg-(--accent) transition-colors cursor-pointer text-(--muted-foreground)"
                         >
                           {copiedId === c.id ? (
                             <Check className="w-3.5 h-3.5 text-emerald-400" />
@@ -153,13 +153,13 @@ export function InvitesClient({
                     <td className="px-6 py-4">
                       <StatusBadge status={c.status} />
                     </td>
-                    <td className="px-6 py-4 text-[var(--muted-foreground)]">
+                    <td className="px-6 py-4 text-(--muted-foreground)">
                       {c.usedCount} / {c.maxUses}
                     </td>
-                    <td className="px-6 py-4 text-[var(--muted-foreground)]">
+                    <td className="px-6 py-4 text-(--muted-foreground)">
                       {format(new Date(c.expiresAt), "MMM d, yyyy")}
                     </td>
-                    <td className="px-6 py-4 text-[var(--muted-foreground)]">
+                    <td className="px-6 py-4 text-(--muted-foreground)">
                       {format(new Date(c.createdAt), "MMM d, yyyy")}
                     </td>
                     <td className="px-6 py-4">
@@ -202,16 +202,16 @@ export function InvitesClient({
               transition={{ type: "spring", stiffness: 300, damping: 25 }}
               className="fixed inset-0 z-50 flex items-center justify-center p-4 pointer-events-none"
             >
-              <div className="bg-[var(--card)] border border-[var(--border)] rounded-3xl shadow-2xl w-full max-w-lg pointer-events-auto">
+              <div className="bg-(--card) border border-(--border) rounded-3xl shadow-2xl w-full max-w-lg pointer-events-auto">
                 {/* Modal Header */}
-                <div className="flex items-center justify-between px-6 py-5 border-b border-[var(--border)]">
+                <div className="flex items-center justify-between px-6 py-5 border-b border-(--border)">
                   <div>
-                    <h2 className="text-xl font-bold text-[var(--foreground)]">Generate Invite Code</h2>
-                    <p className="text-sm text-[var(--muted-foreground)] mt-0.5">Configure and generate a staff invite link.</p>
+                    <h2 className="text-xl font-bold text-(--foreground)">Generate Invite Code</h2>
+                    <p className="text-sm text-(--muted-foreground) mt-0.5">Configure and generate a staff invite link.</p>
                   </div>
                   <button
                     onClick={() => setShowModal(false)}
-                    className="p-2 rounded-xl hover:bg-[var(--accent)] text-[var(--muted-foreground)] transition-colors cursor-pointer"
+                    className="p-2 rounded-xl hover:bg-(--accent) text-(--muted-foreground) transition-colors cursor-pointer"
                   >
                     <X className="w-5 h-5" />
                   </button>
@@ -221,13 +221,13 @@ export function InvitesClient({
                 <div className="px-6 py-5 space-y-5">
                   {/* Role */}
                   <div className="space-y-2">
-                    <label className="text-sm font-medium text-[var(--foreground)]">Role *</label>
+                    <label className="text-sm font-medium text-(--foreground)">Role *</label>
                     <div className="flex gap-3">
                       {(["COURSE_COORDINATOR", "CLASS_TUTOR"] as const).map((r) => (
                         <button
                           key={r}
                           onClick={() => setRole(r)}
-                          className={`flex-1 py-2.5 px-4 rounded-xl text-sm font-medium border transition-all cursor-pointer ${role === r ? "bg-indigo-600 text-white border-indigo-600" : "bg-transparent text-[var(--muted-foreground)] border-[var(--border)] hover:border-indigo-500/50"}`}
+                          className={`flex-1 py-2.5 px-4 rounded-xl text-sm font-medium border transition-all cursor-pointer ${role === r ? "bg-indigo-600 text-white border-indigo-600" : "bg-transparent text-(--muted-foreground) border-(--border) hover:border-indigo-500/50"}`}
                         >
                           {r.replace("_", " ")}
                         </button>
@@ -239,35 +239,35 @@ export function InvitesClient({
                   {/* Max Uses + Expiry */}
                   <div className="grid grid-cols-2 gap-4">
                     <div className="space-y-2">
-                      <label className="text-sm font-medium text-[var(--foreground)]">Max Uses</label>
+                      <label className="text-sm font-medium text-(--foreground)">Max Uses</label>
                       <input
                         type="number"
                         min={1}
                         max={50}
                         value={maxUses}
                         onChange={(e) => setMaxUses(Number(e.target.value))}
-                        className="w-full px-4 py-2.5 bg-[var(--background)] border border-[var(--border)] rounded-xl text-sm text-[var(--foreground)] focus:outline-none focus:ring-2 focus:ring-indigo-500/50"
+                        className="w-full px-4 py-2.5 bg-(--background) border border-(--border) rounded-xl text-sm text-(--foreground) focus:outline-none focus:ring-2 focus:ring-indigo-500/50"
                       />
                     </div>
                     <div className="space-y-2">
-                      <label className="text-sm font-medium text-[var(--foreground)]">Expires In (days)</label>
+                      <label className="text-sm font-medium text-(--foreground)">Expires In (days)</label>
                       <input
                         type="number"
                         min={1}
                         max={90}
                         value={expiresInDays}
                         onChange={(e) => setExpiresInDays(Number(e.target.value))}
-                        className="w-full px-4 py-2.5 bg-[var(--background)] border border-[var(--border)] rounded-xl text-sm text-[var(--foreground)] focus:outline-none focus:ring-2 focus:ring-indigo-500/50"
+                        className="w-full px-4 py-2.5 bg-(--background) border border-(--border) rounded-xl text-sm text-(--foreground) focus:outline-none focus:ring-2 focus:ring-indigo-500/50"
                       />
                     </div>
                   </div>
                 </div>
 
                 {/* Modal Footer */}
-                <div className="px-6 py-5 border-t border-[var(--border)] flex gap-3">
+                <div className="px-6 py-5 border-t border-(--border) flex gap-3">
                   <button
                     onClick={() => setShowModal(false)}
-                    className="flex-1 py-2.5 rounded-xl border border-[var(--border)] text-sm font-medium text-[var(--muted-foreground)] hover:bg-[var(--accent)] transition-colors cursor-pointer"
+                    className="flex-1 py-2.5 rounded-xl border border-(--border) text-sm font-medium text-(--muted-foreground) hover:bg-(--accent) transition-colors cursor-pointer"
                   >
                     Cancel
                   </button>

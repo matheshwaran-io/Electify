@@ -49,22 +49,22 @@ export function LiveMetrics({ metrics }: { metrics: any }) {
           initial={{ opacity: 0, y: 10 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: i * 0.1 }}
-          className="bg-[var(--card)] border border-[var(--border)] rounded-2xl p-4 flex flex-col justify-between shadow-sm hover:border-indigo-500/30 transition-colors"
+          className="bg-(--card) border border-(--border) rounded-2xl p-4 flex flex-col justify-between shadow-sm hover:border-indigo-500/30 transition-colors"
         >
           <div className="flex items-start justify-between">
             <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${c.bg}`}>
               <c.icon className={`w-4 h-4 ${c.color}`} />
             </div>
             {c.percentage !== null && (
-              <span className="text-xs font-bold text-[var(--muted-foreground)]">
+              <span className="text-xs font-bold text-(--muted-foreground)">
                 {c.percentage}%
               </span>
             )}
           </div>
           
           <div className="mt-4">
-            <h3 className="text-2xl font-bold text-[var(--foreground)]">{c.value}</h3>
-            <p className="text-[10px] font-bold uppercase tracking-wider text-[var(--muted-foreground)] mt-1">{c.title}</p>
+            <h3 className="text-2xl font-bold text-(--foreground)">{c.value}</h3>
+            <p className="text-[10px] font-bold uppercase tracking-wider text-(--muted-foreground) mt-1">{c.title}</p>
           </div>
         </motion.div>
       ))}

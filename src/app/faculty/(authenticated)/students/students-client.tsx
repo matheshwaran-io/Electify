@@ -131,13 +131,13 @@ export function StudentsClient({ students }: { students: Student[] }) {
     <div className="space-y-6 pb-20">
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
-          <h1 className="text-3xl font-bold text-[var(--foreground)]">Student Directory</h1>
-          <p className="text-[var(--muted-foreground)] mt-1">{students.length} total students enrolled.</p>
+          <h1 className="text-3xl font-bold text-(--foreground)">Student Directory</h1>
+          <p className="text-(--muted-foreground) mt-1">{students.length} total students enrolled.</p>
         </div>
         <div className="flex items-center gap-3">
           <button 
             onClick={handleExportCSV}
-            className="bg-[var(--card)] border border-[var(--border)] text-[var(--foreground)] px-4 py-2.5 rounded-xl text-sm font-medium hover:bg-[var(--accent)] transition shadow-sm flex items-center gap-2 outline-none"
+            className="bg-(--card) border border-(--border) text-(--foreground) px-4 py-2.5 rounded-xl text-sm font-medium hover:bg-(--accent) transition shadow-sm flex items-center gap-2 outline-none"
           >
             <Download className="w-4 h-4" /> Export CSV
           </button>
@@ -145,24 +145,24 @@ export function StudentsClient({ students }: { students: Student[] }) {
       </div>
 
       {/* Filters Bar */}
-      <div className="bg-[var(--card)] p-4 rounded-2xl border border-[var(--border)] shadow-sm flex flex-col lg:flex-row gap-4 items-center justify-between">
+      <div className="bg-(--card) p-4 rounded-2xl border border-(--border) shadow-sm flex flex-col lg:flex-row gap-4 items-center justify-between">
         <div className="relative w-full lg:max-w-sm">
-          <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-[var(--muted-foreground)]" />
+          <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-(--muted-foreground)" />
           <input
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             placeholder="Search students..."
-            className="w-full pl-11 pr-4 py-2.5 bg-[var(--background)] border border-[var(--border)] rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/50 outline-none"
+            className="w-full pl-11 pr-4 py-2.5 bg-(--background) border border-(--border) rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/50 outline-none"
           />
         </div>
 
         <div className="flex flex-wrap items-center gap-3 w-full lg:w-auto">
           {sections.length > 0 && (
-            <div className="flex items-center gap-2 bg-[var(--background)] border border-[var(--border)] rounded-xl px-3 py-1">
-              <Filter className="w-3.5 h-3.5 text-[var(--muted-foreground)]" />
+            <div className="flex items-center gap-2 bg-(--background) border border-(--border) rounded-xl px-3 py-1">
+              <Filter className="w-3.5 h-3.5 text-(--muted-foreground)" />
               <select 
                 value={sectionFilter} onChange={e => setSectionFilter(e.target.value)}
-                className="bg-transparent text-sm font-medium text-[var(--foreground)] focus:outline-none py-1.5 outline-none cursor-pointer"
+                className="bg-transparent text-sm font-medium text-(--foreground) focus:outline-none py-1.5 outline-none cursor-pointer"
               >
                 <option value="ALL">All Sections</option>
                 {sections.map(sec => (
@@ -198,15 +198,15 @@ export function StudentsClient({ students }: { students: Student[] }) {
       </AnimatePresence>
 
       {/* Main Table */}
-      <div className="bg-[var(--card)] rounded-3xl border border-[var(--border)] overflow-hidden shadow-sm">
+      <div className="bg-(--card) rounded-3xl border border-(--border) overflow-hidden shadow-sm">
         <div className="overflow-x-auto">
           <table className="w-full text-sm text-left">
             <thead>
-              <tr className="bg-[var(--background)] border-b border-[var(--border)]">
+              <tr className="bg-(--background) border-b border-(--border)">
                 <th className="px-6 py-4 w-12">
                   <input 
                     type="checkbox" 
-                    className="w-4 h-4 rounded border-[var(--border)] text-indigo-600 focus:ring-indigo-500/50 cursor-pointer"
+                    className="w-4 h-4 rounded border-(--border) text-indigo-600 focus:ring-indigo-500/50 cursor-pointer"
                     checked={currentData.length > 0 && selectedIds.size === filteredAndSorted.length}
                     onChange={(e) => {
                       if (e.target.checked) {
@@ -218,34 +218,34 @@ export function StudentsClient({ students }: { students: Student[] }) {
                   />
                 </th>
                 <th className="px-6 py-4">
-                  <button onClick={() => toggleSort("NAME")} className="flex items-center gap-2 font-bold text-xs uppercase tracking-wider text-[var(--muted-foreground)] hover:text-[var(--foreground)] transition outline-none">
+                  <button onClick={() => toggleSort("NAME")} className="flex items-center gap-2 font-bold text-xs uppercase tracking-wider text-(--muted-foreground) hover:text-(--foreground) transition outline-none">
                     Student <ArrowUpDown className="w-3 h-3" />
                   </button>
                 </th>
                 <th className="px-6 py-4">
-                  <button onClick={() => toggleSort("REG_NO")} className="flex items-center gap-2 font-bold text-xs uppercase tracking-wider text-[var(--muted-foreground)] hover:text-[var(--foreground)] transition outline-none">
+                  <button onClick={() => toggleSort("REG_NO")} className="flex items-center gap-2 font-bold text-xs uppercase tracking-wider text-(--muted-foreground) hover:text-(--foreground) transition outline-none">
                     Register No. <ArrowUpDown className="w-3 h-3" />
                   </button>
                 </th>
-                <th className="px-6 py-4 font-bold text-xs uppercase tracking-wider text-[var(--muted-foreground)]">Section</th>
+                <th className="px-6 py-4 font-bold text-xs uppercase tracking-wider text-(--muted-foreground)">Section</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-[var(--border)]">
+            <tbody className="divide-y divide-(--border)">
               {currentData.length === 0 ? (
                 <tr>
                   <td colSpan={4} className="text-center py-20">
-                    <GraduationCap className="w-10 h-10 mx-auto mb-3 text-[var(--muted-foreground)] opacity-50" />
-                    <p className="text-[var(--foreground)] font-medium mb-1">No students found</p>
-                    <p className="text-[var(--muted-foreground)] text-sm">Try adjusting your search or filters.</p>
+                    <GraduationCap className="w-10 h-10 mx-auto mb-3 text-(--muted-foreground) opacity-50" />
+                    <p className="text-(--foreground) font-medium mb-1">No students found</p>
+                    <p className="text-(--muted-foreground) text-sm">Try adjusting your search or filters.</p>
                   </td>
                 </tr>
               ) : (
                 currentData.map((s, i) => (
-                  <motion.tr key={s.id} initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: i * 0.02 }} className="hover:bg-[var(--accent)]/30 transition-colors">
+                  <motion.tr key={s.id} initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: i * 0.02 }} className="hover:bg-(--accent)/30 transition-colors">
                     <td className="px-6 py-4">
                       <input 
                         type="checkbox" 
-                        className="w-4 h-4 rounded border-[var(--border)] text-indigo-600 focus:ring-indigo-500/50 cursor-pointer"
+                        className="w-4 h-4 rounded border-(--border) text-indigo-600 focus:ring-indigo-500/50 cursor-pointer"
                         checked={selectedIds.has(s.id)}
                         onChange={(e) => {
                           const newSet = new Set(selectedIds);
@@ -257,16 +257,16 @@ export function StudentsClient({ students }: { students: Student[] }) {
                     </td>
                     <td className="px-6 py-4">
                       <div className="flex items-center gap-3">
-                        <div className="w-10 h-10 rounded-full bg-indigo-500/10 flex items-center justify-center text-indigo-600 text-sm font-bold shrink-0 ring-2 ring-[var(--background)]">
+                        <div className="w-10 h-10 rounded-full bg-indigo-500/10 flex items-center justify-center text-indigo-600 text-sm font-bold shrink-0 ring-2 ring-(--background)">
                           {s.name.charAt(0).toUpperCase()}
                         </div>
                         <div>
-                          <p className="font-bold text-[var(--foreground)]">{s.name}</p>
-                          <p className="text-xs text-[var(--muted-foreground)] font-medium">{s.email}</p>
+                          <p className="font-bold text-(--foreground)">{s.name}</p>
+                          <p className="text-xs text-(--muted-foreground) font-medium">{s.email}</p>
                         </div>
                       </div>
                     </td>
-                    <td className="px-6 py-4 font-mono text-xs font-semibold text-[var(--muted-foreground)] bg-[var(--background)]/50 rounded-lg inline-block my-4 mx-6 px-2 py-1">{s.registerNumber ?? "—"}</td>
+                    <td className="px-6 py-4 font-mono text-xs font-semibold text-(--muted-foreground) bg-(--background)/50 rounded-lg inline-block my-4 mx-6 px-2 py-1">{s.registerNumber ?? "—"}</td>
                     <td className="px-6 py-4">
                       {s.sectionLabel ? (
                         <span className="inline-flex items-center px-2.5 py-1 rounded-md text-xs font-bold uppercase tracking-wider bg-indigo-500/10 text-indigo-500">
@@ -283,25 +283,25 @@ export function StudentsClient({ students }: { students: Student[] }) {
         
         {/* Pagination Footer */}
         {totalPages > 1 && (
-          <div className="p-4 border-t border-[var(--border)] bg-[var(--background)] flex items-center justify-between">
-            <p className="text-xs font-medium text-[var(--muted-foreground)]">
-              Showing <span className="text-[var(--foreground)] font-bold">{(currentPage - 1) * itemsPerPage + 1}</span> to <span className="text-[var(--foreground)] font-bold">{Math.min(currentPage * itemsPerPage, filteredAndSorted.length)}</span> of <span className="text-[var(--foreground)] font-bold">{filteredAndSorted.length}</span> students
+          <div className="p-4 border-t border-(--border) bg-(--background) flex items-center justify-between">
+            <p className="text-xs font-medium text-(--muted-foreground)">
+              Showing <span className="text-(--foreground) font-bold">{(currentPage - 1) * itemsPerPage + 1}</span> to <span className="text-(--foreground) font-bold">{Math.min(currentPage * itemsPerPage, filteredAndSorted.length)}</span> of <span className="text-(--foreground) font-bold">{filteredAndSorted.length}</span> students
             </p>
             <div className="flex items-center gap-2">
               <button 
                 onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
                 disabled={currentPage === 1}
-                className="p-1.5 rounded-lg border border-[var(--border)] text-[var(--foreground)] hover:bg-[var(--accent)] disabled:opacity-50 transition outline-none"
+                className="p-1.5 rounded-lg border border-(--border) text-(--foreground) hover:bg-(--accent) disabled:opacity-50 transition outline-none"
               >
                 <ChevronLeft className="w-4 h-4" />
               </button>
-              <div className="text-xs font-bold text-[var(--muted-foreground)] px-2">
+              <div className="text-xs font-bold text-(--muted-foreground) px-2">
                 Page {currentPage} of {totalPages}
               </div>
               <button 
                 onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
                 disabled={currentPage === totalPages}
-                className="p-1.5 rounded-lg border border-[var(--border)] text-[var(--foreground)] hover:bg-[var(--accent)] disabled:opacity-50 transition outline-none"
+                className="p-1.5 rounded-lg border border-(--border) text-(--foreground) hover:bg-(--accent) disabled:opacity-50 transition outline-none"
               >
                 <ChevronRight className="w-4 h-4" />
               </button>

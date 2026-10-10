@@ -237,40 +237,40 @@ export function TutorElectivesClient({ electivesData, hasActiveSection = true }:
     return (
       <div className="space-y-6">
         <div>
-          <h1 className="text-3xl font-bold text-[var(--foreground)]">Course Configurations</h1>
-          <p className="text-[var(--muted-foreground)] mt-1">Review elective listings and seat quotas.</p>
+          <h1 className="text-3xl font-bold text-(--foreground)">Course Configurations</h1>
+          <p className="text-(--muted-foreground) mt-1">Review elective listings and seat quotas.</p>
         </div>
 
-        <div className="bg-[var(--card)] border border-[var(--border)] rounded-2xl flex flex-col items-center justify-center min-h-[60vh] p-8 text-center relative overflow-hidden">
-          <div className="absolute inset-0 bg-gradient-to-b from-transparent to-[var(--accent)]/10" />
+        <div className="bg-(--card) border border-(--border) rounded-2xl flex flex-col items-center justify-center min-h-[60vh] p-8 text-center relative overflow-hidden">
+          <div className="absolute inset-0 bg-linear-to-b from-transparent to-(--accent)/10" />
           
-          <div className="relative z-10 w-full max-w-md bg-[var(--background)] border border-[var(--border)] p-8 rounded-2xl shadow-xl shadow-black/5">
-            <div className="w-16 h-16 bg-[var(--accent)] rounded-full flex items-center justify-center mx-auto mb-6 ring-8 ring-[var(--background)]">
-              <BookOpen className="w-8 h-8 text-[var(--muted-foreground)]" />
+          <div className="relative z-10 w-full max-w-md bg-(--background) border border-(--border) p-8 rounded-2xl shadow-xl shadow-black/5">
+            <div className="w-16 h-16 bg-(--accent) rounded-full flex items-center justify-center mx-auto mb-6 ring-8 ring-(--background)">
+              <BookOpen className="w-8 h-8 text-(--muted-foreground)" />
             </div>
             
-            <h2 className="text-2xl font-bold text-[var(--foreground)] mb-3">Setup Your Classes</h2>
-            <p className="text-[var(--muted-foreground)] text-sm mb-8">
+            <h2 className="text-2xl font-bold text-(--foreground) mb-3">Setup Your Classes</h2>
+            <p className="text-(--muted-foreground) text-sm mb-8">
               No registration event exists. Create a Registration Window first to start adding electives.
             </p>
 
             <div className="space-y-4 text-left">
               <div>
-                <label className="text-xs font-bold text-[var(--muted-foreground)] uppercase tracking-wider mb-2 block">Event Name</label>
+                <label className="text-xs font-bold text-(--muted-foreground) uppercase tracking-wider mb-2 block">Event Name</label>
                 <input 
                   value={newWindowName}
                   onChange={e => setNewWindowName(e.target.value)}
                   placeholder="e.g. B.TECH EVEN SEM AI F..."
-                  className="w-full px-4 py-3 bg-[var(--accent)]/50 border border-[var(--border)] rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/50"
+                  className="w-full px-4 py-3 bg-(--accent)/50 border border-(--border) rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/50"
                 />
               </div>
               <div>
-                <label className="text-xs font-bold text-[var(--muted-foreground)] uppercase tracking-wider mb-2 block">Academic Year</label>
+                <label className="text-xs font-bold text-(--muted-foreground) uppercase tracking-wider mb-2 block">Academic Year</label>
                 <input 
                   value={newWindowYear}
                   onChange={e => setNewWindowYear(e.target.value)}
                   placeholder="e.g. 2026-2027"
-                  className="w-full px-4 py-3 bg-[var(--accent)]/50 border border-[var(--border)] rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/50"
+                  className="w-full px-4 py-3 bg-(--accent)/50 border border-(--border) rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/50"
                 />
               </div>
               
@@ -293,8 +293,8 @@ export function TutorElectivesClient({ electivesData, hasActiveSection = true }:
       {/* Header */}
       <div className="flex flex-col md:flex-row md:items-end justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold text-[var(--foreground)] tracking-tight">Subjects & Groups</h1>
-          <p className="text-sm text-[var(--muted-foreground)] mt-1">Manage elective groups, subjects, and seat allocations.</p>
+          <h1 className="text-2xl font-bold text-(--foreground) tracking-tight">Subjects & Groups</h1>
+          <p className="text-sm text-(--muted-foreground) mt-1">Manage elective groups, subjects, and seat allocations.</p>
         </div>
         <div className="flex items-center gap-2">
           <button 
@@ -326,34 +326,34 @@ export function TutorElectivesClient({ electivesData, hasActiveSection = true }:
             initial={{ opacity: 0, y: 12 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: i * 0.05 }}
-            className={`bg-gradient-to-br ${stat.gradient} border border-[var(--border)] rounded-2xl p-5 relative overflow-hidden group hover:border-${stat.color}-500/30 transition-colors`}
+            className={`bg-linear-to-br ${stat.gradient} border border-(--border) rounded-2xl p-5 relative overflow-hidden group hover:border-${stat.color}-500/30 transition-colors`}
           >
             <div className="flex items-center gap-2.5 mb-3">
               <div className={`w-8 h-8 rounded-lg bg-${stat.color}-500/15 flex items-center justify-center`}>
                 <stat.icon className={`w-4 h-4 text-${stat.color}-500`} />
               </div>
-              <span className="text-[11px] font-semibold text-[var(--muted-foreground)] uppercase tracking-wider">{stat.label}</span>
+              <span className="text-[11px] font-semibold text-(--muted-foreground) uppercase tracking-wider">{stat.label}</span>
             </div>
-            <p className="text-2xl font-bold text-[var(--foreground)] tracking-tight">{stat.value}</p>
+            <p className="text-2xl font-bold text-(--foreground) tracking-tight">{stat.value}</p>
           </motion.div>
         ))}
       </div>
 
       {/* Search */}
       <div className="relative w-full max-w-md">
-        <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-[var(--muted-foreground)]" />
+        <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-(--muted-foreground)" />
         <input
           value={search}
           onChange={(e) => setSearch(e.target.value)}
           placeholder="Search subjects or course codes..."
-          className="w-full pl-10 pr-4 py-2.5 bg-[var(--card)] border border-[var(--border)] rounded-xl text-sm text-[var(--foreground)] placeholder:text-[var(--muted-foreground)] focus:outline-none focus:ring-2 focus:ring-indigo-500/50"
+          className="w-full pl-10 pr-4 py-2.5 bg-(--card) border border-(--border) rounded-xl text-sm text-(--foreground) placeholder:text-(--muted-foreground) focus:outline-none focus:ring-2 focus:ring-indigo-500/50"
         />
       </div>
 
       {/* Groups */}
       <div className="space-y-4">
         {allGroups.length === 0 ? (
-          <div className="text-center py-20 text-[var(--muted-foreground)] bg-[var(--card)] rounded-2xl border border-dashed border-[var(--border)]">
+          <div className="text-center py-20 text-(--muted-foreground) bg-(--card) rounded-2xl border border-dashed border-(--border)">
             <Layers className="w-10 h-10 mx-auto mb-3 opacity-30" />
             <p>No groups added yet.</p>
             <button 
@@ -385,11 +385,11 @@ export function TutorElectivesClient({ electivesData, hasActiveSection = true }:
                 initial={{ opacity: 0, y: 16 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: gIndex * 0.06 }}
-                className="bg-[var(--card)] border border-[var(--border)] rounded-2xl overflow-hidden shadow-sm"
+                className="bg-(--card) border border-(--border) rounded-2xl overflow-hidden shadow-sm"
               >
                 {/* Group Header */}
                 <div 
-                  className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-4 bg-gradient-to-r from-[var(--accent)]/40 to-transparent hover:from-[var(--accent)]/60 transition-all cursor-pointer select-none"
+                  className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-4 bg-linear-to-r from-(--accent)/40 to-transparent hover:from-(--accent)/60 transition-all cursor-pointer select-none"
                   onClick={(e) => {
                     if ((e.target as HTMLElement).closest('.group-actions')) return;
                     toggleGroup(group.id);
@@ -401,19 +401,19 @@ export function TutorElectivesClient({ electivesData, hasActiveSection = true }:
                     </div>
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2.5 flex-wrap">
-                        <h2 className="text-sm font-bold text-[var(--foreground)] truncate">{group.name}</h2>
-                        <span className="px-2 py-0.5 rounded-full bg-[var(--background)] border border-[var(--border)] text-[var(--muted-foreground)] text-[10px] font-semibold tracking-wide shrink-0">
+                        <h2 className="text-sm font-bold text-(--foreground) truncate">{group.name}</h2>
+                        <span className="px-2 py-0.5 rounded-full bg-(--background) border border-(--border) text-(--muted-foreground) text-[10px] font-semibold tracking-wide shrink-0">
                           {group.electives.length} Subjects
                         </span>
                       </div>
                       
                       <div className="flex items-center gap-3 mt-1.5">
-                        <div className="flex items-center gap-1.5 text-xs text-[var(--muted-foreground)]">
+                        <div className="flex items-center gap-1.5 text-xs text-(--muted-foreground)">
                           <span className={`w-1.5 h-1.5 rounded-full ${groupFillPerc === 100 ? 'bg-emerald-500' : groupFillPerc > 75 ? 'bg-amber-500' : 'bg-blue-500'}`} />
                           <span className="font-medium">{groupFilled}/{groupCap}</span>
                           <span className="opacity-60">seats filled</span>
                         </div>
-                        <div className="flex-1 max-w-[120px] h-1.5 bg-[var(--background)] border border-[var(--border)]/50 rounded-full overflow-hidden">
+                        <div className="flex-1 max-w-[120px] h-1.5 bg-(--background) border border-(--border)/50 rounded-full overflow-hidden">
                           <motion.div 
                             className={`h-full rounded-full ${groupFillPerc === 100 ? 'bg-emerald-500' : groupFillPerc > 75 ? 'bg-amber-500' : 'bg-indigo-500'}`} 
                             initial={{ width: 0 }}
@@ -421,7 +421,7 @@ export function TutorElectivesClient({ electivesData, hasActiveSection = true }:
                             transition={{ duration: 0.6, ease: "easeOut" }}
                           />
                         </div>
-                        <span className="text-[10px] font-bold text-[var(--muted-foreground)]">{groupFillPerc}%</span>
+                        <span className="text-[10px] font-bold text-(--muted-foreground)">{groupFillPerc}%</span>
                       </div>
                     </div>
                   </div>
@@ -429,26 +429,26 @@ export function TutorElectivesClient({ electivesData, hasActiveSection = true }:
                   <div className="flex items-center gap-1 group-actions shrink-0">
                     <button 
                       onClick={() => openEditGroupModal(group)}
-                      className="p-2 text-[var(--muted-foreground)] hover:text-indigo-500 hover:bg-indigo-500/10 rounded-lg transition-colors outline-none"
+                      className="p-2 text-(--muted-foreground) hover:text-indigo-500 hover:bg-indigo-500/10 rounded-lg transition-colors outline-none"
                       title="Edit Group"
                     >
                       <Pencil className="w-3.5 h-3.5" />
                     </button>
                     <button 
                       onClick={() => handleDeleteGroup(group.id)}
-                      className="p-2 text-[var(--muted-foreground)] hover:text-red-500 hover:bg-red-500/10 rounded-lg transition-colors outline-none"
+                      className="p-2 text-(--muted-foreground) hover:text-red-500 hover:bg-red-500/10 rounded-lg transition-colors outline-none"
                       title="Delete Group"
                     >
                       <Trash2 className="w-3.5 h-3.5" />
                     </button>
-                    <div className="w-px h-5 bg-[var(--border)] mx-1" />
+                    <div className="w-px h-5 bg-(--border) mx-1" />
                     <button 
                       onClick={() => openAddSubjectModal(group.id)}
-                      className="bg-[var(--background)] border border-[var(--border)] text-[var(--foreground)] px-3 py-1.5 rounded-lg text-[11px] font-semibold hover:border-indigo-500/40 hover:text-indigo-500 transition flex items-center gap-1.5 outline-none"
+                      className="bg-(--background) border border-(--border) text-(--foreground) px-3 py-1.5 rounded-lg text-[11px] font-semibold hover:border-indigo-500/40 hover:text-indigo-500 transition flex items-center gap-1.5 outline-none"
                     >
                       <Plus className="w-3 h-3" /> Add Subject
                     </button>
-                    <button className="p-2 text-[var(--muted-foreground)] outline-none">
+                    <button className="p-2 text-(--muted-foreground) outline-none">
                       <ChevronDown className={`w-4 h-4 transition-transform duration-300 ${isExpanded ? "rotate-180" : ""}`} />
                     </button>
                   </div>
@@ -464,9 +464,9 @@ export function TutorElectivesClient({ electivesData, hasActiveSection = true }:
                       transition={{ duration: 0.25 }}
                       className="overflow-hidden"
                     >
-                      <div className="p-3 border-t border-[var(--border)]">
+                      <div className="p-3 border-t border-(--border)">
                         {filteredElectives.length === 0 ? (
-                          <div className="text-center py-10 text-[var(--muted-foreground)] text-sm">
+                          <div className="text-center py-10 text-(--muted-foreground) text-sm">
                             {group.electives.length === 0 ? "No subjects in this group yet." : "No subjects match your search in this group."}
                           </div>
                         ) : (
@@ -478,7 +478,7 @@ export function TutorElectivesClient({ electivesData, hasActiveSection = true }:
                               const strokeDashoffset = circumference - (fillPerc / 100) * circumference;
                               
                               return (
-                                <div key={e.id} className="relative p-4 rounded-xl border border-[var(--border)] bg-[var(--background)]/50 hover:border-[var(--border)] hover:bg-[var(--accent)]/20 transition-all group/elective">
+                                <div key={e.id} className="relative p-4 rounded-xl border border-(--border) bg-(--background)/50 hover:border-(--border) hover:bg-(--accent)/20 transition-all group/elective">
                                   {/* Top Row */}
                                   <div className="flex justify-between items-start gap-3">
                                     <div className="flex-1 min-w-0">
@@ -490,8 +490,8 @@ export function TutorElectivesClient({ electivesData, hasActiveSection = true }:
                                           <span className="px-1.5 py-0.5 rounded bg-red-500/15 text-red-400 text-[9px] font-bold uppercase tracking-wider">Full</span>
                                         )}
                                       </div>
-                                      <h3 className="font-semibold text-sm text-[var(--foreground)] leading-tight">{e.name}</h3>
-                                      <p className="text-[11px] text-[var(--muted-foreground)] mt-1">{e.credits} Credits</p>
+                                      <h3 className="font-semibold text-sm text-(--foreground) leading-tight">{e.name}</h3>
+                                      <p className="text-[11px] text-(--muted-foreground) mt-1">{e.credits} Credits</p>
                                     </div>
                                     
                                     {/* Circular Gauge */}
@@ -509,31 +509,31 @@ export function TutorElectivesClient({ electivesData, hasActiveSection = true }:
                                         />
                                       </svg>
                                       <div className="absolute inset-0 flex items-center justify-center">
-                                        <span className={`text-[11px] font-bold ${e.isFull ? 'text-red-400' : 'text-[var(--foreground)]'}`}>{fillPerc}%</span>
+                                        <span className={`text-[11px] font-bold ${e.isFull ? 'text-red-400' : 'text-(--foreground)'}`}>{fillPerc}%</span>
                                       </div>
                                     </div>
                                   </div>
                                   
                                   {/* Bottom Stats */}
-                                  <div className="mt-3 pt-3 border-t border-[var(--border)]/50 flex items-center justify-between">
+                                  <div className="mt-3 pt-3 border-t border-(--border)/50 flex items-center justify-between">
                                     <div className="flex items-center gap-3">
                                       <div>
-                                        <p className="text-[9px] font-bold text-[var(--muted-foreground)] uppercase tracking-wider">Filled</p>
-                                        <p className="text-sm font-bold text-[var(--foreground)]">{filled}<span className="text-[var(--muted-foreground)] font-normal">/{e.maxSeats}</span></p>
+                                        <p className="text-[9px] font-bold text-(--muted-foreground) uppercase tracking-wider">Filled</p>
+                                        <p className="text-sm font-bold text-(--foreground)">{filled}<span className="text-(--muted-foreground) font-normal">/{e.maxSeats}</span></p>
                                       </div>
-                                      <div className="w-px h-6 bg-[var(--border)]/50" />
+                                      <div className="w-px h-6 bg-(--border)/50" />
                                       <div>
-                                        <p className="text-[9px] font-bold text-[var(--muted-foreground)] uppercase tracking-wider">Available</p>
+                                        <p className="text-[9px] font-bold text-(--muted-foreground) uppercase tracking-wider">Available</p>
                                         <p className={`text-sm font-bold ${e.isFull ? 'text-red-400' : 'text-emerald-500'}`}>{e.availableSeats}</p>
                                       </div>
                                     </div>
                                     
                                     {/* Action Buttons */}
                                     <div className="flex items-center gap-0.5 opacity-0 group-hover/elective:opacity-100 transition-opacity">
-                                      <button onClick={() => openEditModal(e)} className="p-1.5 text-[var(--muted-foreground)] hover:text-indigo-500 hover:bg-indigo-500/10 rounded-lg transition-colors outline-none" title="Edit Subject">
+                                      <button onClick={() => openEditModal(e)} className="p-1.5 text-(--muted-foreground) hover:text-indigo-500 hover:bg-indigo-500/10 rounded-lg transition-colors outline-none" title="Edit Subject">
                                         <Pencil className="w-3.5 h-3.5" />
                                       </button>
-                                      <button onClick={() => handleDeleteElective(e.id)} className="p-1.5 text-[var(--muted-foreground)] hover:text-red-500 hover:bg-red-500/10 rounded-lg transition-colors outline-none" title="Delete Subject">
+                                      <button onClick={() => handleDeleteElective(e.id)} className="p-1.5 text-(--muted-foreground) hover:text-red-500 hover:bg-red-500/10 rounded-lg transition-colors outline-none" title="Delete Subject">
                                         <Trash2 className="w-3.5 h-3.5" />
                                       </button>
                                     </div>
@@ -561,28 +561,28 @@ export function TutorElectivesClient({ electivesData, hasActiveSection = true }:
               initial={{ opacity: 0, scale: 0.95, y: 20 }}
               animate={{ opacity: 1, scale: 1, y: 0 }}
               exit={{ opacity: 0, scale: 0.95, y: 20 }}
-              className="bg-[var(--card)] border border-[var(--border)] rounded-3xl w-full max-w-sm shadow-xl overflow-hidden"
+              className="bg-(--card) border border-(--border) rounded-3xl w-full max-w-sm shadow-xl overflow-hidden"
             >
-              <div className="flex justify-between items-center p-6 border-b border-[var(--border)]">
-                <h3 className="text-xl font-bold text-[var(--foreground)]">Create New Group</h3>
-                <button onClick={() => setIsAddGroupModalOpen(false)} className="text-[var(--muted-foreground)] hover:text-[var(--foreground)] transition-colors outline-none">
+              <div className="flex justify-between items-center p-6 border-b border-(--border)">
+                <h3 className="text-xl font-bold text-(--foreground)">Create New Group</h3>
+                <button onClick={() => setIsAddGroupModalOpen(false)} className="text-(--muted-foreground) hover:text-(--foreground) transition-colors outline-none">
                   <X className="w-5 h-5" />
                 </button>
               </div>
               <div className="p-6 space-y-5">
                 <div>
-                  <label className="block text-xs font-bold text-[var(--muted-foreground)] mb-1 uppercase">Group Name <span className="text-red-500">*</span></label>
+                  <label className="block text-xs font-bold text-(--muted-foreground) mb-1 uppercase">Group Name <span className="text-red-500">*</span></label>
                   <input 
                     value={newGroupOnlyName} onChange={e => setNewGroupOnlyName(e.target.value)}
                     placeholder="e.g. Core Electives"
-                    className="w-full px-4 py-2 bg-[var(--background)] border border-[var(--border)] rounded-xl text-sm focus:ring-2 focus:ring-indigo-500/50 outline-none"
+                    className="w-full px-4 py-2 bg-(--background) border border-(--border) rounded-xl text-sm focus:ring-2 focus:ring-indigo-500/50 outline-none"
                   />
                 </div>
               </div>
-              <div className="p-6 bg-[var(--background)] border-t border-[var(--border)] flex justify-end gap-3">
+              <div className="p-6 bg-(--background) border-t border-(--border) flex justify-end gap-3">
                 <button 
                   onClick={() => setIsAddGroupModalOpen(false)}
-                  className="px-5 py-2.5 rounded-xl text-sm font-medium hover:bg-[var(--accent)] transition-colors outline-none"
+                  className="px-5 py-2.5 rounded-xl text-sm font-medium hover:bg-(--accent) transition-colors outline-none"
                 >
                   Cancel
                 </button>
@@ -607,55 +607,55 @@ export function TutorElectivesClient({ electivesData, hasActiveSection = true }:
               initial={{ opacity: 0, scale: 0.95, y: 20 }}
               animate={{ opacity: 1, scale: 1, y: 0 }}
               exit={{ opacity: 0, scale: 0.95, y: 20 }}
-              className="bg-[var(--card)] border border-[var(--border)] rounded-3xl w-full max-w-lg shadow-xl overflow-hidden"
+              className="bg-(--card) border border-(--border) rounded-3xl w-full max-w-lg shadow-xl overflow-hidden"
             >
-              <div className="flex justify-between items-center p-6 border-b border-[var(--border)]">
-                <h3 className="text-xl font-bold text-[var(--foreground)]">Add Subject</h3>
-                <button onClick={() => setIsAddSubjectModalOpen(false)} className="text-[var(--muted-foreground)] hover:text-[var(--foreground)] transition-colors outline-none">
+              <div className="flex justify-between items-center p-6 border-b border-(--border)">
+                <h3 className="text-xl font-bold text-(--foreground)">Add Subject</h3>
+                <button onClick={() => setIsAddSubjectModalOpen(false)} className="text-(--muted-foreground) hover:text-(--foreground) transition-colors outline-none">
                   <X className="w-5 h-5" />
                 </button>
               </div>
               <div className="p-6 space-y-5">
                 <div className="grid grid-cols-2 gap-4">
                   <div className="col-span-2">
-                    <label className="block text-xs font-bold text-[var(--muted-foreground)] mb-1 uppercase">Course Name <span className="text-red-500">*</span></label>
+                    <label className="block text-xs font-bold text-(--muted-foreground) mb-1 uppercase">Course Name <span className="text-red-500">*</span></label>
                     <input 
                       value={newElectiveName} onChange={e => setNewElectiveName(e.target.value)}
                       placeholder="e.g. Machine Learning"
-                      className="w-full px-4 py-2 bg-[var(--background)] border border-[var(--border)] rounded-xl text-sm focus:ring-2 focus:ring-indigo-500/50 outline-none"
+                      className="w-full px-4 py-2 bg-(--background) border border-(--border) rounded-xl text-sm focus:ring-2 focus:ring-indigo-500/50 outline-none"
                     />
                   </div>
                   <div>
-                    <label className="block text-xs font-bold text-[var(--muted-foreground)] mb-1 uppercase">Course Code</label>
+                    <label className="block text-xs font-bold text-(--muted-foreground) mb-1 uppercase">Course Code</label>
                     <input 
                       value={newCourseCode} onChange={e => setNewCourseCode(e.target.value)}
                       placeholder="e.g. ML101"
-                      className="w-full px-4 py-2 bg-[var(--background)] border border-[var(--border)] rounded-xl text-sm focus:ring-2 focus:ring-indigo-500/50 outline-none"
+                      className="w-full px-4 py-2 bg-(--background) border border-(--border) rounded-xl text-sm focus:ring-2 focus:ring-indigo-500/50 outline-none"
                     />
                   </div>
                   <div>
-                    <label className="block text-xs font-bold text-[var(--muted-foreground)] mb-1 uppercase">Seat Quota <span className="text-red-500">*</span></label>
+                    <label className="block text-xs font-bold text-(--muted-foreground) mb-1 uppercase">Seat Quota <span className="text-red-500">*</span></label>
                     <input 
                       type="number"
                       value={newMaxSeats} onChange={e => setNewMaxSeats(e.target.value)}
                       placeholder="e.g. 60"
-                      className="w-full px-4 py-2 bg-[var(--background)] border border-[var(--border)] rounded-xl text-sm focus:ring-2 focus:ring-indigo-500/50 outline-none"
+                      className="w-full px-4 py-2 bg-(--background) border border-(--border) rounded-xl text-sm focus:ring-2 focus:ring-indigo-500/50 outline-none"
                     />
                   </div>
                   <div>
-                    <label className="block text-xs font-bold text-[var(--muted-foreground)] mb-1 uppercase">Credits</label>
+                    <label className="block text-xs font-bold text-(--muted-foreground) mb-1 uppercase">Credits</label>
                     <input 
                       type="number"
                       value={newCredits} onChange={e => setNewCredits(e.target.value)}
-                      className="w-full px-4 py-2 bg-[var(--background)] border border-[var(--border)] rounded-xl text-sm focus:ring-2 focus:ring-indigo-500/50 outline-none"
+                      className="w-full px-4 py-2 bg-(--background) border border-(--border) rounded-xl text-sm focus:ring-2 focus:ring-indigo-500/50 outline-none"
                     />
                   </div>
                 </div>
               </div>
-              <div className="p-6 bg-[var(--background)] border-t border-[var(--border)] flex justify-end gap-3">
+              <div className="p-6 bg-(--background) border-t border-(--border) flex justify-end gap-3">
                 <button 
                   onClick={() => setIsAddSubjectModalOpen(false)}
-                  className="px-5 py-2.5 rounded-xl text-sm font-medium hover:bg-[var(--accent)] transition-colors outline-none"
+                  className="px-5 py-2.5 rounded-xl text-sm font-medium hover:bg-(--accent) transition-colors outline-none"
                 >
                   Cancel
                 </button>
@@ -680,55 +680,55 @@ export function TutorElectivesClient({ electivesData, hasActiveSection = true }:
               initial={{ opacity: 0, scale: 0.95, y: 20 }}
               animate={{ opacity: 1, scale: 1, y: 0 }}
               exit={{ opacity: 0, scale: 0.95, y: 20 }}
-              className="bg-[var(--card)] border border-[var(--border)] rounded-3xl w-full max-w-lg shadow-xl overflow-hidden"
+              className="bg-(--card) border border-(--border) rounded-3xl w-full max-w-lg shadow-xl overflow-hidden"
             >
-              <div className="flex justify-between items-center p-6 border-b border-[var(--border)]">
-                <h3 className="text-xl font-bold text-[var(--foreground)]">Edit Subject</h3>
-                <button onClick={() => setIsEditModalOpen(false)} className="text-[var(--muted-foreground)] hover:text-[var(--foreground)] transition-colors outline-none">
+              <div className="flex justify-between items-center p-6 border-b border-(--border)">
+                <h3 className="text-xl font-bold text-(--foreground)">Edit Subject</h3>
+                <button onClick={() => setIsEditModalOpen(false)} className="text-(--muted-foreground) hover:text-(--foreground) transition-colors outline-none">
                   <X className="w-5 h-5" />
                 </button>
               </div>
               <div className="p-6 space-y-5">
                 <div className="grid grid-cols-2 gap-4">
                   <div className="col-span-2">
-                    <label className="block text-xs font-bold text-[var(--muted-foreground)] mb-1 uppercase">Course Name <span className="text-red-500">*</span></label>
+                    <label className="block text-xs font-bold text-(--muted-foreground) mb-1 uppercase">Course Name <span className="text-red-500">*</span></label>
                     <input 
                       value={newElectiveName} onChange={e => setNewElectiveName(e.target.value)}
                       placeholder="e.g. Machine Learning"
-                      className="w-full px-4 py-2 bg-[var(--background)] border border-[var(--border)] rounded-xl text-sm focus:ring-2 focus:ring-blue-500/50 outline-none"
+                      className="w-full px-4 py-2 bg-(--background) border border-(--border) rounded-xl text-sm focus:ring-2 focus:ring-blue-500/50 outline-none"
                     />
                   </div>
                   <div>
-                    <label className="block text-xs font-bold text-[var(--muted-foreground)] mb-1 uppercase">Course Code</label>
+                    <label className="block text-xs font-bold text-(--muted-foreground) mb-1 uppercase">Course Code</label>
                     <input 
                       value={newCourseCode} onChange={e => setNewCourseCode(e.target.value)}
                       placeholder="e.g. ML101"
-                      className="w-full px-4 py-2 bg-[var(--background)] border border-[var(--border)] rounded-xl text-sm focus:ring-2 focus:ring-blue-500/50 outline-none"
+                      className="w-full px-4 py-2 bg-(--background) border border-(--border) rounded-xl text-sm focus:ring-2 focus:ring-blue-500/50 outline-none"
                     />
                   </div>
                   <div>
-                    <label className="block text-xs font-bold text-[var(--muted-foreground)] mb-1 uppercase">Seat Quota <span className="text-red-500">*</span></label>
+                    <label className="block text-xs font-bold text-(--muted-foreground) mb-1 uppercase">Seat Quota <span className="text-red-500">*</span></label>
                     <input 
                       type="number"
                       value={newMaxSeats} onChange={e => setNewMaxSeats(e.target.value)}
                       placeholder="e.g. 60"
-                      className="w-full px-4 py-2 bg-[var(--background)] border border-[var(--border)] rounded-xl text-sm focus:ring-2 focus:ring-blue-500/50 outline-none"
+                      className="w-full px-4 py-2 bg-(--background) border border-(--border) rounded-xl text-sm focus:ring-2 focus:ring-blue-500/50 outline-none"
                     />
                   </div>
                   <div>
-                    <label className="block text-xs font-bold text-[var(--muted-foreground)] mb-1 uppercase">Credits</label>
+                    <label className="block text-xs font-bold text-(--muted-foreground) mb-1 uppercase">Credits</label>
                     <input 
                       type="number"
                       value={newCredits} onChange={e => setNewCredits(e.target.value)}
-                      className="w-full px-4 py-2 bg-[var(--background)] border border-[var(--border)] rounded-xl text-sm focus:ring-2 focus:ring-blue-500/50 outline-none"
+                      className="w-full px-4 py-2 bg-(--background) border border-(--border) rounded-xl text-sm focus:ring-2 focus:ring-blue-500/50 outline-none"
                     />
                   </div>
                 </div>
               </div>
-              <div className="p-6 bg-[var(--background)] border-t border-[var(--border)] flex justify-end gap-3">
+              <div className="p-6 bg-(--background) border-t border-(--border) flex justify-end gap-3">
                 <button 
                   onClick={() => setIsEditModalOpen(false)}
-                  className="px-5 py-2.5 rounded-xl text-sm font-medium hover:bg-[var(--accent)] transition-colors outline-none"
+                  className="px-5 py-2.5 rounded-xl text-sm font-medium hover:bg-(--accent) transition-colors outline-none"
                 >
                   Cancel
                 </button>
@@ -753,28 +753,28 @@ export function TutorElectivesClient({ electivesData, hasActiveSection = true }:
               initial={{ opacity: 0, scale: 0.95, y: 20 }}
               animate={{ opacity: 1, scale: 1, y: 0 }}
               exit={{ opacity: 0, scale: 0.95, y: 20 }}
-              className="bg-[var(--card)] border border-[var(--border)] rounded-3xl w-full max-w-sm shadow-xl overflow-hidden"
+              className="bg-(--card) border border-(--border) rounded-3xl w-full max-w-sm shadow-xl overflow-hidden"
             >
-              <div className="flex justify-between items-center p-6 border-b border-[var(--border)]">
-                <h3 className="text-xl font-bold text-[var(--foreground)]">Rename Group</h3>
-                <button onClick={() => setIsEditGroupModalOpen(false)} className="text-[var(--muted-foreground)] hover:text-[var(--foreground)] transition-colors outline-none">
+              <div className="flex justify-between items-center p-6 border-b border-(--border)">
+                <h3 className="text-xl font-bold text-(--foreground)">Rename Group</h3>
+                <button onClick={() => setIsEditGroupModalOpen(false)} className="text-(--muted-foreground) hover:text-(--foreground) transition-colors outline-none">
                   <X className="w-5 h-5" />
                 </button>
               </div>
               <div className="p-6 space-y-5">
                 <div>
-                  <label className="block text-xs font-bold text-[var(--muted-foreground)] mb-1 uppercase">Group Name <span className="text-red-500">*</span></label>
+                  <label className="block text-xs font-bold text-(--muted-foreground) mb-1 uppercase">Group Name <span className="text-red-500">*</span></label>
                   <input 
                     value={editingGroupName} onChange={e => setEditingGroupName(e.target.value)}
                     placeholder="e.g. Professional Electives"
-                    className="w-full px-4 py-2 bg-[var(--background)] border border-[var(--border)] rounded-xl text-sm focus:ring-2 focus:ring-blue-500/50 outline-none"
+                    className="w-full px-4 py-2 bg-(--background) border border-(--border) rounded-xl text-sm focus:ring-2 focus:ring-blue-500/50 outline-none"
                   />
                 </div>
               </div>
-              <div className="p-6 bg-[var(--background)] border-t border-[var(--border)] flex justify-end gap-3">
+              <div className="p-6 bg-(--background) border-t border-(--border) flex justify-end gap-3">
                 <button 
                   onClick={() => setIsEditGroupModalOpen(false)}
-                  className="px-5 py-2.5 rounded-xl text-sm font-medium hover:bg-[var(--accent)] transition-colors outline-none"
+                  className="px-5 py-2.5 rounded-xl text-sm font-medium hover:bg-(--accent) transition-colors outline-none"
                 >
                   Cancel
                 </button>

@@ -33,9 +33,9 @@ export function RegistrationTimeline({ event }: { event: any }) {
   ];
 
   return (
-    <div className="col-span-1 lg:col-span-12 bg-[var(--card)] border border-[var(--border)] rounded-3xl p-6 shadow-sm overflow-x-auto">
+    <div className="col-span-1 lg:col-span-12 bg-(--card) border border-(--border) rounded-3xl p-6 shadow-sm overflow-x-auto">
       <div className="min-w-[600px] flex items-center justify-between relative px-4 py-2">
-        <div className="absolute left-8 right-8 top-1/2 -translate-y-1/2 h-0.5 bg-[var(--border)] -z-10" />
+        <div className="absolute left-8 right-8 top-1/2 -translate-y-1/2 h-0.5 bg-(--border) -z-10" />
         
         <motion.div 
           className="absolute left-8 top-1/2 -translate-y-1/2 h-0.5 bg-indigo-500 -z-10"
@@ -49,21 +49,21 @@ export function RegistrationTimeline({ event }: { event: any }) {
           const isCurrent = idx === currentStage;
           
           return (
-            <div key={idx} className="flex flex-col items-center gap-3 relative bg-[var(--card)] px-2">
+            <div key={idx} className="flex flex-col items-center gap-3 relative bg-(--card) px-2">
               <div 
                 className={`w-8 h-8 rounded-full border-2 flex items-center justify-center transition-colors duration-500 ${
                   isCompleted ? "bg-indigo-500 border-indigo-500 text-white" :
-                  isCurrent ? "bg-[var(--background)] border-indigo-500 text-indigo-500" :
-                  "bg-[var(--background)] border-[var(--border)] text-[var(--muted-foreground)]"
+                  isCurrent ? "bg-(--background) border-indigo-500 text-indigo-500" :
+                  "bg-(--background) border-(--border) text-(--muted-foreground)"
                 }`}
               >
                 {isCompleted ? <Check className="w-4 h-4" /> : 
                  isCurrent ? <div className="w-2.5 h-2.5 rounded-full bg-indigo-500 animate-pulse" /> :
-                 <div className="w-2 h-2 rounded-full bg-[var(--muted-foreground)]" />}
+                 <div className="w-2 h-2 rounded-full bg-(--muted-foreground)" />}
               </div>
               <span className={`text-[10px] uppercase font-bold tracking-wider ${
                 isCurrent ? "text-indigo-500" :
-                isCompleted ? "text-[var(--foreground)]" : "text-[var(--muted-foreground)]"
+                isCompleted ? "text-(--foreground)" : "text-(--muted-foreground)"
               }`}>
                 {stage.label}
               </span>

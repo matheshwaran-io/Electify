@@ -180,7 +180,7 @@ export function AuthContainer() {
     <div className="w-full space-y-6 text-slate-800 dark:text-slate-200 z-10 relative">
       
       {/* Segmented Control Selector (Student vs Staff) */}
-      <div className="bg-slate-100/50 dark:bg-white/[0.02] backdrop-blur-2xl p-1 rounded-2xl border border-slate-200/60 dark:border-white/[0.06] flex relative shadow-[0_15px_40px_rgba(0,0,0,0.03)] dark:shadow-[0_15px_40px_rgba(0,0,0,0.3)] transition-all">
+      <div className="bg-slate-100/50 dark:bg-white/2 backdrop-blur-2xl p-1 rounded-2xl border border-slate-200/60 dark:border-white/6 flex relative shadow-[0_15px_40px_rgba(0,0,0,0.03)] dark:shadow-[0_15px_40px_rgba(0,0,0,0.3)] transition-all">
         <button
           onClick={() => {
             setAccountType("STUDENT");
@@ -195,7 +195,7 @@ export function AuthContainer() {
           {accountType === "STUDENT" && (
             <motion.div
               layoutId="activeAccountType"
-              className="absolute inset-0 bg-white dark:bg-white/[0.04] border border-slate-200/50 dark:border-white/[0.06] shadow-sm dark:shadow-inner rounded-xl -z-10"
+              className="absolute inset-0 bg-white dark:bg-white/4 border border-slate-200/50 dark:border-white/6 shadow-sm dark:shadow-inner rounded-xl -z-10"
               transition={{ type: "spring", stiffness: 380, damping: 30 }}
             />
           )}
@@ -216,7 +216,7 @@ export function AuthContainer() {
           {accountType === "STAFF" && (
             <motion.div
               layoutId="activeAccountType"
-              className="absolute inset-0 bg-white dark:bg-white/[0.04] border border-slate-200/50 dark:border-white/[0.06] shadow-sm dark:shadow-inner rounded-xl -z-10"
+              className="absolute inset-0 bg-white dark:bg-white/4 border border-slate-200/50 dark:border-white/6 shadow-sm dark:shadow-inner rounded-xl -z-10"
               transition={{ type: "spring", stiffness: 380, damping: 30 }}
             />
           )}
@@ -227,18 +227,18 @@ export function AuthContainer() {
 
       {/* Staff Login / Register Slider */}
       {accountType === "STAFF" && (
-        <div className="bg-slate-100/30 dark:bg-white/[0.01] backdrop-blur-2xl p-1 rounded-xl border border-slate-200/40 dark:border-white/[0.04] flex relative max-w-[200px] mx-auto">
+        <div className="bg-slate-100/30 dark:bg-white/1 backdrop-blur-2xl p-1 rounded-xl border border-slate-200/40 dark:border-white/4 flex relative max-w-50 mx-auto">
           <button
             onClick={() => { setAuthMode("LOGIN"); setAuthState("idle"); }}
             className={cn(
-              "flex-1 py-1 text-[11px] font-semibold rounded-[8px] transition-all relative z-10",
+              "flex-1 py-1 text-[11px] font-semibold rounded-lg transition-all relative z-10",
               authMode === "LOGIN" ? "text-slate-900 dark:text-slate-100" : "text-slate-500 hover:text-slate-300"
             )}
           >
             {authMode === "LOGIN" && (
               <motion.div
                 layoutId="activeAuthMode"
-                className="absolute inset-0 bg-white dark:bg-white/[0.05] border border-slate-200/40 dark:border-white/[0.06] rounded-[8px] -z-10"
+                className="absolute inset-0 bg-white dark:bg-white/5 border border-slate-200/40 dark:border-white/6 rounded-lg -z-10"
                 transition={{ type: "spring", stiffness: 380, damping: 30 }}
               />
             )}
@@ -247,14 +247,14 @@ export function AuthContainer() {
           <button
             onClick={() => { setAuthMode("REGISTER"); setAuthState("idle"); }}
             className={cn(
-              "flex-1 py-1 text-[11px] font-semibold rounded-[8px] transition-all relative z-10",
+              "flex-1 py-1 text-[11px] font-semibold rounded-lg transition-all relative z-10",
               authMode === "REGISTER" ? "text-slate-900 dark:text-slate-100" : "text-slate-500 hover:text-slate-300"
             )}
           >
             {authMode === "REGISTER" && (
               <motion.div
                 layoutId="activeAuthMode"
-                className="absolute inset-0 bg-white dark:bg-white/[0.05] border border-slate-200/40 dark:border-white/[0.06] rounded-[8px] -z-10"
+                className="absolute inset-0 bg-white dark:bg-white/5 border border-slate-200/40 dark:border-white/6 rounded-lg -z-10"
                 transition={{ type: "spring", stiffness: 380, damping: 30 }}
               />
             )}
@@ -267,14 +267,14 @@ export function AuthContainer() {
       <div className="relative group">
         
         {/* Depth Orb (5% opacity) */}
-        <div className="absolute top-[-20px] left-[-30px] w-48 h-48 bg-gradient-to-br from-indigo-500 to-[#3B2EFF] rounded-full blur-[80px] opacity-[0.03] dark:opacity-[0.05] pointer-events-none" />
+        <div className="absolute -top-5 -left-7.5 w-48 h-48 bg-linear-to-br from-indigo-500 to-[#3B2EFF] rounded-full blur-[80px] opacity-[0.03] dark:opacity-[0.05] pointer-events-none" />
 
         {/* Depth Thin Ring (5% opacity) */}
-        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[440px] h-[440px] rounded-full border border-slate-900/5 dark:border-white/5 opacity-5 pointer-events-none" />
+        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-110 h-110 rounded-full border border-slate-900/5 dark:border-white/5 opacity-5 pointer-events-none" />
 
         {/* Depth Wireframe (5% opacity, static) */}
         <div className="absolute inset-0 pointer-events-none z-0 flex items-center justify-center opacity-5 transform -rotate-12">
-          <svg className="w-[380px] h-[380px] text-slate-900 dark:text-white" viewBox="0 0 100 100">
+          <svg className="w-95 h-95 text-slate-900 dark:text-white" viewBox="0 0 100 100">
             <rect x="15" y="15" width="70" height="70" rx="12" fill="none" stroke="currentColor" strokeWidth="0.1" />
             <polygon points="50,15 85,50 50,85 15,50" fill="none" stroke="currentColor" strokeWidth="0.08" />
           </svg>
@@ -282,7 +282,7 @@ export function AuthContainer() {
 
         {/* ── Main Glass Authentication Panel (Static) ─────── */}
         <div
-          className="bg-white/70 dark:bg-slate-900/40 backdrop-blur-[40px] p-8 rounded-[32px] border border-white/40 dark:border-white/[0.08] shadow-[0_40px_80px_-20px_rgba(0,0,0,0.08)] dark:shadow-[0_40px_80px_-20px_rgba(0,0,0,0.5)] relative overflow-hidden z-10 transition-all duration-300"
+          className="bg-white/70 dark:bg-slate-900/40 backdrop-blur-2xl p-8 rounded-4xl border border-white/40 dark:border-white/8 shadow-[0_40px_80px_-20px_rgba(0,0,0,0.08)] dark:shadow-[0_40px_80px_-20px_rgba(0,0,0,0.5)] relative overflow-hidden z-10 transition-all duration-300"
         >
           {/* Static Glass Edge Highlight layer */}
           <div 
@@ -319,7 +319,7 @@ export function AuthContainer() {
                   <input
                     type="email"
                     placeholder="SRM Email (e.g. jd1234@srmist.edu.in)"
-                    className="w-full pl-10 pr-4 py-2.5 bg-slate-50/50 dark:bg-white/[0.01] border border-slate-200 dark:border-white/[0.06] rounded-xl text-xs text-slate-900 dark:text-slate-100 placeholder-slate-400 dark:placeholder-slate-500 focus:outline-none focus:border-[#4F8CFF]/50 focus:ring-2 focus:ring-[#4F8CFF]/5 dark:focus:ring-[#4F8CFF]/10 hover:border-slate-300 dark:hover:border-white/10 transition-all font-medium"
+                    className="w-full pl-10 pr-4 py-2.5 bg-slate-50/50 dark:bg-white/1 border border-slate-200 dark:border-white/6 rounded-xl text-xs text-slate-900 dark:text-slate-100 placeholder-slate-400 dark:placeholder-slate-500 focus:outline-none focus:border-[#4F8CFF]/50 focus:ring-2 focus:ring-[#4F8CFF]/5 dark:focus:ring-[#4F8CFF]/10 hover:border-slate-300 dark:hover:border-white/10 transition-all font-medium"
                     disabled={authState !== "idle"}
                     {...registerStudent("email")}
                   />
@@ -336,7 +336,7 @@ export function AuthContainer() {
                   <input
                     type={showPassword ? "text" : "password"}
                     placeholder="Register Number (e.g. RA2682242010126)"
-                    className="w-full pl-10 pr-11 py-2.5 bg-slate-50/50 dark:bg-white/[0.01] border border-slate-200 dark:border-white/[0.06] rounded-xl text-xs text-slate-900 dark:text-slate-100 placeholder-slate-400 dark:placeholder-slate-500 focus:outline-none focus:border-[#4F8CFF]/50 focus:ring-2 focus:ring-[#4F8CFF]/5 dark:focus:ring-[#4F8CFF]/10 hover:border-slate-300 dark:hover:border-white/10 transition-all font-medium"
+                    className="w-full pl-10 pr-11 py-2.5 bg-slate-50/50 dark:bg-white/1 border border-slate-200 dark:border-white/6 rounded-xl text-xs text-slate-900 dark:text-slate-100 placeholder-slate-400 dark:placeholder-slate-500 focus:outline-none focus:border-[#4F8CFF]/50 focus:ring-2 focus:ring-[#4F8CFF]/5 dark:focus:ring-[#4F8CFF]/10 hover:border-slate-300 dark:hover:border-white/10 transition-all font-medium"
                     disabled={authState !== "idle"}
                     {...registerStudent("registerNumber")}
                   />
@@ -385,7 +385,7 @@ export function AuthContainer() {
                   <input
                     type="email"
                     placeholder="Staff Email"
-                    className="w-full pl-10 pr-4 py-2.5 bg-slate-50/50 dark:bg-white/[0.01] border border-slate-200 dark:border-white/[0.06] rounded-xl text-xs text-slate-900 dark:text-slate-100 placeholder-slate-400 dark:placeholder-slate-500 focus:outline-none focus:border-[#6D5DFE]/50 focus:ring-2 focus:ring-[#6D5DFE]/5 dark:focus:ring-[#6D5DFE]/10 hover:border-slate-300 dark:hover:border-white/10 transition-all font-medium"
+                    className="w-full pl-10 pr-4 py-2.5 bg-slate-50/50 dark:bg-white/1 border border-slate-200 dark:border-white/6 rounded-xl text-xs text-slate-900 dark:text-slate-100 placeholder-slate-400 dark:placeholder-slate-500 focus:outline-none focus:border-[#6D5DFE]/50 focus:ring-2 focus:ring-[#6D5DFE]/5 dark:focus:ring-[#6D5DFE]/10 hover:border-slate-300 dark:hover:border-white/10 transition-all font-medium"
                     disabled={authState !== "idle"}
                     {...registerStaffLogin("email")}
                   />
@@ -402,7 +402,7 @@ export function AuthContainer() {
                   <input
                     type={showPassword ? "text" : "password"}
                     placeholder="Password"
-                    className="w-full pl-10 pr-11 py-2.5 bg-slate-50/50 dark:bg-white/[0.01] border border-slate-200 dark:border-white/[0.06] rounded-xl text-xs text-slate-900 dark:text-slate-100 placeholder-slate-400 dark:placeholder-slate-500 focus:outline-none focus:border-[#6D5DFE]/50 focus:ring-2 focus:ring-[#6D5DFE]/5 dark:focus:ring-[#6D5DFE]/10 hover:border-slate-300 dark:hover:border-white/10 transition-all font-medium"
+                    className="w-full pl-10 pr-11 py-2.5 bg-slate-50/50 dark:bg-white/1 border border-slate-200 dark:border-white/6 rounded-xl text-xs text-slate-900 dark:text-slate-100 placeholder-slate-400 dark:placeholder-slate-500 focus:outline-none focus:border-[#6D5DFE]/50 focus:ring-2 focus:ring-[#6D5DFE]/5 dark:focus:ring-[#6D5DFE]/10 hover:border-slate-300 dark:hover:border-white/10 transition-all font-medium"
                     disabled={authState !== "idle"}
                     {...registerStaffLogin("password")}
                   />
@@ -450,7 +450,7 @@ export function AuthContainer() {
                   <input
                     type="text"
                     placeholder="Invite Code (e.g. ELC-CC-...)"
-                    className="w-full pl-10 pr-4 py-2.5 bg-slate-50/50 dark:bg-white/[0.01] border border-slate-200/60 dark:border-white/[0.06] rounded-xl text-xs text-slate-900 dark:text-slate-100 placeholder-slate-400 dark:placeholder-slate-500 focus:outline-none focus:border-[#6D5DFE]/50 focus:ring-2 focus:ring-[#6D5DFE]/5 dark:focus:ring-[#6D5DFE]/10 hover:border-slate-300 dark:hover:border-white/10 transition-all font-medium"
+                    className="w-full pl-10 pr-4 py-2.5 bg-slate-50/50 dark:bg-white/1 border border-slate-200/60 dark:border-white/6 rounded-xl text-xs text-slate-900 dark:text-slate-100 placeholder-slate-400 dark:placeholder-slate-500 focus:outline-none focus:border-[#6D5DFE]/50 focus:ring-2 focus:ring-[#6D5DFE]/5 dark:focus:ring-[#6D5DFE]/10 hover:border-slate-300 dark:hover:border-white/10 transition-all font-medium"
                     disabled={authState !== "idle"}
                     {...registerStaffForm("inviteCode")}
                   />
@@ -467,7 +467,7 @@ export function AuthContainer() {
                   <input
                     type="text"
                     placeholder="Full Name"
-                    className="w-full pl-10 pr-4 py-2.5 bg-slate-50/50 dark:bg-white/[0.01] border border-slate-200/60 dark:border-white/[0.06] rounded-xl text-xs text-slate-900 dark:text-slate-100 placeholder-slate-400 dark:placeholder-slate-500 focus:outline-none focus:border-[#6D5DFE]/50 focus:ring-2 focus:ring-[#6D5DFE]/5 dark:focus:ring-[#6D5DFE]/10 hover:border-slate-300 dark:hover:border-white/10 transition-all font-medium"
+                    className="w-full pl-10 pr-4 py-2.5 bg-slate-50/50 dark:bg-white/1 border border-slate-200/60 dark:border-white/6 rounded-xl text-xs text-slate-900 dark:text-slate-100 placeholder-slate-400 dark:placeholder-slate-500 focus:outline-none focus:border-[#6D5DFE]/50 focus:ring-2 focus:ring-[#6D5DFE]/5 dark:focus:ring-[#6D5DFE]/10 hover:border-slate-300 dark:hover:border-white/10 transition-all font-medium"
                     disabled={authState !== "idle"}
                     {...registerStaffForm("name")}
                   />
@@ -484,7 +484,7 @@ export function AuthContainer() {
                   <input
                     type="email"
                     placeholder="yourname@srmist.edu.in"
-                    className="w-full pl-10 pr-4 py-2.5 bg-slate-50/50 dark:bg-white/[0.01] border border-slate-200/60 dark:border-white/[0.06] rounded-xl text-xs text-slate-900 dark:text-slate-100 placeholder-slate-400 dark:placeholder-slate-500 focus:outline-none focus:border-[#6D5DFE]/50 focus:ring-2 focus:ring-[#6D5DFE]/5 dark:focus:ring-[#6D5DFE]/10 hover:border-slate-300 dark:hover:border-white/10 transition-all font-medium"
+                    className="w-full pl-10 pr-4 py-2.5 bg-slate-50/50 dark:bg-white/1 border border-slate-200/60 dark:border-white/6 rounded-xl text-xs text-slate-900 dark:text-slate-100 placeholder-slate-400 dark:placeholder-slate-500 focus:outline-none focus:border-[#6D5DFE]/50 focus:ring-2 focus:ring-[#6D5DFE]/5 dark:focus:ring-[#6D5DFE]/10 hover:border-slate-300 dark:hover:border-white/10 transition-all font-medium"
                     disabled={authState !== "idle"}
                     {...registerStaffForm("email")}
                   />
@@ -499,7 +499,7 @@ export function AuthContainer() {
                     <Building className="w-3.5 h-3.5" />
                   </div>
                   <select
-                    className="w-full pl-10 pr-10 py-2.5 bg-slate-50/50 dark:bg-white/[0.01] border border-slate-200/60 dark:border-white/[0.06] rounded-xl text-xs text-slate-950 dark:text-slate-100 placeholder-slate-400 dark:placeholder-slate-500 focus:outline-none focus:border-[#6D5DFE]/50 focus:ring-2 focus:ring-[#6D5DFE]/5 dark:focus:ring-[#6D5DFE]/10 hover:border-slate-300 dark:hover:border-white/10 transition-all font-medium appearance-none cursor-pointer"
+                    className="w-full pl-10 pr-10 py-2.5 bg-slate-50/50 dark:bg-white/1 border border-slate-200/60 dark:border-white/6 rounded-xl text-xs text-slate-950 dark:text-slate-100 placeholder-slate-400 dark:placeholder-slate-500 focus:outline-none focus:border-[#6D5DFE]/50 focus:ring-2 focus:ring-[#6D5DFE]/5 dark:focus:ring-[#6D5DFE]/10 hover:border-slate-300 dark:hover:border-white/10 transition-all font-medium appearance-none cursor-pointer"
                     disabled={authState !== "idle"}
                     {...registerStaffForm("faculty")}
                   >
@@ -521,7 +521,7 @@ export function AuthContainer() {
                       <UserCog className="w-3.5 h-3.5" />
                     </div>
                     <select
-                      className="w-full pl-10 pr-10 py-2.5 bg-slate-50/50 dark:bg-white/[0.01] border border-slate-200/60 dark:border-white/[0.06] rounded-xl text-xs text-slate-950 dark:text-slate-100 placeholder-slate-400 dark:placeholder-slate-500 focus:outline-none focus:border-[#6D5DFE]/50 focus:ring-2 focus:ring-[#6D5DFE]/5 dark:focus:ring-[#6D5DFE]/10 hover:border-slate-300 dark:hover:border-white/10 transition-all font-medium appearance-none cursor-pointer"
+                      className="w-full pl-10 pr-10 py-2.5 bg-slate-50/50 dark:bg-white/1 border border-slate-200/60 dark:border-white/6 rounded-xl text-xs text-slate-950 dark:text-slate-100 placeholder-slate-400 dark:placeholder-slate-500 focus:outline-none focus:border-[#6D5DFE]/50 focus:ring-2 focus:ring-[#6D5DFE]/5 dark:focus:ring-[#6D5DFE]/10 hover:border-slate-300 dark:hover:border-white/10 transition-all font-medium appearance-none cursor-pointer"
                       disabled={authState !== "idle" || !selectedFacultyId}
                       {...registerStaffForm("department")}
                     >
@@ -541,7 +541,7 @@ export function AuthContainer() {
                       <GraduationCap className="w-3.5 h-3.5" />
                     </div>
                     <select
-                      className="w-full pl-10 pr-10 py-2.5 bg-slate-50/50 dark:bg-white/[0.01] border border-slate-200/60 dark:border-white/[0.06] rounded-xl text-xs text-slate-950 dark:text-slate-100 placeholder-slate-400 dark:placeholder-slate-500 focus:outline-none focus:border-[#6D5DFE]/50 focus:ring-2 focus:ring-[#6D5DFE]/5 dark:focus:ring-[#6D5DFE]/10 hover:border-slate-300 dark:hover:border-white/10 transition-all font-medium appearance-none cursor-pointer"
+                      className="w-full pl-10 pr-10 py-2.5 bg-slate-50/50 dark:bg-white/1 border border-slate-200/60 dark:border-white/6 rounded-xl text-xs text-slate-950 dark:text-slate-100 placeholder-slate-400 dark:placeholder-slate-500 focus:outline-none focus:border-[#6D5DFE]/50 focus:ring-2 focus:ring-[#6D5DFE]/5 dark:focus:ring-[#6D5DFE]/10 hover:border-slate-300 dark:hover:border-white/10 transition-all font-medium appearance-none cursor-pointer"
                       disabled={authState !== "idle" || !selectedDeptId}
                       {...registerStaffForm("degree")}
                     >
@@ -567,7 +567,7 @@ export function AuthContainer() {
                     <input
                       type={showPassword ? "text" : "password"}
                       placeholder="Password"
-                      className="w-full pl-10 pr-4 py-2.5 bg-slate-50/50 dark:bg-white/[0.01] border border-slate-200/60 dark:border-white/[0.06] rounded-xl text-xs text-slate-900 dark:text-slate-100 placeholder-slate-400 dark:placeholder-slate-500 focus:outline-none focus:border-[#6D5DFE]/50 focus:ring-2 focus:ring-[#6D5DFE]/5 dark:focus:ring-[#6D5DFE]/10 hover:border-slate-300 dark:hover:border-white/10 transition-all font-medium"
+                      className="w-full pl-10 pr-4 py-2.5 bg-slate-50/50 dark:bg-white/1 border border-slate-200/60 dark:border-white/6 rounded-xl text-xs text-slate-900 dark:text-slate-100 placeholder-slate-400 dark:placeholder-slate-500 focus:outline-none focus:border-[#6D5DFE]/50 focus:ring-2 focus:ring-[#6D5DFE]/5 dark:focus:ring-[#6D5DFE]/10 hover:border-slate-300 dark:hover:border-white/10 transition-all font-medium"
                       disabled={authState !== "idle"}
                       {...registerStaffForm("password")}
                     />
@@ -583,7 +583,7 @@ export function AuthContainer() {
                     <input
                       type={showConfirmPassword ? "text" : "password"}
                       placeholder="Confirm"
-                      className="w-full pl-10 pr-10 py-2.5 bg-slate-50/50 dark:bg-white/[0.01] border border-slate-200/60 dark:border-white/[0.06] rounded-xl text-xs text-slate-900 dark:text-slate-100 placeholder-slate-400 dark:placeholder-slate-500 focus:outline-none focus:border-[#6D5DFE]/50 focus:ring-2 focus:ring-[#6D5DFE]/5 dark:focus:ring-[#6D5DFE]/10 hover:border-slate-300 dark:hover:border-white/10 transition-all font-medium"
+                      className="w-full pl-10 pr-10 py-2.5 bg-slate-50/50 dark:bg-white/1 border border-slate-200/60 dark:border-white/6 rounded-xl text-xs text-slate-900 dark:text-slate-100 placeholder-slate-400 dark:placeholder-slate-500 focus:outline-none focus:border-[#6D5DFE]/50 focus:ring-2 focus:ring-[#6D5DFE]/5 dark:focus:ring-[#6D5DFE]/10 hover:border-slate-300 dark:hover:border-white/10 transition-all font-medium"
                       disabled={authState !== "idle"}
                       {...registerStaffForm("confirmPassword")}
                     />

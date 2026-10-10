@@ -47,15 +47,15 @@ export function HeroGeometricBackground() {
       {/* ── Layer 3: Static Abstract Geometry ──────────────────────────── */}
       <div className="absolute inset-0 w-full h-full pointer-events-none z-10 hidden md:block">
         {/* Large orbital ring behind the Hero (Left) */}
-        <div className="absolute top-[10%] left-[-10%] w-[50vw] h-[50vw] max-w-[800px] max-h-[800px] rounded-full border border-indigo-500/10 dark:border-indigo-400/[0.05]">
+        <div className="absolute top-[10%] left-[-10%] w-[50vw] h-[50vw] max-w-200 max-h-200 rounded-full border border-indigo-500/10 dark:border-indigo-400/5">
           <div className="absolute top-[10%] left-[10%] w-[80%] h-[80%] rounded-full border border-dashed opacity-40 border-indigo-500/20 dark:border-indigo-400/20" />
         </div>
         
         {/* Medium ring behind the Login Card (Right) */}
-        <div className="absolute top-[15%] right-[-5%] w-[40vw] h-[40vw] max-w-[600px] max-h-[600px] rounded-full border border-purple-500/10 dark:border-purple-400/[0.05]" />
+        <div className="absolute top-[15%] right-[-5%] w-[40vw] h-[40vw] max-w-150 max-h-150 rounded-full border border-purple-500/10 dark:border-purple-400/5" />
 
         {/* Small geometric accent (Static) */}
-        <div className="absolute bottom-[15%] left-[40%] w-[100px] h-[100px] hidden md:flex items-center justify-center opacity-40">
+        <div className="absolute bottom-[15%] left-[40%] w-25 h-25 hidden md:flex items-center justify-center opacity-40">
           <svg viewBox="0 0 100 100" className="text-indigo-600 dark:text-indigo-400 opacity-20">
             <polygon points="50,5 90,25 90,75 50,95 10,75 10,25" fill="none" stroke="currentColor" strokeWidth="0.8" />
             <circle cx="50" cy="50" r="18" fill="none" stroke="currentColor" strokeWidth="0.8" strokeDasharray="4 4" />

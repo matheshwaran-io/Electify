@@ -59,10 +59,10 @@ export function LiveActivityFeed({ eventId }: { eventId: string }) {
   }
 
   return (
-    <div className="bg-[var(--card)] border border-[var(--border)] rounded-3xl shadow-sm col-span-1 lg:col-span-4 flex flex-col h-[480px] overflow-hidden">
-      <div className="p-4 border-b border-[var(--border)] shrink-0 flex items-center justify-between bg-[var(--background)]/50">
-        <h3 className="text-xs font-bold uppercase tracking-wider text-[var(--muted-foreground)]">Live Activity Feed</h3>
-        {loading && <Loader2 className="w-3.5 h-3.5 text-[var(--muted-foreground)] animate-spin" />}
+    <div className="bg-(--card) border border-(--border) rounded-3xl shadow-sm col-span-1 lg:col-span-4 flex flex-col h-[480px] overflow-hidden">
+      <div className="p-4 border-b border-(--border) shrink-0 flex items-center justify-between bg-(--background)/50">
+        <h3 className="text-xs font-bold uppercase tracking-wider text-(--muted-foreground)">Live Activity Feed</h3>
+        {loading && <Loader2 className="w-3.5 h-3.5 text-(--muted-foreground) animate-spin" />}
       </div>
       
       <div className="flex-1 overflow-y-auto p-4 flex flex-col gap-3">
@@ -77,18 +77,18 @@ export function LiveActivityFeed({ eventId }: { eventId: string }) {
                 className={`p-3 rounded-xl border ${details.color} transition-colors`}
               >
                 <div className="flex items-center justify-between mb-1">
-                  <span className="text-xs font-bold text-[var(--foreground)] truncate max-w-[150px]">
+                  <span className="text-xs font-bold text-(--foreground) truncate max-w-[150px]">
                     {ev.studentName || "System"}
                   </span>
-                  <span className="text-[10px] font-mono text-[var(--muted-foreground)]">
+                  <span className="text-[10px] font-mono text-(--muted-foreground)">
                     {format(new Date(ev.timestamp), "HH:mm:ss")}
                   </span>
                 </div>
                 <div className="flex gap-3 mt-2">
                   <div className="mt-0.5 shrink-0">{details.icon}</div>
                   <div>
-                    <p className="text-[11px] font-bold text-[var(--foreground)] uppercase tracking-wider">{details.title}</p>
-                    <p className="text-xs text-[var(--muted-foreground)] mt-0.5 leading-relaxed">
+                    <p className="text-[11px] font-bold text-(--foreground) uppercase tracking-wider">{details.title}</p>
+                    <p className="text-xs text-(--muted-foreground) mt-0.5 leading-relaxed">
                       {details.desc}
                     </p>
                   </div>
@@ -99,7 +99,7 @@ export function LiveActivityFeed({ eventId }: { eventId: string }) {
         </AnimatePresence>
         
         {!loading && events.length === 0 && (
-          <div className="flex-1 flex flex-col items-center justify-center text-[var(--muted-foreground)]">
+          <div className="flex-1 flex flex-col items-center justify-center text-(--muted-foreground)">
             <Info className="w-8 h-8 mb-2 opacity-20" />
             <p className="text-sm">No recent activity.</p>
           </div>

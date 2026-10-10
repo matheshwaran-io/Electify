@@ -104,9 +104,9 @@ export function FacultyLayoutClient({ children, session }: FacultyLayoutClientPr
   const SidebarContent = () => (
     <>
       {/* Brand */}
-      <div className="flex items-center justify-between h-20 px-6 border-b border-[var(--border)] shrink-0">
+      <div className="flex items-center justify-between h-20 px-6 border-b border-(--border) shrink-0">
         <Link href="/faculty/dashboard" className="flex items-center gap-3">
-          <div className="flex items-center justify-center w-10 h-10 rounded-xl bg-gradient-to-br from-indigo-500 to-blue-600 shadow-lg shadow-blue-500/20">
+          <div className="flex items-center justify-center w-10 h-10 rounded-xl bg-linear-to-br from-indigo-500 to-blue-600 shadow-lg shadow-blue-500/20">
             <BookOpen className="w-5 h-5 text-white" />
           </div>
           <span className="text-2xl font-bold tracking-tight">
@@ -115,7 +115,7 @@ export function FacultyLayoutClient({ children, session }: FacultyLayoutClientPr
         </Link>
         <button
           onClick={() => setIsMobileSidebarOpen(false)}
-          className="lg:hidden p-2 rounded-md text-[var(--muted-foreground)] hover:bg-[var(--accent)] hover:text-[var(--foreground)] transition-colors cursor-pointer"
+          className="lg:hidden p-2 rounded-md text-(--muted-foreground) hover:bg-(--accent) hover:text-(--foreground) transition-colors cursor-pointer"
         >
           <X className="w-5 h-5" />
         </button>
@@ -132,7 +132,7 @@ export function FacultyLayoutClient({ children, session }: FacultyLayoutClientPr
               className={`flex items-center gap-3 px-4 py-3.5 rounded-xl transition-all duration-200 group ${
                 isActive
                   ? "bg-indigo-600 text-white shadow-md shadow-indigo-500/25"
-                  : "text-[var(--muted-foreground)] hover:bg-[var(--accent)] hover:text-[var(--foreground)]"
+                  : "text-(--muted-foreground) hover:bg-(--accent) hover:text-(--foreground)"
               }`}
             >
               <item.icon className={`w-5 h-5 shrink-0 ${isActive ? "text-white" : "group-hover:text-indigo-500 transition-colors"}`} />
@@ -143,16 +143,16 @@ export function FacultyLayoutClient({ children, session }: FacultyLayoutClientPr
       </nav>
 
       {/* User Profile */}
-      <div className="p-4 border-t border-[var(--border)] shrink-0">
-        <div className="flex items-center gap-3 px-4 py-3 rounded-xl bg-[var(--accent)]/50 border border-[var(--border)]">
-          <div className="flex items-center justify-center w-10 h-10 rounded-full bg-gradient-to-br from-indigo-500 to-purple-600 text-white font-bold text-lg shrink-0">
+      <div className="p-4 border-t border-(--border) shrink-0">
+        <div className="flex items-center gap-3 px-4 py-3 rounded-xl bg-(--accent)/50 border border-(--border)">
+          <div className="flex items-center justify-center w-10 h-10 rounded-full bg-linear-to-br from-indigo-500 to-purple-600 text-white font-bold text-lg shrink-0">
             {session.name.charAt(0).toUpperCase()}
           </div>
           <div className="flex-1 min-w-0">
-            <p className="text-sm font-semibold truncate text-[var(--foreground)]">
+            <p className="text-sm font-semibold truncate text-(--foreground)">
               {session.name}
             </p>
-            <p className="text-xs text-[var(--muted-foreground)] truncate">
+            <p className="text-xs text-(--muted-foreground) truncate">
               {ROLE_DISPLAY[session.role] ?? session.role.replace(/_/g, " ")}
             </p>
           </div>
@@ -170,10 +170,10 @@ export function FacultyLayoutClient({ children, session }: FacultyLayoutClientPr
   );
 
   return (
-    <div className="flex h-screen w-full bg-[var(--background)] text-[var(--foreground)] overflow-hidden">
+    <div className="flex h-screen w-full bg-(--background) text-(--foreground) overflow-hidden">
       
       {/* ── Desktop Sidebar (always visible, no animation) ── */}
-      <aside className="hidden lg:flex w-72 shrink-0 flex-col bg-[var(--card)] border-r border-[var(--border)]">
+      <aside className="hidden lg:flex w-72 shrink-0 flex-col bg-(--card) border-r border-(--border)">
         <SidebarContent />
       </aside>
 
@@ -195,7 +195,7 @@ export function FacultyLayoutClient({ children, session }: FacultyLayoutClientPr
               animate={{ x: 0 }}
               exit={{ x: "-100%" }}
               transition={{ type: "spring", stiffness: 300, damping: 30 }}
-              className="fixed inset-y-0 left-0 z-50 w-72 flex flex-col bg-[var(--card)] border-r border-[var(--border)] shadow-2xl lg:hidden"
+              className="fixed inset-y-0 left-0 z-50 w-72 flex flex-col bg-(--card) border-r border-(--border) shadow-2xl lg:hidden"
             >
               <SidebarContent />
             </motion.aside>
@@ -206,17 +206,17 @@ export function FacultyLayoutClient({ children, session }: FacultyLayoutClientPr
       {/* ── Main Content ── */}
       <main className="flex-1 flex flex-col min-w-0 overflow-hidden">
         {/* Mobile Header */}
-        <header className="flex items-center justify-between h-16 px-4 border-b border-[var(--border)] bg-[var(--card)]/80 backdrop-blur-md lg:hidden shrink-0">
+        <header className="flex items-center justify-between h-16 px-4 border-b border-(--border) bg-(--card)/80 backdrop-blur-md lg:hidden shrink-0">
           <div className="flex items-center gap-3">
             <button
               onClick={() => setIsMobileSidebarOpen(true)}
-              className="p-2 rounded-md text-[var(--muted-foreground)] hover:bg-[var(--accent)] hover:text-[var(--foreground)] transition-colors cursor-pointer"
+              className="p-2 rounded-md text-(--muted-foreground) hover:bg-(--accent) hover:text-(--foreground) transition-colors cursor-pointer"
             >
               <Menu className="w-6 h-6" />
             </button>
             <span className="text-lg font-bold">Electify</span>
           </div>
-          <div className="flex items-center justify-center w-8 h-8 rounded-full bg-gradient-to-br from-indigo-500 to-purple-600 text-white font-bold text-sm">
+          <div className="flex items-center justify-center w-8 h-8 rounded-full bg-linear-to-br from-indigo-500 to-purple-600 text-white font-bold text-sm">
             {session.name.charAt(0).toUpperCase()}
           </div>
         </header>

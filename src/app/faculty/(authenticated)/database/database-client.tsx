@@ -51,19 +51,19 @@ export function DatabaseClient({ events, role }: { events: any[], role: string }
     const isActive = activeAction === key;
 
     return (
-      <div className={`bg-[var(--card)] border ${isActive ? colorClass : 'border-[var(--border)]'} rounded-xl p-4 flex flex-col justify-between transition-colors`}>
+      <div className={`bg-(--card) border ${isActive ? colorClass : 'border-(--border)'} rounded-xl p-4 flex flex-col justify-between transition-colors`}>
         <div>
           <div className="flex items-center gap-2 mb-2">
-            <Icon className={`w-4 h-4 ${isActive ? colorClass.replace('border-', 'text-') : 'text-[var(--muted-foreground)]'}`} />
-            <h4 className="font-bold text-sm text-[var(--foreground)]">{title}</h4>
+            <Icon className={`w-4 h-4 ${isActive ? colorClass.replace('border-', 'text-') : 'text-(--muted-foreground)'}`} />
+            <h4 className="font-bold text-sm text-(--foreground)">{title}</h4>
           </div>
-          <p className="text-xs text-[var(--muted-foreground)] mb-4">{desc}</p>
+          <p className="text-xs text-(--muted-foreground) mb-4">{desc}</p>
         </div>
         
         {!isActive ? (
           <button 
             onClick={() => setActiveAction(key)}
-            className={`w-full border border-[var(--border)] text-[var(--muted-foreground)] hover:${colorClass.replace('border-', 'text-')} px-4 py-2 rounded-lg text-xs font-bold transition-colors`}
+            className={`w-full border border-(--border) text-(--muted-foreground) hover:${colorClass.replace('border-', 'text-')} px-4 py-2 rounded-lg text-xs font-bold transition-colors`}
           >
             Select Action
           </button>
@@ -73,7 +73,7 @@ export function DatabaseClient({ events, role }: { events: any[], role: string }
               value={resetConfirmText}
               onChange={(e) => setResetConfirmText(e.target.value)}
               placeholder="Type CONFIRM"
-              className="w-full px-3 py-1.5 bg-[var(--background)] border border-[var(--border)] rounded-lg text-xs outline-none focus:ring-1 focus:ring-red-500"
+              className="w-full px-3 py-1.5 bg-(--background) border border-(--border) rounded-lg text-xs outline-none focus:ring-1 focus:ring-red-500"
             />
             <div className="flex gap-2">
               <button 
@@ -86,7 +86,7 @@ export function DatabaseClient({ events, role }: { events: any[], role: string }
               <button 
                 onClick={() => { setActiveAction(null); setResetConfirmText(""); }}
                 disabled={isProcessing}
-                className="flex-1 bg-[var(--muted)] text-[var(--foreground)] px-4 py-1.5 rounded-lg text-xs font-bold transition-colors disabled:opacity-50"
+                className="flex-1 bg-(--muted) text-(--foreground) px-4 py-1.5 rounded-lg text-xs font-bold transition-colors disabled:opacity-50"
               >
                 Cancel
               </button>
@@ -100,8 +100,8 @@ export function DatabaseClient({ events, role }: { events: any[], role: string }
   return (
     <div className="space-y-8 pb-20">
       <div>
-        <h1 className="text-3xl font-bold text-[var(--foreground)] tracking-tight">Database Management</h1>
-        <p className="text-[var(--muted-foreground)] mt-1">Perform destructive actions and data resets.</p>
+        <h1 className="text-3xl font-bold text-(--foreground) tracking-tight">Database Management</h1>
+        <p className="text-(--muted-foreground) mt-1">Perform destructive actions and data resets.</p>
       </div>
 
       <div className="border-2 border-red-500/20 bg-red-500/5 rounded-3xl p-6 shadow-sm">
@@ -111,7 +111,7 @@ export function DatabaseClient({ events, role }: { events: any[], role: string }
           </div>
           <div>
             <h3 className="font-bold text-red-500">Danger Zone</h3>
-            <p className="text-xs text-[var(--muted-foreground)]">These actions are permanent and cannot be undone.</p>
+            <p className="text-xs text-(--muted-foreground)">These actions are permanent and cannot be undone.</p>
           </div>
         </div>
 

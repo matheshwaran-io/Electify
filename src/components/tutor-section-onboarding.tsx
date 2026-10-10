@@ -60,28 +60,28 @@ export function TutorSectionOnboarding({ isManageMode = false }: { isManageMode?
 
   return (
     <div className="space-y-6 flex flex-col items-center justify-center min-h-[60vh] text-center w-full">
-      <div className="w-16 h-16 rounded-full bg-[var(--accent)] flex items-center justify-center mb-4 ring-8 ring-[var(--background)]">
+      <div className="w-16 h-16 rounded-full bg-(--accent) flex items-center justify-center mb-4 ring-8 ring-(--background)">
         <Users className="w-8 h-8 text-indigo-500" />
       </div>
-      <h2 className="text-2xl font-bold text-[var(--foreground)]">
+      <h2 className="text-2xl font-bold text-(--foreground)">
         {isManageMode ? "Manage Your Sections" : "Welcome to Electify"}
       </h2>
-      <p className="text-[var(--muted-foreground)] max-w-md">
+      <p className="text-(--muted-foreground) max-w-md">
         {isManageMode 
           ? "Select additional sections you are tutoring. You can manage up to 5 sections in total." 
           : "You haven't been assigned an active section yet. Please select up to 5 sections you are tutoring below to get started."}
       </p>
 
-      <div className="w-full max-w-lg mt-8 bg-[var(--card)] border border-[var(--border)] rounded-2xl p-6 shadow-xl shadow-black/5 text-left">
+      <div className="w-full max-w-lg mt-8 bg-(--card) border border-(--border) rounded-2xl p-6 shadow-xl shadow-black/5 text-left">
         {isLoading ? (
-          <div className="py-12 text-center text-[var(--muted-foreground)]">Loading available sections...</div>
+          <div className="py-12 text-center text-(--muted-foreground)">Loading available sections...</div>
         ) : sections.length === 0 ? (
-          <div className="py-12 text-center text-[var(--muted-foreground)]">No sections available in the system.</div>
+          <div className="py-12 text-center text-(--muted-foreground)">No sections available in the system.</div>
         ) : (
-          <div className="space-y-6 max-h-[300px] overflow-y-auto custom-scrollbar pr-2">
+          <div className="space-y-6 max-h-75 overflow-y-auto custom-scrollbar pr-2">
             {Object.entries(grouped).map(([groupName, secs]) => (
               <div key={groupName} className="space-y-3">
-                <h3 className="text-xs font-bold text-[var(--muted-foreground)] uppercase tracking-wider sticky top-0 bg-[var(--card)] py-1 z-10">{groupName}</h3>
+                <h3 className="text-xs font-bold text-(--muted-foreground) uppercase tracking-wider sticky top-0 bg-(--card) py-1 z-10">{groupName}</h3>
                 <div className="grid grid-cols-2 gap-3">
                   {secs.map(sec => {
                     const isSelected = selectedIds.includes(sec.id);
@@ -92,7 +92,7 @@ export function TutorSectionOnboarding({ isManageMode = false }: { isManageMode?
                         className={`flex items-center gap-2 p-3 rounded-xl border text-sm font-semibold transition-all text-left ${
                           isSelected 
                             ? "bg-indigo-600 border-indigo-600 text-white shadow-md" 
-                            : "bg-[var(--accent)]/30 border-[var(--border)] text-[var(--muted-foreground)] hover:border-indigo-500/30 hover:text-[var(--foreground)]"
+                            : "bg-(--accent)/30 border-(--border) text-(--muted-foreground) hover:border-indigo-500/30 hover:text-(--foreground)"
                         }`}
                       >
                         <div className={`w-4 h-4 rounded-full border-2 flex items-center justify-center shrink-0 ${isSelected ? "border-white bg-white/20" : "border-slate-400 dark:border-slate-600"}`}>

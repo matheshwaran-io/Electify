@@ -9,14 +9,14 @@ export function RegistrationProgress({ metrics }: { metrics: any }) {
   const seatPct = metrics.totalSeats > 0 ? (metrics.filledSeats / metrics.totalSeats) * 100 : 0;
 
   return (
-    <div className="bg-[var(--card)] border border-[var(--border)] rounded-3xl p-6 shadow-sm col-span-1 lg:col-span-12 space-y-6">
+    <div className="bg-(--card) border border-(--border) rounded-3xl p-6 shadow-sm col-span-1 lg:col-span-12 space-y-6">
       
       <div>
         <div className="flex justify-between items-end mb-2">
-          <span className="text-xs font-bold uppercase tracking-wider text-[var(--muted-foreground)]">Registration Progress</span>
-          <span className="text-sm font-bold text-[var(--foreground)]">{Math.round(studentPct)}%</span>
+          <span className="text-xs font-bold uppercase tracking-wider text-(--muted-foreground)">Registration Progress</span>
+          <span className="text-sm font-bold text-(--foreground)">{Math.round(studentPct)}%</span>
         </div>
-        <div className="h-3 bg-[var(--accent)] rounded-full overflow-hidden">
+        <div className="h-3 bg-(--accent) rounded-full overflow-hidden">
           <motion.div 
             initial={{ width: 0 }}
             animate={{ width: `${studentPct}%` }}
@@ -25,16 +25,16 @@ export function RegistrationProgress({ metrics }: { metrics: any }) {
           />
         </div>
         <div className="flex justify-between mt-1">
-          <span className="text-[10px] text-[var(--muted-foreground)] font-mono">{metrics.registeredStudents} of {metrics.totalStudents} Students</span>
+          <span className="text-[10px] text-(--muted-foreground) font-mono">{metrics.registeredStudents} of {metrics.totalStudents} Students</span>
         </div>
       </div>
 
       <div>
         <div className="flex justify-between items-end mb-2">
-          <span className="text-xs font-bold uppercase tracking-wider text-[var(--muted-foreground)]">Seats Used</span>
-          <span className="text-sm font-bold text-[var(--foreground)]">{Math.round(seatPct)}%</span>
+          <span className="text-xs font-bold uppercase tracking-wider text-(--muted-foreground)">Seats Used</span>
+          <span className="text-sm font-bold text-(--foreground)">{Math.round(seatPct)}%</span>
         </div>
-        <div className="h-3 bg-[var(--accent)] rounded-full overflow-hidden">
+        <div className="h-3 bg-(--accent) rounded-full overflow-hidden">
           <motion.div 
             initial={{ width: 0 }}
             animate={{ width: `${seatPct}%` }}
@@ -43,7 +43,7 @@ export function RegistrationProgress({ metrics }: { metrics: any }) {
           />
         </div>
         <div className="flex justify-between mt-1">
-          <span className="text-[10px] text-[var(--muted-foreground)] font-mono">{metrics.filledSeats} of {metrics.totalSeats} Seats</span>
+          <span className="text-[10px] text-(--muted-foreground) font-mono">{metrics.filledSeats} of {metrics.totalSeats} Seats</span>
         </div>
       </div>
 

@@ -79,12 +79,12 @@ export function DataTable<T>({
   };
 
   return (
-    <div className="bg-[var(--card)] border border-[var(--border)] rounded-2xl shadow-sm overflow-hidden flex flex-col w-full h-full">
+    <div className="bg-(--card) border border-(--border) rounded-2xl shadow-sm overflow-hidden flex flex-col w-full h-full">
       {/* Toolbar */}
-      <div className="p-4 border-b border-[var(--border)] flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+      <div className="p-4 border-b border-(--border) flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         {searchable && (
           <div className="relative w-full max-w-sm">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[var(--muted-foreground)]" />
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-(--muted-foreground)" />
             <input
               type="text"
               value={searchTerm}
@@ -93,18 +93,18 @@ export function DataTable<T>({
                 setCurrentPage(1);
               }}
               placeholder={searchPlaceholder}
-              className="w-full pl-9 pr-4 py-2 bg-[var(--background)] border border-[var(--border)] rounded-xl text-sm focus:ring-2 focus:ring-indigo-500/50 outline-none"
+              className="w-full pl-9 pr-4 py-2 bg-(--background) border border-(--border) rounded-xl text-sm focus:ring-2 focus:ring-indigo-500/50 outline-none"
             />
           </div>
         )}
         <div className="flex items-center gap-2 self-end sm:self-auto">
-          <button className="flex items-center gap-2 px-3 py-2 text-sm font-medium text-[var(--muted-foreground)] hover:text-[var(--foreground)] hover:bg-[var(--accent)] rounded-xl transition-colors">
+          <button className="flex items-center gap-2 px-3 py-2 text-sm font-medium text-(--muted-foreground) hover:text-(--foreground) hover:bg-(--accent) rounded-xl transition-colors">
             <Filter className="w-4 h-4" /> Filter
           </button>
           {exportable && (
             <button 
               onClick={handleExport}
-              className="flex items-center gap-2 px-3 py-2 text-sm font-medium text-[var(--muted-foreground)] hover:text-[var(--foreground)] hover:bg-[var(--accent)] rounded-xl transition-colors"
+              className="flex items-center gap-2 px-3 py-2 text-sm font-medium text-(--muted-foreground) hover:text-(--foreground) hover:bg-(--accent) rounded-xl transition-colors"
             >
               <Download className="w-4 h-4" /> Export
             </button>
@@ -116,18 +116,18 @@ export function DataTable<T>({
       <div className="overflow-x-auto">
         <table className="w-full text-sm text-left">
           <thead>
-            <tr className="bg-[var(--accent)]/50 border-b border-[var(--border)]">
+            <tr className="bg-(--accent)/50 border-b border-(--border)">
               {columns.map((col, i) => (
-                <th key={i} className="px-6 py-4 font-semibold text-[var(--muted-foreground)] tracking-wider uppercase text-xs whitespace-nowrap">
+                <th key={i} className="px-6 py-4 font-semibold text-(--muted-foreground) tracking-wider uppercase text-xs whitespace-nowrap">
                   {col.header}
                 </th>
               ))}
             </tr>
           </thead>
-          <tbody className="divide-y divide-[var(--border)]">
+          <tbody className="divide-y divide-(--border)">
               {currentData.length === 0 ? (
                 <tr>
-                  <td colSpan={columns.length} className="px-6 py-12 text-center text-[var(--muted-foreground)]">
+                  <td colSpan={columns.length} className="px-6 py-12 text-center text-(--muted-foreground)">
                     No results found.
                   </td>
                 </tr>
@@ -135,7 +135,7 @@ export function DataTable<T>({
                 currentData.map((row, i) => (
                   <tr 
                     key={i} 
-                    className="hover:bg-[var(--accent)]/30 transition-colors"
+                    className="hover:bg-(--accent)/30 transition-colors"
                   >
                     {columns.map((col, j) => (
                       <td key={j} className="px-6 py-4 whitespace-nowrap">
@@ -151,15 +151,15 @@ export function DataTable<T>({
 
       {/* Pagination */}
       {totalPages > 1 && (
-        <div className="p-4 border-t border-[var(--border)] flex items-center justify-between">
-          <span className="text-sm text-[var(--muted-foreground)]">
+        <div className="p-4 border-t border-(--border) flex items-center justify-between">
+          <span className="text-sm text-(--muted-foreground)">
             Showing {(currentPage - 1) * itemsPerPage + 1} to {Math.min(currentPage * itemsPerPage, filteredData.length)} of {filteredData.length} entries
           </span>
           <div className="flex items-center gap-1">
             <button
               onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
               disabled={currentPage === 1}
-              className="p-1 rounded-lg hover:bg-[var(--accent)] disabled:opacity-50 transition-colors"
+              className="p-1 rounded-lg hover:bg-(--accent) disabled:opacity-50 transition-colors"
             >
               <ChevronLeft className="w-5 h-5" />
             </button>
@@ -167,7 +167,7 @@ export function DataTable<T>({
             <button
               onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
               disabled={currentPage === totalPages}
-              className="p-1 rounded-lg hover:bg-[var(--accent)] disabled:opacity-50 transition-colors"
+              className="p-1 rounded-lg hover:bg-(--accent) disabled:opacity-50 transition-colors"
             >
               <ChevronRight className="w-5 h-5" />
             </button>

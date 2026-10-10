@@ -24,18 +24,18 @@ export function UsersClient({ staff, students, hierarchy }: { staff: StaffUser[]
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-3xl font-bold text-[var(--foreground)]">Users</h1>
-        <p className="text-[var(--muted-foreground)] mt-1">All staff and student accounts in the system.</p>
+        <h1 className="text-3xl font-bold text-(--foreground)">Users</h1>
+        <p className="text-(--muted-foreground) mt-1">All staff and student accounts in the system.</p>
       </div>
 
       {/* Tabs + Search */}
       <div className="flex flex-col sm:flex-row gap-4">
-        <div className="flex bg-[var(--card)] border border-[var(--border)] rounded-xl p-1">
+        <div className="flex bg-(--card) border border-(--border) rounded-xl p-1">
           {(["staff", "students"] as const).map((t) => (
             <button
               key={t}
               onClick={() => { setTab(t); setSearch(""); }}
-              className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium capitalize transition-all ${tab === t ? "bg-indigo-600 text-white" : "text-[var(--muted-foreground)] hover:text-[var(--foreground)]"}`}
+              className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium capitalize transition-all ${tab === t ? "bg-indigo-600 text-white" : "text-(--muted-foreground) hover:text-(--foreground)"}`}
             >
               {t === "staff" ? <Users className="w-4 h-4" /> : <GraduationCap className="w-4 h-4" />}
               {t} ({t === "staff" ? staff.length : students.length})
@@ -43,52 +43,52 @@ export function UsersClient({ staff, students, hierarchy }: { staff: StaffUser[]
           ))}
         </div>
         <div className="relative flex-1">
-          <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-[var(--muted-foreground)]" />
+          <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-(--muted-foreground)" />
           <input
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             placeholder={tab === "staff" ? "Search by name or email…" : "Search by name or register number…"}
-            className="w-full pl-11 pr-4 py-3 bg-[var(--card)] border border-[var(--border)] rounded-xl text-sm text-[var(--foreground)] placeholder:text-[var(--muted-foreground)] focus:outline-none focus:ring-2 focus:ring-indigo-500/50"
+            className="w-full pl-11 pr-4 py-3 bg-(--card) border border-(--border) rounded-xl text-sm text-(--foreground) placeholder:text-(--muted-foreground) focus:outline-none focus:ring-2 focus:ring-indigo-500/50"
           />
         </div>
       </div>
 
       {/* Table */}
-      <div className="bg-[var(--card)] rounded-2xl border border-[var(--border)] overflow-hidden">
+      <div className="bg-(--card) rounded-2xl border border-(--border) overflow-hidden">
         <div className="overflow-x-auto">
           {tab === "staff" ? (
             <table className="w-full text-sm">
               <thead>
-                <tr className="border-b border-[var(--border)] bg-[var(--accent)]/30">
-                  <th className="text-left px-6 py-4 font-semibold text-[var(--muted-foreground)]">Name</th>
-                  <th className="text-left px-6 py-4 font-semibold text-[var(--muted-foreground)]">Email</th>
-                  <th className="text-left px-6 py-4 font-semibold text-[var(--muted-foreground)]">Employee ID</th>
-                  <th className="text-left px-6 py-4 font-semibold text-[var(--muted-foreground)]">Role</th>
-                  <th className="text-left px-6 py-4 font-semibold text-[var(--muted-foreground)]">Status</th>
-                  <th className="text-left px-6 py-4 font-semibold text-[var(--muted-foreground)]">Joined</th>
-                  <th className="text-right px-6 py-4 font-semibold text-[var(--muted-foreground)]">Actions</th>
+                <tr className="border-b border-(--border) bg-(--accent)/30">
+                  <th className="text-left px-6 py-4 font-semibold text-(--muted-foreground)">Name</th>
+                  <th className="text-left px-6 py-4 font-semibold text-(--muted-foreground)">Email</th>
+                  <th className="text-left px-6 py-4 font-semibold text-(--muted-foreground)">Employee ID</th>
+                  <th className="text-left px-6 py-4 font-semibold text-(--muted-foreground)">Role</th>
+                  <th className="text-left px-6 py-4 font-semibold text-(--muted-foreground)">Status</th>
+                  <th className="text-left px-6 py-4 font-semibold text-(--muted-foreground)">Joined</th>
+                  <th className="text-right px-6 py-4 font-semibold text-(--muted-foreground)">Actions</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-[var(--border)]">
+              <tbody className="divide-y divide-(--border)">
                 {filteredStaff.map((u, i) => (
-                  <motion.tr key={u.id} initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: i * 0.02 }} className="hover:bg-[var(--accent)]/20 transition-colors">
+                  <motion.tr key={u.id} initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: i * 0.02 }} className="hover:bg-(--accent)/20 transition-colors">
                     <td className="px-6 py-4">
                       <div className="flex items-center gap-3">
-                        <div className="w-8 h-8 rounded-full bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center text-white text-xs font-bold shrink-0">
+                        <div className="w-8 h-8 rounded-full bg-linear-to-br from-indigo-500 to-purple-600 flex items-center justify-center text-white text-xs font-bold shrink-0">
                           {u.name.charAt(0).toUpperCase()}
                         </div>
-                        <span className="font-medium text-[var(--foreground)]">{u.name}</span>
+                        <span className="font-medium text-(--foreground)">{u.name}</span>
                       </div>
                     </td>
-                    <td className="px-6 py-4 text-[var(--muted-foreground)]">{u.email}</td>
-                    <td className="px-6 py-4 text-[var(--muted-foreground)] font-mono text-xs">{u.employeeId ?? "—"}</td>
+                    <td className="px-6 py-4 text-(--muted-foreground)">{u.email}</td>
+                    <td className="px-6 py-4 text-(--muted-foreground) font-mono text-xs">{u.employeeId ?? "—"}</td>
                     <td className="px-6 py-4"><StatusBadge status={u.role} /></td>
                     <td className="px-6 py-4">
                       <span className={`text-xs font-medium ${u.isActive ? "text-emerald-400" : "text-red-400"}`}>
                         {u.isActive ? "Active" : "Inactive"}
                       </span>
                     </td>
-                    <td className="px-6 py-4 text-[var(--muted-foreground)]">{format(new Date(u.createdAt), "MMM d, yyyy")}</td>
+                    <td className="px-6 py-4 text-(--muted-foreground)">{format(new Date(u.createdAt), "MMM d, yyyy")}</td>
                     <td className="px-6 py-4 text-right">
                       {u.role === "CLASS_TUTOR" && (
                         <button
@@ -102,45 +102,45 @@ export function UsersClient({ staff, students, hierarchy }: { staff: StaffUser[]
                   </motion.tr>
                 ))}
                 {filteredStaff.length === 0 && (
-                  <tr><td colSpan={6} className="text-center py-12 text-[var(--muted-foreground)]">No staff found.</td></tr>
+                  <tr><td colSpan={6} className="text-center py-12 text-(--muted-foreground)">No staff found.</td></tr>
                 )}
               </tbody>
             </table>
           ) : (
             <table className="w-full text-sm">
               <thead>
-                <tr className="border-b border-[var(--border)] bg-[var(--accent)]/30">
-                  <th className="text-left px-6 py-4 font-semibold text-[var(--muted-foreground)]">Name</th>
-                  <th className="text-left px-6 py-4 font-semibold text-[var(--muted-foreground)]">Register No.</th>
-                  <th className="text-left px-6 py-4 font-semibold text-[var(--muted-foreground)]">Programme</th>
-                  <th className="text-left px-6 py-4 font-semibold text-[var(--muted-foreground)]">Active</th>
-                  <th className="text-left px-6 py-4 font-semibold text-[var(--muted-foreground)]">Eligible</th>
-                  <th className="text-left px-6 py-4 font-semibold text-[var(--muted-foreground)]">Joined</th>
+                <tr className="border-b border-(--border) bg-(--accent)/30">
+                  <th className="text-left px-6 py-4 font-semibold text-(--muted-foreground)">Name</th>
+                  <th className="text-left px-6 py-4 font-semibold text-(--muted-foreground)">Register No.</th>
+                  <th className="text-left px-6 py-4 font-semibold text-(--muted-foreground)">Programme</th>
+                  <th className="text-left px-6 py-4 font-semibold text-(--muted-foreground)">Active</th>
+                  <th className="text-left px-6 py-4 font-semibold text-(--muted-foreground)">Eligible</th>
+                  <th className="text-left px-6 py-4 font-semibold text-(--muted-foreground)">Joined</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-[var(--border)]">
+              <tbody className="divide-y divide-(--border)">
                 {filteredStudents.map((u, i) => (
-                  <motion.tr key={u.id} initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: i * 0.02 }} className="hover:bg-[var(--accent)]/20 transition-colors">
+                  <motion.tr key={u.id} initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: i * 0.02 }} className="hover:bg-(--accent)/20 transition-colors">
                     <td className="px-6 py-4">
                       <div className="flex items-center gap-3">
-                        <div className="w-8 h-8 rounded-full bg-gradient-to-br from-blue-500 to-teal-600 flex items-center justify-center text-white text-xs font-bold shrink-0">
+                        <div className="w-8 h-8 rounded-full bg-linear-to-br from-blue-500 to-teal-600 flex items-center justify-center text-white text-xs font-bold shrink-0">
                           {u.name.charAt(0).toUpperCase()}
                         </div>
                         <div>
-                          <p className="font-medium text-[var(--foreground)]">{u.name}</p>
-                          <p className="text-xs text-[var(--muted-foreground)]">{u.email}</p>
+                          <p className="font-medium text-(--foreground)">{u.name}</p>
+                          <p className="text-xs text-(--muted-foreground)">{u.email}</p>
                         </div>
                       </div>
                     </td>
-                    <td className="px-6 py-4 font-mono text-xs text-[var(--muted-foreground)]">{u.registerNumber ?? "—"}</td>
-                    <td className="px-6 py-4 text-[var(--muted-foreground)]">{u.programmeName ?? "—"}</td>
+                    <td className="px-6 py-4 font-mono text-xs text-(--muted-foreground)">{u.registerNumber ?? "—"}</td>
+                    <td className="px-6 py-4 text-(--muted-foreground)">{u.programmeName ?? "—"}</td>
                     <td className="px-6 py-4"><span className={`text-xs font-medium ${u.isActive ? "text-emerald-400" : "text-red-400"}`}>{u.isActive ? "Yes" : "No"}</span></td>
                     <td className="px-6 py-4"><span className={`text-xs font-medium ${u.isEligible ? "text-emerald-400" : "text-orange-400"}`}>{u.isEligible ? "Yes" : "No"}</span></td>
-                    <td className="px-6 py-4 text-[var(--muted-foreground)]">{format(new Date(u.createdAt), "MMM d, yyyy")}</td>
+                    <td className="px-6 py-4 text-(--muted-foreground)">{format(new Date(u.createdAt), "MMM d, yyyy")}</td>
                   </motion.tr>
                 ))}
                 {filteredStudents.length === 0 && (
-                  <tr><td colSpan={6} className="text-center py-12 text-[var(--muted-foreground)]">No students found.</td></tr>
+                  <tr><td colSpan={6} className="text-center py-12 text-(--muted-foreground)">No students found.</td></tr>
                 )}
               </tbody>
             </table>
@@ -203,13 +203,13 @@ function ManageTutorSectionsModal({ tutor, hierarchy, onClose }: { tutor: StaffU
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm animate-[fadeIn_0.2s_ease-out_1]">
-      <div className="bg-[var(--card)] border border-[var(--border)] rounded-2xl w-full max-w-xl shadow-2xl overflow-hidden flex flex-col max-h-[85vh]">
-        <div className="p-6 flex items-center justify-between border-b border-[var(--border)] shrink-0">
+      <div className="bg-(--card) border border-(--border) rounded-2xl w-full max-w-xl shadow-2xl overflow-hidden flex flex-col max-h-[85vh]">
+        <div className="p-6 flex items-center justify-between border-b border-(--border) shrink-0">
           <div>
-            <h2 className="text-xl font-bold text-[var(--foreground)]">Manage Tutor Sections</h2>
-            <p className="text-sm text-[var(--muted-foreground)] mt-1">Assign classes to {tutor.name}</p>
+            <h2 className="text-xl font-bold text-(--foreground)">Manage Tutor Sections</h2>
+            <p className="text-sm text-(--muted-foreground) mt-1">Assign classes to {tutor.name}</p>
           </div>
-          <button onClick={onClose} className="p-2 text-[var(--muted-foreground)] hover:bg-[var(--accent)] rounded-full transition-colors">
+          <button onClick={onClose} className="p-2 text-(--muted-foreground) hover:bg-(--accent) rounded-full transition-colors">
             <X className="w-5 h-5" />
           </button>
         </div>
@@ -217,7 +217,7 @@ function ManageTutorSectionsModal({ tutor, hierarchy, onClose }: { tutor: StaffU
         <div className="p-6 overflow-y-auto space-y-6 flex-1 custom-scrollbar">
           {Object.entries(grouped).map(([groupName, secs]) => (
             <div key={groupName} className="space-y-3">
-              <h3 className="text-xs font-bold text-[var(--muted-foreground)] uppercase tracking-wider">{groupName}</h3>
+              <h3 className="text-xs font-bold text-(--muted-foreground) uppercase tracking-wider">{groupName}</h3>
               <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
                 {secs.map(sec => {
                   const isSelected = selectedIds.includes(sec.id);
@@ -228,7 +228,7 @@ function ManageTutorSectionsModal({ tutor, hierarchy, onClose }: { tutor: StaffU
                       className={`flex items-center gap-2 p-3 rounded-xl border text-sm font-semibold transition-all ${
                         isSelected 
                           ? "bg-indigo-600 border-indigo-600 text-white shadow-md" 
-                          : "bg-[var(--accent)]/30 border-[var(--border)] text-[var(--muted-foreground)] hover:border-indigo-500/30 hover:text-[var(--foreground)]"
+                          : "bg-(--accent)/30 border-(--border) text-(--muted-foreground) hover:border-indigo-500/30 hover:text-(--foreground)"
                       }`}
                     >
                       <div className={`w-4 h-4 rounded-full border-2 flex items-center justify-center shrink-0 ${isSelected ? "border-white bg-white/20" : "border-slate-400 dark:border-slate-600"}`}>
@@ -242,14 +242,14 @@ function ManageTutorSectionsModal({ tutor, hierarchy, onClose }: { tutor: StaffU
             </div>
           ))}
           {Object.keys(grouped).length === 0 && (
-            <div className="text-center py-8 text-[var(--muted-foreground)]">No sections available in the system.</div>
+            <div className="text-center py-8 text-(--muted-foreground)">No sections available in the system.</div>
           )}
         </div>
 
-        <div className="p-6 border-t border-[var(--border)] bg-[var(--accent)]/10 shrink-0 flex items-center justify-between">
-          <span className="text-sm font-semibold text-[var(--muted-foreground)]">{selectedIds.length} section(s) selected</span>
+        <div className="p-6 border-t border-(--border) bg-(--accent)/10 shrink-0 flex items-center justify-between">
+          <span className="text-sm font-semibold text-(--muted-foreground)">{selectedIds.length} section(s) selected</span>
           <div className="flex gap-3">
-            <button onClick={onClose} className="px-5 py-2.5 text-sm font-semibold text-[var(--muted-foreground)] hover:text-[var(--foreground)] transition-colors">Cancel</button>
+            <button onClick={onClose} className="px-5 py-2.5 text-sm font-semibold text-(--muted-foreground) hover:text-(--foreground) transition-colors">Cancel</button>
             <button
               onClick={handleSave}
               disabled={isSaving}

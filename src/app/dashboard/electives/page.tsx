@@ -31,7 +31,7 @@ export default async function StudentElectivesPage() {
 
   if (!student.academicBatchId) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-slate-50 dark:bg-[#000]">
+      <div className="flex min-h-screen items-center justify-center bg-slate-50 dark:bg-black">
         <div className="text-center p-8 bg-white dark:bg-[#111] rounded-md border border-slate-200 dark:border-white/10 shadow-sm max-w-md">
           <ShieldAlert className="w-12 h-12 text-rose-500 mx-auto mb-4" />
           <h2 className="text-xl font-medium text-slate-900 dark:text-white mb-2">Missing Batch</h2>
@@ -109,8 +109,8 @@ export default async function StudentElectivesPage() {
   }
 
   return (
-    <div className="min-h-screen bg-slate-50 dark:bg-[#000] flex flex-col relative">
-      <header className="sticky top-0 z-40 w-full border-b border-slate-200 dark:border-white/10 bg-white dark:bg-[#000]">
+    <div className="min-h-screen bg-slate-50 dark:bg-black flex flex-col relative">
+      <header className="sticky top-0 z-40 w-full border-b border-slate-200 dark:border-white/10 bg-white dark:bg-black">
         <div className="max-w-6xl mx-auto px-4 h-14 flex items-center justify-between">
           <div className="flex items-center gap-2">
             <div className="inline-flex items-center justify-center w-8 h-8 rounded-md bg-slate-900 dark:bg-white text-white dark:text-slate-900 p-1.5">

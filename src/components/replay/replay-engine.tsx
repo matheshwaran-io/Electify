@@ -68,14 +68,14 @@ export function ReplayEngine({ eventId }: { eventId: string }) {
   if (loading) {
     return (
       <div className="flex items-center justify-center h-full">
-        <Loader2 className="w-8 h-8 animate-spin text-[var(--muted-foreground)]" />
+        <Loader2 className="w-8 h-8 animate-spin text-(--muted-foreground)" />
       </div>
     );
   }
 
   if (!registrations.length) {
     return (
-      <div className="flex items-center justify-center h-full text-[var(--muted-foreground)]">
+      <div className="flex items-center justify-center h-full text-(--muted-foreground)">
         No registrations found for this event yet.
       </div>
     );
@@ -101,8 +101,8 @@ export function ReplayEngine({ eventId }: { eventId: string }) {
         </div>
       );
     return (
-      <div className="w-8 h-8 rounded-full bg-[var(--accent)] flex items-center justify-center shrink-0">
-        <span className="text-xs font-bold text-[var(--muted-foreground)]">
+      <div className="w-8 h-8 rounded-full bg-(--accent) flex items-center justify-center shrink-0">
+        <span className="text-xs font-bold text-(--muted-foreground)">
           {rank}
         </span>
       </div>
@@ -130,13 +130,13 @@ export function ReplayEngine({ eventId }: { eventId: string }) {
   return (
     <div className="flex flex-col h-full gap-4">
       {/* Header Stats */}
-      <div className="bg-[var(--card)] border border-[var(--border)] rounded-2xl p-6 shadow-sm shrink-0">
+      <div className="bg-(--card) border border-(--border) rounded-2xl p-6 shadow-sm shrink-0">
         <div className="flex items-center justify-between flex-wrap gap-4">
           <div>
-            <h2 className="text-xl font-bold text-[var(--foreground)]">
+            <h2 className="text-xl font-bold text-(--foreground)">
               Registration Replay
             </h2>
-            <p className="text-sm text-[var(--muted-foreground)] mt-0.5">
+            <p className="text-sm text-(--muted-foreground) mt-0.5">
               {eventDetails?.name}
             </p>
           </div>
@@ -170,19 +170,19 @@ export function ReplayEngine({ eventId }: { eventId: string }) {
       </div>
 
       {/* Search & Filters */}
-      <div className="bg-[var(--card)] border border-[var(--border)] rounded-2xl px-5 py-3 shadow-sm shrink-0 flex items-center gap-4 flex-wrap">
-        <div className="relative flex-1 min-w-[200px]">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[var(--muted-foreground)]" />
+      <div className="bg-(--card) border border-(--border) rounded-2xl px-5 py-3 shadow-sm shrink-0 flex items-center gap-4 flex-wrap">
+        <div className="relative flex-1 min-w-50">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-(--muted-foreground)" />
           <input
             type="text"
             placeholder="Search by name, register number, or elective..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full pl-9 pr-4 py-2 bg-[var(--background)] border border-[var(--border)] rounded-lg text-sm text-[var(--foreground)] placeholder:text-[var(--muted-foreground)] focus:outline-none focus:ring-2 focus:ring-indigo-500/50"
+            className="w-full pl-9 pr-4 py-2 bg-(--background) border border-(--border) rounded-lg text-sm text-(--foreground) placeholder:text-(--muted-foreground) focus:outline-none focus:ring-2 focus:ring-indigo-500/50"
           />
         </div>
 
-        <div className="flex items-center gap-1 bg-[var(--background)] rounded-lg p-1 border border-[var(--border)]">
+        <div className="flex items-center gap-1 bg-(--background) rounded-lg p-1 border border-(--border)">
           {(["all", "self", "manual"] as const).map((type) => (
             <button
               key={type}
@@ -190,7 +190,7 @@ export function ReplayEngine({ eventId }: { eventId: string }) {
               className={`px-3 py-1.5 rounded-md text-xs font-bold capitalize transition-colors ${
                 filterType === type
                   ? "bg-indigo-500/20 text-indigo-500"
-                  : "text-[var(--muted-foreground)] hover:bg-[var(--accent)]"
+                  : "text-(--muted-foreground) hover:bg-(--accent)"
               }`}
             >
               {type === "all"
@@ -216,17 +216,17 @@ export function ReplayEngine({ eventId }: { eventId: string }) {
                 animate={{ opacity: 1, y: 0 }}
                 exit={{ opacity: 0, y: -10 }}
                 transition={{ delay: idx * 0.015, duration: 0.2 }}
-                className={`bg-[var(--card)] border rounded-xl transition-all duration-200 overflow-hidden ${
+                className={`bg-(--card) border rounded-xl transition-all duration-200 overflow-hidden ${
                   reg.rank <= 3
                     ? "border-amber-500/30 shadow-sm"
-                    : "border-[var(--border)]"
+                    : "border-(--border)"
                 }`}
               >
                 <button
                   onClick={() =>
                     setExpandedId(isExpanded ? null : reg.id)
                   }
-                  className="w-full text-left px-4 py-3 flex items-center gap-3 hover:bg-[var(--accent)]/30 transition-colors"
+                  className="w-full text-left px-4 py-3 flex items-center gap-3 hover:bg-(--accent)/30 transition-colors"
                 >
                   {/* Rank Badge */}
                   {getRankBadge(reg.rank)}
@@ -234,7 +234,7 @@ export function ReplayEngine({ eventId }: { eventId: string }) {
                   {/* Student Info */}
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2">
-                      <span className="text-sm font-bold text-[var(--foreground)] truncate">
+                      <span className="text-sm font-bold text-(--foreground) truncate">
                         {reg.studentName}
                       </span>
                       {reg.isManual && (
@@ -244,7 +244,7 @@ export function ReplayEngine({ eventId }: { eventId: string }) {
                       )}
                     </div>
                     {reg.registerNumber && (
-                      <p className="text-xs text-[var(--muted-foreground)] mt-0.5">
+                      <p className="text-xs text-(--muted-foreground) mt-0.5">
                         {reg.registerNumber}
                       </p>
                     )}
@@ -252,7 +252,7 @@ export function ReplayEngine({ eventId }: { eventId: string }) {
 
                   {/* Timestamp */}
                   <div className="text-right shrink-0">
-                    <p className="text-xs font-mono text-[var(--foreground)]">
+                    <p className="text-xs font-mono text-(--foreground)">
                       {format(
                         new Date(reg.submittedAt),
                         "dd MMM yyyy, hh:mm:ss a"
@@ -262,7 +262,7 @@ export function ReplayEngine({ eventId }: { eventId: string }) {
                       className={`text-[10px] font-bold mt-0.5 ${
                         reg.rank === 1
                           ? "text-amber-500"
-                          : "text-[var(--muted-foreground)]"
+                          : "text-(--muted-foreground)"
                       }`}
                     >
                       {getTimeDiff(reg.submittedAt)}
@@ -270,7 +270,7 @@ export function ReplayEngine({ eventId }: { eventId: string }) {
                   </div>
 
                   {/* Expand Icon */}
-                  <div className="shrink-0 text-[var(--muted-foreground)]">
+                  <div className="shrink-0 text-(--muted-foreground)">
                     {isExpanded ? (
                       <ChevronUp className="w-4 h-4" />
                     ) : (
@@ -287,24 +287,24 @@ export function ReplayEngine({ eventId }: { eventId: string }) {
                       animate={{ height: "auto", opacity: 1 }}
                       exit={{ height: 0, opacity: 0 }}
                       transition={{ duration: 0.2 }}
-                      className="border-t border-[var(--border)] overflow-hidden"
+                      className="border-t border-(--border) overflow-hidden"
                     >
-                      <div className="px-4 py-3 bg-[var(--background)]/50">
+                      <div className="px-4 py-3 bg-(--background)/50">
                         <div className="grid grid-cols-2 gap-3 mb-3">
-                          <div className="flex items-center gap-2 text-xs text-[var(--muted-foreground)]">
+                          <div className="flex items-center gap-2 text-xs text-(--muted-foreground)">
                             <Hash className="w-3.5 h-3.5" />
                             <span>
                               Receipt:{" "}
-                              <span className="font-mono text-[var(--foreground)]">
+                              <span className="font-mono text-(--foreground)">
                                 {reg.receiptNumber || "N/A"}
                               </span>
                             </span>
                           </div>
-                          <div className="flex items-center gap-2 text-xs text-[var(--muted-foreground)]">
+                          <div className="flex items-center gap-2 text-xs text-(--muted-foreground)">
                             <Clock className="w-3.5 h-3.5" />
                             <span>
                               Rank:{" "}
-                              <span className="font-bold text-[var(--foreground)]">
+                              <span className="font-bold text-(--foreground)">
                                 #{reg.rank}
                               </span>{" "}
                               of {data?.totalRegistered}
@@ -312,7 +312,7 @@ export function ReplayEngine({ eventId }: { eventId: string }) {
                           </div>
                         </div>
 
-                        <p className="text-[10px] uppercase font-bold tracking-wider text-[var(--muted-foreground)] mb-2">
+                        <p className="text-[10px] uppercase font-bold tracking-wider text-(--muted-foreground) mb-2">
                           Selected Electives
                         </p>
                         <div className="space-y-1.5">
@@ -320,23 +320,23 @@ export function ReplayEngine({ eventId }: { eventId: string }) {
                             reg.selections.map((sel, sIdx) => (
                               <div
                                 key={sIdx}
-                                className="flex items-center gap-2 px-3 py-2 bg-[var(--card)] border border-[var(--border)] rounded-lg"
+                                className="flex items-center gap-2 px-3 py-2 bg-(--card) border border-(--border) rounded-lg"
                               >
                                 <div className="w-1.5 h-1.5 rounded-full bg-indigo-500 shrink-0" />
                                 <div className="flex-1 min-w-0">
-                                  <p className="text-xs font-medium text-[var(--foreground)] truncate">
+                                  <p className="text-xs font-medium text-(--foreground) truncate">
                                     {sel.courseCode
                                       ? `${sel.courseCode} - ${sel.electiveName}`
                                       : sel.electiveName}
                                   </p>
-                                  <p className="text-[10px] text-[var(--muted-foreground)]">
+                                  <p className="text-[10px] text-(--muted-foreground)">
                                     {sel.groupName}
                                   </p>
                                 </div>
                               </div>
                             ))
                           ) : (
-                            <p className="text-xs text-[var(--muted-foreground)] italic">
+                            <p className="text-xs text-(--muted-foreground) italic">
                               Elective selections not available (may have been
                               reset)
                             </p>
@@ -352,7 +352,7 @@ export function ReplayEngine({ eventId }: { eventId: string }) {
         </AnimatePresence>
 
         {filteredRegistrations.length === 0 && (
-          <div className="text-center py-12 text-[var(--muted-foreground)] text-sm">
+          <div className="text-center py-12 text-(--muted-foreground) text-sm">
             No registrations match your search.
           </div>
         )}

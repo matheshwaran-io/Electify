@@ -45,7 +45,7 @@ export function GlassCard({
       {...props}
     >
       {/* Soft internal gradient shine */}
-      <div className="absolute inset-0 bg-gradient-to-tr from-transparent via-white/5 to-transparent opacity-0 hover:opacity-100 transition-opacity duration-500 pointer-events-none" />
+      <div className="absolute inset-0 bg-linear-to-tr from-transparent via-white/5 to-transparent opacity-0 hover:opacity-100 transition-opacity duration-500 pointer-events-none" />
       <div className="relative z-10">{children}</div>
     </motion.div>
   );

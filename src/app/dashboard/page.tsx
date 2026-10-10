@@ -31,7 +31,7 @@ export default async function StudentDashboardRouterPage() {
 
   if (!student) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-slate-50 dark:bg-[#000]">
+      <div className="flex min-h-screen items-center justify-center bg-slate-50 dark:bg-black">
         <div className="text-center p-8 bg-white dark:bg-[#111] rounded-md border border-slate-200 dark:border-white/10 shadow-sm max-w-md">
           <ShieldAlert className="w-12 h-12 text-rose-500 mx-auto mb-4" />
           <h2 className="text-xl font-medium text-slate-900 dark:text-white mb-2">Account Error</h2>
@@ -45,7 +45,7 @@ export default async function StudentDashboardRouterPage() {
 
   if (!student.academicBatchId) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-slate-50 dark:bg-[#000]">
+      <div className="flex min-h-screen items-center justify-center bg-slate-50 dark:bg-black">
         <div className="text-center p-8 bg-white dark:bg-[#111] rounded-md border border-slate-200 dark:border-white/10 shadow-sm max-w-md">
           <ShieldAlert className="w-12 h-12 text-rose-500 mx-auto mb-4" />
           <h2 className="text-xl font-medium text-slate-900 dark:text-white mb-2">Missing Batch</h2>
@@ -68,7 +68,7 @@ export default async function StudentDashboardRouterPage() {
 
   if (!event) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-slate-50 dark:bg-[#000]">
+      <div className="flex min-h-screen items-center justify-center bg-slate-50 dark:bg-black">
         <div className="text-center p-8 bg-white dark:bg-[#111] rounded-2xl border border-slate-200 dark:border-white/10 shadow-sm max-w-md relative overflow-hidden">
           <div className="absolute top-4 right-4"><ThemeToggle /></div>
           <ShieldAlert className="w-12 h-12 text-rose-500 mx-auto mb-4" />
@@ -126,7 +126,7 @@ export default async function StudentDashboardRouterPage() {
 
   if (isRegistrationEnded && !hasSubmitted) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-slate-50 dark:bg-[#000]">
+      <div className="flex min-h-screen items-center justify-center bg-slate-50 dark:bg-black">
         <div className="text-center p-8 bg-white dark:bg-[#111] rounded-2xl border border-slate-200 dark:border-white/10 shadow-sm max-w-md relative overflow-hidden">
           <div className="absolute top-4 right-4"><ThemeToggle /></div>
           <ShieldAlert className="w-12 h-12 text-rose-500 mx-auto mb-4" />
