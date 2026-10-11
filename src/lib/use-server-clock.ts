@@ -22,6 +22,8 @@ export function useTicker(active: boolean, intervalMs = 1000) {
     let id: ReturnType<typeof setInterval> | undefined
     const start = () => {
       stop()
+      // A page opened in a background tab starts paused; it ticks once shown.
+      if (document.hidden) return
       setTick((t) => t + 1)
       id = setInterval(() => setTick((t) => t + 1), intervalMs)
     }

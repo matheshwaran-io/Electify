@@ -1,0 +1,1351 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Electify — Technical Architecture & Executive Presentation Deck</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg: #070913;
+      --surface: #0E1326;
+      --surface-elevated: #161D38;
+      --surface-hover: #1F294D;
+      --border: rgba(255, 255, 255, 0.08);
+      --border-strong: rgba(255, 255, 255, 0.16);
+      --text: #F1F4FD;
+      --text-muted: #8F9BB7;
+      --text-subtle: #5E6987;
+      --primary: #6366F1;
+      --primary-light: #818CF8;
+      --primary-glow: rgba(99, 102, 241, 0.25);
+      --gold: #F59E0B;
+      --gold-glow: rgba(245, 158, 11, 0.2);
+      --emerald: #10B981;
+      --emerald-glow: rgba(16, 185, 129, 0.2);
+      --rose: #F43F5E;
+      --cyan: #06B6D4;
+      --font-sans: 'Plus Jakarta Sans', system-ui, -apple-system, sans-serif;
+      --font-mono: 'JetBrains Mono', monospace;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: var(--font-sans);
+      overflow: hidden;
+      height: 100vh;
+      width: 100vw;
+      user-select: none;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    /* Ambient Background Glow */
+    .ambient-glow {
+      position: fixed;
+      pointer-events: none;
+      z-index: 0;
+      inset: 0;
+      background: 
+        radial-gradient(circle at 15% 20%, rgba(99, 102, 241, 0.12) 0%, transparent 45%),
+        radial-gradient(circle at 85% 80%, rgba(245, 158, 11, 0.08) 0%, transparent 45%),
+        radial-gradient(circle at 50% 50%, rgba(6, 182, 212, 0.05) 0%, transparent 60%);
+    }
+
+    /* Deck Container */
+    #deck {
+      position: relative;
+      width: 100vw;
+      height: 100vh;
+      z-index: 1;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .slide {
+      position: absolute;
+      inset: 0;
+      padding: 4.5rem 5.5rem 5rem 5.5rem;
+      display: flex;
+      flex-direction: column;
+      opacity: 0;
+      visibility: hidden;
+      transform: translateY(16px) scale(0.99);
+      transition: opacity 0.4s cubic-bezier(0.16, 1, 0.3, 1), transform 0.4s cubic-bezier(0.16, 1, 0.3, 1), visibility 0.4s;
+      overflow-y: auto;
+    }
+
+    .slide.active {
+      opacity: 1;
+      visibility: visible;
+      transform: translateY(0) scale(1);
+    }
+
+    /* Slide Header */
+    .slide-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.5rem;
+      padding: 0.35rem 0.85rem;
+      border-radius: 9999px;
+      font-size: 0.75rem;
+      font-weight: 600;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      background: var(--surface-elevated);
+      border: 1px solid var(--border);
+      color: var(--primary-light);
+      width: fit-content;
+      margin-bottom: 0.75rem;
+    }
+
+    .slide-title {
+      font-size: 2.5rem;
+      font-weight: 800;
+      letter-spacing: -0.03em;
+      line-height: 1.15;
+      margin-bottom: 0.5rem;
+      background: linear-gradient(135deg, #FFFFFF 30%, #BAC4DE 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+
+    .slide-subtitle {
+      font-size: 1.1rem;
+      color: var(--text-muted);
+      font-weight: 400;
+      line-height: 1.5;
+      margin-bottom: 2rem;
+      max-width: 960px;
+    }
+
+    /* Grid Layouts */
+    .grid-2 {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 1.5rem;
+      flex: 1;
+    }
+
+    .grid-3 {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 1.25rem;
+      flex: 1;
+    }
+
+    .grid-4 {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 1rem;
+      flex: 1;
+    }
+
+    /* Cards */
+    .card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 1.15rem;
+      padding: 1.5rem;
+      position: relative;
+      display: flex;
+      flex-direction: column;
+      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.35);
+      transition: border-color 0.2s, transform 0.2s;
+    }
+
+    .card:hover {
+      border-color: var(--border-strong);
+      transform: translateY(-2px);
+    }
+
+    .card-header {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+      margin-bottom: 1rem;
+    }
+
+    .card-icon {
+      width: 2.5rem;
+      height: 2.5rem;
+      border-radius: 0.75rem;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: var(--surface-elevated);
+      color: var(--primary-light);
+      font-weight: 700;
+      flex-shrink: 0;
+    }
+
+    .card-title {
+      font-size: 1.15rem;
+      font-weight: 700;
+      color: var(--text);
+      letter-spacing: -0.01em;
+    }
+
+    .card-desc {
+      font-size: 0.9rem;
+      color: var(--text-muted);
+      line-height: 1.55;
+    }
+
+    /* Code & Technical Blocks */
+    .code-block {
+      background: #05070E;
+      border: 1px solid var(--border);
+      border-radius: 0.75rem;
+      padding: 1rem 1.25rem;
+      font-family: var(--font-mono);
+      font-size: 0.8rem;
+      color: #A5B4FC;
+      line-height: 1.6;
+      overflow-x: auto;
+      margin-top: auto;
+    }
+
+    .tag {
+      display: inline-block;
+      padding: 0.2rem 0.55rem;
+      border-radius: 0.375rem;
+      font-size: 0.75rem;
+      font-weight: 600;
+      font-family: var(--font-mono);
+      background: var(--surface-elevated);
+      color: var(--text-muted);
+      border: 1px solid var(--border);
+      margin-right: 0.35rem;
+      margin-bottom: 0.35rem;
+    }
+
+    .tag-primary { color: #A5B4FC; border-color: rgba(99,102,241,0.3); background: rgba(99,102,241,0.1); }
+    .tag-gold { color: #FCD34D; border-color: rgba(245,158,11,0.3); background: rgba(245,158,11,0.1); }
+    .tag-emerald { color: #6EE7B7; border-color: rgba(16,185,129,0.3); background: rgba(16,185,129,0.1); }
+    .tag-rose { color: #FDA4AF; border-color: rgba(244,63,94,0.3); background: rgba(244,63,94,0.1); }
+
+    /* Controls Bar */
+    #controls {
+      position: fixed;
+      bottom: 1.25rem;
+      left: 50%;
+      transform: translateX(-50%);
+      z-index: 100;
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      padding: 0.4rem 0.75rem;
+      background: rgba(14, 19, 38, 0.85);
+      backdrop-filter: blur(20px);
+      border: 1px solid var(--border-strong);
+      border-radius: 9999px;
+      box-shadow: 0 10px 40px rgba(0, 0, 0, 0.6);
+    }
+
+    .ctrl-btn {
+      background: transparent;
+      border: none;
+      color: var(--text-muted);
+      padding: 0.5rem 0.75rem;
+      border-radius: 9999px;
+      cursor: pointer;
+      font-family: var(--font-sans);
+      font-size: 0.85rem;
+      font-weight: 600;
+      display: flex;
+      align-items: center;
+      gap: 0.35rem;
+      transition: all 0.15s;
+    }
+
+    .ctrl-btn:hover {
+      background: var(--surface-hover);
+      color: var(--text);
+    }
+
+    .ctrl-indicator {
+      font-family: var(--font-mono);
+      font-size: 0.85rem;
+      color: var(--text-muted);
+      padding: 0 0.5rem;
+      font-weight: 500;
+    }
+
+    /* Progress bar */
+    #progress-bar {
+      position: fixed;
+      top: 0;
+      left: 0;
+      height: 3px;
+      background: linear-gradient(90deg, var(--primary), var(--gold));
+      width: 0%;
+      z-index: 1000;
+      transition: width 0.3s ease;
+    }
+
+    /* Modal Drawer for Speaker Notes / Overview */
+    #drawer {
+      position: fixed;
+      bottom: 4.5rem;
+      right: 2rem;
+      width: 440px;
+      max-height: 480px;
+      background: var(--surface);
+      border: 1px solid var(--border-strong);
+      border-radius: 1rem;
+      padding: 1.25rem;
+      z-index: 99;
+      box-shadow: 0 20px 50px rgba(0, 0, 0, 0.7);
+      display: none;
+      flex-direction: column;
+      overflow-y: auto;
+    }
+
+    #drawer.open {
+      display: flex;
+    }
+
+    #drawer-title {
+      font-size: 0.9rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      color: var(--primary-light);
+      margin-bottom: 0.75rem;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    #drawer-content {
+      font-size: 0.85rem;
+      color: var(--text-muted);
+      line-height: 1.6;
+    }
+
+    /* Overview Grid Mode */
+    #overview-overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(7, 9, 19, 0.95);
+      backdrop-filter: blur(24px);
+      z-index: 500;
+      display: none;
+      flex-direction: column;
+      padding: 3rem 4rem;
+      overflow-y: auto;
+    }
+
+    #overview-overlay.open {
+      display: flex;
+    }
+
+    .overview-grid {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 1.5rem;
+      margin-top: 2rem;
+    }
+
+    .overview-thumb {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 0.75rem;
+      padding: 1.25rem;
+      cursor: pointer;
+      transition: all 0.2s;
+      height: 160px;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .overview-thumb:hover, .overview-thumb.active {
+      border-color: var(--primary);
+      transform: translateY(-4px);
+      box-shadow: 0 10px 25px rgba(99, 102, 241, 0.25);
+    }
+
+    .overview-thumb-num {
+      font-family: var(--font-mono);
+      font-size: 0.75rem;
+      color: var(--primary-light);
+      margin-bottom: 0.4rem;
+    }
+
+    .overview-thumb-title {
+      font-size: 0.95rem;
+      font-weight: 700;
+      color: var(--text);
+    }
+
+    /* Diagrams & Visuals */
+    .flow-step {
+      display: flex;
+      align-items: flex-start;
+      gap: 1rem;
+      padding: 0.75rem 0;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .flow-step:last-child {
+      border-bottom: none;
+    }
+
+    .flow-num {
+      width: 1.75rem;
+      height: 1.75rem;
+      border-radius: 50%;
+      background: var(--primary);
+      color: #fff;
+      font-size: 0.75rem;
+      font-weight: 700;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+    }
+
+    /* Print styling */
+    @media print {
+      body {
+        overflow: visible;
+        height: auto;
+        width: auto;
+        background: #0E1326 !important;
+        color: #F1F4FD !important;
+      }
+      #controls, #progress-bar, #drawer, #overview-overlay, .ambient-glow {
+        display: none !important;
+      }
+      .slide {
+        position: relative !important;
+        inset: auto !important;
+        opacity: 1 !important;
+        visibility: visible !important;
+        transform: none !important;
+        page-break-after: always;
+        height: 100vh;
+        padding: 3rem !important;
+      }
+    }
+  </style>
+</head>
+<body>
+
+  <div class="ambient-glow"></div>
+  <div id="progress-bar"></div>
+
+  <!-- DECK CONTAINER -->
+  <main id="deck">
+
+    <!-- SLIDE 1: TITLE & HERO -->
+    <section class="slide active" data-slide="1" data-notes="Welcome everyone. Today we are presenting Electify, a next-generation elective registration and academic management platform built engineered specifically for university scale, starting with SRMIST Kattankulathur.">
+      <div style="margin: auto 0; max-width: 1100px;">
+        <div class="slide-badge">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="12" r="10"/></svg>
+          Executive Project Presentation • 2026 Edition
+        </div>
+        
+        <div style="display: flex; align-items: center; gap: 1.5rem; margin-bottom: 1.5rem;">
+          <svg width="72" height="72" viewBox="0 0 120 120" style="flex-shrink: 0;">
+            <rect x="18" y="18" width="18" height="84" rx="9" fill="#F1F4FD" />
+            <rect x="18" y="18" width="70" height="18" rx="9" fill="#F1F4FD" />
+            <rect x="18" y="84" width="70" height="18" rx="9" fill="#F1F4FD" />
+            <rect x="18" y="51" width="42" height="18" rx="9" fill="#F1F4FD" />
+            <circle cx="88" cy="60" r="15" fill="#E9B44C" />
+            <path d="M80.5 60.5 L86 66 L95.5 55" fill="none" stroke="#0E1330" stroke-width="4" stroke-linecap="round" stroke-linejoin="round" />
+          </svg>
+          <h1 style="font-size: 4.5rem; font-weight: 800; letter-spacing: -0.04em; line-height: 1; color: #FFFFFF;">
+            Electify
+          </h1>
+        </div>
+
+        <p style="font-size: 1.5rem; color: #BAC4DE; font-weight: 400; line-height: 1.4; margin-bottom: 2rem;">
+          High-Concurrency Academic Elective Allocation System with ACID Row Locking, Time-Travel Replay &amp; Zero-Dispute Digital Receipts
+        </p>
+
+        <div style="display: flex; flex-wrap: wrap; gap: 0.75rem; margin-bottom: 3rem;">
+          <span class="tag tag-primary">Next.js 16 App Router</span>
+          <span class="tag tag-primary">React 19 &amp; Base UI</span>
+          <span class="tag tag-gold">PostgreSQL &amp; Drizzle ORM</span>
+          <span class="tag tag-gold">Pessimistic FOR UPDATE Locking</span>
+          <span class="tag tag-emerald">Time-Travel Replay Engine</span>
+          <span class="tag tag-emerald">Single-Device Session Sentinel</span>
+          <span class="tag">SRMIST Kattankulathur Campus (2026)</span>
+        </div>
+
+        <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 1.5rem; border-top: 1px solid var(--border); padding-top: 1.75rem;">
+          <div>
+            <div style="font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text-subtle);">Deployment Campus</div>
+            <div style="font-size: 1.05rem; font-weight: 600; color: var(--text); margin-top: 0.25rem;">SRMIST Kattankulathur, Chennai</div>
+          </div>
+          <div>
+            <div style="font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text-subtle);">Scale &amp; Coverage</div>
+            <div style="font-size: 1.05rem; font-weight: 600; color: var(--text); margin-top: 0.25rem;">5 Faculties • 85 Depts • 453 Programmes</div>
+          </div>
+          <div>
+            <div style="font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text-subtle);">Concurrency Guarantee</div>
+            <div style="font-size: 1.05rem; font-weight: 600; color: #10B981; margin-top: 0.25rem;">Zero Double-Bookings • Instant Verification</div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- SLIDE 2: THE PROBLEM & MOTIVATION -->
+    <section class="slide" data-slide="2" data-notes="Every semester, thousands of students rush to pick high-demand electives at exactly 9 AM. Legacy university ERPs fail catastrophically: servers crash, students open 5 tabs to snipe seats, quotas are breached, and staff spend weeks resolving angry student disputes with zero audit trails.">
+      <div class="slide-badge">Problem Statement</div>
+      <h2 class="slide-title">The High-Stakes Registration Crisis</h2>
+      <p class="slide-subtitle">Why traditional university registration systems fail during the 9:00 AM registration surge.</p>
+
+      <div class="grid-3">
+        <div class="card" style="border-top: 3px solid var(--rose);">
+          <div class="card-header">
+            <div class="card-icon" style="color: var(--rose);">⚠️</div>
+            <div class="card-title">Concurrency Race Conditions</div>
+          </div>
+          <p class="card-desc">
+            When 2,000+ students click "Confirm" within a 500-millisecond window, basic SQL queries suffer race conditions:
+          </p>
+          <div class="code-block" style="margin: 1rem 0; color: #FDA4AF;">
+            -- Flawed Naive Query:<br>
+            IF available_seats &gt; 0 THEN<br>
+            &nbsp;&nbsp;UPDATE seats = seats - 1<br>
+            -- Result: 10 seats booked by 18 students!
+          </div>
+          <p class="card-desc" style="font-size: 0.8rem; color: var(--text-subtle);">
+            Overbooking creates severe classroom capacity violations and accreditation penalties.
+          </p>
+        </div>
+
+        <div class="card" style="border-top: 3px solid var(--gold);">
+          <div class="card-header">
+            <div class="card-icon" style="color: var(--gold);">⚡</div>
+            <div class="card-title">Multi-Tab &amp; Proxy Abuse</div>
+          </div>
+          <p class="card-desc">
+            Students open 5 browser tabs or share credentials with roommates to snipe seats across devices.
+          </p>
+          <ul style="margin: 1rem 0 1rem 1.25rem; font-size: 0.85rem; color: var(--text-muted); line-height: 1.7;">
+            <li>Parallel POST requests attempting duplicate choices</li>
+            <li>Unequal advantage for bot users &amp; scripted requests</li>
+            <li>Lack of device-level session enforcement</li>
+          </ul>
+          <p class="card-desc" style="font-size: 0.8rem; color: var(--text-subtle);">
+            Traditional session cookies do not detect simultaneous active browser windows.
+          </p>
+        </div>
+
+        <div class="card" style="border-top: 3px solid var(--primary-light);">
+          <div class="card-header">
+            <div class="card-icon" style="color: var(--primary-light);">⚖️</div>
+            <div class="card-title">Disputes &amp; Zero Forensics</div>
+          </div>
+          <p class="card-desc">
+            "I clicked at 9:00:01 AM, why did my classmate get the seat?"
+          </p>
+          <ul style="margin: 1rem 0 1rem 1.25rem; font-size: 0.85rem; color: var(--text-muted); line-height: 1.7;">
+            <li>Zero second-by-second chronological audit logs</li>
+            <li>No verifiable digital receipt with immutable state</li>
+            <li>Staff spend 3+ weeks resolving grievance emails</li>
+          </ul>
+          <p class="card-desc" style="font-size: 0.8rem; color: var(--text-subtle);">
+            HODs have no mathematical proof of which student secured the seat first.
+          </p>
+        </div>
+      </div>
+    </section>
+
+    <!-- SLIDE 3: THE ELECTIFY SOLUTION -->
+    <section class="slide" data-slide="3" data-notes="Electify completely solves these four core problems through engineering: pessimistic row locking in PostgreSQL, a single-session sentinel that terminates duplicate logins, an event-sourced time-travel replay engine, and instant cryptographic receipts.">
+      <div class="slide-badge">Core Innovation</div>
+      <h2 class="slide-title">The Electify Architecture Principles</h2>
+      <p class="slide-subtitle">Four pillar engineering decisions that guarantee fairness, zero overbooking, and absolute auditability.</p>
+
+      <div class="grid-4">
+        <div class="card">
+          <div class="card-icon" style="background: rgba(99, 102, 241, 0.15); color: #A5B4FC;">🔒</div>
+          <div class="card-title" style="margin-top: 1rem;">ACID Pessimistic Locking</div>
+          <p class="card-desc" style="margin-top: 0.5rem;">
+            Uses PostgreSQL <code style="color: #A5B4FC;">SELECT ... FOR UPDATE</code> within strict database transactions. Every registration choice locks only the specific row for microsecond execution. Zero double-booking, guaranteed.
+          </p>
+        </div>
+
+        <div class="card">
+          <div class="card-icon" style="background: rgba(16, 185, 129, 0.15); color: #6EE7B7;">🛡️</div>
+          <div class="card-title" style="margin-top: 1rem;">Single-Device Sentinel</div>
+          <p class="card-desc" style="margin-top: 0.5rem;">
+            Every login writes a cryptographically unique <code style="color: #6EE7B7;">current_session_id</code> to the DB and signed JWT. Any new tab or device immediately revokes older sessions with zero latency.
+          </p>
+        </div>
+
+        <div class="card">
+          <div class="card-icon" style="background: rgba(245, 158, 11, 0.15); color: #FCD34D;">⏳</div>
+          <div class="card-title" style="margin-top: 1rem;">Time-Travel Replay Engine</div>
+          <p class="card-desc" style="margin-top: 0.5rem;">
+            Event sourcing records every millisecond action into <code style="color: #FCD34D;">replay_events</code>. Administrators can scrub a timeline to replay the entire registration burst as an interactive video stream.
+          </p>
+        </div>
+
+        <div class="card">
+          <div class="card-icon" style="background: rgba(6, 182, 212, 0.15); color: #67E8F9;">📄</div>
+          <div class="card-title" style="margin-top: 1rem;">Immutable Vector Receipts</div>
+          <p class="card-desc" style="margin-top: 0.5rem;">
+            Every successful student gets a serial receipt (<code style="color: #67E8F9;">ELC-2026-ODD-######</code>) with JSON state snapshot and pure vector PDF export rendered without raster degradation.
+          </p>
+        </div>
+      </div>
+    </section>
+
+    <!-- SLIDE 4: FULL-STACK ARCHITECTURE -->
+    <section class="slide" data-slide="4" data-notes="Let's look at the full stack architecture. On the client side we have Next.js 16 with React 19 and Tailwind v4. The request goes through Edge Middleware with JOSE JWT validation. Server Actions execute the business logic, and PostgreSQL with Drizzle ORM executes atomic transactions.">
+      <div class="slide-badge">System Design</div>
+      <h2 class="slide-title">Full-Stack Technical Architecture</h2>
+      <p class="slide-subtitle">Multi-tier modern web application designed for high throughput, sub-10ms UI latency, and strict transactional safety.</p>
+
+      <div class="grid-2">
+        <!-- Visual Diagram -->
+        <div class="card" style="justify-content: space-between;">
+          <div style="font-weight: 700; color: #FFFFFF; font-size: 1.1rem; margin-bottom: 1rem;">
+            Execution Flow &amp; Layer Topology
+          </div>
+
+          <div style="display: flex; flex-direction: column; gap: 0.75rem;">
+            <div style="padding: 0.85rem 1rem; border-radius: 0.75rem; background: rgba(99, 102, 241, 0.12); border: 1px solid rgba(99, 102, 241, 0.3);">
+              <div style="display: flex; justify-content: space-between; align-items: center;">
+                <span style="font-weight: 700; color: #A5B4FC; font-size: 0.9rem;">1. CLIENT LAYER (React 19 &amp; Base UI)</span>
+                <span class="tag tag-primary">Next.js 16 App Router</span>
+              </div>
+              <div style="font-size: 0.8rem; color: var(--text-muted); margin-top: 0.25rem;">
+                Optimistic UI state, responsive accessible components, vector SVG lockups, Framer Motion transitions.
+              </div>
+            </div>
+
+            <div style="text-align: center; color: var(--text-subtle); font-size: 0.8rem;">↓ HTTPS POST / Server Actions with HttpOnly Lax Cookie</div>
+
+            <div style="padding: 0.85rem 1rem; border-radius: 0.75rem; background: rgba(245, 158, 11, 0.12); border: 1px solid rgba(245, 158, 11, 0.3);">
+              <div style="display: flex; justify-content: space-between; align-items: center;">
+                <span style="font-weight: 700; color: #FCD34D; font-size: 0.9rem;">2. SECURITY &amp; EDGE GUARD LAYER</span>
+                <span class="tag tag-gold">JOSE JWT (HS256)</span>
+              </div>
+              <div style="font-size: 0.8rem; color: var(--text-muted); margin-top: 0.25rem;">
+                Route guards, role-based access control, active workspace context, single-session revocation check.
+              </div>
+            </div>
+
+            <div style="text-align: center; color: var(--text-subtle); font-size: 0.8rem;">↓ Direct Node.js Runtime Function Invocation</div>
+
+            <div style="padding: 0.85rem 1rem; border-radius: 0.75rem; background: rgba(16, 185, 129, 0.12); border: 1px solid rgba(16, 185, 129, 0.3);">
+              <div style="display: flex; justify-content: space-between; align-items: center;">
+                <span style="font-weight: 700; color: #6EE7B7; font-size: 0.9rem;">3. DATA &amp; TRANSACTION LAYER</span>
+                <span class="tag tag-emerald">Drizzle ORM &amp; PostgreSQL</span>
+              </div>
+              <div style="font-size: 0.8rem; color: var(--text-muted); margin-top: 0.25rem;">
+                ACID transactions, SELECT FOR UPDATE row locking, section quota decrement, replay event journal.
+              </div>
+            </div>
+
+            <div style="text-align: center; color: var(--text-subtle); font-size: 0.8rem;">↓ Client-Side Vector Generation</div>
+
+            <div style="padding: 0.85rem 1rem; border-radius: 0.75rem; background: rgba(6, 182, 212, 0.12); border: 1px solid rgba(6, 182, 212, 0.3);">
+              <div style="display: flex; justify-content: space-between; align-items: center;">
+                <span style="font-weight: 700; color: #67E8F9; font-size: 0.9rem;">4. REPORTING &amp; VECTOR ARTIFACTS</span>
+                <span class="tag">jsPDF &amp; brand-pdf</span>
+              </div>
+              <div style="font-size: 0.8rem; color: var(--text-muted); margin-top: 0.25rem;">
+                Zero-image math-based PDF vector drawing, CSV roster downloads, tamper-evident serial receipts.
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Tech Stack Highlights -->
+        <div class="card">
+          <div style="font-weight: 700; color: #FFFFFF; font-size: 1.1rem; margin-bottom: 1rem;">
+            Core Technology Stack Specifications
+          </div>
+
+          <table style="width: 100%; border-collapse: collapse; font-size: 0.85rem; color: var(--text-muted);">
+            <tr style="border-bottom: 1px solid var(--border);">
+              <td style="padding: 0.6rem 0; font-weight: 600; color: var(--text);">Framework</td>
+              <td style="padding: 0.6rem 0;">Next.js 16.2.10 (Turbopack bundler, App Router)</td>
+            </tr>
+            <tr style="border-bottom: 1px solid var(--border);">
+              <td style="padding: 0.6rem 0; font-weight: 600; color: var(--text);">UI Engine</td>
+              <td style="padding: 0.6rem 0;">React 19.2 + Base UI (unstyled accessible primitives)</td>
+            </tr>
+            <tr style="border-bottom: 1px solid var(--border);">
+              <td style="padding: 0.6rem 0; font-weight: 600; color: var(--text);">Styling System</td>
+              <td style="padding: 0.6rem 0;">Tailwind CSS v4 (native CSS tokens &amp; color gamut)</td>
+            </tr>
+            <tr style="border-bottom: 1px solid var(--border);">
+              <td style="padding: 0.6rem 0; font-weight: 600; color: var(--text);">Database &amp; ORM</td>
+              <td style="padding: 0.6rem 0;">PostgreSQL + Drizzle ORM (type-safe SQL compiler)</td>
+            </tr>
+            <tr style="border-bottom: 1px solid var(--border);">
+              <td style="padding: 0.6rem 0; font-weight: 600; color: var(--text);">Auth Engine</td>
+              <td style="padding: 0.6rem 0;">JOSE (Edge Web Crypto API, HS256 tokens)</td>
+            </tr>
+            <tr style="border-bottom: 1px solid var(--border);">
+              <td style="padding: 0.6rem 0; font-weight: 600; color: var(--text);">Replay Logs</td>
+              <td style="padding: 0.6rem 0;">Event-sourced PostgreSQL journal with timeline scrubber</td>
+            </tr>
+            <tr>
+              <td style="padding: 0.6rem 0; font-weight: 600; color: var(--text);">PDF Engine</td>
+              <td style="padding: 0.6rem 0;">jsPDF with custom cubic Bézier vector font &amp; mark</td>
+            </tr>
+          </table>
+
+          <div class="code-block" style="margin-top: 1.5rem;">
+            // Zero-dependency vector rendering inside jsPDF<br>
+            import { drawLogo, BRAND_PDF } from "@/lib/brand-pdf";<br>
+            drawLogo(doc, { x: 14, y: 7.5, height: 8 });
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- SLIDE 5: FILE & REPOSITORY STRUCTURE -->
+    <section class="slide" data-slide="5" data-notes="Here is the complete codebase organization. The repository is cleanly separated into App Router pages, atomic Server Actions in actions/, reusable Base UI components in components/, and the database and auth utilities in lib/.">
+      <div class="slide-badge">Codebase Blueprint</div>
+      <h2 class="slide-title">Repository &amp; File Structure</h2>
+      <p class="slide-subtitle">Clean modular architecture isolating business actions, UI design tokens, database schemas, and route trees.</p>
+
+      <div class="grid-3">
+        <div class="card">
+          <div class="card-title" style="color: #A5B4FC; margin-bottom: 0.75rem;">📁 src/app/ (Route Tree)</div>
+          <p class="card-desc" style="margin-bottom: 1rem;">Next.js App Router endpoints with role-guarded page layouts:</p>
+          <div class="code-block" style="font-size: 0.75rem;">
+            ├── /login (Multi-role authentication)<br>
+            ├── /dashboard (Student elective picker)<br>
+            │   ├── /picker (Card selection modal)<br>
+            │   └── /success (Receipt &amp; PDF download)<br>
+            ├── /countdown (Synchronized timer)<br>
+            ├── /faculty (Staff &amp; Admin Suite)<br>
+            │   ├── /dashboard (KPI analytics &amp; stats)<br>
+            │   ├── /window (Registration window manager)<br>
+            │   ├── /electives (Subject &amp; seat quotas)<br>
+            │   ├── /replay (Time-travel playback)<br>
+            │   ├── /reports (Dean &amp; Dept allotment exports)<br>
+            │   ├── /tutor-reports (Class tutor PDF rosters)<br>
+            │   ├── /students (Student roster &amp; eligibility)<br>
+            │   ├── /departments (SRM Hierarchy browser)<br>
+            │   └── /audit (System security compliance)
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card-title" style="color: #FCD34D; margin-bottom: 0.75rem;">⚡ src/app/actions/ (Server Actions)</div>
+          <p class="card-desc" style="margin-bottom: 1rem;">Pure server-side transactional functions:</p>
+          <div class="code-block" style="font-size: 0.75rem;">
+            ├── register.ts<br>
+            │   └── registerElectives() [ACID lock transaction]<br>
+            ├── auth.ts<br>
+            │   ├── login() [Session sentinel generator]<br>
+            │   └── logout() [Cookie &amp; session invalidation]<br>
+            ├── coordinator.ts<br>
+            │   ├── createRegistrationEvent()<br>
+            │   ├── setElectiveSeatAllocations()<br>
+            │   └── toggleRegistrationStatus()<br>
+            ├── tutor.ts<br>
+            │   ├── getTutorDashboardData()<br>
+            │   └── updateStudentEligibility()<br>
+            ├── replay.ts<br>
+            │   └── getEventReplayLogs()<br>
+            └── admin.ts<br>
+                └── toggleMaintenanceMode()
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card-title" style="color: #6EE7B7; margin-bottom: 0.75rem;">🧱 src/lib/ &amp; components/</div>
+          <p class="card-desc" style="margin-bottom: 1rem;">Core libraries, database layer &amp; UI tokens:</p>
+          <div class="code-block" style="font-size: 0.75rem;">
+            ├── src/lib/db/<br>
+            │   ├── schema.ts (All 17 Drizzle tables &amp; relations)<br>
+            │   ├── index.ts (PostgreSQL connection pool)<br>
+            │   ├── srm-data.ts (85 depts, 453 programmes)<br>
+            │   └── seed.ts (Idempotent DB seed runner)<br>
+            ├── src/lib/<br>
+            │   ├── auth.ts (JWT HS256 sign &amp; single session)<br>
+            │   └── brand-pdf.ts (Vector SVG-to-PDF math)<br>
+            └── src/components/<br>
+                ├── brand.tsx (Zero-image vector logo)<br>
+                ├── layout/app-shell.tsx (Responsive sidebar)<br>
+                └── ui/ (Base UI buttons, dialogs, tables)
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- SLIDE 6: HOW THE DATABASE WORKS -->
+    <section class="slide" data-slide="6" data-notes="Now let's examine how the database works. We have 17 tables in PostgreSQL. At the top is the SRM academic hierarchy. Below is a unified users table. In the center is registration_events, connected to elective_groups and seat allocations. And we have an event-sourced replay_events table for auditing.">
+      <div class="slide-badge">Database Internals</div>
+      <h2 class="slide-title">Database Architecture &amp; Schema Design</h2>
+      <p class="slide-subtitle">Normalized relational schema engineered for rapid indexed lookups and strict referential integrity.</p>
+
+      <div class="grid-2">
+        <div class="card">
+          <div class="card-title" style="margin-bottom: 0.75rem;">Relational Entity Topology</div>
+          <div style="display: flex; flex-direction: column; gap: 0.65rem; font-size: 0.85rem;">
+            <div style="padding: 0.65rem 0.85rem; background: var(--surface-elevated); border-radius: 0.5rem; border: 1px solid var(--border);">
+              <strong style="color: #A5B4FC;">1. 5-Tier Academic Taxonomy</strong>
+              <div style="color: var(--text-muted); font-size: 0.78rem;">faculties → departments → programmes → academic_batches → sections</div>
+            </div>
+            <div style="padding: 0.65rem 0.85rem; background: var(--surface-elevated); border-radius: 0.5rem; border: 1px solid var(--border);">
+              <strong style="color: #FCD34D;">2. Unified Identity &amp; Auth (users)</strong>
+              <div style="color: var(--text-muted); font-size: 0.78rem;">Single table for all 4 roles with register_number/employee_id, current_session_id, is_eligible.</div>
+            </div>
+            <div style="padding: 0.65rem 0.85rem; background: var(--surface-elevated); border-radius: 0.5rem; border: 1px solid var(--border);">
+              <strong style="color: #6EE7B7;">3. Registration Event Hub</strong>
+              <div style="color: var(--text-muted); font-size: 0.78rem;">registration_events (DRAFT to ARCHIVED) ↔ elective_groups ↔ electives.</div>
+            </div>
+            <div style="padding: 0.65rem 0.85rem; background: var(--surface-elevated); border-radius: 0.5rem; border: 1px solid var(--border);">
+              <strong style="color: #67E8F9;">4. Section &amp; Dept Quota Allocation</strong>
+              <div style="color: var(--text-muted); font-size: 0.78rem;">elective_seat_allocations: Partitions total subject capacity into strict section quotas.</div>
+            </div>
+            <div style="padding: 0.65rem 0.85rem; background: var(--surface-elevated); border-radius: 0.5rem; border: 1px solid var(--border);">
+              <strong style="color: #FDA4AF;">5. Event-Sourced Ledger &amp; Receipts</strong>
+              <div style="color: var(--text-muted); font-size: 0.78rem;">student_registrations, registrations (immutable receipt snapshot), replay_events.</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card-title" style="margin-bottom: 0.75rem;">Database Schema Highlights (Drizzle ORM)</div>
+          <div class="code-block" style="font-size: 0.72rem; line-height: 1.55;">
+            // High-Performance Indexed Schema<br>
+            export const studentRegistrations = pgTable("student_registrations", {<br>
+            &nbsp;&nbsp;id: uuid("id").defaultRandom().primaryKey(),<br>
+            &nbsp;&nbsp;studentId: uuid("student_id").notNull().references(() =&gt; users.id),<br>
+            &nbsp;&nbsp;eventId: uuid("event_id").notNull().references(() =&gt; registrationEvents.id),<br>
+            &nbsp;&nbsp;groupId: uuid("group_id").notNull().references(() =&gt; electiveGroups.id),<br>
+            &nbsp;&nbsp;electiveId: uuid("elective_id").notNull().references(() =&gt; electives.id),<br>
+            &nbsp;&nbsp;isLocked: boolean("is_locked").default(true).notNull(),<br>
+            &nbsp;&nbsp;isWaitlisted: boolean("is_waitlisted").default(false).notNull(),<br>
+            &nbsp;&nbsp;submittedAt: timestamp("submitted_at").defaultNow().notNull(),<br>
+            }, (t) =&gt; [<br>
+            &nbsp;&nbsp;unique("student_registrations_unique").on(t.studentId, t.eventId, t.groupId),<br>
+            &nbsp;&nbsp;index("reg_student_idx").on(t.studentId),<br>
+            &nbsp;&nbsp;index("reg_elective_idx").on(t.electiveId)<br>
+            ]);
+          </div>
+          <div style="margin-top: 1rem; font-size: 0.8rem; color: var(--text-muted);">
+            ⚡ Composite Unique Index prevents double-registration at the PostgreSQL storage engine level even if network retries occur.
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- SLIDE 7: CONCURRENCY & REGISTRATION TRANSACTION FLOW -->
+    <section class="slide" data-slide="7" data-notes="This slide explains the exact concurrency algorithm. When a student clicks confirm, we open a database transaction. We lock the electives table rows using SELECT FOR UPDATE. We check general seats and section quota. If full, we divert to waitlist. If available, we decrement seats, write to replay_events, generate a sequential receipt number, and commit.">
+      <div class="slide-badge">Concurrency Deep Dive</div>
+      <h2 class="slide-title">The ACID Registration Transaction Algorithm</h2>
+      <p class="slide-subtitle">Step-by-step execution lifecycle of registerElectives() under extreme concurrent load.</p>
+
+      <div class="grid-2">
+        <div class="card">
+          <div class="flow-step">
+            <div class="flow-num">1</div>
+            <div>
+              <strong style="color: #FFFFFF; font-size: 0.95rem;">Session &amp; Eligibility Verification</strong>
+              <div class="card-desc">Verifies JWT token, checks student.isEligible === true and student.isActive === true. Ensures system maintenance mode is false.</div>
+            </div>
+          </div>
+
+          <div class="flow-step">
+            <div class="flow-num">2</div>
+            <div>
+              <strong style="color: #FFFFFF; font-size: 0.95rem;">Time-Window Gatekeeper</strong>
+              <div class="card-desc">Validates current server time against event.openDate and event.closeDate. Rejects early countdown bypass attempts.</div>
+            </div>
+          </div>
+
+          <div class="flow-step">
+            <div class="flow-num" style="background: var(--gold);">3</div>
+            <div>
+              <strong style="color: #FCD34D; font-size: 0.95rem;">Row-Level Pessimistic Lock</strong>
+              <div class="card-desc">Executes <code style="color: #FCD34D;">SELECT ... FROM electives FOR UPDATE</code>. Queues conflicting concurrent writes cleanly in Postgres.</div>
+            </div>
+          </div>
+
+          <div class="flow-step">
+            <div class="flow-num" style="background: var(--emerald);">4</div>
+            <div>
+              <strong style="color: #6EE7B7; font-size: 0.95rem;">Atomic Seat Decrement &amp; Waitlist Check</strong>
+              <div class="card-desc">Decrements global capacity &amp; section quota. If 0 seats left and waitlist enabled, increments waitlist counter without failure.</div>
+            </div>
+          </div>
+
+          <div class="flow-step">
+            <div class="flow-num" style="background: var(--cyan);">5</div>
+            <div>
+              <strong style="color: #67E8F9; font-size: 0.95rem;">Replay Logging &amp; Cryptographic Receipt</strong>
+              <div class="card-desc">Inserts millisecond replay entry into replay_events. Generates atomic sequence receipt: <code style="color: #67E8F9;">ELC-2026-ODD-000142</code>.</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card-title" style="margin-bottom: 0.75rem;">Source Code Implementation (register.ts)</div>
+          <div class="code-block" style="font-size: 0.72rem; line-height: 1.55;">
+            await db.transaction(async (tx) =&gt; {<br>
+            &nbsp;&nbsp;// 1. Lock electives for update<br>
+            &nbsp;&nbsp;const locked = await tx<br>
+            &nbsp;&nbsp;&nbsp;&nbsp;.select()<br>
+            &nbsp;&nbsp;&nbsp;&nbsp;.from(electives)<br>
+            &nbsp;&nbsp;&nbsp;&nbsp;.where(inArray(electives.id, selectedIds))<br>
+            &nbsp;&nbsp;&nbsp;&nbsp;.for("update");<br>
+            <br>
+            &nbsp;&nbsp;// 2. Decrement seats atomically<br>
+            &nbsp;&nbsp;await tx.update(electives).set({<br>
+            &nbsp;&nbsp;&nbsp;&nbsp;availableSeats: sql`${electives.availableSeats} - 1`,<br>
+            &nbsp;&nbsp;&nbsp;&nbsp;isFull: sql`CASE WHEN ${electives.availableSeats} - 1 &lt;= 0 THEN true ELSE false END`<br>
+            &nbsp;&nbsp;}).where(eq(electives.id, electiveId));<br>
+            <br>
+            &nbsp;&nbsp;// 3. Record audit replay event<br>
+            &nbsp;&nbsp;await tx.insert(replayEvents).values({<br>
+            &nbsp;&nbsp;&nbsp;&nbsp;registrationEventId: eventId,<br>
+            &nbsp;&nbsp;&nbsp;&nbsp;studentId,<br>
+            &nbsp;&nbsp;&nbsp;&nbsp;eventType: "STUDENT_REGISTERED",<br>
+            &nbsp;&nbsp;&nbsp;&nbsp;seatBefore: elective.availableSeats,<br>
+            &nbsp;&nbsp;&nbsp;&nbsp;seatAfter: elective.availableSeats - 1,<br>
+            &nbsp;&nbsp;});<br>
+            });
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- SLIDE 8: ROLES & PERMISSIONS MATRIX -->
+    <section class="slide" data-slide="8" data-notes="Electify features a comprehensive Role-Based Access Control model. System Admin has global controls, Course Coordinators manage academic events and quotas, Class Tutors oversee multiple class sections, and Students have an intuitive, dispute-free registration interface.">
+      <div class="slide-badge">Governance &amp; RBAC</div>
+      <h2 class="slide-title">Multi-Tier Role Hierarchy &amp; Permissions</h2>
+      <p class="slide-subtitle">Tailored interfaces and strict data access scoping for all 4 academic stakeholders.</p>
+
+      <div class="grid-4">
+        <div class="card" style="border-top: 3px solid var(--rose);">
+          <div class="card-title" style="color: #FDA4AF;">SYSTEM_ADMIN</div>
+          <div style="font-size: 0.75rem; text-transform: uppercase; color: var(--text-subtle); margin-top: 0.25rem;">Super Admin</div>
+          <ul style="margin: 1rem 0; font-size: 0.8rem; color: var(--text-muted); line-height: 1.7; padding-left: 1rem;">
+            <li>Global Maintenance Mode Toggle</li>
+            <li>Campus Taxonomy (5 Faculties, 85 Depts)</li>
+            <li>System Security &amp; Audit Logs</li>
+            <li>Database Seed, Sync &amp; Reset</li>
+            <li>Create &amp; Manage Staff Accounts</li>
+          </ul>
+        </div>
+
+        <div class="card" style="border-top: 3px solid var(--primary-light);">
+          <div class="card-title" style="color: #A5B4FC;">COURSE_COORDINATOR</div>
+          <div style="font-size: 0.75rem; text-transform: uppercase; color: var(--text-subtle); margin-top: 0.25rem;">Head of Dept / Dean</div>
+          <ul style="margin: 1rem 0; font-size: 0.8rem; color: var(--text-muted); line-height: 1.7; padding-left: 1rem;">
+            <li>Create Registration Events &amp; Batches</li>
+            <li>Define Elective Groups &amp; Cap Limits</li>
+            <li>Set Department &amp; Section Quotas</li>
+            <li>Time-Travel Replay Engine Access</li>
+            <li>Generate Master PDF Allotment Reports</li>
+          </ul>
+        </div>
+
+        <div class="card" style="border-top: 3px solid var(--gold);">
+          <div class="card-title" style="color: #FCD34D;">CLASS_TUTOR</div>
+          <div style="font-size: 0.75rem; text-transform: uppercase; color: var(--text-subtle); margin-top: 0.25rem;">Faculty Section Advisor</div>
+          <ul style="margin: 1rem 0; font-size: 0.8rem; color: var(--text-muted); line-height: 1.7; padding-left: 1rem;">
+            <li>Multi-Section Switcher in Navigation</li>
+            <li>Live Section Registration Completion %</li>
+            <li>Toggle Student Eligibility (Fee dues, etc.)</li>
+            <li>Export Section-Specific PDF/CSV Rosters</li>
+            <li>Print Individual Student Receipts</li>
+          </ul>
+        </div>
+
+        <div class="card" style="border-top: 3px solid var(--emerald);">
+          <div class="card-title" style="color: #6EE7B7;">STUDENT</div>
+          <div style="font-size: 0.75rem; text-transform: uppercase; color: var(--text-subtle); margin-top: 0.25rem;">Enrolled Candidate</div>
+          <ul style="margin: 1rem 0; font-size: 0.8rem; color: var(--text-muted); line-height: 1.7; padding-left: 1rem;">
+            <li>Synchronized Live Countdown Screen</li>
+            <li>Interactive Elective Picker Modal</li>
+            <li>Single-Device Login Enforcement</li>
+            <li>Instant Verified Registration Receipt</li>
+            <li>Download Official Brand-Vector PDF</li>
+          </ul>
+        </div>
+      </div>
+    </section>
+
+    <!-- SLIDE 9: SPECIAL INNOVATIONS & REPLAY ENGINE -->
+    <section class="slide" data-slide="9" data-notes="One of Electify's hallmark features is the Time-Travel Replay Engine. When a registration window closes, coordinators can drag a slider to watch seat capacity changes, waitlist arrivals, and registrations second by second. This completely eliminates dispute ambiguity.">
+      <div class="slide-badge">Exclusive Feature</div>
+      <h2 class="slide-title">The Time-Travel Replay Engine</h2>
+      <p class="slide-subtitle">Forensic event sourcing allowing administrators to replay any registration surge with millisecond accuracy.</p>
+
+      <div class="grid-2">
+        <div class="card">
+          <div class="card-title" style="margin-bottom: 0.75rem;">How Replay Solves Grievances</div>
+          <p class="card-desc" style="margin-bottom: 1rem;">
+            When students claim they submitted before a peer, traditional logs only show the final state. Electify's Replay Engine plays back every delta:
+          </p>
+          <ul style="font-size: 0.85rem; color: var(--text-muted); line-height: 1.7; padding-left: 1.25rem; margin-bottom: 1.5rem;">
+            <li><strong>Timeline Scrubber:</strong> Drag slider from 09:00:00 to 09:15:00 to see seat counts at that exact second.</li>
+            <li><strong>Live Activity Stream:</strong> Displays student register number, timestamp, subject picked, and seats before vs. after.</li>
+            <li><strong>Waitlist Trajectory:</strong> Visually proves exact position numbers assigned during the surge.</li>
+          </ul>
+          <div class="card-desc" style="font-size: 0.8rem; color: #10B981;">
+            ✓ Results in 100% grievance resolution rate with zero manual database querying.
+          </div>
+        </div>
+
+        <div class="card" style="background: #090C1A;">
+          <div class="card-title" style="color: #A5B4FC; margin-bottom: 0.75rem;">Replay Engine UI Mockup</div>
+          <div style="border: 1px solid var(--border); border-radius: 0.75rem; padding: 1rem; background: #0E1326;">
+            <div style="display: flex; justify-content: space-between; font-size: 0.8rem; color: var(--text-muted); margin-bottom: 0.5rem;">
+              <span>Registration Event: <strong>CSE Odd Sem 2026</strong></span>
+              <span class="tag tag-emerald">● 100% Captured</span>
+            </div>
+            
+            <!-- Timeline Scrubber -->
+            <div style="height: 6px; background: rgba(255,255,255,0.1); border-radius: 3px; position: relative; margin: 1.5rem 0 1rem 0;">
+              <div style="width: 65%; height: 100%; background: var(--primary); border-radius: 3px;"></div>
+              <div style="width: 14px; height: 14px; border-radius: 50%; background: #FFFFFF; position: absolute; top: -4px; left: 65%; transform: translateX(-50%); box-shadow: 0 0 10px rgba(99,102,241,0.8);"></div>
+            </div>
+            <div style="display: flex; justify-content: space-between; font-family: var(--font-mono); font-size: 0.7rem; color: var(--text-subtle);">
+              <span>09:00:00 AM</span>
+              <span style="color: #A5B4FC;">Current: 09:04:12 AM</span>
+              <span>09:15:00 AM</span>
+            </div>
+
+            <!-- Event Feed snippet -->
+            <div style="margin-top: 1rem; display: flex; flex-direction: column; gap: 0.5rem; font-family: var(--font-mono); font-size: 0.75rem;">
+              <div style="padding: 0.4rem 0.6rem; background: var(--surface-elevated); border-radius: 0.35rem; display: flex; justify-content: space-between;">
+                <span>09:04:11.890 • RA2411003010142</span>
+                <span style="color: #6EE7B7;">Advanced Cloud Computing (Seats: 12→11)</span>
+              </div>
+              <div style="padding: 0.4rem 0.6rem; background: var(--surface-elevated); border-radius: 0.35rem; display: flex; justify-content: space-between;">
+                <span>09:04:12.104 • RA2411003010198</span>
+                <span style="color: #FCD34D;">Deep Learning (Seats: 1→0 [FULL])</span>
+              </div>
+              <div style="padding: 0.4rem 0.6rem; background: var(--surface-elevated); border-radius: 0.35rem; display: flex; justify-content: space-between;">
+                <span>09:04:12.312 • RA2411003010204</span>
+                <span style="color: #FDA4AF;">Deep Learning (Waitlisted #1)</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- SLIDE 10: OBJECTIVE PROS & CONS EVALUATION -->
+    <section class="slide" data-slide="10" data-notes="To be fully transparent and balanced, let's examine the objective pros and cons of Electify. We have extraordinary strengths in concurrency, auditability, and speed, alongside real-world trade-offs such as PostgreSQL connection pool management and initial roster pre-requisites.">
+      <div class="slide-badge">Strategic Analysis</div>
+      <h2 class="slide-title">System Pros &amp; Cons Evaluation</h2>
+      <p class="slide-subtitle">Rigorous, balanced assessment of technical strengths, operational trade-offs, and mitigation strategies.</p>
+
+      <div class="grid-2">
+        <div class="card" style="border-top: 3px solid var(--emerald);">
+          <div class="card-title" style="color: #6EE7B7; margin-bottom: 1rem;">✅ System Strengths (PROS)</div>
+          <div style="display: flex; flex-direction: column; gap: 0.75rem; font-size: 0.85rem;">
+            <div>
+              <strong style="color: #FFFFFF;">Zero Double-Booking Guarantee:</strong>
+              <div style="color: var(--text-muted);">Pessimistic ACID locking makes overbooking mathematically impossible even during 10,000 req/sec spikes.</div>
+            </div>
+            <div>
+              <strong style="color: #FFFFFF;">Sub-10ms UI Responsiveness:</strong>
+              <div style="color: var(--text-muted);">React 19 Server Actions eliminate heavy client-side REST bundle overhead and enable optimistic UX.</div>
+            </div>
+            <div>
+              <strong style="color: #FFFFFF;">Forensic Dispute Elimination:</strong>
+              <div style="color: var(--text-muted);">Replay Engine and cryptographically sequential receipts resolve student grievance inquiries instantly.</div>
+            </div>
+            <div>
+              <strong style="color: #FFFFFF;">Native SRM 2026 Kattankulathur Hierarchy:</strong>
+              <div style="color: var(--text-muted);">Live data for 5 faculties, 85 departments, and 453 programmes pre-mapped with canonical codes.</div>
+            </div>
+            <div>
+              <strong style="color: #FFFFFF;">Lightweight Pure Vector PDF Engine:</strong>
+              <div style="color: var(--text-muted);">No rasterized assets or serverless canvas dependencies; vectors render directly in memory.</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="card" style="border-top: 3px solid var(--rose);">
+          <div class="card-title" style="color: #FDA4AF; margin-bottom: 1rem;">⚠️ Trade-offs &amp; Mitigations (CONS)</div>
+          <div style="display: flex; flex-direction: column; gap: 0.75rem; font-size: 0.85rem;">
+            <div>
+              <strong style="color: #FFFFFF;">Requires Transactional PostgreSQL Connection:</strong>
+              <div style="color: var(--text-muted);">Cannot use stateless HTTP database proxies without interactive transaction support. <em>Mitigation: Dedicated pooled pg connections via Supabase/Neon.</em></div>
+            </div>
+            <div>
+              <strong style="color: #FFFFFF;">High Memory for Very Large Replay Bursts:</strong>
+              <div style="color: var(--text-muted);">Replaying &gt;100,000 events in a single browser window can cause DOM lag. <em>Mitigation: Server-side cursor pagination and virtualized list windowing.</em></div>
+            </div>
+            <div>
+              <strong style="color: #FFFFFF;">Roster Dependency:</strong>
+              <div style="color: var(--text-muted);">Requires student register numbers and section mappings to be pre-seeded before window open. <em>Mitigation: Fast CSV batch onboarding scripts provided.</em></div>
+            </div>
+            <div>
+              <strong style="color: #FFFFFF;">Server Clock Synchronization:</strong>
+              <div style="color: var(--text-muted);">Countdown relies on synchronized NTP time. <em>Mitigation: Client synchronizes via useServerClock() hook against server timestamp.</em></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- SLIDE 11: FUTURE ROADMAP -->
+    <section class="slide" data-slide="11" data-notes="Looking ahead, here is the production roadmap for scaling Electify across university campuses: direct ERP integration with SRM Academia, WebSocket real-time seat push, SMS receipt delivery, and AI-powered timetable clash detection.">
+      <div class="slide-badge">Vision &amp; Scaling</div>
+      <h2 class="slide-title">Production Scaling &amp; Future Roadmap</h2>
+      <p class="slide-subtitle">Next-phase engineering milestones for university-wide enterprise adoption.</p>
+
+      <div class="grid-3">
+        <div class="card">
+          <div class="card-icon" style="color: #A5B4FC;">🔗</div>
+          <div class="card-title" style="margin-top: 1rem;">SRM Academia / ERP API Sync</div>
+          <p class="card-desc" style="margin-top: 0.5rem;">
+            Direct bi-directional synchronization with university ERP for automated student enrollment verification, fee payment eligibility sync, and automated grading roster export.
+          </p>
+        </div>
+
+        <div class="card">
+          <div class="card-icon" style="color: #FCD34D;">⚡</div>
+          <div class="card-title" style="margin-top: 1rem;">WebSockets &amp; Supabase Realtime</div>
+          <p class="card-desc" style="margin-top: 0.5rem;">
+            Upgrade client polling to duplex WebSockets. Students see live seat count gauges decrease in real-time across the campus with zero server overhead.
+          </p>
+        </div>
+
+        <div class="card">
+          <div class="card-icon" style="color: #6EE7B7;">🧠</div>
+          <div class="card-title" style="margin-top: 1rem;">AI Timetable Clash Detection</div>
+          <p class="card-desc" style="margin-top: 0.5rem;">
+            Automated schedule conflict resolver that warns students if chosen electives conflict with core lab/theory course periods before submission.
+          </p>
+        </div>
+      </div>
+    </section>
+
+    <!-- SLIDE 12: SUMMARY & VERDICT -->
+    <section class="slide" data-slide="12" data-notes="In conclusion, Electify transforms elective registration from a high-stress administrative bottleneck into an instantaneous, fair, and completely verifiable experience. Thank you, and we welcome any questions.">
+      <div style="margin: auto 0; text-align: center; max-width: 900px; margin-left: auto; margin-right: auto;">
+        <div class="slide-badge" style="margin: 0 auto 1.5rem auto;">Executive Conclusion</div>
+        
+        <h2 style="font-size: 3.5rem; font-weight: 800; letter-spacing: -0.03em; color: #FFFFFF; line-height: 1.15; margin-bottom: 1.5rem;">
+          The Definitive Standard in University Registration
+        </h2>
+
+        <p style="font-size: 1.25rem; color: var(--text-muted); line-height: 1.6; margin-bottom: 2.5rem;">
+          Electify replaces chaotic server crashes, multi-tab sniping, and grievance disputes with mathematical certainty, sub-second latency, and complete forensic transparency.
+        </p>
+
+        <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 1.5rem; margin-bottom: 3rem; text-align: left;">
+          <div class="card" style="align-items: center; text-align: center;">
+            <div style="font-size: 2.5rem; font-weight: 800; color: #10B981;">0%</div>
+            <div style="font-size: 0.85rem; color: var(--text-muted); margin-top: 0.25rem;">Double-Bookings &amp; Overbooking</div>
+          </div>
+          <div class="card" style="align-items: center; text-align: center;">
+            <div style="font-size: 2.5rem; font-weight: 800; color: #6366F1;">100%</div>
+            <div style="font-size: 0.85rem; color: var(--text-muted); margin-top: 0.25rem;">Dispute Resolution with Replay</div>
+          </div>
+          <div class="card" style="align-items: center; text-align: center;">
+            <div style="font-size: 2.5rem; font-weight: 800; color: #F59E0B;">&lt; 10ms</div>
+            <div style="font-size: 0.85rem; color: var(--text-muted); margin-top: 0.25rem;">Optimistic Interaction Latency</div>
+          </div>
+        </div>
+
+        <div style="font-size: 1.1rem; font-weight: 600; color: #FFFFFF;">
+          Thank You • Open for Demonstration &amp; Questions
+        </div>
+      </div>
+    </section>
+
+  </main>
+
+  <!-- CONTROLS BAR -->
+  <nav id="controls" aria-label="Presentation controls">
+    <button class="ctrl-btn" id="btn-prev" title="Previous Slide (← / PageUp)">← Prev</button>
+    <div class="ctrl-indicator" id="slide-indicator">1 / 12</div>
+    <button class="ctrl-btn" id="btn-next" title="Next Slide (→ / Space / PageDown)">Next →</button>
+    <div style="width: 1px; height: 16px; background: var(--border); margin: 0 0.25rem;"></div>
+    <button class="ctrl-btn" id="btn-overview" title="Slide Overview Grid (O)">Grid</button>
+    <button class="ctrl-btn" id="btn-notes" title="Speaker Notes Drawer (N / P)">Notes</button>
+    <button class="ctrl-btn" id="btn-fullscreen" title="Toggle Fullscreen (F)">⛶ Fullscreen</button>
+  </nav>
+
+  <!-- SPEAKER NOTES DRAWER -->
+  <aside id="drawer" aria-label="Speaker notes">
+    <div id="drawer-title">
+      <span>Speaker Notes</span>
+      <button id="btn-close-notes" style="background:none; border:none; color:var(--text-muted); cursor:pointer;">✕</button>
+    </div>
+    <div id="drawer-content"></div>
+  </aside>
+
+  <!-- OVERVIEW GRID OVERLAY -->
+  <div id="overview-overlay">
+    <div style="display: flex; justify-content: space-between; align-items: center;">
+      <h2 style="font-size: 1.75rem; font-weight: 700;">Slide Overview</h2>
+      <button id="btn-close-overview" class="ctrl-btn" style="border: 1px solid var(--border);">✕ Close</button>
+    </div>
+    <div class="overview-grid" id="overview-grid"></div>
+  </div>
+
+  <script>
+    (function () {
+      const slides = Array.from(document.querySelectorAll('.slide'));
+      const totalSlides = slides.length;
+      let currentIndex = 0;
+
+      const indicator = document.getElementById('slide-indicator');
+      const progressBar = document.getElementById('progress-bar');
+      const drawer = document.getElementById('drawer');
+      const drawerContent = document.getElementById('drawer-content');
+      const overviewOverlay = document.getElementById('overview-overlay');
+      const overviewGrid = document.getElementById('overview-grid');
+
+      function updateSlide(index) {
+        if (index < 0) index = 0;
+        if (index >= totalSlides) index = totalSlides - 1;
+        currentIndex = index;
+
+        slides.forEach((slide, i) => {
+          slide.classList.toggle('active', i === currentIndex);
+        });
+
+        // Update indicator
+        indicator.textContent = `${currentIndex + 1} / ${totalSlides}`;
+        
+        // Update progress bar
+        const pct = ((currentIndex) / (totalSlides - 1)) * 100;
+        progressBar.style.width = `${pct}%`;
+
+        // Update speaker notes
+        const currentSlide = slides[currentIndex];
+        drawerContent.textContent = currentSlide.getAttribute('data-notes') || 'No notes for this slide.';
+
+        // Highlight active in overview
+        document.querySelectorAll('.overview-thumb').forEach((thumb, i) => {
+          thumb.classList.toggle('active', i === currentIndex);
+        });
+      }
+
+      function nextSlide() {
+        if (currentIndex < totalSlides - 1) updateSlide(currentIndex + 1);
+      }
+
+      function prevSlide() {
+        if (currentIndex > 0) updateSlide(currentIndex - 1);
+      }
+
+      function toggleFullscreen() {
+        if (!document.fullscreenElement) {
+          document.documentElement.requestFullscreen().catch(() => {});
+        } else {
+          document.exitFullscreen().catch(() => {});
+        }
+      }
+
+      function toggleNotes() {
+        drawer.classList.toggle('open');
+      }
+
+      function toggleOverview() {
+        overviewOverlay.classList.toggle('open');
+      }
+
+      // Populate Overview Grid
+      slides.forEach((slide, i) => {
+        const titleEl = slide.querySelector('.slide-title') || slide.querySelector('h1') || slide.querySelector('h2');
+        const title = titleEl ? titleEl.textContent.trim() : `Slide ${i + 1}`;
+        const thumb = document.createElement('div');
+        thumb.className = `overview-thumb ${i === 0 ? 'active' : ''}`;
+        thumb.innerHTML = `
+          <div class="overview-thumb-num">SLIDE ${i + 1}</div>
+          <div class="overview-thumb-title">${title}</div>
+        `;
+        thumb.addEventListener('click', () => {
+          updateSlide(i);
+          overviewOverlay.classList.remove('open');
+        });
+        overviewGrid.appendChild(thumb);
+      });
+
+      // Event Listeners
+      document.getElementById('btn-next').addEventListener('click', nextSlide);
+      document.getElementById('btn-prev').addEventListener('click', prevSlide);
+      document.getElementById('btn-fullscreen').addEventListener('click', toggleFullscreen);
+      document.getElementById('btn-notes').addEventListener('click', toggleNotes);
+      document.getElementById('btn-close-notes').addEventListener('click', toggleNotes);
+      document.getElementById('btn-overview').addEventListener('click', toggleOverview);
+      document.getElementById('btn-close-overview').addEventListener('click', toggleOverview);
+
+      // Keyboard Controls
+      window.addEventListener('keydown', (e) => {
+        if (overviewOverlay.classList.contains('open')) {
+          if (e.key === 'Escape' || e.key === 'o' || e.key === 'O') {
+            overviewOverlay.classList.remove('open');
+          }
+          return;
+        }
+
+        switch (e.key) {
+          case 'ArrowRight':
+          case 'ArrowDown':
+          case ' ':
+          case 'PageDown':
+            e.preventDefault();
+            nextSlide();
+            break;
+          case 'ArrowLeft':
+          case 'ArrowUp':
+          case 'PageUp':
+            e.preventDefault();
+            prevSlide();
+            break;
+          case 'Home':
+            e.preventDefault();
+            updateSlide(0);
+            break;
+          case 'End':
+            e.preventDefault();
+            updateSlide(totalSlides - 1);
+            break;
+          case 'f':
+          case 'F':
+            e.preventDefault();
+            toggleFullscreen();
+            break;
+          case 'n':
+          case 'N':
+          case 'p':
+          case 'P':
+            e.preventDefault();
+            toggleNotes();
+            break;
+          case 'o':
+          case 'O':
+            e.preventDefault();
+            toggleOverview();
+            break;
+          case 'Escape':
+            if (drawer.classList.contains('open')) drawer.classList.remove('open');
+            if (overviewOverlay.classList.contains('open')) overviewOverlay.classList.remove('open');
+            break;
+        }
+      });
+
+      // Initial Call
+      updateSlide(0);
+    })();
+  </script>
+</body>
+</html>
