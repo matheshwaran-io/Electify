@@ -2,25 +2,24 @@
 
 import * as React from "react";
 import { ThemeToggle } from "@/components/theme-toggle";
+import { Logo } from "@/components/brand";
 import { Wrench, Mail, Clock } from "lucide-react";
 import { Button, buttonVariants } from "@/components/ui/button";
 
 export function MaintenanceView() {
   return (
     <main className="flex min-h-screen flex-col items-center justify-center relative bg-canvas p-4 overflow-hidden">
-      {/* Decorative Blur Spheres */}
-
-      {/* Header Utilities */}
-      <div className="absolute top-4 right-4">
+      <header className="absolute inset-x-0 top-0 flex h-16 items-center justify-between px-5 pt-safe sm:px-8">
+        <Logo />
         <ThemeToggle />
-      </div>
+      </header>
 
       <div className="max-w-md text-center z-10 p-6 duration-500">
         <div className="inline-flex items-center justify-center w-16 h-16 rounded-card bg-warning text-on-accent shadow-3 dark:shadow-none mb-6 ring-4 ring-warning/20">
           <Wrench className="w-9 h-9" />
         </div>
 
-        <h1 className="text-3xl font-extrabold tracking-tight mb-3">
+        <h1 className="text-3xl font-light tracking-display mb-3">
           Under Maintenance
         </h1>
         <p className="text-fg-muted mb-6 font-medium leading-relaxed">
@@ -30,7 +29,7 @@ export function MaintenanceView() {
         <div className="bg-warning/10 border border-warning/20 rounded-card p-4 mb-6 flex items-start gap-3 text-left">
           <Clock className="w-5 h-5 text-warning-text mt-0.5 shrink-0" />
           <div>
-            <h3 className="text-sm font-semibold text-warning-text">
+            <h3 className="text-sm font-medium text-warning-text">
               Estimated Duration
             </h3>
             <p className="text-xs text-warning-text mt-0.5 font-medium">

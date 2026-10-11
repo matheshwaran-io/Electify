@@ -1,31 +1,42 @@
 "use client";
 
 import { useState } from "react";
-import { motion, AnimatePresence } from "framer-motion";
-import { BookOpen, Users, CheckCircle2, Percent, Search, Plus, X, Layers, Pencil, Trash2, ChevronDown } from "lucide-react";
+import { BookOpen, ChevronDown, Layers, MoreHorizontal, Pencil, Plus, Search, Trash2, X } from "lucide-react";
 import { createElective, createElectiveGroup, createRegistrationWindow, updateElective, deleteElective, updateElectiveGroup, deleteElectiveGroup, resetSectionSubjects } from "@/app/actions/tutor";
 import { useRouter } from "next/navigation";
 import { TutorSectionOnboarding } from "@/components/tutor-section-onboarding";
 import { toast } from "sonner";
-import { listDelay, spring, transition } from "@/lib/motion";
+import { cn } from "@/lib/utils";
+import { PageHeader } from "@/components/ui/layout";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Field, Input } from "@/components/ui/input";
+import { EmptyState } from "@/components/ui/feedback";
+import { Disclosure } from "@/components/ui/disclosure";
+import { AnimatedNumber, Meter, OccupancyRing, seatState } from "@/components/ui/data-display";
+import { ConfirmDialog, type ImpactRow } from "@/components/ui/confirm-dialog";
+import { Menu, MenuContent, MenuItem, MenuSeparator, MenuTrigger } from "@/components/ui/menu";
+import { Dialog, DialogBody, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 
-type Elective = { 
-  id: string; 
-  name: string; 
-  courseCode: string | null; 
-  credits: number; 
-  maxSeats: number; 
-  availableSeats: number; 
-  isFull: boolean 
+type Elective = {
+  id: string;
+  name: string;
+  courseCode: string | null;
+  credits: number;
+  maxSeats: number;
+  availableSeats: number;
+  isFull: boolean;
 };
 type Group = { id: string; name: string; electives: Elective[] };
 type EventInfo = { id: string; name: string; status: string; openDate: Date | null; closeDate: Date | null };
 type EventData = { event: EventInfo; groups: Group[] };
 
-export function TutorElectivesClient({ electivesData, hasActiveSection = true }: { electivesData: EventData[], hasActiveSection?: boolean }) {
+type Pending = { kind: "subject"; elective: Elective } | { kind: "group"; group: Group } | { kind: "reset"; eventId: string };
+
+export function TutorElectivesClient({ electivesData, hasActiveSection = true }: { electivesData: EventData[]; hasActiveSection?: boolean }) {
   const router = useRouter();
-  const allGroups = electivesData.flatMap(e => e.groups);
-  const allElectives = allGroups.flatMap(g => g.electives);
+  const allGroups = electivesData.flatMap((e) => e.groups);
+  const allElectives = allGroups.flatMap((g) => g.electives);
 
   const courseOptions = allElectives.length;
   const totalCap = allElectives.reduce((acc, curr) => acc + curr.maxSeats, 0);
@@ -34,39 +45,28 @@ export function TutorElectivesClient({ electivesData, hasActiveSection = true }:
   const allocationRate = totalCap > 0 ? Math.round((seatsBooked / totalCap) * 100) : 0;
 
   const [search, setSearch] = useState("");
-
-  const [isResetting, setIsResetting] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
-  
-  // -- Elective Modal State --
-  const [isAddGroupModalOpen, setIsAddGroupModalOpen] = useState(false);
-  const [newGroupOnlyName, setNewGroupOnlyName] = useState("");
 
-  // Subject Modal States
-  const [isAddSubjectModalOpen, setIsAddSubjectModalOpen] = useState(false);
+  // Group dialog (add + rename)
+  const [groupDialog, setGroupDialog] = useState<{ open: boolean; mode: "add" | "edit" }>({ open: false, mode: "add" });
+  const [newGroupOnlyName, setNewGroupOnlyName] = useState("");
+  const [editingGroupId, setEditingGroupId] = useState<string | null>(null);
+
+  // Subject dialog (add + edit)
+  const [subjectDialog, setSubjectDialog] = useState<{ open: boolean; mode: "add" | "edit" }>({ open: false, mode: "add" });
   const [newElectiveName, setNewElectiveName] = useState("");
   const [newCourseCode, setNewCourseCode] = useState("");
   const [newMaxSeats, setNewMaxSeats] = useState("");
   const [newCredits, setNewCredits] = useState("3");
   const [selectedGroupId, setSelectedGroupId] = useState("");
-  
-  // Subject Edit States
-  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [editingElectiveId, setEditingElectiveId] = useState<string | null>(null);
 
-  // Group Edit States
-  const [isEditGroupModalOpen, setIsEditGroupModalOpen] = useState(false);
-  const [editingGroupId, setEditingGroupId] = useState<string | null>(null);
-  const [editingGroupName, setEditingGroupName] = useState("");
-  
-  // Accordion state
-  const [expandedGroups, setExpandedGroups] = useState<Record<string, boolean>>(
-    Object.fromEntries(allGroups.map(g => [g.id, true]))
-  );
+  const [pending, setPending] = useState<Pending | null>(null);
+  const [confirmOpen, setConfirmOpen] = useState(false);
 
-  const toggleGroup = (id: string) => {
-    setExpandedGroups(prev => ({ ...prev, [id]: !prev[id] }));
-  };
+  // Accordion state
+  const [expandedGroups, setExpandedGroups] = useState<Record<string, boolean>>(Object.fromEntries(allGroups.map((g) => [g.id, true])));
+  const toggleGroup = (id: string) => setExpandedGroups((prev) => ({ ...prev, [id]: !prev[id] }));
 
   // States for creating a window directly from empty state
   const [isWindowCreating, setIsWindowCreating] = useState(false);
@@ -91,7 +91,13 @@ export function TutorElectivesClient({ electivesData, hasActiveSection = true }:
 
   function openAddGroupModal() {
     setNewGroupOnlyName("");
-    setIsAddGroupModalOpen(true);
+    setGroupDialog({ open: true, mode: "add" });
+  }
+
+  function openEditGroupModal(group: Group) {
+    setEditingGroupId(group.id);
+    setNewGroupOnlyName(group.name);
+    setGroupDialog({ open: true, mode: "edit" });
   }
 
   async function handleAddGroupSave() {
@@ -101,9 +107,24 @@ export function TutorElectivesClient({ electivesData, hasActiveSection = true }:
     setIsSaving(true);
     try {
       const newGroup = await createElectiveGroup(firstEventId, newGroupOnlyName);
-      setIsAddGroupModalOpen(false);
-      setExpandedGroups(prev => ({ ...prev, [newGroup.id]: true }));
+      setGroupDialog((d) => ({ ...d, open: false }));
+      setExpandedGroups((prev) => ({ ...prev, [newGroup.id]: true }));
       toast.success("Group created successfully");
+      router.refresh();
+    } catch (err: any) {
+      toast.error(err.message);
+    } finally {
+      setIsSaving(false);
+    }
+  }
+
+  async function handleEditGroupSave() {
+    if (!newGroupOnlyName || !editingGroupId) return toast.error("Group name is required");
+    setIsSaving(true);
+    try {
+      await updateElectiveGroup(editingGroupId, newGroupOnlyName);
+      setGroupDialog((d) => ({ ...d, open: false }));
+      toast.success("Group updated successfully");
       router.refresh();
     } catch (err: any) {
       toast.error(err.message);
@@ -118,7 +139,16 @@ export function TutorElectivesClient({ electivesData, hasActiveSection = true }:
     setNewCourseCode("");
     setNewMaxSeats("");
     setNewCredits("3");
-    setIsAddSubjectModalOpen(true);
+    setSubjectDialog({ open: true, mode: "add" });
+  }
+
+  function openEditModal(elective: Elective) {
+    setEditingElectiveId(elective.id);
+    setNewElectiveName(elective.name);
+    setNewCourseCode(elective.courseCode || "");
+    setNewMaxSeats(elective.maxSeats.toString());
+    setNewCredits(elective.credits.toString());
+    setSubjectDialog({ open: true, mode: "edit" });
   }
 
   async function handleAddSubjectSave() {
@@ -131,10 +161,10 @@ export function TutorElectivesClient({ electivesData, hasActiveSection = true }:
         name: newElectiveName,
         courseCode: newCourseCode || undefined,
         maxSeats: parseInt(newMaxSeats),
-        credits: parseInt(newCredits)
+        credits: parseInt(newCredits),
       });
-      
-      setIsAddSubjectModalOpen(false);
+
+      setSubjectDialog((d) => ({ ...d, open: false }));
       toast.success("Subject added successfully");
       router.refresh();
     } catch (err: any) {
@@ -142,15 +172,6 @@ export function TutorElectivesClient({ electivesData, hasActiveSection = true }:
     } finally {
       setIsSaving(false);
     }
-  }
-
-  function openEditModal(elective: Elective) {
-    setEditingElectiveId(elective.id);
-    setNewElectiveName(elective.name);
-    setNewCourseCode(elective.courseCode || "");
-    setNewMaxSeats(elective.maxSeats.toString());
-    setNewCredits(elective.credits.toString());
-    setIsEditModalOpen(true);
   }
 
   async function handleEditSave() {
@@ -161,9 +182,9 @@ export function TutorElectivesClient({ electivesData, hasActiveSection = true }:
         name: newElectiveName,
         courseCode: newCourseCode || undefined,
         maxSeats: parseInt(newMaxSeats),
-        credits: parseInt(newCredits)
+        credits: parseInt(newCredits),
       });
-      setIsEditModalOpen(false);
+      setSubjectDialog((d) => ({ ...d, open: false }));
       toast.success("Subject updated successfully");
       router.refresh();
     } catch (err: any) {
@@ -173,60 +194,28 @@ export function TutorElectivesClient({ electivesData, hasActiveSection = true }:
     }
   }
 
-  async function handleDeleteElective(id: string) {
-    if (!confirm("Are you sure want to delete this subject? All associated student registrations will also be removed.")) return;
-    try {
-      await deleteElective(id);
-      toast.success("Subject deleted");
-      router.refresh();
-    } catch (err: any) {
-      toast.error(err.message);
-    }
+  function ask(next: Pending) {
+    setPending(next);
+    setConfirmOpen(true);
   }
 
-  function openEditGroupModal(group: Group) {
-    setEditingGroupId(group.id);
-    setEditingGroupName(group.name);
-    setIsEditGroupModalOpen(true);
-  }
-
-  async function handleEditGroupSave() {
-    if (!editingGroupName || !editingGroupId) return toast.error("Group name is required");
-    setIsSaving(true);
+  async function runPending() {
+    if (!pending) return;
     try {
-      await updateElectiveGroup(editingGroupId, editingGroupName);
-      setIsEditGroupModalOpen(false);
-      toast.success("Group updated successfully");
+      if (pending.kind === "subject") {
+        await deleteElective(pending.elective.id);
+        toast.success("Subject deleted");
+      } else if (pending.kind === "group") {
+        await deleteElectiveGroup(pending.group.id);
+        toast.success("Group deleted");
+      } else {
+        await resetSectionSubjects(pending.eventId);
+        toast.success("All subjects and groups reset successfully.");
+      }
       router.refresh();
     } catch (err: any) {
-      toast.error(err.message);
-    } finally {
-      setIsSaving(false);
-    }
-  }
-
-  async function handleDeleteGroup(id: string) {
-    if (!confirm("Are you sure want to delete this group? ALL subjects inside it and their student registrations will be PERMANENTLY deleted.")) return;
-    try {
-      await deleteElectiveGroup(id);
-      toast.success("Group deleted");
-      router.refresh();
-    } catch (err: any) {
-      toast.error(err.message);
-    }
-  }
-
-  async function handleResetAllSubjects(eventId: string) {
-    if (!confirm("Type 'CONFIRM' to delete ALL subjects and groups for this section. This action cannot be undone.")) return;
-    setIsResetting(true);
-    try {
-      await resetSectionSubjects(eventId);
-      toast.success("All subjects and groups reset successfully.");
-      router.refresh();
-    } catch (err: any) {
-      toast.error(err.message || "Failed to reset subjects.");
-    } finally {
-      setIsResetting(false);
+      toast.error(err.message || "Something went wrong.");
+      throw err;
     }
   }
 
@@ -236,560 +225,374 @@ export function TutorElectivesClient({ electivesData, hasActiveSection = true }:
     }
 
     return (
-      <div className="space-y-6">
-        <div>
-          <h1 className="text-3xl font-bold text-fg">Course Configurations</h1>
-          <p className="text-fg-muted mt-1">Review elective listings and seat quotas.</p>
-        </div>
-
-        <div className="bg-surface border border-border rounded-card flex flex-col items-center justify-center min-h-[60vh] p-8 text-center relative overflow-hidden">
-          
-          <div className="relative z-10 w-full max-w-md bg-surface border border-border p-8 rounded-card shadow-3">
-            <div className="w-16 h-16 bg-surface-2 rounded-full flex items-center justify-center mx-auto mb-6 ring-8 ring-canvas">
-              <BookOpen className="w-8 h-8 text-fg-muted" />
-            </div>
-            
-            <h2 className="text-2xl font-bold text-fg mb-3">Setup Your Classes</h2>
-            <p className="text-fg-muted text-sm mb-8">
-              No registration event exists. Create a Registration Window first to start adding electives.
-            </p>
-
-            <div className="space-y-4 text-left">
-              <div>
-                <label className="text-xs font-bold text-fg-muted uppercase tracking-wider mb-2 block">Event Name</label>
-                <input 
-                  value={newWindowName}
-                  onChange={e => setNewWindowName(e.target.value)}
-                  placeholder="e.g. B.TECH EVEN SEM AI F..."
-                  className="w-full px-4 py-3 bg-surface border border-border-strong rounded-control text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                />
-              </div>
-              <div>
-                <label className="text-xs font-bold text-fg-muted uppercase tracking-wider mb-2 block">Academic Year</label>
-                <input 
-                  value={newWindowYear}
-                  onChange={e => setNewWindowYear(e.target.value)}
-                  placeholder="e.g. 2026-2027"
-                  className="w-full px-4 py-3 bg-surface border border-border-strong rounded-control text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                />
-              </div>
-              
-              <button 
-                onClick={handleCreateWindow}
-                disabled={!newWindowName || isWindowCreating}
-                className="w-full py-3.5 bg-primary hover:bg-primary-strong disabled:opacity-50 text-primary-fg rounded-control font-bold text-sm transition-all flex items-center justify-center gap-2 mt-4"
-              >
-                {isWindowCreating ? "Creating..." : <><Plus className="w-4 h-4" /> Create Registration Window</>}
-              </button>
-            </div>
+      <div>
+        <PageHeader title="Subjects & groups" description="Elective listings and seat quotas for your section." />
+        <form
+          onSubmit={(e) => {
+            e.preventDefault();
+            handleCreateWindow();
+          }}
+          className="mx-auto max-w-md rounded-panel bg-surface-2 p-5 animate-enter sm:p-8"
+        >
+          <span aria-hidden className="inline-flex size-12 items-center justify-center rounded-full bg-surface text-fg shadow-1">
+            <BookOpen className="size-5" />
+          </span>
+          <h2 className="mt-5 text-2xl font-light tracking-display text-fg">Set up your classes</h2>
+          <p className="mt-2 text-sm text-fg-muted">There is no registration event yet. Create a registration window first, then add electives to it.</p>
+          <div className="mt-6 space-y-4">
+            <Field label="Event name">
+              <Input value={newWindowName} onChange={(e) => setNewWindowName(e.target.value)} placeholder="e.g. B.TECH EVEN SEM AI F..." />
+            </Field>
+            <Field label="Academic year">
+              <Input value={newWindowYear} onChange={(e) => setNewWindowYear(e.target.value)} placeholder="e.g. 2026-2027" className="font-mono" />
+            </Field>
+            <Button type="submit" size="lg" className="w-full" disabled={!newWindowName} loading={isWindowCreating} loadingText="Creating">
+              <Plus /> Create registration window
+            </Button>
           </div>
-        </div>
+        </form>
       </div>
     );
   }
 
+  const q = search.toLowerCase();
+
+  const confirmCopy: { title: string; description: string; label: string; impact: ImpactRow[]; requireText?: string } = !pending
+    ? { title: "", description: "", label: "Confirm", impact: [] }
+    : pending.kind === "subject"
+      ? {
+          title: "Delete this subject?",
+          description: "All student registrations for it are removed too.",
+          label: "Delete subject",
+          impact: [
+            { label: "Subject", value: pending.elective.name },
+            { label: "Seats taken", value: pending.elective.maxSeats - pending.elective.availableSeats, tone: "danger" },
+          ],
+        }
+      : pending.kind === "group"
+        ? {
+            title: "Delete this group?",
+            description: "Every subject inside it and their student registrations are permanently deleted.",
+            label: "Delete group",
+            impact: [
+              { label: "Group", value: pending.group.name },
+              { label: "Subjects", value: pending.group.electives.length, tone: "danger" },
+            ],
+          }
+        : {
+            title: "Reset all subjects?",
+            description: "Deletes every subject and group for this section. This cannot be undone.",
+            label: "Reset everything",
+            impact: [
+              { label: "Groups", value: allGroups.length, tone: "danger" },
+              { label: "Subjects", value: allElectives.length, tone: "danger" },
+            ],
+            requireText: "CONFIRM",
+          };
+
+  const stats = [
+    { label: "Course options", value: courseOptions },
+    { label: "Total capacity", value: totalCap },
+    { label: "Seats booked", value: seatsBooked },
+  ];
+
   return (
-    <div className="space-y-6 relative pb-20">
-      {/* Header */}
-      <div className="flex flex-col md:flex-row md:items-end justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-bold text-fg tracking-tight">Subjects & Groups</h1>
-          <p className="text-sm text-fg-muted mt-1">Manage elective groups, subjects, and seat allocations.</p>
-        </div>
-        <div className="flex items-center gap-2">
-          <button 
-            onClick={() => handleResetAllSubjects(firstEventId)}
-            disabled={isResetting || allGroups.length === 0 || !firstEventId}
-            className="bg-danger/10 text-danger-text px-4 py-2 rounded-control text-xs font-semibold hover:bg-danger/20 transition whitespace-nowrap flex items-center gap-1.5 disabled:opacity-40"
-          >
-            <Trash2 className="w-3.5 h-3.5" /> {isResetting ? "Resetting..." : "Reset All"}
-          </button>
-          <button 
-            onClick={() => openAddGroupModal()}
-            className="bg-primary text-primary-fg px-4 py-2 rounded-control text-xs font-semibold hover:bg-primary-strong transition whitespace-nowrap flex items-center gap-1.5 outline-none"
-          >
-            <Plus className="w-3.5 h-3.5" /> Add Group
-          </button>
-        </div>
-      </div>
+    <div>
+      <PageHeader
+        title="Subjects & groups"
+        description="Elective groups, their subjects and seat quotas."
+        actions={
+          <>
+            <Button onClick={openAddGroupModal}>
+              <Plus /> Add group
+            </Button>
+            <Menu>
+              <MenuTrigger render={<Button variant="secondary" size="icon" aria-label="More actions" />}>
+                <MoreHorizontal />
+              </MenuTrigger>
+              <MenuContent align="end">
+                <MenuItem tone="danger" disabled={allGroups.length === 0 || !firstEventId} onClick={() => firstEventId && ask({ kind: "reset", eventId: firstEventId })}>
+                  <Trash2 /> Reset all subjects
+                </MenuItem>
+              </MenuContent>
+            </Menu>
+          </>
+        }
+      />
 
-      {/* Stat Cards */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-        {[
-          { label: "Course Options", value: courseOptions, icon: BookOpen, tone: "bg-primary/10 text-primary-text" },
-          { label: "Total Capacity", value: totalCap, icon: Users, tone: "bg-primary/10 text-primary-text" },
-          { label: "Seats Booked", value: seatsBooked, icon: CheckCircle2, tone: "bg-success/10 text-success-text" },
-          { label: "Allocation Rate", value: `${allocationRate}%`, icon: Percent, tone: "bg-warning/10 text-warning-text" },
-        ].map((stat, i) => (
-          <motion.div
-            key={stat.label}
-            initial={{ opacity: 0, y: 12 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ ...spring.gentle, delay: listDelay(i, 0.05) }}
-            className="bg-surface border border-border rounded-card p-5 relative overflow-hidden"
-          >
-            <div className="flex items-center gap-2.5 mb-3">
-              <div className={`w-8 h-8 rounded-control ${stat.tone} flex items-center justify-center`}>
-                <stat.icon className="w-4 h-4" />
-              </div>
-              <span className="text-xs font-semibold text-fg-muted uppercase tracking-wider">{stat.label}</span>
-            </div>
-            <p className="text-2xl font-bold text-fg tracking-tight">{stat.value}</p>
-          </motion.div>
-        ))}
-      </div>
-
-      {/* Search */}
-      <div className="relative w-full max-w-md">
-        <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-fg-muted" />
-        <input
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-          placeholder="Search subjects or course codes..."
-          className="w-full pl-10 pr-4 py-2.5 bg-surface border border-border-strong rounded-control text-sm text-fg placeholder:text-fg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-        />
-      </div>
-
-      {/* Groups */}
-      <div className="space-y-4">
-        {allGroups.length === 0 ? (
-          <div className="text-center py-20 text-fg-muted bg-surface rounded-card border border-dashed border-border">
-            <Layers className="w-10 h-10 mx-auto mb-3 opacity-30" />
-            <p>No groups added yet.</p>
-            <button 
-              onClick={() => openAddGroupModal()}
-              className="mt-4 bg-primary/10 text-primary-text px-4 py-2 rounded-control text-sm font-bold hover:bg-primary/20 transition outline-none"
-            >
-              + Create First Group
-            </button>
+      <div className="mb-6 grid grid-cols-2 gap-3 lg:grid-cols-4">
+        {stats.map((s) => (
+          <div key={s.label} className="rounded-card bg-surface-2 p-4 sm:p-5">
+            <p className="text-sm text-fg-muted">{s.label}</p>
+            <AnimatedNumber value={s.value} className="mt-1 block text-4xl font-light tracking-display text-fg" tabular />
           </div>
+        ))}
+        <div className="rounded-card bg-surface-2 p-4 sm:p-5">
+          <p className="text-sm text-fg-muted">Allocation</p>
+          <p className="mt-1 flex items-baseline">
+            <AnimatedNumber value={allocationRate} className="text-4xl font-light tracking-display text-fg" tabular />
+            <span className="text-2xl font-light text-fg-muted">%</span>
+          </p>
+          <Meter value={seatsBooked} max={totalCap} label="Seats allocated" className="mt-3" />
+        </div>
+      </div>
+
+      {allGroups.length > 0 ? (
+        <div className="mb-4 sm:max-w-sm">
+          <Input
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            placeholder="Search subjects or course codes"
+            aria-label="Search subjects"
+            leading={<Search />}
+            trailing={
+              search ? (
+                <button
+                  type="button"
+                  aria-label="Clear search"
+                  onClick={() => setSearch("")}
+                  className="inline-flex size-8 items-center justify-center rounded-full text-fg-subtle hover:text-fg"
+                >
+                  <X className="size-4" />
+                </button>
+              ) : null
+            }
+          />
+        </div>
+      ) : null}
+
+      <div className="space-y-3">
+        {allGroups.length === 0 ? (
+          <EmptyState
+            icon={<Layers />}
+            title="No groups yet"
+            description="A group holds the subjects a student chooses one from."
+            className="rounded-panel bg-surface-2"
+            action={
+              <Button onClick={openAddGroupModal}>
+                <Plus /> Create first group
+              </Button>
+            }
+          />
         ) : (
           allGroups.map((group, gIndex) => {
-            const filteredElectives = group.electives.filter(e => 
-              e.name.toLowerCase().includes(search.toLowerCase()) || 
-              (e.courseCode && e.courseCode.toLowerCase().includes(search.toLowerCase()))
-            );
+            const filteredElectives = group.electives.filter((e) => e.name.toLowerCase().includes(q) || (e.courseCode && e.courseCode.toLowerCase().includes(q)));
 
             if (search && filteredElectives.length === 0) return null;
 
-            const isExpanded = expandedGroups[group.id];
-            
+            const isExpanded = Boolean(expandedGroups[group.id]);
             const groupCap = group.electives.reduce((acc, curr) => acc + curr.maxSeats, 0);
             const groupAvailable = group.electives.reduce((acc, curr) => acc + curr.availableSeats, 0);
             const groupFilled = groupCap - groupAvailable;
             const groupFillPerc = groupCap > 0 ? Math.round((groupFilled / groupCap) * 100) : 0;
 
             return (
-              <motion.div 
+              <section
                 key={group.id}
-                initial={{ opacity: 0, y: 16 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ ...spring.gentle, delay: listDelay(gIndex, 0.06) }}
-                className="bg-surface border border-border rounded-card overflow-hidden shadow-1"
+                style={{ animationDelay: `${Math.min(gIndex, 6) * 50}ms` }}
+                className="overflow-hidden rounded-card border border-border bg-surface shadow-1 animate-enter"
               >
-                {/* Group Header */}
-                <div 
-                  className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-4 bg-surface-2/40 hover:bg-surface-2 transition-colors cursor-pointer select-none"
-                  onClick={(e) => {
-                    if ((e.target as HTMLElement).closest('.group-actions')) return;
-                    toggleGroup(group.id);
-                  }}
-                >
-                  <div className="flex items-center gap-3 flex-1 min-w-0">
-                    <div className="w-10 h-10 rounded-control bg-primary/10 border border-primary/20 flex items-center justify-center shrink-0">
-                      <Layers className="w-5 h-5 text-primary-text" />
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2.5 flex-wrap">
-                        <h2 className="text-sm font-bold text-fg truncate">{group.name}</h2>
-                        <span className="px-2 py-0.5 rounded-full bg-surface-2 border border-border text-fg-muted text-2xs font-semibold tracking-wide shrink-0">
-                          {group.electives.length} Subjects
+                <div className="flex items-center gap-2 p-2 pr-3 sm:p-3">
+                  <button
+                    type="button"
+                    aria-expanded={isExpanded}
+                    onClick={() => toggleGroup(group.id)}
+                    className="flex min-w-0 flex-1 items-center gap-3 rounded-control p-2 text-left transition-colors hover:bg-surface-2/70"
+                  >
+                    <span aria-hidden className="inline-flex size-10 shrink-0 items-center justify-center rounded-full bg-fg text-canvas">
+                      <Layers className="size-4" />
+                    </span>
+                    <span className="min-w-0 flex-1">
+                      <span className="flex items-center gap-2">
+                        <span className="truncate font-medium text-fg">{group.name}</span>
+                        <Badge size="sm" className="hidden sm:inline-flex">
+                          {group.electives.length} subjects
+                        </Badge>
+                      </span>
+                      <span className="mt-1.5 flex items-center gap-2.5 text-xs text-fg-muted">
+                        <span className="font-mono tabular-nums">
+                          <span className="text-fg">{groupFilled}</span>/{groupCap}
                         </span>
-                      </div>
-                      
-                      <div className="flex items-center gap-3 mt-1.5">
-                        <div className="flex items-center gap-1.5 text-xs text-fg-muted">
-                          <span className={`w-1.5 h-1.5 rounded-full ${groupFillPerc === 100 ? 'bg-success' : groupFillPerc > 75 ? 'bg-warning' : 'bg-primary'}`} />
-                          <span className="font-medium">{groupFilled}/{groupCap}</span>
-                          <span className="opacity-60">seats filled</span>
-                        </div>
-                        <div className="flex-1 max-w-[120px] h-1.5 bg-surface-3 rounded-full overflow-hidden">
-                          <motion.div 
-                            className={`h-full rounded-full ${groupFillPerc === 100 ? 'bg-success' : groupFillPerc > 75 ? 'bg-warning' : 'bg-primary'}`} 
-                            initial={{ width: 0 }}
-                            animate={{ width: `${groupFillPerc}%` }}
-                            transition={transition.value}
-                          />
-                        </div>
-                        <span className="text-2xs font-bold text-fg-muted">{groupFillPerc}%</span>
-                      </div>
-                    </div>
-                  </div>
-                  
-                  <div className="flex items-center gap-1 group-actions shrink-0">
-                    <button 
-                      onClick={() => openEditGroupModal(group)}
-                      className="p-2 text-fg-muted hover:text-primary-text hover:bg-primary/10 rounded-control transition-colors outline-none"
-                      title="Edit Group"
-                    >
-                      <Pencil className="w-3.5 h-3.5" />
-                    </button>
-                    <button 
-                      onClick={() => handleDeleteGroup(group.id)}
-                      className="p-2 text-fg-muted hover:text-danger-text hover:bg-danger/10 rounded-control transition-colors outline-none"
-                      title="Delete Group"
-                    >
-                      <Trash2 className="w-3.5 h-3.5" />
-                    </button>
-                    <div className="w-px h-5 bg-border mx-1" />
-                    <button 
-                      onClick={() => openAddSubjectModal(group.id)}
-                      className="bg-surface border border-border text-fg px-3 py-1.5 rounded-control text-xs font-semibold hover:border-primary/40 hover:text-primary-text transition flex items-center gap-1.5 outline-none"
-                    >
-                      <Plus className="w-3 h-3" /> Add Subject
-                    </button>
-                    <button className="p-2 text-fg-muted outline-none">
-                      <ChevronDown className={`w-4 h-4 transition-transform duration-300 ${isExpanded ? "rotate-180" : ""}`} />
-                    </button>
-                  </div>
+                        <Meter value={groupFilled} max={groupCap} label={`${group.name} seats filled`} className="h-1 max-w-28 flex-1" />
+                        <span className="font-mono tabular-nums">{groupFillPerc}%</span>
+                      </span>
+                    </span>
+                    <ChevronDown className={cn("size-4 shrink-0 text-fg-subtle transition-transform duration-300", isExpanded && "rotate-180")} />
+                  </button>
+
+                  <Button size="sm" variant="secondary" onClick={() => openAddSubjectModal(group.id)} className="hidden sm:inline-flex">
+                    <Plus /> Subject
+                  </Button>
+                  <Menu>
+                    <MenuTrigger render={<Button variant="ghost" size="icon-sm" aria-label={`Actions for ${group.name}`} />}>
+                      <MoreHorizontal />
+                    </MenuTrigger>
+                    <MenuContent align="end">
+                      <MenuItem onClick={() => openAddSubjectModal(group.id)} className="sm:hidden">
+                        <Plus /> Add subject
+                      </MenuItem>
+                      <MenuItem onClick={() => openEditGroupModal(group)}>
+                        <Pencil /> Rename group
+                      </MenuItem>
+                      <MenuSeparator />
+                      <MenuItem tone="danger" onClick={() => ask({ kind: "group", group })}>
+                        <Trash2 /> Delete group
+                      </MenuItem>
+                    </MenuContent>
+                  </Menu>
                 </div>
 
-                {/* Electives List */}
-                <AnimatePresence>
-                  {isExpanded && (
-                    <motion.div
-                      initial={{ height: 0, opacity: 0 }}
-                      animate={{ height: "auto", opacity: 1 }}
-                      exit={{ height: 0, opacity: 0 }}
-                      transition={transition.fade}
-                      className="overflow-hidden"
-                    >
-                      <div className="p-3 border-t border-border">
-                        {filteredElectives.length === 0 ? (
-                          <div className="text-center py-10 text-fg-muted text-sm">
-                            {group.electives.length === 0 ? "No subjects in this group yet." : "No subjects match your search in this group."}
-                          </div>
-                        ) : (
-                          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3">
-                            {filteredElectives.map((e) => {
-                              const filled = e.maxSeats - e.availableSeats;
-                              const fillPerc = e.maxSeats > 0 ? Math.round((filled / e.maxSeats) * 100) : 0;
-                              const circumference = 2 * Math.PI * 18;
-                              const strokeDashoffset = circumference - (fillPerc / 100) * circumference;
-                              
-                              return (
-                                <div key={e.id} className="relative p-4 rounded-control border border-border bg-surface-2/50 hover:border-border hover:bg-surface-2/20 transition-all group/elective">
-                                  {/* Top Row */}
-                                  <div className="flex justify-between items-start gap-3">
-                                    <div className="flex-1 min-w-0">
-                                      <div className="flex items-center gap-2 mb-1.5 flex-wrap">
-                                        {e.courseCode && (
-                                          <span className="text-2xs font-mono font-bold text-primary-text bg-primary/10 px-1.5 py-0.5 rounded-badge">{e.courseCode}</span>
-                                        )}
-                                        {e.isFull && (
-                                          <span className="px-1.5 py-0.5 rounded-badge bg-danger/15 text-danger-text text-2xs font-bold uppercase tracking-wider">Full</span>
-                                        )}
-                                      </div>
-                                      <h3 className="font-semibold text-sm text-fg leading-tight">{e.name}</h3>
-                                      <p className="text-xs text-fg-muted mt-1">{e.credits} Credits</p>
-                                    </div>
-                                    
-                                    {/* Circular Gauge */}
-                                    <div className="relative w-14 h-14 shrink-0">
-                                      <svg className="w-14 h-14 -rotate-90" viewBox="0 0 44 44">
-                                        <circle cx="22" cy="22" r="18" fill="none" stroke="var(--surface-3)" strokeWidth="3" />
-                                        <circle 
-                                          cx="22" cy="22" r="18" fill="none" 
-                                          stroke={e.isFull ? "var(--danger)" : fillPerc > 75 ? "var(--warning)" : "var(--primary)"} 
-                                          strokeWidth="3" 
-                                          strokeLinecap="round"
-                                          strokeDasharray={circumference} 
-                                          strokeDashoffset={strokeDashoffset}
-                                          className="transition-all duration-700 ease-out"
-                                        />
-                                      </svg>
-                                      <div className="absolute inset-0 flex items-center justify-center">
-                                        <span className={`text-xs font-bold ${e.isFull ? 'text-danger-text' : 'text-fg'}`}>{fillPerc}%</span>
-                                      </div>
-                                    </div>
-                                  </div>
-                                  
-                                  {/* Bottom Stats */}
-                                  <div className="mt-3 pt-3 border-t border-border/50 flex items-center justify-between">
-                                    <div className="flex items-center gap-3">
-                                      <div>
-                                        <p className="text-2xs font-bold text-fg-muted uppercase tracking-wider">Filled</p>
-                                        <p className="text-sm font-bold text-fg">{filled}<span className="text-fg-muted font-normal">/{e.maxSeats}</span></p>
-                                      </div>
-                                      <div className="w-px h-6 bg-border/50" />
-                                      <div>
-                                        <p className="text-2xs font-bold text-fg-muted uppercase tracking-wider">Available</p>
-                                        <p className={`text-sm font-bold ${e.isFull ? 'text-danger-text' : 'text-success-text'}`}>{e.availableSeats}</p>
-                                      </div>
-                                    </div>
-                                    
-                                    {/* Action Buttons */}
-                                    <div className="flex items-center gap-0.5 opacity-0 group-hover/elective:opacity-100 transition-opacity">
-                                      <button onClick={() => openEditModal(e)} className="p-1.5 text-fg-muted hover:text-primary-text hover:bg-primary/10 rounded-control transition-colors outline-none" title="Edit Subject">
-                                        <Pencil className="w-3.5 h-3.5" />
-                                      </button>
-                                      <button onClick={() => handleDeleteElective(e.id)} className="p-1.5 text-fg-muted hover:text-danger-text hover:bg-danger/10 rounded-control transition-colors outline-none" title="Delete Subject">
-                                        <Trash2 className="w-3.5 h-3.5" />
-                                      </button>
-                                    </div>
-                                  </div>
+                <Disclosure open={isExpanded}>
+                  <div className="border-t border-border p-3">
+                    {filteredElectives.length === 0 ? (
+                      <p className="py-8 text-center text-sm text-fg-muted">
+                        {group.electives.length === 0 ? "No subjects in this group yet." : "No subjects match your search in this group."}
+                      </p>
+                    ) : (
+                      <ul className="grid grid-cols-1 gap-2 md:grid-cols-2 xl:grid-cols-3">
+                        {filteredElectives.map((e) => {
+                          const filled = e.maxSeats - e.availableSeats;
+                          const state = seatState(e.availableSeats, e.maxSeats);
+                          return (
+                            <li key={e.id} className="flex items-start gap-3 rounded-control border border-border bg-surface-2/50 p-3.5">
+                              <OccupancyRing filled={filled} total={e.maxSeats} state={state} size={48} label={`${filled} of ${e.maxSeats} seats filled`}>
+                                <span className="font-mono text-2xs tabular-nums text-fg">{e.maxSeats > 0 ? Math.round((filled / e.maxSeats) * 100) : 0}%</span>
+                              </OccupancyRing>
+                              <div className="min-w-0 flex-1">
+                                <div className="flex flex-wrap items-center gap-1.5">
+                                  {e.courseCode ? <span className="font-mono text-2xs text-fg-muted">{e.courseCode}</span> : null}
+                                  {e.isFull ? (
+                                    <Badge size="sm" tone="danger">
+                                      Full
+                                    </Badge>
+                                  ) : null}
                                 </div>
-                              );
-                            })}
-                          </div>
-                        )}
-                      </div>
-                    </motion.div>
-                  )}
-                </AnimatePresence>
-              </motion.div>
+                                <h3 className="mt-0.5 text-sm font-medium leading-snug text-fg">{e.name}</h3>
+                                <p className="mt-1 text-xs text-fg-muted">
+                                  {e.credits} credits · <span className="font-mono tabular-nums text-fg">{filled}</span>/{e.maxSeats} filled ·{" "}
+                                  <span className={cn("font-mono tabular-nums", e.isFull ? "text-danger-text" : state === "low" ? "text-warning-text" : "text-fg")}>
+                                    {e.availableSeats}
+                                  </span>{" "}
+                                  left
+                                </p>
+                              </div>
+                              <Menu>
+                                <MenuTrigger render={<Button variant="ghost" size="icon-sm" aria-label={`Actions for ${e.name}`} className="-mr-1 -mt-1" />}>
+                                  <MoreHorizontal />
+                                </MenuTrigger>
+                                <MenuContent align="end">
+                                  <MenuItem onClick={() => openEditModal(e)}>
+                                    <Pencil /> Edit subject
+                                  </MenuItem>
+                                  <MenuItem tone="danger" onClick={() => ask({ kind: "subject", elective: e })}>
+                                    <Trash2 /> Delete subject
+                                  </MenuItem>
+                                </MenuContent>
+                              </Menu>
+                            </li>
+                          );
+                        })}
+                      </ul>
+                    )}
+                  </div>
+                </Disclosure>
+              </section>
             );
           })
         )}
       </div>
 
-      {/* Add Group Modal */}
-      <AnimatePresence>
-        {isAddGroupModalOpen && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-overlay backdrop-blur-sm">
-            <motion.div
-              initial={{ opacity: 0, scale: 0.95, y: 20 }}
-              animate={{ opacity: 1, scale: 1, y: 0 }}
-              exit={{ opacity: 0, scale: 0.95, y: 20 }}
-              className="bg-surface border border-border rounded-card w-full max-w-sm shadow-3 overflow-hidden"
-            >
-              <div className="flex justify-between items-center p-6 border-b border-border">
-                <h3 className="text-xl font-bold text-fg">Create New Group</h3>
-                <button onClick={() => setIsAddGroupModalOpen(false)} className="text-fg-muted hover:text-fg transition-colors outline-none">
-                  <X className="w-5 h-5" />
-                </button>
-              </div>
-              <div className="p-6 space-y-5">
-                <div>
-                  <label className="block text-xs font-bold text-fg-muted mb-1 uppercase">Group Name <span className="text-danger-text">*</span></label>
-                  <input 
-                    value={newGroupOnlyName} onChange={e => setNewGroupOnlyName(e.target.value)}
-                    placeholder="e.g. Core Electives"
-                    className="w-full px-4 py-2 bg-surface border border-border-strong rounded-control text-sm focus-visible:ring-2 focus-visible:ring-ring outline-none"
-                  />
-                </div>
-              </div>
-              <div className="p-6 bg-surface-2 border-t border-border flex justify-end gap-3">
-                <button 
-                  onClick={() => setIsAddGroupModalOpen(false)}
-                  className="px-5 py-2.5 rounded-control text-sm font-medium hover:bg-surface-2 transition-colors outline-none"
-                >
-                  Cancel
-                </button>
-                <button 
-                  onClick={handleAddGroupSave}
-                  disabled={isSaving || !newGroupOnlyName.trim()}
-                  className="bg-primary text-primary-fg px-6 py-2.5 rounded-control text-sm font-medium hover:bg-primary-strong transition-colors disabled:opacity-50 outline-none"
-                >
-                  {isSaving ? "Saving..." : "Create Group"}
-                </button>
-              </div>
-            </motion.div>
-          </div>
-        )}
-      </AnimatePresence>
+      {/* Group dialog */}
+      <Dialog open={groupDialog.open} onOpenChange={(o) => !isSaving && setGroupDialog((d) => ({ ...d, open: o }))}>
+        <DialogContent size="sm" showClose={!isSaving}>
+          <form
+            onSubmit={(e) => {
+              e.preventDefault();
+              if (groupDialog.mode === "edit") handleEditGroupSave();
+              else handleAddGroupSave();
+            }}
+            className="contents"
+          >
+            <DialogHeader>
+              <DialogTitle>{groupDialog.mode === "edit" ? "Rename group" : "New group"}</DialogTitle>
+              <DialogDescription>Students pick one subject from each group.</DialogDescription>
+            </DialogHeader>
+            <DialogBody>
+              <Field label="Group name">
+                <Input
+                  value={newGroupOnlyName}
+                  onChange={(e) => setNewGroupOnlyName(e.target.value)}
+                  placeholder={groupDialog.mode === "edit" ? "e.g. Professional Electives" : "e.g. Core Electives"}
+                  autoFocus
+                />
+              </Field>
+            </DialogBody>
+            <DialogFooter>
+              <Button type="button" variant="secondary" onClick={() => setGroupDialog((d) => ({ ...d, open: false }))} disabled={isSaving}>
+                Cancel
+              </Button>
+              <Button type="submit" loading={isSaving} loadingText="Saving" disabled={!newGroupOnlyName.trim()}>
+                {groupDialog.mode === "edit" ? "Save changes" : "Create group"}
+              </Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
 
-      {/* Add Subject Modal */}
-      <AnimatePresence>
-        {isAddSubjectModalOpen && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-overlay backdrop-blur-sm">
-            <motion.div
-              initial={{ opacity: 0, scale: 0.95, y: 20 }}
-              animate={{ opacity: 1, scale: 1, y: 0 }}
-              exit={{ opacity: 0, scale: 0.95, y: 20 }}
-              className="bg-surface border border-border rounded-card w-full max-w-lg shadow-3 overflow-hidden"
-            >
-              <div className="flex justify-between items-center p-6 border-b border-border">
-                <h3 className="text-xl font-bold text-fg">Add Subject</h3>
-                <button onClick={() => setIsAddSubjectModalOpen(false)} className="text-fg-muted hover:text-fg transition-colors outline-none">
-                  <X className="w-5 h-5" />
-                </button>
+      {/* Subject dialog */}
+      <Dialog open={subjectDialog.open} onOpenChange={(o) => !isSaving && setSubjectDialog((d) => ({ ...d, open: o }))}>
+        <DialogContent size="lg" showClose={!isSaving}>
+          <form
+            onSubmit={(e) => {
+              e.preventDefault();
+              if (subjectDialog.mode === "edit") handleEditSave();
+              else handleAddSubjectSave();
+            }}
+            className="contents"
+          >
+            <DialogHeader>
+              <DialogTitle>{subjectDialog.mode === "edit" ? "Edit subject" : "Add subject"}</DialogTitle>
+              <DialogDescription>Seat quota is the most students who can take it from your section.</DialogDescription>
+            </DialogHeader>
+            <DialogBody>
+              <div className="grid grid-cols-2 gap-4">
+                <Field label="Course name" className="col-span-2">
+                  <Input value={newElectiveName} onChange={(e) => setNewElectiveName(e.target.value)} placeholder="e.g. Machine Learning" autoFocus />
+                </Field>
+                <Field label="Course code" optional className="col-span-2 sm:col-span-1">
+                  <Input value={newCourseCode} onChange={(e) => setNewCourseCode(e.target.value)} placeholder="e.g. ML101" className="font-mono" />
+                </Field>
+                <Field label="Seat quota">
+                  <Input type="number" inputMode="numeric" min={1} value={newMaxSeats} onChange={(e) => setNewMaxSeats(e.target.value)} placeholder="e.g. 60" />
+                </Field>
+                <Field label="Credits">
+                  <Input type="number" inputMode="numeric" min={0} value={newCredits} onChange={(e) => setNewCredits(e.target.value)} />
+                </Field>
               </div>
-              <div className="p-6 space-y-5">
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="col-span-2">
-                    <label className="block text-xs font-bold text-fg-muted mb-1 uppercase">Course Name <span className="text-danger-text">*</span></label>
-                    <input 
-                      value={newElectiveName} onChange={e => setNewElectiveName(e.target.value)}
-                      placeholder="e.g. Machine Learning"
-                      className="w-full px-4 py-2 bg-surface border border-border-strong rounded-control text-sm focus-visible:ring-2 focus-visible:ring-ring outline-none"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-xs font-bold text-fg-muted mb-1 uppercase">Course Code</label>
-                    <input 
-                      value={newCourseCode} onChange={e => setNewCourseCode(e.target.value)}
-                      placeholder="e.g. ML101"
-                      className="w-full px-4 py-2 bg-surface border border-border-strong rounded-control text-sm focus-visible:ring-2 focus-visible:ring-ring outline-none"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-xs font-bold text-fg-muted mb-1 uppercase">Seat Quota <span className="text-danger-text">*</span></label>
-                    <input 
-                      type="number"
-                      value={newMaxSeats} onChange={e => setNewMaxSeats(e.target.value)}
-                      placeholder="e.g. 60"
-                      className="w-full px-4 py-2 bg-surface border border-border-strong rounded-control text-sm focus-visible:ring-2 focus-visible:ring-ring outline-none"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-xs font-bold text-fg-muted mb-1 uppercase">Credits</label>
-                    <input 
-                      type="number"
-                      value={newCredits} onChange={e => setNewCredits(e.target.value)}
-                      className="w-full px-4 py-2 bg-surface border border-border-strong rounded-control text-sm focus-visible:ring-2 focus-visible:ring-ring outline-none"
-                    />
-                  </div>
-                </div>
-              </div>
-              <div className="p-6 bg-surface-2 border-t border-border flex justify-end gap-3">
-                <button 
-                  onClick={() => setIsAddSubjectModalOpen(false)}
-                  className="px-5 py-2.5 rounded-control text-sm font-medium hover:bg-surface-2 transition-colors outline-none"
-                >
-                  Cancel
-                </button>
-                <button 
-                  onClick={handleAddSubjectSave}
-                  disabled={isSaving}
-                  className="bg-primary text-primary-fg px-6 py-2.5 rounded-control text-sm font-medium hover:bg-primary-strong transition-colors disabled:opacity-50 outline-none"
-                >
-                  {isSaving ? "Saving..." : "Save Subject"}
-                </button>
-              </div>
-            </motion.div>
-          </div>
-        )}
-      </AnimatePresence>
+            </DialogBody>
+            <DialogFooter>
+              <Button type="button" variant="secondary" onClick={() => setSubjectDialog((d) => ({ ...d, open: false }))} disabled={isSaving}>
+                Cancel
+              </Button>
+              <Button type="submit" loading={isSaving} loadingText="Saving">
+                {subjectDialog.mode === "edit" ? "Save changes" : "Save subject"}
+              </Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
 
-      {/* Edit Subject Modal */}
-      <AnimatePresence>
-        {isEditModalOpen && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-overlay backdrop-blur-sm">
-            <motion.div
-              initial={{ opacity: 0, scale: 0.95, y: 20 }}
-              animate={{ opacity: 1, scale: 1, y: 0 }}
-              exit={{ opacity: 0, scale: 0.95, y: 20 }}
-              className="bg-surface border border-border rounded-card w-full max-w-lg shadow-3 overflow-hidden"
-            >
-              <div className="flex justify-between items-center p-6 border-b border-border">
-                <h3 className="text-xl font-bold text-fg">Edit Subject</h3>
-                <button onClick={() => setIsEditModalOpen(false)} className="text-fg-muted hover:text-fg transition-colors outline-none">
-                  <X className="w-5 h-5" />
-                </button>
-              </div>
-              <div className="p-6 space-y-5">
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="col-span-2">
-                    <label className="block text-xs font-bold text-fg-muted mb-1 uppercase">Course Name <span className="text-danger-text">*</span></label>
-                    <input 
-                      value={newElectiveName} onChange={e => setNewElectiveName(e.target.value)}
-                      placeholder="e.g. Machine Learning"
-                      className="w-full px-4 py-2 bg-surface border border-border-strong rounded-control text-sm focus-visible:ring-2 focus-visible:ring-ring outline-none"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-xs font-bold text-fg-muted mb-1 uppercase">Course Code</label>
-                    <input 
-                      value={newCourseCode} onChange={e => setNewCourseCode(e.target.value)}
-                      placeholder="e.g. ML101"
-                      className="w-full px-4 py-2 bg-surface border border-border-strong rounded-control text-sm focus-visible:ring-2 focus-visible:ring-ring outline-none"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-xs font-bold text-fg-muted mb-1 uppercase">Seat Quota <span className="text-danger-text">*</span></label>
-                    <input 
-                      type="number"
-                      value={newMaxSeats} onChange={e => setNewMaxSeats(e.target.value)}
-                      placeholder="e.g. 60"
-                      className="w-full px-4 py-2 bg-surface border border-border-strong rounded-control text-sm focus-visible:ring-2 focus-visible:ring-ring outline-none"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-xs font-bold text-fg-muted mb-1 uppercase">Credits</label>
-                    <input 
-                      type="number"
-                      value={newCredits} onChange={e => setNewCredits(e.target.value)}
-                      className="w-full px-4 py-2 bg-surface border border-border-strong rounded-control text-sm focus-visible:ring-2 focus-visible:ring-ring outline-none"
-                    />
-                  </div>
-                </div>
-              </div>
-              <div className="p-6 bg-surface-2 border-t border-border flex justify-end gap-3">
-                <button 
-                  onClick={() => setIsEditModalOpen(false)}
-                  className="px-5 py-2.5 rounded-control text-sm font-medium hover:bg-surface-2 transition-colors outline-none"
-                >
-                  Cancel
-                </button>
-                <button 
-                  onClick={handleEditSave}
-                  disabled={isSaving}
-                  className="bg-primary text-primary-fg px-6 py-2.5 rounded-control text-sm font-medium hover:bg-primary-strong transition-colors disabled:opacity-50 outline-none"
-                >
-                  {isSaving ? "Saving..." : "Save Changes"}
-                </button>
-              </div>
-            </motion.div>
-          </div>
-        )}
-      </AnimatePresence>
-
-      {/* Edit Group Modal */}
-      <AnimatePresence>
-        {isEditGroupModalOpen && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-overlay backdrop-blur-sm">
-            <motion.div
-              initial={{ opacity: 0, scale: 0.95, y: 20 }}
-              animate={{ opacity: 1, scale: 1, y: 0 }}
-              exit={{ opacity: 0, scale: 0.95, y: 20 }}
-              className="bg-surface border border-border rounded-card w-full max-w-sm shadow-3 overflow-hidden"
-            >
-              <div className="flex justify-between items-center p-6 border-b border-border">
-                <h3 className="text-xl font-bold text-fg">Rename Group</h3>
-                <button onClick={() => setIsEditGroupModalOpen(false)} className="text-fg-muted hover:text-fg transition-colors outline-none">
-                  <X className="w-5 h-5" />
-                </button>
-              </div>
-              <div className="p-6 space-y-5">
-                <div>
-                  <label className="block text-xs font-bold text-fg-muted mb-1 uppercase">Group Name <span className="text-danger-text">*</span></label>
-                  <input 
-                    value={editingGroupName} onChange={e => setEditingGroupName(e.target.value)}
-                    placeholder="e.g. Professional Electives"
-                    className="w-full px-4 py-2 bg-surface border border-border-strong rounded-control text-sm focus-visible:ring-2 focus-visible:ring-ring outline-none"
-                  />
-                </div>
-              </div>
-              <div className="p-6 bg-surface-2 border-t border-border flex justify-end gap-3">
-                <button 
-                  onClick={() => setIsEditGroupModalOpen(false)}
-                  className="px-5 py-2.5 rounded-control text-sm font-medium hover:bg-surface-2 transition-colors outline-none"
-                >
-                  Cancel
-                </button>
-                <button 
-                  onClick={handleEditGroupSave}
-                  disabled={isSaving || !editingGroupName.trim()}
-                  className="bg-primary text-primary-fg px-6 py-2.5 rounded-control text-sm font-medium hover:bg-primary-strong transition-colors disabled:opacity-50 outline-none"
-                >
-                  {isSaving ? "Saving..." : "Save Changes"}
-                </button>
-              </div>
-            </motion.div>
-          </div>
-        )}
-      </AnimatePresence>
+      <ConfirmDialog
+        open={confirmOpen}
+        onOpenChange={setConfirmOpen}
+        tone="danger"
+        title={confirmCopy.title}
+        description={confirmCopy.description}
+        impact={confirmCopy.impact}
+        requireText={confirmCopy.requireText}
+        confirmLabel={confirmCopy.label}
+        onConfirm={runPending}
+      />
     </div>
   );
 }

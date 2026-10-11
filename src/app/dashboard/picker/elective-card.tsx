@@ -16,6 +16,7 @@ type Props = {
   disabled: boolean;
   compared: boolean;
   compareFull: boolean;
+  waitlistEnabled?: boolean;
   conflict?: string;
   suggestions?: Elective[];
   onSelect: (groupId: string, electiveId: string) => void;
@@ -37,6 +38,7 @@ export const ElectiveCard = React.memo(function ElectiveCard({
   disabled,
   compared,
   compareFull,
+  waitlistEnabled,
   conflict,
   suggestions,
   onSelect,
@@ -48,6 +50,7 @@ export const ElectiveCard = React.memo(function ElectiveCard({
   const state = seatState(left, elective.maxSeats);
   const filled = elective.maxSeats - left;
   const inputId = `elective-${elective.id}`;
+  const isWaitlisted = state === "full" && waitlistEnabled;
 
   return (
     <motion.div
@@ -58,7 +61,9 @@ export const ElectiveCard = React.memo(function ElectiveCard({
         "transition-[border-color,box-shadow,background-color] duration-200 ease-snappy",
         "has-[input:focus-visible]:ring-2 has-[input:focus-visible]:ring-ring has-[input:focus-visible]:ring-offset-2 has-[input:focus-visible]:ring-offset-canvas",
         selected
-          ? "border-primary bg-primary/[0.04] shadow-2 ring-1 ring-primary"
+          ? isWaitlisted
+            ? "border-warning bg-warning/[0.04] shadow-2 ring-1 ring-warning"
+            : "border-primary bg-primary/[0.04] shadow-2 ring-1 ring-primary"
           : disabled
             ? "border-border bg-surface-2/50"
             : "border-border hover:border-border-strong hover:shadow-2",
@@ -88,8 +93,13 @@ export const ElectiveCard = React.memo(function ElectiveCard({
                   {elective.credits} credits
                 </span>
               ) : null}
+              {isWaitlisted ? (
+                <span className="rounded-badge border border-warning/30 bg-warning/10 px-1.5 py-px text-2xs font-medium text-warning-text">
+                  Waitlist
+                </span>
+              ) : null}
             </div>
-            <h3 className={cn("mt-1.5 text-base font-semibold leading-snug tracking-tight", disabled && !selected ? "text-fg-muted" : "text-fg")}>
+            <h3 className={cn("mt-1.5 text-base font-medium leading-snug tracking-tight", disabled && !selected ? "text-fg-muted" : "text-fg")}>
               {elective.name}
             </h3>
           </div>
@@ -98,7 +108,11 @@ export const ElectiveCard = React.memo(function ElectiveCard({
             className={cn(
               "mt-0.5 inline-flex size-5 shrink-0 items-center justify-center border transition-colors duration-150",
               multiple ? "rounded-badge" : "rounded-full",
-              selected ? "border-primary bg-primary text-primary-fg" : "border-border-strong bg-surface"
+              selected
+                ? isWaitlisted
+                  ? "border-warning bg-warning text-warning-fg"
+                  : "border-primary bg-primary text-primary-fg"
+                : "border-border-strong bg-surface"
             )}
           >
             <AnimatePresence initial={false}>
@@ -124,15 +138,32 @@ export const ElectiveCard = React.memo(function ElectiveCard({
           />
           <div className="min-w-0 leading-tight">
             {state === "full" ? (
-              <p className="text-sm font-semibold text-danger-text">Full</p>
+              <div className="flex items-center gap-1.5 flex-wrap">
+                <span className="text-sm font-medium text-danger-text">Full</span>
+                {waitlistEnabled ? (
+                  <span className="rounded-badge bg-warning/15 px-1.5 py-0.5 text-2xs font-medium text-warning-text">
+                    Waitlist Open
+                  </span>
+                ) : null}
+              </div>
             ) : (
-              <p className={cn("text-sm font-semibold", state === "low" ? "text-warning-text" : "text-fg")}>
+              <p className={cn("text-sm font-medium", state === "low" ? "text-warning-text" : "text-fg")}>
                 <AnimatedNumber value={left} tabular /> {state === "low" ? (left === 1 ? "seat left" : "seats left") : "seats left"}
               </p>
             )}
             <p className="text-xs text-fg-muted">
               of <span className="font-mono tabular-nums">{elective.maxSeats}</span>
+              {elective.sectionAvailableSeats !== undefined ? (
+                <span className="ml-1.5 font-medium text-primary-text">
+                  (Class: {elective.sectionAvailableSeats}/{elective.sectionMaxSeats})
+                </span>
+              ) : null}
             </p>
+            {selected && isWaitlisted ? (
+              <p className="text-2xs font-medium text-warning-text mt-0.5">
+                Will be placed on waitlist
+              </p>
+            ) : null}
           </div>
         </div>
       </label>

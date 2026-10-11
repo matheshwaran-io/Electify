@@ -9,6 +9,7 @@ import { cn } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
 import { useSpotlight } from "@/components/ui/interactions";
 import { Spinner } from "@/components/ui/spinner";
+import { cleanDisplayName } from "@/lib/format";
 
 interface UserSession {
   userId: string;
@@ -30,12 +31,12 @@ export function PortalSelectClient({ session, assignedSectionsCount, currentWork
   const [loadingPortal, setLoadingPortal] = useState<Workspace | null>(null);
 
   const handleSelectPortal = async (workspace: Workspace) => {
-    const name = workspace === "COORDINATOR" ? "Coordinator" : "Class tutor";
+    const name = workspace === "COORDINATOR" ? "Course Controller" : "Faculty";
     try {
       setLoadingPortal(workspace);
       const res = await setWorkspacePortal(workspace);
       if (res.success) {
-        toast.success(`${name} workspace`, { description: "You can switch back from your account menu." });
+        toast.success(`${name} workspace activated`, { description: "You can switch back from your account menu." });
         router.push("/faculty/dashboard");
         router.refresh();
       } else {
@@ -47,12 +48,12 @@ export function PortalSelectClient({ session, assignedSectionsCount, currentWork
     }
   };
 
-  const firstName = session.name.split(" ")[0];
+  const displayName = cleanDisplayName(session.name);
 
   return (
     <div className="w-full max-w-4xl">
       <div className="mb-8 text-center animate-enter">
-        <h1 className="text-3xl font-semibold tracking-tight text-fg sm:text-4xl">Welcome back, {firstName}</h1>
+        <h1 className="text-3xl font-light tracking-display text-fg sm:text-4xl">Welcome back, {displayName}</h1>
         <p className="mx-auto mt-2 max-w-lg text-fg-muted">
           Choose where to work. You can switch between them any time from your account menu.
         </p>
@@ -61,10 +62,11 @@ export function PortalSelectClient({ session, assignedSectionsCount, currentWork
       <div className="grid gap-4 sm:grid-cols-2">
         <WorkspaceCard
           icon={GraduationCap}
-          title="Coordinator"
-          description="Programme-wide view: electives, templates, every student and the combined reports."
+          title="Course Controller"
+          badge={<Badge tone="outline" size="sm">Semi Control</Badge>}
+          description="Programme-wide view: seat allotments across departments and classes, catalogue, and combined reports."
           points={[
-            { icon: BookOpen, label: "Elective catalogue and groups" },
+            { icon: BookOpen, label: "Electives and department/class seat quotas" },
             { icon: Layers, label: "Registration event templates" },
             { icon: Building2, label: "Programme student directory" },
             { icon: FileBarChart, label: "Section-by-section reports" },
@@ -77,13 +79,13 @@ export function PortalSelectClient({ session, assignedSectionsCount, currentWork
         />
         <WorkspaceCard
           icon={Users}
-          title="Class tutor"
-          description="Section-level work: your roster, the live registration window and section reports."
+          title="Faculty"
+          description="Class-level control: your assigned section roster, live registration window, and class reports."
           badge={
             <Badge tone={assignedSectionsCount > 0 ? "primary" : "warning"} size="sm">
               {assignedSectionsCount > 0
-                ? `${assignedSectionsCount} section${assignedSectionsCount > 1 ? "s" : ""}`
-                : "No sections yet"}
+                ? `${assignedSectionsCount} section${assignedSectionsCount > 1 ? "s" : ""} · Class Control`
+                : "Class Control"}
             </Badge>
           }
           points={[
@@ -155,7 +157,7 @@ function WorkspaceCard({
           ) : null}
         </div>
       </div>
-      <h2 className="mt-5 text-lg font-semibold tracking-tight text-fg">{title}</h2>
+      <h2 className="mt-5 text-lg font-medium tracking-tight text-fg">{title}</h2>
       <p className="mt-1 text-sm text-fg-muted">{description}</p>
       <ul className="mt-5 space-y-2.5">
         {points.map(({ icon: PIcon, label }) => (

@@ -85,11 +85,20 @@ export function buildNav(role: Role, workspace: string): NavGroup[] {
   if (role === "COURSE_COORDINATOR") {
     if (workspace === "TUTOR") return tutorGroups
     return [
-      { label: "Session control", items: [dashboard, replay] },
+      {
+        label: "Session control",
+        items: [
+          dashboard,
+          { label: "Live window", href: "/faculty/window", icon: Activity, key: "w" },
+          replay,
+        ],
+      },
       {
         label: "Academic registry",
         items: [
           { label: "Electives & baskets", href: "/faculty/electives", icon: BookOpen, key: "e", primary: true },
+          { label: "Registration events", href: "/faculty/events", icon: Calendar, key: "v" },
+          { label: "Departments & classes", href: "/faculty/departments", icon: Building2, key: "c" },
           { label: "Students", href: "/faculty/students", icon: GraduationCap, key: "s", primary: true },
           { label: "Reports", href: "/faculty/reports", icon: FileText, key: "r", primary: true },
         ],
@@ -109,8 +118,15 @@ export function isActive(pathname: string, href: string) {
 }
 
 export const ROLE_LABEL: Record<string, string> = {
-  SYSTEM_ADMIN: "System admin",
-  COURSE_COORDINATOR: "Course coordinator",
-  CLASS_TUTOR: "Class tutor",
-  STUDENT: "Student",
+  SYSTEM_ADMIN: "Admin",
+  COURSE_COORDINATOR: "Course Controller",
+  CLASS_TUTOR: "Faculty",
+  STUDENT: "Students",
+}
+
+export const ROLE_CONTROL: Record<string, string> = {
+  SYSTEM_ADMIN: "Full Control",
+  COURSE_COORDINATOR: "Semi Control",
+  CLASS_TUTOR: "Class Control",
+  STUDENT: "Elective",
 }

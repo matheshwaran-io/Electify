@@ -1,185 +1,188 @@
 "use client";
 
 import { useState } from "react";
-import { AlertTriangle, Trash2, Archive, Loader2, Database, Users, BookOpen } from "lucide-react";
+import { useRouter } from "next/navigation";
+import { AlertTriangle, Archive, BookOpen, Database, Trash2, Users } from "lucide-react";
+import { toast } from "sonner";
 import { resetSectionRegistrationEvent } from "@/app/actions/tutor";
 import { deleteAllRegistrations, deleteAllStudents, deleteAllSubjects, resetAllSeats, archiveEvent } from "@/app/actions/database";
-import { useRouter } from "next/navigation";
-import { toast } from "sonner";
+import { cn } from "@/lib/utils";
+import { PageHeader } from "@/components/ui/layout";
+import { Button } from "@/components/ui/button";
+import { Callout } from "@/components/ui/feedback";
+import { StatusBadge } from "@/components/ui/status-badge";
+import { ConfirmDialog, type ImpactRow } from "@/components/ui/confirm-dialog";
 
-export function DatabaseClient({ events, role }: { events: any[], role: string }) {
+type Action = {
+  key: string;
+  title: string;
+  desc: string;
+  icon: React.ElementType;
+  tone: "warning" | "danger";
+  actionFn: () => Promise<void>;
+  requiresEvent?: boolean;
+  hidden?: boolean;
+};
+
+export function DatabaseClient({ events, role }: { events: any[]; role: string }) {
   const router = useRouter();
-  const [resetConfirmText, setResetConfirmText] = useState("");
-  const [isProcessing, setIsProcessing] = useState(false);
-  const [activeAction, setActiveAction] = useState<string | null>(null);
+  const [active, setActive] = useState<Action | null>(null);
+  const [open, setOpen] = useState(false);
 
   const isAdminOrCoord = role === "SYSTEM_ADMIN" || role === "COURSE_COORDINATOR";
 
   const event = events[0];
 
-  async function handleAction(actionKey: string, actionFn: () => Promise<void>, requiresEvent: boolean = true) {
-    if (requiresEvent && !event) {
+  const actions: Action[] = [
+    {
+      key: "reset_section",
+      title: "Reset section data",
+      desc: "Clears all registrations for your assigned section for the current event.",
+      icon: Users,
+      tone: "warning",
+      actionFn: async () => await resetSectionRegistrationEvent(event.id),
+    },
+    {
+      key: "archive_event",
+      title: "Archive event",
+      desc: "Marks the event as finalized and read-only.",
+      icon: Archive,
+      tone: "warning",
+      actionFn: async () => await archiveEvent(event.id),
+    },
+    {
+      key: "delete_registrations",
+      title: "Delete all registrations",
+      desc: "Hard deletes all registrations and resets seats across all sections.",
+      icon: Trash2,
+      tone: "danger",
+      actionFn: async () => await deleteAllRegistrations(event.id),
+      hidden: !isAdminOrCoord,
+    },
+    {
+      key: "reset_seats",
+      title: "Reset all seats",
+      desc: "Drops all registrations and resets subject seat limits to maximum.",
+      icon: Database,
+      tone: "danger",
+      actionFn: async () => await resetAllSeats(event.id),
+      hidden: !isAdminOrCoord,
+    },
+    {
+      key: "delete_students",
+      title: "Delete all students",
+      desc: "Hard deletes all student accounts. Cascades to their registrations.",
+      icon: Users,
+      tone: "danger",
+      actionFn: async () => await deleteAllStudents(),
+      requiresEvent: false,
+      hidden: !isAdminOrCoord,
+    },
+    {
+      key: "delete_subjects",
+      title: "Delete all subjects",
+      desc: "Hard deletes all electives assigned to this event.",
+      icon: BookOpen,
+      tone: "danger",
+      actionFn: async () => await deleteAllSubjects(event.id),
+      hidden: !isAdminOrCoord,
+    },
+  ];
+
+  function choose(action: Action) {
+    if ((action.requiresEvent ?? true) && !event) {
       toast.error("No active registration event found.");
       return;
     }
-    if (resetConfirmText !== "CONFIRM") {
-      toast.error("Please type CONFIRM to proceed.");
-      return;
-    }
-    
-    setIsProcessing(true);
+    setActive(action);
+    setOpen(true);
+  }
+
+  async function run() {
+    if (!active) return;
     try {
-      await actionFn();
-      toast.success(`Action successful.`);
-      setResetConfirmText("");
-      setActiveAction(null);
+      await active.actionFn();
+      toast.success("Action successful.");
       router.refresh();
     } catch (err: any) {
       toast.error(err.message || "Operation failed.");
-    } finally {
-      setIsProcessing(false);
+      throw err;
     }
   }
 
-  function renderActionCard({
-    key, title, desc, icon: Icon, colorClass, actionFn, requiresEvent = true, hidden = false
-  }: {
-    key: string, title: string, desc: string, icon: any, colorClass: string, actionFn: () => Promise<void>, requiresEvent?: boolean, hidden?: boolean
-  }) {
-    if (hidden) return null;
-    
-    const isActive = activeAction === key;
+  const impact: ImpactRow[] = [];
+  if (active && (active.requiresEvent ?? true) && event) impact.push({ label: "Event", value: event.name ?? "Current event" });
 
-    return (
-      <div className={`bg-surface border ${isActive ? colorClass : 'border-border'} rounded-card p-4 flex flex-col justify-between transition-colors`}>
-        <div>
-          <div className="flex items-center gap-2 mb-2">
-            <Icon className={`w-4 h-4 ${isActive ? colorClass.replace('border-', 'text-') : 'text-fg-muted'}`} />
-            <h4 className="font-bold text-sm text-fg">{title}</h4>
-          </div>
-          <p className="text-xs text-fg-muted mb-4">{desc}</p>
-        </div>
-        
-        {!isActive ? (
-          <button 
-            onClick={() => setActiveAction(key)}
-            className={`w-full border border-border text-fg-muted hover:${colorClass.replace('border-', 'text-')} px-4 py-2 rounded-control text-xs font-bold transition-colors`}
-          >
-            Select Action
-          </button>
-        ) : (
-          <div className="space-y-2">
-            <input
-              value={resetConfirmText}
-              onChange={(e) => setResetConfirmText(e.target.value)}
-              placeholder="Type CONFIRM"
-              className="w-full px-3 py-1.5 bg-surface border border-border-strong rounded-control text-xs outline-none focus-visible:ring-1 focus-visible:ring-ring"
-            />
-            <div className="flex gap-2">
-              <button 
-                onClick={() => handleAction(key, actionFn, requiresEvent)}
-                disabled={isProcessing}
-                className="flex-1 bg-danger-strong text-primary-fg px-4 py-1.5 rounded-control text-xs font-bold transition-colors disabled:opacity-50 flex items-center justify-center"
-              >
-                {isProcessing ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : "Execute"}
-              </button>
-              <button 
-                onClick={() => { setActiveAction(null); setResetConfirmText(""); }}
-                disabled={isProcessing}
-                className="flex-1 bg-surface-2 text-fg px-4 py-1.5 rounded-control text-xs font-bold transition-colors disabled:opacity-50"
-              >
-                Cancel
-              </button>
-            </div>
-          </div>
-        )}
-      </div>
-    );
-  }
+  const visible = actions.filter((a) => !a.hidden);
 
   return (
-    <div className="space-y-8 pb-20">
-      <div>
-        <h1 className="text-3xl font-bold text-fg tracking-tight">Database Management</h1>
-        <p className="text-fg-muted mt-1">Perform destructive actions and data resets.</p>
+    <div>
+      <PageHeader title="Database" description="Resets and deletions for the current registration event." />
+
+      <div className="space-y-5">
+        <Callout tone="danger" icon={<AlertTriangle />} title="Danger zone">
+          Everything on this page is permanent. Each action asks you to type CONFIRM first.
+        </Callout>
+
+        <section aria-label="Current event" className="flex flex-wrap items-center gap-x-3 gap-y-1 rounded-card bg-surface-2 px-4 py-3.5 sm:px-5">
+          <span className="text-sm text-fg-muted">Current event</span>
+          {event ? (
+            <>
+              <span className="text-sm font-medium text-fg">{event.name}</span>
+              {event.status ? <StatusBadge status={event.status} size="sm" /> : null}
+            </>
+          ) : (
+            <span className="text-sm text-fg-subtle">None found. Only account-wide actions are available.</span>
+          )}
+        </section>
+
+        <ul className="divide-y divide-border overflow-hidden rounded-card border border-border bg-surface shadow-1">
+          {visible.map((action) => {
+            const Icon = action.icon;
+            const blocked = (action.requiresEvent ?? true) && !event;
+            return (
+              <li key={action.key} className="flex flex-col gap-3 p-4 sm:flex-row sm:items-center sm:gap-4 sm:px-5">
+                <div className="flex min-w-0 flex-1 items-start gap-3">
+                  <span
+                    aria-hidden
+                    className={cn(
+                      "inline-flex size-9 shrink-0 items-center justify-center rounded-full",
+                      action.tone === "danger" ? "bg-danger/10 text-danger-text" : "bg-warning/10 text-warning-text"
+                    )}
+                  >
+                    <Icon className="size-4" />
+                  </span>
+                  <div className="min-w-0">
+                    <h2 className="text-sm font-medium text-fg">{action.title}</h2>
+                    <p className="mt-0.5 text-sm text-fg-muted">{action.desc}</p>
+                  </div>
+                </div>
+                <Button
+                  size="sm"
+                  variant={action.tone === "danger" ? "destructive-soft" : "secondary"}
+                  disabled={blocked}
+                  onClick={() => choose(action)}
+                  className="self-start sm:self-auto"
+                >
+                  {action.title}
+                </Button>
+              </li>
+            );
+          })}
+        </ul>
       </div>
 
-      <div className="border-2 border-danger/20 bg-danger/5 rounded-panel p-6 shadow-1">
-        <div className="flex items-center gap-3 mb-6">
-          <div className="w-10 h-10 rounded-control bg-danger/10 flex items-center justify-center">
-            <AlertTriangle className="w-5 h-5 text-danger-text" />
-          </div>
-          <div>
-            <h3 className="font-bold text-danger-text">Danger Zone</h3>
-            <p className="text-xs text-fg-muted">These actions are permanent and cannot be undone.</p>
-          </div>
-        </div>
-
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          
-          {/* Section Level Actions (Available to Tutors too) */}
-          {renderActionCard({
-            key: "reset_section",
-            title: "Reset Section Data",
-            desc: "Clears all registrations for your assigned section for the current event.",
-            icon: Users,
-            colorClass: "border-warning",
-            actionFn: async () => await resetSectionRegistrationEvent(event.id)
-          })}
-          
-          {renderActionCard({
-            key: "archive_event",
-            title: "Archive Event",
-            desc: "Mark the event as finalized and read-only. Available to all admins.",
-            icon: Archive,
-            colorClass: "border-warning",
-            actionFn: async () => await archiveEvent(event.id)
-          })}
-
-          {/* Admin Level Actions */}
-          {renderActionCard({
-            key: "delete_registrations",
-            title: "Delete All Registrations",
-            desc: "Hard deletes all registrations and resets seats across all sections.",
-            icon: Trash2,
-            colorClass: "border-danger",
-            actionFn: async () => await deleteAllRegistrations(event.id),
-            hidden: !isAdminOrCoord
-          })}
-
-          {renderActionCard({
-            key: "reset_seats",
-            title: "Reset All Seats",
-            desc: "Drops all registrations and resets subject seat limits to maximum.",
-            icon: Database,
-            colorClass: "border-danger",
-            actionFn: async () => await resetAllSeats(event.id),
-            hidden: !isAdminOrCoord
-          })}
-
-          {renderActionCard({
-            key: "delete_students",
-            title: "Delete All Students",
-            desc: "Hard deletes all student accounts. Will cascade to registrations.",
-            icon: Users,
-            colorClass: "border-danger",
-            actionFn: async () => await deleteAllStudents(),
-            requiresEvent: false,
-            hidden: !isAdminOrCoord
-          })}
-
-          {renderActionCard({
-            key: "delete_subjects",
-            title: "Delete All Subjects",
-            desc: "Hard deletes all electives assigned to this event.",
-            icon: BookOpen,
-            colorClass: "border-danger",
-            actionFn: async () => await deleteAllSubjects(event.id),
-            hidden: !isAdminOrCoord
-          })}
-          
-        </div>
-      </div>
+      <ConfirmDialog
+        open={open}
+        onOpenChange={setOpen}
+        tone="danger"
+        title={active ? `${active.title}?` : "Confirm"}
+        description={active?.desc}
+        impact={impact}
+        requireText="CONFIRM"
+        confirmLabel={active?.title ?? "Confirm"}
+        onConfirm={run}
+      />
     </div>
   );
 }

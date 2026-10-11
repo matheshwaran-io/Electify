@@ -80,7 +80,7 @@ export function SheetFooter({ className, ...props }: React.ComponentProps<"div">
 }
 
 export function SheetTitle({ className, ...props }: DrawerPrimitive.Title.Props) {
-  return <DrawerPrimitive.Title className={cn("text-lg font-semibold tracking-tight", className)} {...props} />
+  return <DrawerPrimitive.Title className={cn("text-lg font-medium tracking-tight", className)} {...props} />
 }
 
 export function SheetDescription({ className, ...props }: DrawerPrimitive.Description.Props) {

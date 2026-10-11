@@ -1,30 +1,80 @@
 "use client";
 
 import { useState } from "react";
-import { Save, Loader2, AlertCircle } from "lucide-react";
+import { Info, Save } from "lucide-react";
 import { updateWindowTimers } from "@/app/actions/tutor";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
+import { Button } from "@/components/ui/button";
+import { Field, Input } from "@/components/ui/input";
+import { Switch } from "@/components/ui/switch";
+import { Tooltip } from "@/components/ui/tooltip";
+import type { WindowEvent } from "./types";
 
-export function ConfigurationCard({ event }: { event: any }) {
+/**
+ * `<input type="datetime-local">` takes local wall-clock time. Slicing an ISO
+ * string would show UTC, and saving would then shift the window by the UTC
+ * offset every time, so convert to local first.
+ */
+function toLocalInput(d: Date | string | null) {
+  if (!d) return "";
+  const date = new Date(d);
+  return new Date(date.getTime() - date.getTimezoneOffset() * 60_000).toISOString().slice(0, 16);
+}
+
+function ToggleRow({
+  label,
+  description,
+  checked,
+  onChange,
+  hint,
+}: {
+  label: string;
+  description: string;
+  checked: boolean;
+  onChange: (v: boolean) => void;
+  hint?: string;
+}) {
+  return (
+    <div className="flex items-start justify-between gap-4 py-3.5">
+      <div className="min-w-0">
+        <p className="flex items-center gap-1.5 text-sm font-medium text-fg">
+          {label}
+          {hint ? (
+            <Tooltip content={hint}>
+              <button type="button" data-inline aria-label={`About ${label}`} className="inline-flex size-5 items-center justify-center rounded-full text-fg-subtle hover:text-fg">
+                <Info className="size-3.5" />
+              </button>
+            </Tooltip>
+          ) : null}
+        </p>
+        <p className="mt-0.5 text-xs text-fg-muted">{description}</p>
+      </div>
+      <Switch checked={checked} onCheckedChange={onChange} aria-label={label} className="mt-0.5" />
+    </div>
+  );
+}
+
+export function ConfigurationCard({ event }: { event: WindowEvent }) {
   const router = useRouter();
   const [isSaving, setIsSaving] = useState(false);
-  const [openDate, setOpenDate] = useState(event.openDate ? new Date(event.openDate).toISOString().slice(0, 16) : "");
-  const [closeDate, setCloseDate] = useState(event.closeDate ? new Date(event.closeDate).toISOString().slice(0, 16) : "");
+  const [openDate, setOpenDate] = useState(toLocalInput(event.openDate));
+  const [closeDate, setCloseDate] = useState(toLocalInput(event.closeDate));
 
-  // Mock states for UI only as per plan
-  const [allowEditing, setAllowEditing] = useState(false);
-  const [autoClose, setAutoClose] = useState(true);
-  const [enableWaitlist, setEnableWaitlist] = useState(false);
-  
+  const [allowEditing, setAllowEditing] = useState(event.allowEditing ?? true);
+  const [autoClose, setAutoClose] = useState(event.autoClose ?? true);
+  const [enableWaitlist, setEnableWaitlist] = useState(event.enableWaitlist ?? false);
+
+  const invalidRange = Boolean(openDate && closeDate && new Date(closeDate) <= new Date(openDate));
+
   async function handleSave() {
     setIsSaving(true);
     try {
-      await updateWindowTimers(
-        event.id, 
-        openDate ? new Date(openDate) : null,
-        closeDate ? new Date(closeDate) : null
-      );
+      await updateWindowTimers(event.id, openDate ? new Date(openDate) : null, closeDate ? new Date(closeDate) : null, {
+        allowEditing,
+        autoClose,
+        enableWaitlist,
+      });
       toast.success("Settings saved successfully!");
       router.refresh();
     } catch (err: any) {
@@ -35,79 +85,38 @@ export function ConfigurationCard({ event }: { event: any }) {
   }
 
   return (
-    <div className="bg-surface border border-border rounded-panel p-6 shadow-1 col-span-1 lg:col-span-4 flex flex-col h-full">
-      <div className="flex justify-between items-center mb-6">
-        <h3 className="font-bold text-fg">Registration Configuration</h3>
-        <button 
-          onClick={handleSave}
-          disabled={isSaving}
-          className="bg-primary text-primary-fg px-4 py-2 rounded-control text-sm font-medium hover:bg-primary-strong transition-colors disabled:opacity-50 flex items-center gap-2"
-        >
-          {isSaving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
-          Save Changes
-        </button>
+    <section aria-label="Window settings" className="col-span-1 flex flex-col rounded-card border border-border bg-surface shadow-1 lg:col-span-4">
+      <div className="px-4 pt-4 sm:px-5 sm:pt-5">
+        <h2 className="text-sm font-medium text-fg">Settings</h2>
+        <p className="mt-0.5 text-xs text-fg-muted">Times are in your device&apos;s time zone.</p>
       </div>
 
-      <div className="grid grid-cols-1 gap-6 flex-1">
-        <div className="space-y-4">
-          <div>
-            <label className="block text-2xs font-bold text-fg-muted mb-1 uppercase tracking-wider">Portal Opens</label>
-            <input 
-              type="datetime-local" 
-              value={openDate} 
-              onChange={(e) => setOpenDate(e.target.value)}
-              className="w-full px-4 py-2.5 bg-surface border border-border-strong rounded-control text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring transition-shadow text-fg"
-            />
-          </div>
-          <div>
-            <label className="block text-2xs font-bold text-fg-muted mb-1 uppercase tracking-wider">Portal Closes</label>
-            <input 
-              type="datetime-local" 
-              value={closeDate} 
-              onChange={(e) => setCloseDate(e.target.value)}
-              className="w-full px-4 py-2.5 bg-surface border border-border-strong rounded-control text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring transition-shadow text-fg"
-            />
-          </div>
-        </div>
+      <div className="flex-1 space-y-4 px-4 py-4 sm:px-5">
+        <Field label="Portal opens">
+          <Input type="datetime-local" value={openDate} onChange={(e) => setOpenDate(e.target.value)} />
+        </Field>
+        <Field label="Portal closes" error={invalidRange ? "Closing time must be after the opening time." : undefined}>
+          <Input type="datetime-local" value={closeDate} onChange={(e) => setCloseDate(e.target.value)} />
+        </Field>
 
-        <div className="space-y-4">
-          <label className="flex items-center justify-between p-3 rounded-control border border-border bg-surface-2 cursor-pointer hover:border-primary/30 transition-colors">
-            <span className="text-sm font-medium text-fg">Allow Editing Before Close</span>
-            <input 
-              type="checkbox" 
-              checked={allowEditing}
-              onChange={(e) => setAllowEditing(e.target.checked)}
-              className="w-4 h-4 text-primary-text rounded-badge border-border-strong focus-visible:ring-ring"
-            />
-          </label>
-          <label className="flex items-center justify-between p-3 rounded-control border border-border bg-surface-2 cursor-pointer hover:border-primary/30 transition-colors">
-            <span className="text-sm font-medium text-fg">Auto Close Portal</span>
-            <input 
-              type="checkbox" 
-              checked={autoClose}
-              onChange={(e) => setAutoClose(e.target.checked)}
-              className="w-4 h-4 text-primary-text rounded-badge border-border-strong focus-visible:ring-ring"
-            />
-          </label>
-          <label className="flex items-center justify-between p-3 rounded-control border border-border bg-surface-2 cursor-pointer hover:border-primary/30 transition-colors">
-            <div className="flex items-center gap-2">
-              <span className="text-sm font-medium text-fg">Enable Waitlist</span>
-              <div className="group relative">
-                <AlertCircle className="w-3.5 h-3.5 text-warning-text" />
-                <div className="absolute left-1/2 -translate-x-1/2 bottom-full mb-2 w-48 bg-fg text-canvas text-2xs p-2 rounded-control opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-10 text-center">
-                  Waitlist functionality is currently mocked.
-                </div>
-              </div>
-            </div>
-            <input 
-              type="checkbox" 
-              checked={enableWaitlist}
-              onChange={(e) => setEnableWaitlist(e.target.checked)}
-              className="w-4 h-4 text-primary-text rounded-badge border-border-strong focus-visible:ring-ring"
-            />
-          </label>
+        <div className="divide-y divide-border border-t border-border">
+          <ToggleRow label="Allow editing" description="Students can change choices until the window closes." checked={allowEditing} onChange={setAllowEditing} />
+          <ToggleRow label="Auto close" description="The portal closes itself at the closing time." checked={autoClose} onChange={setAutoClose} />
+          <ToggleRow
+            label="Waitlist"
+            description="Students can join a waitlist for full electives."
+            hint="When enabled, students can join the waitlist if an elective's seats are full."
+            checked={enableWaitlist}
+            onChange={setEnableWaitlist}
+          />
         </div>
       </div>
-    </div>
+
+      <div className="border-t border-border bg-surface-2/50 px-4 py-3 sm:px-5">
+        <Button onClick={handleSave} loading={isSaving} loadingText="Saving" disabled={invalidRange} className="w-full">
+          <Save /> Save settings
+        </Button>
+      </div>
+    </section>
   );
 }

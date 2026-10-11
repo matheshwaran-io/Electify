@@ -1,10 +1,13 @@
 "use client";
 
-import { motion } from "framer-motion";
-import { FileText, CheckCircle } from "lucide-react";
+import { useState } from "react";
+import { FileText, Search, X } from "lucide-react";
+import { formatDateTime } from "@/lib/format";
+import { Avatar, PageHeader } from "@/components/ui/layout";
+import { Badge } from "@/components/ui/badge";
+import { Input } from "@/components/ui/input";
 import { StatusBadge } from "@/components/ui/status-badge";
-import { format } from "date-fns";
-import { listDelay, spring } from "@/lib/motion";
+import { EmptyState } from "@/components/ui/feedback";
 
 type Registration = {
   id: string;
@@ -20,6 +23,8 @@ type Registration = {
 };
 
 export function ApprovalsClient({ registrations }: { registrations: Registration[] }) {
+  const [search, setSearch] = useState("");
+
   // Group by student
   const byStudent = registrations.reduce<Record<string, Registration[]>>((acc, r) => {
     if (!acc[r.studentId]) acc[r.studentId] = [];
@@ -27,66 +32,90 @@ export function ApprovalsClient({ registrations }: { registrations: Registration
     return acc;
   }, {});
 
+  const q = search.trim().toLowerCase();
+  const groups = Object.entries(byStudent).filter(
+    ([, regs]) => !q || regs[0].studentName.toLowerCase().includes(q) || (regs[0].registerNumber ?? "").toLowerCase().includes(q)
+  );
+
   return (
-    <div className="space-y-6">
-      <div>
-        <h1 className="text-3xl font-bold text-fg">Registration Approvals</h1>
-        <p className="text-fg-muted mt-1">
-          {Object.keys(byStudent).length} students have submitted registrations.
-        </p>
-      </div>
+    <div>
+      <PageHeader
+        title="Registrations"
+        description={`${Object.keys(byStudent).length} students have submitted registrations.`}
+      />
 
       {registrations.length === 0 ? (
-        <div className="text-center py-20 text-fg-muted">
-          <FileText className="w-10 h-10 mx-auto mb-3 opacity-30" />
-          <p>No registrations submitted yet.</p>
-        </div>
+        <EmptyState icon={<FileText />} title="No registrations yet" description="Submitted choices appear here as students confirm." />
       ) : (
-        <div className="space-y-4">
-          {Object.entries(byStudent).map(([studentId, regs], i) => (
-            <motion.div
-              key={studentId}
-              initial={{ opacity: 0, y: 10 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ ...spring.gentle, delay: listDelay(i, 0.05) }}
-              className="bg-surface border border-border rounded-card overflow-hidden"
-            >
-              {/* Student Header */}
-              <div className="flex items-center gap-4 px-6 py-4 border-b border-border bg-surface-2/20">
-                <div className="w-10 h-10 rounded-full flex items-center justify-center text-primary-fg font-bold shrink-0 bg-brand">
-                  {regs[0].studentName.charAt(0).toUpperCase()}
-                </div>
-                <div className="flex-1">
-                  <p className="font-semibold text-fg">{regs[0].studentName}</p>
-                  <p className="text-xs text-fg-muted font-mono">{regs[0].registerNumber ?? "—"}</p>
-                </div>
-                <div className="flex items-center gap-1.5 text-xs text-success-text bg-success/10 border border-success/20 px-3 py-1.5 rounded-full">
-                  <CheckCircle className="w-3.5 h-3.5" />
-                  {regs.length} elective(s) registered
-                </div>
-              </div>
+        <>
+          <div className="mb-5 sm:max-w-sm">
+            <Input
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder="Search name or register number"
+              aria-label="Search students"
+              leading={<Search />}
+              trailing={
+                search ? (
+                  <button
+                    type="button"
+                    aria-label="Clear search"
+                    onClick={() => setSearch("")}
+                    className="inline-flex size-8 items-center justify-center rounded-full text-fg-subtle hover:text-fg"
+                  >
+                    <X className="size-4" />
+                  </button>
+                ) : null
+              }
+            />
+          </div>
 
-              {/* Registrations */}
-              <div className="divide-y divide-border">
-                {regs.map((reg) => (
-                  <div key={reg.id} className="flex items-center gap-4 px-6 py-4">
-                    <div className="flex-1">
-                      <p className="text-sm font-medium text-fg">{reg.electiveName}</p>
-                      <p className="text-xs text-fg-muted">
-                        {reg.courseCode ? `${reg.courseCode} · ` : ""}
-                        {reg.groupName} · {reg.eventName}
-                      </p>
+          {groups.length === 0 ? (
+            <EmptyState compact icon={<Search />} title="No students match" description="Try a different name or register number." />
+          ) : (
+            <ul className="space-y-3">
+              {groups.map(([studentId, regs], i) => (
+                <li
+                  key={studentId}
+                  style={{ animationDelay: `${Math.min(i, 8) * 40}ms` }}
+                  className="overflow-hidden rounded-card border border-border bg-surface shadow-1 animate-enter"
+                >
+                  <div className="flex items-center gap-3 bg-surface-2 px-4 py-3.5 sm:px-5">
+                    <Avatar name={regs[0].studentName} size="lg" className="bg-surface" />
+                    <div className="min-w-0 flex-1">
+                      <p className="truncate font-medium text-fg">{regs[0].studentName}</p>
+                      <p className="font-mono text-xs text-fg-muted">{regs[0].registerNumber ?? "—"}</p>
                     </div>
-                    <StatusBadge status={reg.eventStatus} />
-                    <p className="text-xs text-fg-muted whitespace-nowrap">
-                      {format(new Date(reg.submittedAt), "MMM d, h:mm a")}
-                    </p>
+                    <Badge tone="success" dot className="shrink-0">
+                      <span className="font-mono tabular-nums">{regs.length}</span>
+                      <span className="hidden sm:inline">registered</span>
+                    </Badge>
                   </div>
-                ))}
-              </div>
-            </motion.div>
-          ))}
-        </div>
+
+                  <ul className="divide-y divide-border">
+                    {regs.map((reg) => (
+                      <li key={reg.id} className="flex flex-col gap-2 px-4 py-3.5 sm:flex-row sm:items-center sm:gap-4 sm:px-5">
+                        <div className="min-w-0 flex-1">
+                          <p className="text-sm font-medium text-fg">{reg.electiveName}</p>
+                          <p className="text-xs text-fg-muted">
+                            {reg.courseCode ? <span className="font-mono">{reg.courseCode} · </span> : null}
+                            {reg.groupName} · {reg.eventName}
+                          </p>
+                        </div>
+                        <div className="flex items-center gap-3">
+                          <StatusBadge status={reg.eventStatus} size="sm" />
+                          <time dateTime={new Date(reg.submittedAt).toISOString()} className="whitespace-nowrap text-xs text-fg-subtle">
+                            {formatDateTime(reg.submittedAt, { day: "numeric", month: "short", hour: "numeric", minute: "2-digit" })}
+                          </time>
+                        </div>
+                      </li>
+                    ))}
+                  </ul>
+                </li>
+              ))}
+            </ul>
+          )}
+        </>
       )}
     </div>
   );

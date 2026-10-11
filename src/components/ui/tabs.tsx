@@ -26,7 +26,7 @@ export function TabsList({
           "relative flex items-center",
           variant === "underline"
             ? "gap-1 border-b border-border"
-            : "gap-0.5 rounded-control border border-border bg-surface-2 p-0.5",
+            : "gap-0.5 rounded-badge bg-surface-2 p-1 shadow-[inset_0_0_0_1px_var(--border)]",
           "overflow-x-auto scrollbar-none",
           className
         )}
@@ -56,7 +56,7 @@ export function TabsTrigger({ className, children, ...props }: TabsPrimitive.Tab
         "text-fg-muted transition-colors duration-150 hover:text-fg data-active:text-fg data-disabled:opacity-40",
         "focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring",
         "[&_svg]:size-4 [&_svg]:shrink-0",
-        variant === "underline" ? "h-10 px-3" : "h-8 rounded-badge px-3",
+        variant === "underline" ? "h-11 px-3" : "h-9 rounded-badge px-4",
         className
       )}
       {...props}

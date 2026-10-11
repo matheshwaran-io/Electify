@@ -26,10 +26,12 @@ type SelectProps = {
 export function Select({ value, onValueChange, options, placeholder = "Select", disabled, className, size = "md", name, ...rest }: SelectProps) {
   const field = useFieldControl()
   const items = React.useMemo(() => options.map((o) => ({ value: o.value, label: o.label })), [options])
+  // A value with no matching option would render as its raw id; show the placeholder instead.
+  const known = value != null && options.some((o) => o.value === value)
   return (
     <SelectPrimitive.Root
       items={items}
-      value={value}
+      value={known ? value : null}
       onValueChange={(v) => v != null && onValueChange(v as string)}
       disabled={disabled}
       name={name}
@@ -42,7 +44,7 @@ export function Select({ value, onValueChange, options, placeholder = "Select", 
         className={cn(
           controlClass,
           "flex items-center justify-between gap-2 px-3 text-left",
-          size === "sm" ? "h-8 text-sm" : "h-10 text-sm",
+          size === "sm" ? "h-9 text-sm" : "h-11 text-sm sm:h-10",
           "data-popup-open:border-primary data-placeholder:text-fg-subtle",
           className
         )}
@@ -78,7 +80,7 @@ export function Select({ value, onValueChange, options, placeholder = "Select", 
 }
 
 const optionClass = cn(
-  "flex cursor-default select-none items-center gap-2 rounded-badge px-2.5 py-2 text-sm text-fg outline-none",
+  "flex cursor-default select-none items-center gap-2 rounded-control px-2.5 py-2 text-sm text-fg outline-none",
   "data-highlighted:bg-surface-2 data-selected:font-medium data-disabled:opacity-40"
 )
 
@@ -123,11 +125,11 @@ export function Combobox({
           aria-invalid={field?.invalid || undefined}
           aria-label={rest["aria-label"]}
           placeholder={placeholder}
-          className={cn(controlClass, "h-10 pl-9 pr-9 text-sm")}
+          className={cn(controlClass, "h-11 pl-9 pr-9 text-sm sm:h-10")}
         />
         <ComboboxPrimitive.Trigger
           aria-label="Show options"
-          className="absolute right-1 top-1/2 inline-flex size-8 -translate-y-1/2 items-center justify-center rounded-badge text-fg-subtle hover:text-fg"
+          className="absolute right-1 top-1/2 inline-flex size-8 -translate-y-1/2 items-center justify-center rounded-full text-fg-subtle hover:text-fg"
         >
           <ChevronsUpDown className="size-4" />
         </ComboboxPrimitive.Trigger>

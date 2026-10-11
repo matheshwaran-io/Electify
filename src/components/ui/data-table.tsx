@@ -25,8 +25,10 @@ export type Column<T> = {
   /** Can the user hide it from the column menu? Default true. */
   hideable?: boolean
   defaultHidden?: boolean
-  /** Placement in the < md card view. */
-  mobile?: "title" | "subtitle" | "meta" | "hidden"
+  /** Placement in the < md card view. `actions` renders below the card body. */
+  mobile?: "title" | "subtitle" | "meta" | "actions" | "hidden"
+  /** Let this meta field use the full card width on phones. */
+  mobileWide?: boolean
 }
 
 export type FilterDef<T> = {
@@ -50,7 +52,8 @@ type DataTableProps<T> = {
   bulkActions?: (selected: T[], clear: () => void) => React.ReactNode
   onRowClick?: (row: T) => void
   renderExpanded?: (row: T) => React.ReactNode
-  toolbar?: React.ReactNode
+  /** Extra controls in the toolbar. As a function it receives the filtered, sorted rows. */
+  toolbar?: React.ReactNode | ((rows: T[]) => React.ReactNode)
   empty?: React.ReactNode
   loading?: boolean
   caption: string
@@ -205,7 +208,25 @@ export function DataTable<T>({
 
   const titleCol = columns.find((c) => c.mobile === "title") ?? columns[0]
   const subtitleCol = columns.find((c) => c.mobile === "subtitle")
-  const metaCols = visible.filter((c) => c !== titleCol && c !== subtitleCol && c.mobile !== "hidden")
+  const metaCols = visible.filter((c) => c !== titleCol && c !== subtitleCol && c.mobile !== "hidden" && c.mobile !== "actions")
+  const actionCols = visible.filter((c) => c.mobile === "actions")
+
+  const cardBody = (row: T) => (
+    <>
+      <div className="text-sm font-medium text-fg">{titleCol.cell(row)}</div>
+      {subtitleCol ? <div className="mt-0.5 text-xs text-fg-muted">{subtitleCol.cell(row)}</div> : null}
+      {metaCols.length > 0 ? (
+        <dl className="mt-3 grid grid-cols-2 gap-x-4 gap-y-2.5">
+          {metaCols.map((c) => (
+            <div key={c.id} className={cn("min-w-0", c.mobileWide && "col-span-2")}>
+              <dt className="text-2xs text-fg-subtle">{c.header}</dt>
+              <dd className="mt-0.5 truncate text-xs text-fg">{c.cell(row)}</dd>
+            </div>
+          ))}
+        </dl>
+      ) : null}
+    </>
+  )
 
   return (
     <div className={cn("overflow-hidden rounded-card border border-border bg-surface shadow-1", className)}>
@@ -264,7 +285,7 @@ export function DataTable<T>({
         ) : null}
 
         <div className="flex items-center gap-2 sm:ml-auto">
-          {toolbar}
+          {typeof toolbar === "function" ? toolbar(rows) : toolbar}
           <ColumnMenu columns={columns} hidden={hidden} setHidden={setHidden} />
         </div>
       </div>
@@ -435,28 +456,27 @@ export function DataTable<T>({
                         <Checkbox aria-label="Select row" checked={selected.has(id)} onCheckedChange={() => toggleRow(id)} />
                       </div>
                     ) : null}
-                    <button
-                      type="button"
-                      disabled={!interactiveRow}
-                      onClick={() => handleRow(row)}
-                      aria-expanded={renderExpanded ? isOpen : undefined}
-                      className="min-w-0 flex-1 text-left disabled:cursor-default"
-                    >
-                      <div className="text-sm font-medium text-fg">{titleCol.cell(row)}</div>
-                      {subtitleCol ? <div className="mt-0.5 text-xs text-fg-muted">{subtitleCol.cell(row)}</div> : null}
-                      {metaCols.length > 0 ? (
-                        <dl className="mt-3 grid grid-cols-2 gap-x-4 gap-y-2">
-                          {metaCols.map((c) => (
-                            <div key={c.id} className="min-w-0">
-                              <dt className="text-2xs text-fg-subtle">{c.header}</dt>
-                              <dd className="mt-0.5 truncate text-xs text-fg">{c.cell(row)}</dd>
-                            </div>
-                          ))}
-                        </dl>
-                      ) : null}
-                    </button>
+                    {interactiveRow ? (
+                      <button
+                        type="button"
+                        onClick={() => handleRow(row)}
+                        aria-expanded={renderExpanded ? isOpen : undefined}
+                        className="min-w-0 flex-1 text-left"
+                      >
+                        {cardBody(row)}
+                      </button>
+                    ) : (
+                      <div className="min-w-0 flex-1">{cardBody(row)}</div>
+                    )}
                     {renderExpanded ? <ChevronDown className={cn("mt-0.5 size-4 shrink-0 text-fg-subtle transition-transform", isOpen && "rotate-180")} /> : null}
                   </div>
+                  {actionCols.length > 0 ? (
+                    <div className={cn("-mt-1 flex flex-wrap items-center gap-2 px-4 pb-4", selectable && "pl-12")}>
+                      {actionCols.map((c) => (
+                        <React.Fragment key={c.id}>{c.cell(row)}</React.Fragment>
+                      ))}
+                    </div>
+                  ) : null}
                   {renderExpanded && isOpen ? <div className="border-t border-border bg-surface-2/40 p-4">{renderExpanded(row)}</div> : null}
                 </li>
               )
@@ -520,7 +540,7 @@ function FilterChip<T>({ def, value, onChange }: { def: FilterDef<T>; value?: st
               role="option"
               aria-selected={o.value === value}
               onClick={() => onChange(o.value === value ? null : o.value)}
-              className="flex w-full items-center justify-between rounded-badge px-2.5 py-2 text-left text-sm text-fg hover:bg-surface-2 aria-selected:font-medium"
+              className="flex w-full items-center justify-between rounded-control px-2.5 py-2 text-left text-sm text-fg hover:bg-surface-2 aria-selected:font-medium"
             >
               {o.label}
               {o.value === value ? <span className="size-1.5 rounded-full bg-primary" /> : null}
@@ -547,13 +567,13 @@ function ColumnMenu<T>({
     <Popover>
       <PopoverTrigger
         aria-label="Choose columns"
-        className="hidden h-9 items-center gap-1.5 rounded-control border border-border bg-surface px-3 text-xs font-medium text-fg-muted shadow-1 hover:text-fg md:inline-flex"
+        className="hidden h-9 items-center gap-1.5 rounded-full border border-border bg-surface px-3.5 text-xs font-medium text-fg-muted shadow-1 hover:text-fg md:inline-flex"
       >
         <Columns3 className="size-4" /> Columns
       </PopoverTrigger>
       <PopoverContent align="end" className="w-52 p-1.5">
         {hideable.map((c) => (
-          <label key={c.id} className="flex cursor-pointer items-center gap-2.5 rounded-badge px-2 py-1.5 text-sm text-fg hover:bg-surface-2">
+          <label key={c.id} className="flex cursor-pointer items-center gap-2.5 rounded-control px-2 py-1.5 text-sm text-fg hover:bg-surface-2">
             <Checkbox
               checked={!hidden.has(c.id)}
               onCheckedChange={(checked) =>

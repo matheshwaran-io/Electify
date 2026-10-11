@@ -2,7 +2,7 @@ import * as React from "react";
 import { redirect } from "next/navigation";
 import { getSession } from "@/lib/auth";
 import { db } from "@/lib/db";
-import { users, registrationEvents, electiveGroups, electives, studentRegistrations, registrations, systemSettings } from "@/lib/db/schema";
+import { users, registrationEvents, electiveGroups, electives, electiveSeatAllocations, studentRegistrations, registrations, systemSettings } from "@/lib/db/schema";
 import { eq, and, inArray, desc } from "drizzle-orm";
 import { RegistrationForm } from "../registration-form";
 import { Users } from "lucide-react";
@@ -59,7 +59,7 @@ export default async function StudentElectivesPage() {
   const [userRegistration] = await db.select().from(registrations)
     .where(and(eq(registrations.studentId, student.id), eq(registrations.eventId, event.id))).limit(1);
 
-  const hasSubmitted = userRegistration?.status === "CONFIRMED";
+  const hasSubmitted = userRegistration?.status === "CONFIRMED" || userRegistration?.status === "WAITLISTED";
 
   if (hasSubmitted) {
     redirect("/dashboard/success");
@@ -92,6 +92,38 @@ export default async function StudentElectivesPage() {
     ? await db.select().from(electives).where(inArray(electives.groupId, groupIds))
     : [];
 
+  let sectionAllocations: { electiveId: string; maxSeats: number; availableSeats: number; isFull: boolean }[] = [];
+  if (student.sectionId && allElectives.length > 0) {
+    sectionAllocations = await db
+      .select({
+        electiveId: electiveSeatAllocations.electiveId,
+        maxSeats: electiveSeatAllocations.maxSeats,
+        availableSeats: electiveSeatAllocations.availableSeats,
+        isFull: electiveSeatAllocations.isFull,
+      })
+      .from(electiveSeatAllocations)
+      .where(
+        and(
+          inArray(electiveSeatAllocations.electiveId, allElectives.map((e) => e.id)),
+          eq(electiveSeatAllocations.sectionId, student.sectionId)
+        )
+      );
+  }
+
+  const electivesWithSection = allElectives.map((e) => {
+    const secAlloc = sectionAllocations.find((a) => a.electiveId === e.id);
+    if (secAlloc) {
+      return {
+        ...e,
+        availableSeats: Math.min(e.availableSeats, secAlloc.availableSeats),
+        isFull: e.isFull || secAlloc.isFull || secAlloc.availableSeats <= 0,
+        sectionAvailableSeats: secAlloc.availableSeats,
+        sectionMaxSeats: secAlloc.maxSeats,
+      };
+    }
+    return e;
+  });
+
   const currentRegistrations = await db.select().from(studentRegistrations)
     .where(and(eq(studentRegistrations.studentId, student.id), eq(studentRegistrations.eventId, event.id)));
 
@@ -102,7 +134,7 @@ export default async function StudentElectivesPage() {
       <main className="mx-auto w-full max-w-6xl flex-1 px-4 pt-6 sm:px-6 sm:pt-10">
         <div className="mb-2 flex flex-col gap-1 animate-enter">
           <p className="text-sm text-fg-muted">{event.name}</p>
-          <h1 className="text-2xl font-semibold tracking-tight text-fg sm:text-3xl">Choose your electives</h1>
+          <h1 className="text-4xl font-light tracking-display text-fg">Choose your electives</h1>
           <p className="text-sm text-fg-muted">
             {student.name}
             <span aria-hidden className="mx-2 text-border-strong">/</span>
@@ -117,6 +149,7 @@ export default async function StudentElectivesPage() {
             openDate: event.openDate,
             closeDate: event.closeDate,
             status: event.status,
+            enableWaitlist: event.enableWaitlist,
           }}
           student={{
             id: student.id,
@@ -126,7 +159,7 @@ export default async function StudentElectivesPage() {
             hasSubmitted: false,
           }}
           groups={groups}
-          electives={allElectives}
+          electives={electivesWithSection}
           initialRegistrations={currentRegistrations}
           serverNow={now.getTime()}
         />

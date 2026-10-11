@@ -43,21 +43,22 @@ async function main() {
   if (!secA || !secB) throw new Error("Section A or B not found for MCA GenAI!");
   console.log(`✓ Section A: ${secA.id}, Section B: ${secB.id}`);
 
-  // 3. Update Dr. Angel B
+  // 3. Update Angel B
   const angel = await db.query.users.findFirst({
     where: eq(users.email, "angelb1@srmist.edu.in")
   });
-  if (!angel) throw new Error("Dr. Angel B not found!");
+  if (!angel) throw new Error("Angel B not found!");
 
   await db.update(users)
     .set({
+      name: "Angel B",
       programmeId: mcaProg.id,
       sectionId: secA.id,
       departmentId: mcaProg.departmentId,
       updatedAt: new Date()
     })
     .where(eq(users.id, angel.id));
-  console.log("✓ Updated Dr. Angel B profile with default Section A of MCA GenAI");
+  console.log("✓ Updated Angel B profile with default Section A of MCA GenAI");
 
   // 4. Update tutor_sections for Dr. Angel B
   await db.delete(tutorSections).where(eq(tutorSections.tutorId, angel.id));

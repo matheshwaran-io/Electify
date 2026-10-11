@@ -2,17 +2,36 @@
 
 import { useState } from "react";
 import { toast } from "sonner";
-import { Shield, Activity, User as UserIcon, Lock, Mail } from "lucide-react";
+import { Mail } from "lucide-react";
 import { toggleMaintenanceMode } from "@/app/actions/admin";
 import { updateProfile } from "@/app/actions/user";
+import { cn } from "@/lib/utils";
+import { Avatar, PageHeader } from "@/components/ui/layout";
+import { Button } from "@/components/ui/button";
+import { Field, Input } from "@/components/ui/input";
+import { Switch } from "@/components/ui/switch";
+import { StatusBadge } from "@/components/ui/status-badge";
 
 type SystemSettings = { id: string; maintenanceMode: boolean; createdAt: Date; updatedAt: Date } | null;
 type UserProfile = { name: string; email: string; role: string };
 
-export function SettingsClient({ settings, user }: { settings: SystemSettings, user: UserProfile }) {
+function Panel({ title, description, children, footer }: { title: string; description?: string; children: React.ReactNode; footer?: React.ReactNode }) {
+  return (
+    <section className="overflow-hidden rounded-card border border-border bg-surface shadow-1">
+      <div className="px-4 pt-5 sm:px-6">
+        <h2 className="text-base font-medium text-fg">{title}</h2>
+        {description ? <p className="mt-0.5 text-sm text-fg-muted">{description}</p> : null}
+      </div>
+      <div className="px-4 py-5 sm:px-6">{children}</div>
+      {footer ? <div className="flex justify-end border-t border-border bg-surface-2/50 px-4 py-3 sm:px-6">{footer}</div> : null}
+    </section>
+  );
+}
+
+export function SettingsClient({ settings, user }: { settings: SystemSettings; user: UserProfile }) {
   const [maintenance, setMaintenance] = useState(settings?.maintenanceMode ?? false);
   const [loading, setLoading] = useState(false);
-  
+
   // Profile state
   const [name, setName] = useState(user.name);
   const [currentPassword, setCurrentPassword] = useState("");
@@ -30,7 +49,7 @@ export function SettingsClient({ settings, user }: { settings: SystemSettings, u
 
   const handleSaveProfile = async () => {
     if (!name.trim()) return toast.error("Name cannot be empty");
-    if (newPassword && !currentPassword) return toast.error("Current password is required to set a new");
+    if (newPassword && !currentPassword) return toast.error("Current password is required to set a new one");
     if (newPassword && newPassword.length < 8) return toast.error("New password must be at least 8 characters");
 
     setSavingProfile(true);
@@ -51,143 +70,89 @@ export function SettingsClient({ settings, user }: { settings: SystemSettings, u
   };
 
   return (
-    <div className="space-y-8 max-w-2xl">
-      <div>
-        <h1 className="text-3xl font-bold text-fg">Settings</h1>
-        <p className="text-fg-muted mt-1">Manage your account and system configuration.</p>
-      </div>
+    <div className="max-w-2xl">
+      <PageHeader title="Settings" description="Your account, and system configuration for admins." />
 
-      {/* Profile Section */}
-      <div className="bg-surface border border-border rounded-card overflow-hidden">
-        <div className="p-6 border-b border-border">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center">
-              <UserIcon className="w-5 h-5 text-primary-text" />
-            </div>
-            <div>
-              <h2 className="text-lg font-semibold text-fg">Profile Details</h2>
-              <p className="text-sm text-fg-muted">Update your personal information</p>
-            </div>
+      <div className="space-y-5">
+        <div className="flex items-center gap-4 rounded-card bg-surface-2 p-4 sm:p-5">
+          <Avatar name={user.name} size="lg" className="size-12 bg-surface text-base" />
+          <div className="min-w-0 flex-1">
+            <p className="truncate font-medium text-fg">{user.name}</p>
+            <p className="truncate text-sm text-fg-muted">{user.email}</p>
+          </div>
+          <div className="hidden sm:block">
+            <StatusBadge status={user.role} size="sm" />
           </div>
         </div>
-        
-        <div className="p-6 space-y-6">
-          <div className="grid gap-6 md:grid-cols-2">
-            <div className="space-y-2">
-              <label className="text-sm font-medium text-fg">Full Name</label>
-              <input 
-                type="text" 
-                value={name}
-                onChange={(e) => setName(e.target.value)}
-                className="w-full bg-surface border border-border-strong text-fg text-sm rounded-control px-3 py-2.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-              />
+
+        <form
+          onSubmit={(e) => {
+            e.preventDefault();
+            handleSaveProfile();
+          }}
+        >
+          <Panel
+            title="Profile"
+            description="Your name appears on reports and in the audit log."
+            footer={
+              <Button type="submit" loading={savingProfile} loadingText="Saving" disabled={!name.trim()}>
+                Save changes
+              </Button>
+            }
+          >
+            <div className="grid gap-4 md:grid-cols-2">
+              <Field label="Full name">
+                <Input value={name} onChange={(e) => setName(e.target.value)} autoComplete="name" />
+              </Field>
+              <Field label="Email" description="Contact an admin to change it.">
+                <Input type="email" value={user.email} disabled leading={<Mail />} />
+              </Field>
             </div>
-            <div className="space-y-2">
-              <label className="text-sm font-medium text-fg">Email Address</label>
-              <div className="relative">
-                <input 
-                  type="email" 
-                  value={user.email}
-                  disabled
-                  className="w-full bg-surface border border-border-strong text-fg-muted text-sm rounded-control pl-9 pr-3 py-2.5 opacity-70 cursor-not-allowed"
-                />
-                <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-fg-muted opacity-70" />
+
+            <div className="mt-6 border-t border-border pt-5">
+              <h3 className="text-sm font-medium text-fg">Change password</h3>
+              <p className="mt-0.5 text-xs text-fg-muted">Leave both blank to keep your current password.</p>
+              <div className="mt-4 grid gap-4 md:grid-cols-2">
+                <Field label="Current password">
+                  <Input type="password" value={currentPassword} onChange={(e) => setCurrentPassword(e.target.value)} autoComplete="current-password" />
+                </Field>
+                <Field label="New password" description="At least 8 characters.">
+                  <Input type="password" value={newPassword} onChange={(e) => setNewPassword(e.target.value)} autoComplete="new-password" />
+                </Field>
               </div>
             </div>
-          </div>
+          </Panel>
+        </form>
 
-          <div className="pt-4 border-t border-border/50 space-y-4">
-            <div>
-              <h3 className="text-sm font-medium text-fg flex items-center gap-2">
-                <Lock className="w-4 h-4 text-fg-muted" />
-                Change Password
-              </h3>
-              <p className="text-xs text-fg-muted mt-1">Leave blank if you don't want to change it</p>
+        {user.role === "SYSTEM_ADMIN" ? (
+          <Panel title="Maintenance mode" description="Students and staff see a maintenance page instead of the portal while this is on.">
+            <div className="flex items-center justify-between gap-4">
+              <span className="flex items-center gap-2.5 text-sm">
+                <span aria-hidden className={cn("size-2 rounded-full", maintenance ? "bg-warning" : "bg-success")} />
+                <span className={maintenance ? "font-medium text-warning-text" : "text-fg"}>
+                  {maintenance ? "Portal is offline for maintenance" : "Portal is online"}
+                </span>
+              </span>
+              <Switch checked={maintenance} onCheckedChange={handleToggle} disabled={loading} aria-label="Maintenance mode" />
             </div>
-            
-            <div className="grid gap-4 md:grid-cols-2">
-              <input 
-                type="password" 
-                placeholder="Current Password"
-                value={currentPassword}
-                onChange={(e) => setCurrentPassword(e.target.value)}
-                className="w-full bg-surface border border-border-strong text-fg text-sm rounded-control px-3 py-2.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-              />
-              <input 
-                type="password" 
-                placeholder="New Password (min. 8 chars)"
-                value={newPassword}
-                onChange={(e) => setNewPassword(e.target.value)}
-                className="w-full bg-surface border border-border-strong text-fg text-sm rounded-control px-3 py-2.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-              />
-            </div>
-          </div>
-        </div>
-        
-        <div className="px-6 py-4 bg-surface-2/30 border-t border-border flex justify-end">
-          <button
-            onClick={handleSaveProfile}
-            disabled={savingProfile || !name.trim()}
-            className="px-4 py-2 bg-primary text-primary-fg text-sm font-medium rounded-control hover:bg-primary-strong transition-colors focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none disabled:opacity-50"
-          >
-            {savingProfile ? "Saving..." : "Save Changes"}
-          </button>
-        </div>
-      </div>
+          </Panel>
+        ) : null}
 
-      {/* Maintenance Mode (Admins Only) */}
-      {user.role === "SYSTEM_ADMIN" && (
-        <div className="bg-surface border border-border rounded-card p-6">
-          <div className="flex items-start gap-4">
-            <div className="w-11 h-11 rounded-control bg-warning/10 flex items-center justify-center shrink-0">
-              <Shield className="w-5 h-5 text-warning-text" />
-            </div>
-            <div className="flex-1">
-              <h3 className="font-semibold text-fg">Maintenance Mode</h3>
-              <p className="text-sm text-fg-muted mt-1">
-                When enabled, students and staff will see a maintenance page instead of the portal.
-              </p>
-            </div>
-            <button
-              onClick={handleToggle}
-              disabled={loading}
-              className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus-visible:outline-none disabled:opacity-50 cursor-pointer ${maintenance ? "bg-warning" : "bg-surface-2"}`}
-            >
-              <span className={`inline-block h-4 w-4 transform rounded-full bg-surface shadow-1 transition-transform ${maintenance ? "translate-x-6" : "translate-x-1"}`} />
-            </button>
-          </div>
-          <p className={`mt-4 text-xs font-medium ${maintenance ? "text-warning-text" : "text-success-text"}`}>
-            {maintenance ? "System is currently offline for maintenance." : "System is online and operational."}
-          </p>
-        </div>
-      )}
-
-      {/* System Info */}
-      <div className="bg-surface border border-border rounded-card p-6">
-        <div className="flex items-center gap-3 mb-4">
-          <div className="w-11 h-11 rounded-control bg-success/10 flex items-center justify-center shrink-0">
-            <Activity className="w-5 h-5 text-success-text" />
-          </div>
-          <h3 className="font-semibold text-fg">System Information</h3>
-        </div>
-        <div className="space-y-3 text-sm">
-          <div className="flex justify-between">
-            <span className="text-fg-muted">Application</span>
-            <span className="font-medium text-fg">Electify ERP</span>
-          </div>
-          <div className="flex justify-between">
-            <span className="text-fg-muted">Database</span>
-            <span className="font-medium text-fg">Supabase PostgreSQL</span>
-          </div>
-          <div className="flex justify-between">
-            <span className="text-fg-muted">ORM</span>
-            <span className="font-medium text-fg">Drizzle ORM</span>
-          </div>
-          <div className="flex justify-between">
-            <span className="text-fg-muted">Framework</span>
-            <span className="font-medium text-fg">Next.js 16</span>
-          </div>
-        </div>
+        <Panel title="About">
+          <dl className="divide-y divide-border text-sm">
+            {[
+              ["Application", "Electify"],
+              ["Database", "Supabase PostgreSQL"],
+              ["ORM", "Drizzle ORM"],
+              ["Framework", "Next.js 16"],
+            ].map(([k, v]) => (
+              <div key={k} className="flex justify-between gap-4 py-2.5 first:pt-0 last:pb-0">
+                <dt className="text-fg-muted">{k}</dt>
+                <dd className="font-medium text-fg">{v}</dd>
+              </div>
+            ))}
+          </dl>
+        </Panel>
       </div>
     </div>
   );

@@ -1,30 +1,23 @@
 "use client";
 
-import { Plus, Clock } from "lucide-react";
+import { Clock, Plus } from "lucide-react";
 import { useState } from "react";
 import { createRegistrationWindow } from "@/app/actions/tutor";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
+import { PageHeader } from "@/components/ui/layout";
+import { Button } from "@/components/ui/button";
+import { Field, Input } from "@/components/ui/input";
+import { EmptyState } from "@/components/ui/feedback";
 
 import { HeroStatus } from "@/components/window/hero-status";
 import { LiveMetrics } from "@/components/window/live-metrics";
-import { RegistrationProgress } from "@/components/window/registration-progress";
 import { RegistrationTimeline } from "@/components/window/registration-timeline";
 import { ConfigurationCard } from "@/components/window/configuration-card";
 import { AnalyticsWidget } from "@/components/window/analytics-widget";
+import type { WindowEvent, WindowMetrics } from "@/components/window/types";
 
-type WindowEvent = {
-  id: string;
-  name: string;
-  academicYear: string | null;
-  status: string;
-  openDate: Date | null;
-  closeDate: Date | null;
-  description: string | null;
-  groupCount: number;
-};
-
-export function WindowClient({ events, initialMetrics }: { events: WindowEvent[], initialMetrics?: any }) {
+export function WindowClient({ events, initialMetrics }: { events: WindowEvent[]; initialMetrics?: WindowMetrics | null }) {
   const router = useRouter();
   const [isCreating, setIsCreating] = useState(false);
   const [newName, setNewName] = useState("");
@@ -48,59 +41,47 @@ export function WindowClient({ events, initialMetrics }: { events: WindowEvent[]
 
   if (events.length === 0) {
     return (
-      <div className="space-y-6">
-        <div>
-          <h1 className="text-3xl font-bold text-fg tracking-tight">Registration Control Center</h1>
-          <p className="text-fg-muted mt-1">Active registration windows for your section.</p>
-        </div>
-        
+      <div>
+        <PageHeader title="Live window" description="The registration window for your section." />
+
         {!isCreating ? (
-          <div className="text-center py-20 text-fg-muted bg-surface rounded-panel border border-border shadow-1">
-            <Clock className="w-10 h-10 mx-auto mb-3 opacity-30" />
-            <p className="mb-6">No registration windows currently open for your section.</p>
-            <button 
-              onClick={() => setIsCreating(true)}
-              className="bg-primary text-primary-fg px-6 py-2 rounded-control font-medium hover:bg-primary-strong transition-colors inline-flex items-center gap-2"
-            >
-              <Plus className="w-4 h-4" />
-              Create Registration Window
-            </button>
-          </div>
+          <EmptyState
+            icon={<Clock />}
+            title="No registration window yet"
+            description="Create one, then set when it opens and closes."
+            className="rounded-panel bg-surface-2"
+            action={
+              <Button onClick={() => setIsCreating(true)}>
+                <Plus /> Create window
+              </Button>
+            }
+          />
         ) : (
-          <div className="bg-surface border border-border rounded-panel p-8 max-w-lg shadow-1">
-            <h2 className="text-xl font-bold text-fg mb-6">Create New Window</h2>
-            <div className="space-y-4">
-              <div>
-                <label className="block text-xs font-bold text-fg-muted mb-1 uppercase tracking-wider">Window Name</label>
-                <input 
-                  value={newName} onChange={e => setNewName(e.target.value)}
-                  placeholder="e.g. Fall 2026 Registration"
-                  className="w-full px-4 py-2 bg-surface border border-border-strong rounded-control text-sm"
-                />
-              </div>
-              <div>
-                <label className="block text-xs font-bold text-fg-muted mb-1 uppercase tracking-wider">Academic Year</label>
-                <input 
-                  value={newYear} onChange={e => setNewYear(e.target.value)}
-                  className="w-full px-4 py-2 bg-surface border border-border-strong rounded-control text-sm"
-                />
-              </div>
-              <div className="pt-4 flex gap-3">
-                <button 
-                  onClick={handleCreateWindow} disabled={isSaving}
-                  className="bg-primary text-primary-fg px-6 py-2 rounded-control font-medium hover:bg-primary-strong transition-colors disabled:opacity-50"
-                >
-                  {isSaving ? "Saving..." : "Create"}
-                </button>
-                <button 
-                  onClick={() => setIsCreating(false)}
-                  className="bg-surface-2 text-fg px-6 py-2 rounded-control font-medium hover:bg-surface-3 transition-colors"
-                >
-                  Cancel
-                </button>
-              </div>
+          <form
+            onSubmit={(e) => {
+              e.preventDefault();
+              handleCreateWindow();
+            }}
+            className="max-w-lg rounded-panel bg-surface-2 p-5 sm:p-7 animate-enter"
+          >
+            <h2 className="text-2xl font-light tracking-display text-fg">New registration window</h2>
+            <div className="mt-6 space-y-4">
+              <Field label="Window name">
+                <Input value={newName} onChange={(e) => setNewName(e.target.value)} placeholder="e.g. Fall 2026 Registration" autoFocus />
+              </Field>
+              <Field label="Academic year">
+                <Input value={newYear} onChange={(e) => setNewYear(e.target.value)} className="font-mono" />
+              </Field>
             </div>
-          </div>
+            <div className="mt-6 flex flex-col-reverse gap-2 sm:flex-row">
+              <Button type="button" variant="ghost" onClick={() => setIsCreating(false)} disabled={isSaving}>
+                Cancel
+              </Button>
+              <Button type="submit" loading={isSaving} loadingText="Creating" disabled={!newName}>
+                Create window
+              </Button>
+            </div>
+          </form>
         )}
       </div>
     );
@@ -110,19 +91,15 @@ export function WindowClient({ events, initialMetrics }: { events: WindowEvent[]
   const event = events[0];
 
   return (
-    <div className="space-y-6 pb-20">
-      <div>
-        <h1 className="text-3xl font-bold text-fg tracking-tight">Registration Control Center</h1>
-        <p className="text-fg-muted mt-1">Monitor and configure the live registration session.</p>
-      </div>
+    <div>
+      <PageHeader title="Live window" description="Watch the session as it happens and adjust its settings." />
 
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+      <div className="grid grid-cols-1 gap-3 lg:grid-cols-12 lg:gap-4">
         <HeroStatus event={event} />
-        <LiveMetrics metrics={initialMetrics} />
-        <RegistrationProgress metrics={initialMetrics} />
-        <AnalyticsWidget metrics={initialMetrics} />
-        <ConfigurationCard event={event} />
+        <LiveMetrics metrics={initialMetrics ?? null} />
         <RegistrationTimeline event={event} />
+        <AnalyticsWidget metrics={initialMetrics ?? null} />
+        <ConfigurationCard event={event} />
       </div>
     </div>
   );

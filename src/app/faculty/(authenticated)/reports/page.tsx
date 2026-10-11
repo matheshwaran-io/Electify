@@ -5,7 +5,9 @@ import { ReportsClient } from "./reports-client";
 
 export default async function ReportsPage() {
   const session = await getSession();
-  if (!session || session.role !== "COURSE_COORDINATOR") redirect("/faculty/dashboard");
-  const report = await getCoordinatorReports();
-  return <ReportsClient report={report} />;
+  if (!session || (session.role !== "COURSE_COORDINATOR" && session.role !== "SYSTEM_ADMIN")) {
+    redirect("/faculty/dashboard");
+  }
+  const data = await getCoordinatorReports();
+  return <ReportsClient data={data} />;
 }

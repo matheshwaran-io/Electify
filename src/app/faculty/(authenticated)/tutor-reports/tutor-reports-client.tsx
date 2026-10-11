@@ -1,19 +1,28 @@
 "use client";
 
-import { listDelay, transition } from "@/lib/motion";
-import { motion, AnimatePresence } from "framer-motion";
-import {
-  Users, CheckCircle, Search, Download, ChevronDown,
-  BarChart3, Clock, BookOpen, TrendingUp, FileSpreadsheet,
-} from "lucide-react";
-import { useState, useMemo, useEffect, Fragment } from "react";
-import jsPDF from "jspdf";
-import autoTable from "jspdf-autotable";
+import { useEffect, useMemo, useState } from "react";
+import { useRouter } from "next/navigation";
+import { BarChart3, BookOpen, ChevronDown, Download, FileSpreadsheet, MoreHorizontal, RotateCcw, Search, Users, X } from "lucide-react";
+import { toast } from "sonner";
 import { TutorSectionOnboarding } from "@/components/tutor-section-onboarding";
 import { supabase } from "@/lib/supabase";
-import { useRouter } from "next/navigation";
-import { toast } from "sonner";
+import { formatDateTime } from "@/lib/format";
+import { cn } from "@/lib/utils";
 import { resetSectionRegistrationEvent, manualRegisterStudentByTutor } from "@/app/actions/tutor";
+import { PageHeader } from "@/components/ui/layout";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Field, Input } from "@/components/ui/input";
+import { Select } from "@/components/ui/select";
+import { EmptyState } from "@/components/ui/feedback";
+import { Disclosure } from "@/components/ui/disclosure";
+import { AnimatedNumber, Meter } from "@/components/ui/data-display";
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
+import { DataTable, type Column, type FilterDef } from "@/components/ui/data-table";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Menu, MenuContent, MenuItem, MenuTrigger } from "@/components/ui/menu";
+import { Dialog, DialogBody, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { exportSectionCSV, exportSectionPDF, type ExportInput } from "./export";
 
 type Registration = {
   studentId: string;
@@ -68,18 +77,54 @@ type ReportData = {
 
 type TabId = "overview" | "students" | "subjects";
 
-export function TutorReportsClient({ reportData, hasActiveSection = true }: { reportData: ReportData, hasActiveSection?: boolean }) {
+const isConfirmed = (s: Student) => s.registrationStatus === "CONFIRMED";
+
+function SearchInput({ value, onChange, placeholder }: { value: string; onChange: (v: string) => void; placeholder: string }) {
+  return (
+    <Input
+      value={value}
+      onChange={(e) => onChange(e.target.value)}
+      placeholder={placeholder}
+      aria-label={placeholder}
+      inputSize="sm"
+      leading={<Search />}
+      trailing={
+        value ? (
+          <button
+            type="button"
+            aria-label="Clear search"
+            onClick={() => onChange("")}
+            className="inline-flex size-8 items-center justify-center rounded-full text-fg-subtle hover:text-fg"
+          >
+            <X className="size-4" />
+          </button>
+        ) : null
+      }
+    />
+  );
+}
+
+function SubjectChip({ r }: { r: Registration }) {
+  return (
+    <span className="inline-flex max-w-full items-center gap-1.5 rounded-full border border-border bg-surface-2 px-2.5 py-1 text-xs text-fg">
+      <span className="shrink-0 text-fg-subtle">{r.groupName}</span>
+      {r.courseCode ? <span className="shrink-0 font-mono text-fg-muted">{r.courseCode}</span> : null}
+      <span className="truncate">{r.electiveName}</span>
+    </span>
+  );
+}
+
+export function TutorReportsClient({ reportData, hasActiveSection = true }: { reportData: ReportData; hasActiveSection?: boolean }) {
   const router = useRouter();
   const { students, totalStudents, registeredCount, sectionLabel, programmeName, departmentName, groups, eventId, eventStatus, availableElectives } = reportData;
   const pendingCount = totalStudents - registeredCount;
   const overallPct = totalStudents > 0 ? Math.round((registeredCount / totalStudents) * 100) : 0;
 
-  const [search, setSearch] = useState("");
   const [activeTab, setActiveTab] = useState<TabId>("overview");
-  const [statusFilter, setStatusFilter] = useState<"all" | "registered" | "pending">("all");
-  const [expandedStudents, setExpandedStudents] = useState<Set<string>>(new Set());
   const [onlineUserIds, setOnlineUserIds] = useState<Set<string>>(new Set());
-  const [isResetting, setIsResetting] = useState(false);
+  const [resetOpen, setResetOpen] = useState(false);
+  const [registeringStudent, setRegisteringStudent] = useState<Student | null>(null);
+  const [registerOpen, setRegisterOpen] = useState(false);
 
   useEffect(() => {
     const channel = supabase.channel('online-users');
@@ -100,21 +145,6 @@ export function TutorReportsClient({ reportData, hasActiveSection = true }: { re
     };
   }, []);
 
-  const filtered = useMemo(() => {
-    let list = students;
-    if (statusFilter === "registered") list = list.filter(s => s.registrationStatus === "CONFIRMED");
-    if (statusFilter === "pending") list = list.filter(s => s.registrationStatus !== "CONFIRMED");
-    if (search.trim()) {
-      const q = search.toLowerCase();
-      list = list.filter(s =>
-        s.name.toLowerCase().includes(q) ||
-        (s.registerNumber ?? "").toLowerCase().includes(q) ||
-        (s.receiptNumber ?? "").toLowerCase().includes(q)
-      );
-    }
-    return list;
-  }, [students, search, statusFilter]);
-
   // Group the subjects by group name for the Subjects tab
   const groupedSubjects = useMemo(() => {
     const map = new Map<string, GroupSummary[]>();
@@ -126,27 +156,14 @@ export function TutorReportsClient({ reportData, hasActiveSection = true }: { re
     return Array.from(map.entries());
   }, [groups]);
 
-  const toggleExpanded = (id: string) => {
-    setExpandedStudents(prev => {
-      const next = new Set(prev);
-      if (next.has(id)) next.delete(id);
-      else next.add(id);
-      return next;
-    });
-  };
-
   const handleReset = async () => {
-    const confirmReset = window.prompt("Type 'CONFIRM' to reset all registrations for this section. This action cannot be undone.");
-    if (confirmReset !== "CONFIRM") return;
-    setIsResetting(true);
     try {
       await resetSectionRegistrationEvent();
       toast.success("Registrations reset successfully");
       router.refresh();
     } catch (err: any) {
       toast.error(err.message || "Failed to reset registrations");
-    } finally {
-      setIsResetting(false);
+      throw err;
     }
   };
 
@@ -154,833 +171,401 @@ export function TutorReportsClient({ reportData, hasActiveSection = true }: { re
     return <TutorSectionOnboarding />;
   }
 
-  // ── Premium CSV Export ──────────────────────────────────────────────────
-  const exportCSV = () => {
-    const BOM = "\uFEFF";
-    const lines: string[] = [];
-
-    // Header section
-    lines.push(`"ELECTIFY - REGISTRATION REPORT"`);
-    lines.push(`"Generated","${new Date().toLocaleString("en-IN", { dateStyle: "long", timeStyle: "short" })}"`);
-    if (sectionLabel) lines.push(`"Section","${sectionLabel}"`);
-    if (programmeName) lines.push(`"Programme","${programmeName}"`);
-    if (departmentName) lines.push(`"Department","${departmentName}"`);
-    lines.push(`"Total Students","${totalStudents}"`);
-    lines.push(`"Registered","${registeredCount}"`);
-    lines.push(`"Pending","${pendingCount}"`);
-    lines.push(`"Completion Rate","${overallPct}%"`);
-    lines.push("");
-
-    // Student details
-    lines.push(`"S.No","Student Name","Register Number","Email","Status","Receipt No.","Submitted At","Elective Groups & Subjects"`);
-    students.forEach((s, idx) => {
-      const isRegistered = s.registrationStatus === "CONFIRMED";
-      const regs = s.registrations.map(r => `${r.groupName}: ${r.courseCode ? r.courseCode + " - " : ""}${r.electiveName}`).join(" | ");
-      const submittedAt = s.submittedAt ? new Date(s.submittedAt).toLocaleString("en-IN", { dateStyle: "medium", timeStyle: "short" }) : "—";
-      lines.push(`"${idx + 1}","${s.name}","${s.registerNumber ?? "—"}","${s.email}","${isRegistered ? "Confirmed" : "Pending"}","${s.receiptNumber ?? "—"}","${submittedAt}","${regs || "—"}"`);
-    });
-
-    lines.push("");
-    lines.push(`"SUBJECT DISTRIBUTION"`);
-    lines.push(`"Elective Group","Course Code","Subject Name","Students Enrolled"`);
-    groups.forEach(g => {
-      lines.push(`"${g.groupName}","${g.courseCode ?? "—"}","${g.electiveName}","${g.count}"`);
-    });
-
-    lines.push("");
-    lines.push(`"SUBJECT-WISE STUDENT LIST"`);
-    
-    groupedSubjects.forEach(([groupName, groupSubjects]) => {
-      groupSubjects.forEach(subject => {
-        lines.push("");
-        lines.push(`"Group: ${groupName} | Subject: ${subject.courseCode ? subject.courseCode + ' - ' : ''}${subject.electiveName}"`);
-        lines.push(`"S.No","Student Name","Register Number","Email","Receipt No.","Submitted At"`);
-        
-        const enrolledStudents = students.filter(s => 
-          s.registrationStatus === "CONFIRMED" && 
-          s.registrations.some(r => r.groupName === groupName && r.electiveName === subject.electiveName)
-        );
-        
-        if (enrolledStudents.length === 0) {
-          lines.push(`"No students enrolled yet."`);
-        } else {
-          enrolledStudents.forEach((s, idx) => {
-            const submittedAt = s.submittedAt ? new Date(s.submittedAt).toLocaleString("en-IN", { dateStyle: "medium", timeStyle: "short" }) : "—";
-            lines.push(`"${idx + 1}","${s.name}","${s.registerNumber ?? "—"}","${s.email}","${s.receiptNumber ?? "—"}","${submittedAt}"`);
-          });
-        }
-      });
-    });
-
-    const blob = new Blob([BOM + lines.join("\n")], { type: "text/csv;charset=utf-8;" });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement("a");
-    link.href = url;
-    link.download = `Electify_Report_Section_${sectionLabel || "All"}_${new Date().toISOString().split("T")[0]}.csv`;
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-    URL.revokeObjectURL(url);
+  const exportInput: ExportInput = {
+    students,
+    groups,
+    groupedSubjects,
+    totalStudents,
+    registeredCount,
+    pendingCount,
+    overallPct,
+    sectionLabel,
+    programmeName,
+    departmentName,
   };
 
-  // ── Premium PDF Export ─────────────────────────────────────────────────
-  const exportPDF = () => {
-    const doc = new jsPDF({ orientation: "landscape" });
-    const pageWidth = doc.internal.pageSize.getWidth();
+  const subtitle = [sectionLabel ? `Section ${sectionLabel}` : "Your section", programmeName, departmentName].filter(Boolean).join(" · ");
 
-    // Header
-    doc.setFillColor(15, 23, 42);
-    doc.rect(0, 0, pageWidth, 32, "F");
-    doc.setTextColor(255, 255, 255);
-    doc.setFontSize(18);
-    doc.setFont("helvetica", "bold");
-    doc.text("ELECTIFY", 14, 15);
-    doc.setFontSize(10);
-    doc.setFont("helvetica", "normal");
-    doc.text("Elective Registration Report", 14, 23);
-    doc.setFontSize(8);
-    doc.text(`Generated: ${new Date().toLocaleString("en-IN", { dateStyle: "long", timeStyle: "short" })}`, pageWidth - 14, 15, { align: "right" });
-    if (sectionLabel) doc.text(`Section ${sectionLabel} • ${programmeName} • ${departmentName}`, pageWidth - 14, 22, { align: "right" });
+  const columns: Column<Student>[] = [
+    {
+      id: "name",
+      header: "Student",
+      mobile: "title",
+      hideable: false,
+      cell: (s) => (
+        <span className="flex min-w-0 items-center gap-2">
+          <span className="min-w-0">
+            <span className="block truncate font-medium text-fg">{s.name}</span>
+            <span className="block truncate text-xs font-normal text-fg-muted">{s.email}</span>
+          </span>
+          {onlineUserIds.has(s.id) ? (
+            <span className="inline-flex shrink-0 items-center gap-1 text-2xs font-medium text-success-text">
+              <span aria-hidden className="size-1.5 rounded-full bg-success" />
+              Online
+            </span>
+          ) : null}
+        </span>
+      ),
+      sortValue: (s) => s.name.toLowerCase(),
+      searchValue: (s) => s.name,
+    },
+    {
+      id: "reg",
+      header: "Register no.",
+      mobile: "subtitle",
+      cell: (s) => <span className="font-mono text-xs text-fg-muted">{s.registerNumber ?? "—"}</span>,
+      sortValue: (s) => s.registerNumber,
+      searchValue: (s) => s.registerNumber,
+    },
+    {
+      id: "status",
+      header: "Status",
+      cell: (s) =>
+        isConfirmed(s) ? (
+          <Badge size="sm" tone="success" dot>
+            Confirmed
+          </Badge>
+        ) : (
+          <Badge size="sm" tone="warning">
+            Pending
+          </Badge>
+        ),
+      sortValue: (s) => (isConfirmed(s) ? 1 : 0),
+    },
+    {
+      id: "receipt",
+      header: "Receipt",
+      cell: (s) => <span className="font-mono text-xs text-fg-muted">{s.receiptNumber ?? "—"}</span>,
+      searchValue: (s) => s.receiptNumber,
+    },
+    {
+      id: "electives",
+      header: "Electives",
+      mobile: "hidden",
+      cell: (s) =>
+        s.registrations.length > 0 ? (
+          <span className="flex max-w-md flex-wrap gap-1.5">
+            {s.registrations.map((r, j) => (
+              <SubjectChip key={j} r={r} />
+            ))}
+          </span>
+        ) : (
+          <span className="text-xs text-fg-subtle">—</span>
+        ),
+    },
+    {
+      id: "actions",
+      header: "Actions",
+      align: "right",
+      mobile: "actions",
+      hideable: false,
+      cell: (s) =>
+        !isConfirmed(s) && eventStatus === "CLOSED" ? (
+          <Button
+            size="sm"
+            variant="secondary"
+            onClick={(e) => {
+              e.stopPropagation();
+              setRegisteringStudent(s);
+              setRegisterOpen(true);
+            }}
+          >
+            Register manually
+          </Button>
+        ) : null,
+    },
+  ];
 
-    // Summary boxes
-    const boxY = 38;
-    const boxW = (pageWidth - 56) / 4;
-    const summaryData = [
-      { label: "Total Students", value: String(totalStudents), color: [59, 130, 246] as [number, number, number] },
-      { label: "Registered", value: String(registeredCount), color: [16, 185, 129] as [number, number, number] },
-      { label: "Pending", value: String(pendingCount), color: [239, 68, 68] as [number, number, number] },
-      { label: "Completion", value: `${overallPct}%`, color: [139, 92, 246] as [number, number, number] },
-    ];
-    summaryData.forEach((item, i) => {
-      const x = 14 + i * (boxW + 8);
-      doc.setFillColor(248, 250, 252);
-      doc.roundedRect(x, boxY, boxW, 22, 3, 3, "F");
-      doc.setDrawColor(...item.color);
-      doc.setLineWidth(0.5);
-      doc.roundedRect(x, boxY, boxW, 22, 3, 3, "S");
-      doc.setTextColor(...item.color);
-      doc.setFontSize(16);
-      doc.setFont("helvetica", "bold");
-      doc.text(item.value, x + boxW / 2, boxY + 11, { align: "center" });
-      doc.setTextColor(100, 116, 139);
-      doc.setFontSize(7);
-      doc.setFont("helvetica", "normal");
-      doc.text(item.label, x + boxW / 2, boxY + 18, { align: "center" });
-    });
-
-    // Student table
-    let startY = boxY + 30;
-    doc.setTextColor(15, 23, 42);
-    doc.setFontSize(11);
-    doc.setFont("helvetica", "bold");
-    doc.text("Student Registration Details", 14, startY);
-    startY += 4;
-
-    const tableData = students.map((s, idx) => {
-      const isRegistered = s.registrationStatus === "CONFIRMED";
-      const regs = s.registrations.map(r => {
-        const code = r.courseCode ? `${r.courseCode} - ` : "";
-        return `[${r.groupName}] ${code}${r.electiveName}`;
-      }).join("\n");
-      const submittedAt = s.submittedAt ? new Date(s.submittedAt).toLocaleString("en-IN", { dateStyle: "short", timeStyle: "short" }) : "—";
-      return [
-        String(idx + 1),
-        s.name,
-        s.registerNumber ?? "—",
-        isRegistered ? "Confirmed" : "Pending",
-        s.receiptNumber ?? "—",
-        submittedAt,
-        regs || "—",
-      ];
-    });
-
-    autoTable(doc, {
-      head: [["#", "Student Name", "Register No.", "Status", "Receipt No.", "Submitted", "Elective Groups & Subjects"]],
-      body: tableData,
-      startY,
-      styles: { fontSize: 7, cellPadding: 3, lineWidth: 0.1, lineColor: [226, 232, 240] },
-      headStyles: { fillColor: [15, 23, 42], textColor: [255, 255, 255], fontStyle: "bold", fontSize: 7 },
-      alternateRowStyles: { fillColor: [248, 250, 252] },
-      columnStyles: {
-        0: { cellWidth: 10, halign: "center" },
-        3: { cellWidth: 22, halign: "center" },
-        4: { cellWidth: 30 },
-        5: { cellWidth: 28 },
-        6: { cellWidth: "auto" },
-      },
-      didParseCell: (data) => {
-        if (data.section === "body" && data.column.index === 3) {
-          const val = data.cell.raw as string;
-          if (val === "Confirmed") {
-            data.cell.styles.textColor = [16, 185, 129];
-            data.cell.styles.fontStyle = "bold";
-          } else {
-            data.cell.styles.textColor = [239, 68, 68];
-            data.cell.styles.fontStyle = "bold";
-          }
-        }
-      },
-    });
-
-    // Subject Distribution Page
-    doc.addPage();
-    doc.setFillColor(15, 23, 42);
-    doc.rect(0, 0, pageWidth, 24, "F");
-    doc.setTextColor(255, 255, 255);
-    doc.setFontSize(14);
-    doc.setFont("helvetica", "bold");
-    doc.text("Subject Distribution Summary", 14, 16);
-
-    autoTable(doc, {
-      head: [["Elective Group", "Course Code", "Subject Name", "Students Enrolled"]],
-      body: groups.map(g => [g.groupName, g.courseCode ?? "—", g.electiveName, String(g.count)]),
-      startY: 30,
-      styles: { fontSize: 8, cellPadding: 4, lineWidth: 0.1, lineColor: [226, 232, 240] },
-      headStyles: { fillColor: [15, 23, 42], textColor: [255, 255, 255], fontStyle: "bold" },
-      alternateRowStyles: { fillColor: [248, 250, 252] },
-      columnStyles: {
-        3: { halign: "center", fontStyle: "bold" },
-      },
-    });
-
-    // Subject-wise Student Lists
-    groupedSubjects.forEach(([groupName, groupSubjects]) => {
-      groupSubjects.forEach(subject => {
-        doc.addPage();
-        
-        doc.setFillColor(15, 23, 42);
-        doc.rect(0, 0, pageWidth, 24, "F");
-        doc.setTextColor(255, 255, 255);
-        doc.setFontSize(14);
-        doc.setFont("helvetica", "bold");
-        doc.text(`Subject: ${subject.courseCode ? subject.courseCode + ' - ' : ''}${subject.electiveName}`, 14, 16);
-        doc.setFontSize(10);
-        doc.setFont("helvetica", "normal");
-        doc.text(`Group: ${groupName}`, pageWidth - 14, 16, { align: "right" });
-
-        const enrolledStudents = students.filter(s => 
-          s.registrationStatus === "CONFIRMED" && 
-          s.registrations.some(r => r.groupName === groupName && r.electiveName === subject.electiveName)
-        );
-
-        if (enrolledStudents.length === 0) {
-          doc.setTextColor(100, 116, 139);
-          doc.setFontSize(10);
-          doc.text("No students enrolled yet.", 14, 40);
-        } else {
-          const subjectTableData = enrolledStudents.map((s, idx) => {
-            const submittedAt = s.submittedAt ? new Date(s.submittedAt).toLocaleString("en-IN", { dateStyle: "short", timeStyle: "short" }) : "—";
-            return [
-              String(idx + 1),
-              s.name,
-              s.registerNumber ?? "—",
-              s.email,
-              s.receiptNumber ?? "—",
-              submittedAt,
-            ];
-          });
-
-          autoTable(doc, {
-            head: [["#", "Student Name", "Register No.", "Email", "Receipt No.", "Submitted"]],
-            body: subjectTableData,
-            startY: 30,
-            styles: { fontSize: 7, cellPadding: 3, lineWidth: 0.1, lineColor: [226, 232, 240] },
-            headStyles: { fillColor: [15, 23, 42], textColor: [255, 255, 255], fontStyle: "bold", fontSize: 7 },
-            alternateRowStyles: { fillColor: [248, 250, 252] },
-            columnStyles: {
-              0: { cellWidth: 10, halign: "center" },
-            },
-          });
-        }
-      });
-    });
-
-    // Footer on all pages
-    const pageCount = doc.getNumberOfPages();
-    for (let i = 1; i <= pageCount; i++) {
-      doc.setPage(i);
-      const h = doc.internal.pageSize.getHeight();
-      doc.setFillColor(248, 250, 252);
-      doc.rect(0, h - 12, pageWidth, 12, "F");
-      doc.setFontSize(7);
-      doc.setTextColor(148, 163, 184);
-      doc.text(`Electify • Page ${i} of ${pageCount}`, 14, h - 5);
-      doc.text("Confidential - For Internal Use Only", pageWidth - 14, h - 5, { align: "right" });
-    }
-
-    doc.save(`Electify_Report_Section_${sectionLabel || "All"}_${new Date().toISOString().split("T")[0]}.pdf`);
-  };
-
-  // ── Tab buttons ─────────────────────────────────────────────────────────
-  const tabs: { id: TabId; label: string; icon: typeof Users }[] = [
-    { id: "overview", label: "Overview", icon: BarChart3 },
-    { id: "students", label: "Students", icon: Users },
-    { id: "subjects", label: "Subjects", icon: BookOpen },
+  const statusFilter: FilterDef<Student>[] = [
+    {
+      id: "status",
+      label: "Status",
+      options: [
+        { value: "registered", label: "Confirmed" },
+        { value: "pending", label: "Pending" },
+      ],
+      predicate: (s, v) => (v === "registered" ? isConfirmed(s) : !isConfirmed(s)),
+    },
   ];
 
   return (
-    <div className="space-y-6">
-      {/* Page Header */}
-      <div className="flex flex-col md:flex-row md:items-start justify-between gap-5">
-        <div className="space-y-1">
-          <h1 className="text-2xl font-bold text-fg tracking-tight">Registration Reports</h1>
-          <p className="text-sm text-fg-muted">
-            {sectionLabel ? `Section ${sectionLabel}` : "Your section"}{programmeName ? ` • ${programmeName}` : ""}{departmentName ? ` • ${departmentName}` : ""}
-          </p>
-        </div>
-        <div className="flex items-center gap-3 w-full sm:w-auto">
-          <button
-            onClick={handleReset}
-            disabled={isResetting}
-            className="flex-1 sm:flex-none flex items-center justify-center gap-2 bg-danger/10 text-danger-text px-4 py-2.5 rounded-control text-sm font-medium hover:bg-danger/20 transition-colors disabled:opacity-50"
-          >
-            {isResetting ? "Resetting..." : "Reset Registrations"}
-          </button>
-          <button
-            onClick={exportCSV}
-            className="flex-1 sm:flex-none flex items-center justify-center gap-2 bg-surface border border-border rounded-control text-sm font-medium transition-colors duration-150 hover:bg-surface-2"
-          >
-            <FileSpreadsheet className="w-4 h-4 text-success-text" />
-            <span>CSV</span>
-          </button>
-          <button
-            onClick={exportPDF}
-            className="group relative flex items-center gap-2 px-4 py-2.5 bg-primary hover:bg-primary-strong text-primary-fg rounded-control text-sm font-medium transition-colors duration-150"
-          >
-            <Download className="w-4 h-4" />
-            <span>PDF</span>
-          </button>
-        </div>
-      </div>
+    <div>
+      <PageHeader
+        title="Section report"
+        description={subtitle}
+        actions={
+          <>
+            <Button variant="secondary" onClick={() => exportSectionCSV(exportInput)}>
+              <FileSpreadsheet /> CSV
+            </Button>
+            <Button onClick={() => exportSectionPDF(exportInput)}>
+              <Download /> PDF
+            </Button>
+            <Menu>
+              <MenuTrigger render={<Button variant="secondary" size="icon" aria-label="More actions" />}>
+                <MoreHorizontal />
+              </MenuTrigger>
+              <MenuContent align="end">
+                <MenuItem tone="danger" onClick={() => setResetOpen(true)}>
+                  <RotateCcw /> Reset registrations
+                </MenuItem>
+              </MenuContent>
+            </Menu>
+          </>
+        }
+      />
 
-      {/* Summary Cards */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-        <SummaryCard icon={Users} label="Total Students" value={totalStudents} color="blue" />
-        <SummaryCard icon={CheckCircle} label="Confirmed" value={registeredCount} color="emerald" />
-        <SummaryCard icon={Clock} label="Pending" value={pendingCount} color="amber" />
-        <CompletionCard pct={overallPct} />
-      </div>
-
-      {/* Tab Navigation */}
-      <div className="flex items-center gap-1 bg-surface-2 border border-border rounded-control p-1 w-fit">
-        {tabs.map(tab => (
-          <button
-            key={tab.id}
-            onClick={() => setActiveTab(tab.id)}
-            className={`flex items-center gap-2 px-4 py-2 rounded-badge text-sm font-medium transition-colors duration-150 ${
-              activeTab === tab.id
-                ? "bg-surface text-fg shadow-1"
-                : "text-fg-muted hover:text-fg hover:bg-surface-2"
-            }`}
-          >
-            <tab.icon className="w-4 h-4" />
-            {tab.label}
-          </button>
+      <div className="mb-6 grid grid-cols-2 gap-3 lg:grid-cols-4">
+        {[
+          { label: "Students", value: totalStudents },
+          { label: "Confirmed", value: registeredCount },
+          { label: "Pending", value: pendingCount },
+        ].map((s) => (
+          <div key={s.label} className="rounded-card bg-surface-2 p-4 sm:p-5">
+            <p className="text-sm text-fg-muted">{s.label}</p>
+            <AnimatedNumber value={s.value} className="mt-1 block text-4xl font-light tracking-display text-fg" tabular />
+          </div>
         ))}
-      </div>
-
-      {/* Tab Content */}
-      <AnimatePresence mode="wait">
-        {activeTab === "overview" && (
-          <motion.div key="overview" initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }} transition={transition.fade}>
-            <OverviewTab
-              students={students}
-              groups={groups}
-              totalStudents={totalStudents}
-              registeredCount={registeredCount}
-              pendingCount={pendingCount}
-            />
-          </motion.div>
-        )}
-        {activeTab === "students" && (
-          <motion.div key="students" initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }} transition={transition.fade}>
-            <StudentsTab
-              filtered={filtered}
-              search={search}
-              setSearch={setSearch}
-              statusFilter={statusFilter}
-              setStatusFilter={setStatusFilter}
-              expandedStudents={expandedStudents}
-              toggleExpanded={toggleExpanded}
-              onlineUserIds={onlineUserIds}
-              eventId={eventId}
-              eventStatus={eventStatus}
-              availableElectives={availableElectives}
-              groups={groups}
-            />
-          </motion.div>
-        )}
-        {activeTab === "subjects" && (
-          <motion.div key="subjects" initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }} transition={transition.fade}>
-            <SubjectsTab groupedSubjects={groupedSubjects} totalStudents={totalStudents} students={students} />
-          </motion.div>
-        )}
-      </AnimatePresence>
-    </div>
-  );
-}
-
-// ── Summary Card ───────────────────────────────────────────────────────────
-function SummaryCard({ icon: Icon, label, value, color }: { icon: typeof Users; label: string; value: number; color: string }) {
-  const colorClasses: Record<string, { bg: string; text: string; ring: string }> = {
-    blue: { bg: "bg-primary/10", text: "text-primary-text", ring: "ring-primary/20" },
-    emerald: { bg: "bg-success/10", text: "text-success-text", ring: "ring-success/20" },
-    amber: { bg: "bg-warning/10", text: "text-warning-text", ring: "ring-warning/20" },
-  };
-  const c = colorClasses[color] || colorClasses.blue;
-
-  return (
-    <div className={`bg-surface border border-border rounded-card p-5 ring-1 ${c.ring}`}>
-      <div className="flex items-center gap-3 mb-3">
-        <div className={`w-9 h-9 rounded-control ${c.bg} flex items-center justify-center`}>
-          <Icon className={`w-4.5 h-4.5 ${c.text}`} />
+        <div className="rounded-card bg-surface-2 p-4 sm:p-5">
+          <p className="text-sm text-fg-muted">Completion</p>
+          <p className="mt-1 flex items-baseline">
+            <AnimatedNumber value={overallPct} className="text-4xl font-light tracking-display text-fg" tabular />
+            <span className="text-2xl font-light text-fg-muted">%</span>
+          </p>
+          <Meter value={registeredCount} max={totalStudents} label="Section completion" className="mt-3" />
         </div>
-        <p className="text-xs font-medium text-fg-muted uppercase tracking-wider">{label}</p>
       </div>
-      <p className="text-3xl font-bold text-fg tabular-nums">{value}</p>
-    </div>
-  );
-}
 
-// ── Completion Ring Card ──────────────────────────────────────────────────
-function CompletionCard({ pct }: { pct: number }) {
-  const r = 28;
-  const circ = 2 * Math.PI * r;
-  const offset = circ - (pct / 100) * circ;
+      <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as TabId)}>
+        <TabsList variant="pill" className="mb-4 w-fit max-w-full">
+          <TabsTrigger value="overview">
+            <BarChart3 /> Overview
+          </TabsTrigger>
+          <TabsTrigger value="students">
+            <Users /> Students
+          </TabsTrigger>
+          <TabsTrigger value="subjects">
+            <BookOpen /> Subjects
+          </TabsTrigger>
+        </TabsList>
 
-  return (
-    <div className="bg-surface border border-border rounded-card p-5 ring-1 ring-primary/20 flex items-center gap-5">
-      <div className="relative w-16 h-16 shrink-0">
-        <svg className="w-full h-full -rotate-90" viewBox="0 0 64 64">
-          <circle cx="32" cy="32" r={r} fill="none" stroke="var(--border)" strokeWidth="5" />
-          <circle
-            cx="32" cy="32" r={r} fill="none"
-            stroke="var(--primary)" strokeWidth="5" strokeLinecap="round"
-            strokeDasharray={circ} strokeDashoffset={offset}
-            className="transition-all duration-1000 ease-out"
+        <TabsContent value="overview" className="animate-enter">
+          <OverviewTab students={students} groups={groups} totalStudents={totalStudents} registeredCount={registeredCount} pendingCount={pendingCount} />
+        </TabsContent>
+
+        <TabsContent value="students" className="animate-enter">
+          <DataTable
+            data={students}
+            columns={columns}
+            getRowId={(s) => s.id}
+            caption="Students in this section"
+            searchPlaceholder="Search name, register no. or receipt"
+            filters={statusFilter}
+            pageSize={30}
+            urlKey="sr"
+            renderExpanded={(s) =>
+              s.registrations.length > 0 ? (
+                <div>
+                  <p className="mb-3 text-xs font-medium text-fg-muted">{s.name}&apos;s elective selections</p>
+                  <ul className="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-3">
+                    {s.registrations.map((r, j) => (
+                      <li key={j} className="rounded-control border border-border bg-surface p-3">
+                        <p className="text-2xs font-medium text-fg-subtle">{r.groupName}</p>
+                        <p className="mt-0.5 text-sm font-medium leading-tight text-fg">
+                          {r.courseCode ? <span className="font-mono text-fg-muted">{r.courseCode} · </span> : null}
+                          {r.electiveName}
+                        </p>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              ) : (
+                <p className="text-sm text-fg-muted">No electives chosen yet.</p>
+              )
+            }
+            empty={<EmptyState compact icon={<Users />} title="No students found" description="Try a different search or filter." />}
           />
-        </svg>
-        <span className="absolute inset-0 flex items-center justify-center text-sm font-bold text-fg">{pct}%</span>
-      </div>
-      <div>
-        <p className="text-xs font-medium text-fg-muted uppercase tracking-wider">Completion</p>
-        <p className="text-lg font-bold text-fg mt-1">Rate</p>
-      </div>
+        </TabsContent>
+
+        <TabsContent value="subjects" className="animate-enter">
+          <SubjectsTab groupedSubjects={groupedSubjects} totalStudents={totalStudents} students={students} />
+        </TabsContent>
+      </Tabs>
+
+      <Dialog open={registerOpen} onOpenChange={setRegisterOpen}>
+        <DialogContent size="lg">
+          {registeringStudent && eventId ? (
+            <ManualRegister
+              key={registeringStudent.id}
+              student={registeringStudent}
+              eventId={eventId}
+              availableElectives={availableElectives || []}
+              onClose={() => setRegisterOpen(false)}
+            />
+          ) : null}
+        </DialogContent>
+      </Dialog>
+
+      <ConfirmDialog
+        open={resetOpen}
+        onOpenChange={setResetOpen}
+        tone="danger"
+        title="Reset this section's registrations?"
+        description="Every registration in your section is cleared and students have to register again. This cannot be undone."
+        impact={[
+          { label: "Section", value: sectionLabel || "—" },
+          { label: "Confirmed registrations", value: registeredCount, tone: "danger" },
+        ]}
+        requireText="CONFIRM"
+        confirmLabel="Reset registrations"
+        onConfirm={handleReset}
+      />
     </div>
   );
 }
 
 // ── Overview Tab ──────────────────────────────────────────────────────────
-function OverviewTab({ students, groups, totalStudents, registeredCount, pendingCount }: {
+function OverviewTab({
+  students,
+  groups,
+  totalStudents,
+  registeredCount,
+  pendingCount,
+}: {
   students: Student[];
   groups: GroupSummary[];
   totalStudents: number;
   registeredCount: number;
   pendingCount: number;
 }) {
-  const maxCount = Math.max(...groups.map(g => g.count), 1);
+  const maxCount = Math.max(...groups.map((g) => g.count), 1);
   const [showAll, setShowAll] = useState(true);
   const [overviewSearch, setOverviewSearch] = useState("");
 
   const confirmedStudents = students
-    .filter(s => s.registrationStatus === "CONFIRMED" && s.submittedAt)
+    .filter((s) => s.registrationStatus === "CONFIRMED" && s.submittedAt)
     .sort((a, b) => new Date(b.submittedAt!).getTime() - new Date(a.submittedAt!).getTime());
 
+  let list = confirmedStudents;
+  if (overviewSearch.trim()) {
+    const q = overviewSearch.toLowerCase();
+    list = list.filter(
+      (s) =>
+        s.name.toLowerCase().includes(q) ||
+        (s.registerNumber && s.registerNumber.toLowerCase().includes(q)) ||
+        (s.receiptNumber && s.receiptNumber.toLowerCase().includes(q))
+    );
+  }
+  const visibleList = showAll ? list : list.slice(0, 10);
+
+  const regPct = totalStudents > 0 ? (registeredCount / totalStudents) * 100 : 0;
+  const pendPct = totalStudents > 0 ? (pendingCount / totalStudents) * 100 : 0;
+
   return (
-    <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-      {/* Registration Status Breakdown */}
-      <div className="bg-surface border border-border rounded-card p-6">
-        <h3 className="text-sm font-semibold text-fg mb-5 flex items-center gap-2">
-          <TrendingUp className="w-4 h-4 text-fg-muted" />
-          Registration Progress
-        </h3>
-        <div className="space-y-4">
-          <ProgressBar label="Confirmed" value={registeredCount} max={totalStudents} color="emerald" />
-          <ProgressBar label="Pending" value={pendingCount} max={totalStudents} color="amber" />
+    <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+      <section className="rounded-card border border-border bg-surface p-4 shadow-1 sm:p-5">
+        <h2 className="text-sm font-medium text-fg">Registration progress</h2>
+        <div className="mt-5 flex h-3 overflow-hidden rounded-full bg-surface-2" aria-hidden>
+          <div className="h-full bg-success transition-[width] duration-700 ease-gentle" style={{ width: `${regPct}%` }} />
+          <div className="h-full bg-warning/70 transition-[width] duration-700 ease-gentle" style={{ width: `${pendPct}%` }} />
         </div>
-        {/* Visual bar */}
-        <div className="mt-6 h-3 rounded-full bg-surface-2 overflow-hidden flex">
-          {registeredCount > 0 && (
-            <div
-              className="h-full bg-success transition-all duration-700"
-              style={{ width: `${(registeredCount / totalStudents) * 100}%` }}
-            />
-          )}
-          {pendingCount > 0 && (
-            <div
-              className="h-full bg-warning transition-all duration-700"
-              style={{ width: `${(pendingCount / totalStudents) * 100}%` }}
-            />
-          )}
-        </div>
-      </div>
-
-      {/* Top Elective Subjects */}
-      <div className="bg-surface border border-border rounded-card p-6">
-        <h3 className="text-sm font-semibold text-fg mb-5 flex items-center gap-2">
-          <BookOpen className="w-4 h-4 text-fg-muted" />
-          Subject Enrollment
-        </h3>
-        <div className="space-y-3 max-h-70 overflow-y-auto pr-1">
-          {groups.length === 0 ? (
-            <p className="text-sm text-fg-muted text-center py-8">No registrations yet.</p>
-          ) : (
-            groups.slice(0, 10).map((g, i) => (
-              <div key={i} className="space-y-1.5">
-                <div className="flex items-center justify-between text-xs">
-                  <span className="text-fg font-medium truncate max-w-[70%]">
-                    {g.courseCode ? `${g.courseCode} — ` : ""}{g.electiveName}
-                  </span>
-                  <span className="text-fg-muted tabular-nums font-medium">{g.count}</span>
-                </div>
-                <div className="h-1.5 rounded-full bg-surface-2 overflow-hidden">
-                  <motion.div
-                    className="h-full rounded-full bg-brand"
-                    initial={{ width: 0 }}
-                    animate={{ width: `${(g.count / maxCount) * 100}%` }}
-                    transition={{ ...transition.value, delay: listDelay(i, 0.05) }}
-                  />
-                </div>
-              </div>
-            ))
-          )}
-        </div>
-      </div>
-
-      {/* Registered Students */}
-      <div className="bg-surface border border-border rounded-card p-6 lg:col-span-2">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4">
-          <div className="flex items-center gap-2.5">
-            <Clock className="w-4 h-4 text-success-text" />
-            <h3 className="text-sm font-semibold text-fg">
-              Registered Students
-            </h3>
-            <span className="text-xs font-semibold px-2.5 py-0.5 rounded-full bg-success/10 text-success-text border border-success/20">
-              {confirmedStudents.length} Confirmed
-            </span>
-          </div>
-
-          <div className="flex items-center gap-2">
-            <div className="relative">
-              <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-fg-muted" />
-              <input
-                type="text"
-                value={overviewSearch}
-                onChange={(e) => setOverviewSearch(e.target.value)}
-                placeholder="Search registered..."
-                className="pl-8 pr-3 py-1.5 bg-surface border border-border-strong rounded-control text-xs text-fg placeholder:text-fg-muted focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
-              />
+        <dl className="mt-5 grid grid-cols-2 gap-4">
+          {[
+            { label: "Confirmed", value: registeredCount, dot: "bg-success" },
+            { label: "Pending", value: pendingCount, dot: "bg-warning" },
+          ].map((row) => (
+            <div key={row.label}>
+              <dt className="flex items-center gap-2 text-xs text-fg-muted">
+                <span aria-hidden className={cn("size-2 rounded-full", row.dot)} />
+                {row.label}
+              </dt>
+              <dd className="mt-1 text-2xl font-light tabular-nums text-fg">
+                {row.value} <span className="text-sm text-fg-subtle">/ {totalStudents}</span>
+              </dd>
             </div>
-            {confirmedStudents.length > 10 && (
-              <button
-                type="button"
-                onClick={() => setShowAll(!showAll)}
-                className="text-xs font-semibold text-primary-text hover:text-primary-text bg-primary/10 hover:bg-primary/20 px-3 py-1.5 rounded-control transition-colors shrink-0"
-              >
-                {showAll ? "Show Top 10" : `Show All (${confirmedStudents.length})`}
-              </button>
-            )}
+          ))}
+        </dl>
+      </section>
+
+      <section className="rounded-card border border-border bg-surface p-4 shadow-1 sm:p-5">
+        <h2 className="text-sm font-medium text-fg">Subject enrollment</h2>
+        {groups.length === 0 ? (
+          <p className="py-8 text-center text-sm text-fg-muted">No registrations yet.</p>
+        ) : (
+          <ul className="mt-4 max-h-72 space-y-3 overflow-y-auto pr-1 scrollbar-thin">
+            {groups.slice(0, 10).map((g, i) => (
+              <li key={i}>
+                <div className="flex items-center justify-between gap-3 text-xs">
+                  <span className="truncate font-medium text-fg">
+                    {g.courseCode ? <span className="font-mono text-fg-muted">{g.courseCode} · </span> : null}
+                    {g.electiveName}
+                  </span>
+                  <span className="shrink-0 font-mono tabular-nums text-fg-muted">{g.count}</span>
+                </div>
+                <Meter value={g.count} max={maxCount} label={`${g.electiveName} enrollment`} className="mt-1.5" />
+              </li>
+            ))}
+          </ul>
+        )}
+      </section>
+
+      <section className="overflow-hidden rounded-card border border-border bg-surface shadow-1 lg:col-span-2">
+        <div className="flex flex-col gap-3 p-4 sm:flex-row sm:items-center sm:justify-between sm:px-5">
+          <div className="flex items-center gap-2.5">
+            <h2 className="text-sm font-medium text-fg">Registered students</h2>
+            <Badge size="sm" tone="success">
+              <span className="font-mono tabular-nums">{confirmedStudents.length}</span> confirmed
+            </Badge>
+          </div>
+          <div className="flex items-center gap-2">
+            <div className="flex-1 sm:w-56 sm:flex-none">
+              <SearchInput value={overviewSearch} onChange={setOverviewSearch} placeholder="Search registered" />
+            </div>
+            {confirmedStudents.length > 10 ? (
+              <Button size="sm" variant="ghost" onClick={() => setShowAll(!showAll)} className="shrink-0">
+                {showAll ? "Top 10" : `All ${confirmedStudents.length}`}
+              </Button>
+            ) : null}
           </div>
         </div>
 
-        <div className="overflow-x-auto max-h-150 overflow-y-auto pr-1">
-          {(() => {
-            let list = confirmedStudents;
-            if (overviewSearch.trim()) {
-              const q = overviewSearch.toLowerCase();
-              list = list.filter(s => 
-                s.name.toLowerCase().includes(q) || 
-                (s.registerNumber && s.registerNumber.toLowerCase().includes(q)) ||
-                (s.receiptNumber && s.receiptNumber.toLowerCase().includes(q))
-              );
-            }
-
-            const visibleList = showAll ? list : list.slice(0, 10);
-
-            if (visibleList.length === 0) {
-              return <p className="text-sm text-fg-muted text-center py-6">No matching registrations found.</p>;
-            }
-
-            return (
-              <table className="w-full text-sm">
-                <thead className="sticky top-0 bg-surface z-10">
-                  <tr className="border-b border-border">
-                    <th className="text-left py-2.5 px-3 text-xs font-medium text-fg-muted">Student</th>
-                    <th className="text-left py-2.5 px-3 text-xs font-medium text-fg-muted">Register No.</th>
-                    <th className="text-left py-2.5 px-3 text-xs font-medium text-fg-muted">Receipt</th>
-                    <th className="text-left py-2.5 px-3 text-xs font-medium text-fg-muted">Submitted</th>
-                    <th className="text-left py-2.5 px-3 text-xs font-medium text-fg-muted">Subjects</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-border">
-                  {visibleList.map(s => (
-                    <tr key={s.id} className="hover:bg-surface-2/30 transition-colors">
-                      <td className="py-3 px-3 font-medium text-fg">{s.name}</td>
-                      <td className="py-3 px-3 text-fg-muted font-mono text-xs">{s.registerNumber ?? "—"}</td>
-                      <td className="py-3 px-3"><span className="text-xs font-mono bg-success/10 text-success-text px-2 py-0.5 rounded-badge">{s.receiptNumber ?? "—"}</span></td>
-                      <td className="py-3 px-3 text-fg-muted text-xs">{new Date(s.submittedAt!).toLocaleString("en-IN", { dateStyle: "medium", timeStyle: "short" })}</td>
-                      <td className="py-3 px-3">
-                        <div className="space-y-1.5 max-w-70">
-                          {s.registrations.map((r, j) => (
-                            <div key={j} className="flex items-start gap-1.5">
-                              <span className="text-2xs font-semibold text-fg-muted uppercase tracking-wider shrink-0 pt-0.5 min-w-15">{r.groupName}:</span>
-                              <span className="text-xs text-fg font-medium leading-tight">
-                                {r.courseCode ? <span className="text-primary-text">{r.courseCode}</span> : null}
-                                {r.courseCode ? " — " : ""}{r.electiveName}
-                              </span>
-                            </div>
-                          ))}
-                        </div>
-                      </td>
-                    </tr>
+        {visibleList.length === 0 ? (
+          <p className="border-t border-border py-8 text-center text-sm text-fg-muted">No matching registrations found.</p>
+        ) : (
+          <ul className="max-h-[36rem] divide-y divide-border overflow-y-auto border-t border-border scrollbar-thin">
+            {visibleList.map((s) => (
+              <li key={s.id} className="grid gap-2 px-4 py-3.5 sm:grid-cols-[minmax(0,14rem)_minmax(0,1fr)_auto] sm:items-start sm:gap-4 sm:px-5">
+                <div className="min-w-0">
+                  <p className="truncate text-sm font-medium text-fg">{s.name}</p>
+                  <p className="font-mono text-xs text-fg-muted">{s.registerNumber ?? "—"}</p>
+                </div>
+                <div className="flex flex-wrap gap-1.5">
+                  {s.registrations.map((r, j) => (
+                    <SubjectChip key={j} r={r} />
                   ))}
-                </tbody>
-              </table>
-            );
-          })()}
-        </div>
-      </div>
-    </div>
-  );
-}
-
-function ProgressBar({ label, value, max, color }: { label: string; value: number; max: number; color: string }) {
-  const pct = max > 0 ? Math.round((value / max) * 100) : 0;
-  const fills: Record<string, string> = {
-    emerald: "bg-success",
-    amber: "bg-warning",
-  };
-  return (
-    <div className="flex items-center gap-4">
-      <span className="text-xs font-medium text-fg-muted w-20">{label}</span>
-      <div className="flex-1 h-2 rounded-full bg-surface-2 overflow-hidden">
-        <motion.div className={`h-full rounded-full ${fills[color]}`} initial={{ width: 0 }} animate={{ width: `${pct}%` }} transition={transition.value} />
-      </div>
-      <span className="text-xs font-bold text-fg tabular-nums w-12 text-right">{value} <span className="text-fg-muted font-normal">/ {max}</span></span>
-    </div>
-  );
-}
-
-// ── Students Tab ──────────────────────────────────────────────────────────
-function StudentsTab({ filtered, search, setSearch, statusFilter, setStatusFilter, expandedStudents, toggleExpanded, onlineUserIds, eventId, eventStatus, availableElectives }: {
-  filtered: Student[];
-  search: string;
-  setSearch: (s: string) => void;
-  statusFilter: "all" | "registered" | "pending";
-  setStatusFilter: (f: "all" | "registered" | "pending") => void;
-  expandedStudents: Set<string>;
-  toggleExpanded: (id: string) => void;
-  onlineUserIds: Set<string>;
-  eventId?: string | null;
-  eventStatus?: string;
-  availableElectives?: ElectiveOption[];
-  groups?: GroupSummary[];
-}) {
-  const [registeringStudent, setRegisteringStudent] = useState<Student | null>(null);
-
-  return (
-    <div className="space-y-4">
-      {/* Search & Filters */}
-      <div className="flex flex-col sm:flex-row gap-3">
-        <div className="relative flex-1">
-          <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-fg-muted" />
-          <input
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            placeholder="Search by name, register number, or receipt..."
-            className="w-full pl-10 pr-4 py-2.5 bg-surface border border-border-strong rounded-control text-sm text-fg placeholder:text-fg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring transition-shadow"
-          />
-        </div>
-        <div className="flex items-center gap-1 bg-surface-2 border border-border rounded-control p-1">
-          {(["all", "registered", "pending"] as const).map(f => (
-            <button
-              key={f}
-              onClick={() => setStatusFilter(f)}
-              className={`px-3 py-1.5 rounded-badge text-xs font-medium transition-all ${
-                statusFilter === f
-                  ? "bg-surface text-fg shadow-1"
-                  : "text-fg-muted hover:text-fg"
-              }`}
-            >
-              {f === "all" ? "All" : f === "registered" ? "Confirmed" : "Pending"}
-            </button>
-          ))}
-        </div>
-      </div>
-
-      {/* Student table */}
-      <div className="bg-surface rounded-card border border-border overflow-hidden">
-        <div className="overflow-x-auto">
-          <table className="w-full text-sm">
-            <thead>
-              <tr className="border-b border-border">
-                <th className="text-left px-5 py-3.5 text-xs font-semibold text-fg-muted uppercase tracking-wider">Student</th>
-                <th className="text-left px-5 py-3.5 text-xs font-semibold text-fg-muted uppercase tracking-wider">Register No.</th>
-                <th className="text-left px-5 py-3.5 text-xs font-semibold text-fg-muted uppercase tracking-wider">Status</th>
-                <th className="text-left px-5 py-3.5 text-xs font-semibold text-fg-muted uppercase tracking-wider">Receipt</th>
-                <th className="text-left px-5 py-3.5 text-xs font-semibold text-fg-muted uppercase tracking-wider">Electives</th>
-                <th className="w-10" />
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-border">
-              {filtered.length === 0 ? (
-                <tr>
-                  <td colSpan={6} className="text-center py-16 text-fg-muted">
-                    No students found.
-                  </td>
-                </tr>
-              ) : (
-                filtered.map((s, i) => {
-                  const isRegistered = s.registrationStatus === "CONFIRMED";
-                  const isExpanded = expandedStudents.has(s.id);
-                  const hasRegs = s.registrations.length > 0;
-
-                  return (
-                    <Fragment key={s.id}>
-                      <motion.tr
-                        initial={{ opacity: 0 }}
-                        animate={{ opacity: 1 }}
-                        transition={{ ...transition.fade, delay: listDelay(i, 0.015) }}
-                        className={`hover:bg-surface-2/30 transition-colors cursor-pointer ${isExpanded ? "bg-surface-2/20" : ""}`}
-                        onClick={() => hasRegs && toggleExpanded(s.id)}
-                      >
-                        <td className="px-5 py-3.5">
-                          <div className="flex items-center gap-3">
-                            <div className="relative">
-                              <div className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold shrink-0 ${
-                                isRegistered
-                                  ? "bg-success/15 text-success-text"
-                                  : "bg-surface-3 text-fg-muted"
-                              }`}>
-                                {s.name.charAt(0).toUpperCase()}
-                              </div>
-                              {onlineUserIds.has(s.id) && (
-                                <span className="absolute bottom-0 -right-0.5 w-3 h-3 bg-success border-2 border-surface rounded-full" />
-                              )}
-                            </div>
-                            <div>
-                              <span className="font-medium text-fg block leading-tight">{s.name}</span>
-                              <span className="text-2xs text-fg-muted">{s.email}</span>
-                            </div>
-                          </div>
-                        </td>
-                        <td className="px-5 py-3.5 text-fg-muted font-mono text-xs">{s.registerNumber ?? "—"}</td>
-                        <td className="px-5 py-3.5">
-                          <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold ${
-                            isRegistered
-                              ? "bg-success/10 text-success-text ring-1 ring-success/20"
-                              : "bg-warning/10 text-warning-text ring-1 ring-warning/20"
-                          }`}>
-                            <span className={`w-1.5 h-1.5 rounded-full ${isRegistered ? "bg-success" : "bg-warning"}`} />
-                            {isRegistered ? "Confirmed" : "Pending"}
-                          </span>
-                          {!isRegistered && eventStatus === "CLOSED" && (
-                            <button
-                              onClick={(e) => { e.stopPropagation(); setRegisteringStudent(s); }}
-                              className="ml-3 inline-flex items-center gap-1 bg-primary text-primary-fg px-2 py-1 rounded-badge text-2xs font-medium hover:bg-primary-strong transition-colors"
-                            >
-                              Manual Register
-                            </button>
-                          )}
-                        </td>
-                        <td className="px-5 py-3.5">
-                          {s.receiptNumber ? (
-                            <span className="text-xs font-mono bg-surface-2 px-2 py-0.5 rounded-badge text-fg">{s.receiptNumber}</span>
-                          ) : (
-                            <span className="text-xs text-fg-muted">—</span>
-                          )}
-                        </td>
-                        <td className="px-5 py-3.5">
-                          {hasRegs ? (
-                            <div className="space-y-1">
-                              {s.registrations.map((r, j) => (
-                                <div key={j} className="flex items-center gap-1.5">
-                                  <span className="text-2xs font-medium text-fg-muted shrink-0">{r.groupName}:</span>
-                                  <span className="text-xs bg-primary/10 text-primary-text px-2 py-0.5 rounded-badge font-medium truncate max-w-50">
-                                    {r.courseCode ? `${r.courseCode} — ` : ""}{r.electiveName}
-                                  </span>
-                                </div>
-                              ))}
-                            </div>
-                          ) : (
-                            <span className="text-xs text-fg-muted">—</span>
-                          )}
-                        </td>
-                        <td className="px-3 py-3.5">
-                          {hasRegs && (
-                            <ChevronDown className={`w-4 h-4 text-fg-muted transition-transform duration-200 ${isExpanded ? "rotate-180" : ""}`} />
-                          )}
-                        </td>
-                      </motion.tr>
-                      <AnimatePresence>
-                        {isExpanded && hasRegs && (
-                          <tr className="border-b-0">
-                            <td colSpan={6} className="p-0">
-                              <motion.div
-                                initial={{ height: 0, opacity: 0 }}
-                                animate={{ height: "auto", opacity: 1 }}
-                                exit={{ height: 0, opacity: 0 }}
-                                transition={transition.fade}
-                                className="border-t border-border bg-surface-2/30 px-5 py-4 overflow-hidden"
-                              >
-                                <p className="text-xs font-semibold text-fg-muted uppercase tracking-wider mb-3">
-                                  {s.name}&apos;s Elective Selections
-                                </p>
-                                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
-                                  {s.registrations.map((r, j) => (
-                                    <div key={j} className="flex items-start gap-3 bg-surface border border-border rounded-control p-3">
-                                      <div className="w-8 h-8 rounded-control bg-primary/10 flex items-center justify-center shrink-0 mt-0.5">
-                                        <BookOpen className="w-4 h-4 text-primary-text" />
-                                      </div>
-                                      <div className="min-w-0">
-                                        <p className="text-2xs font-medium text-fg-muted uppercase tracking-wider">{r.groupName}</p>
-                                        <p className="text-sm font-medium text-fg mt-0.5 leading-tight">
-                                          {r.courseCode ? <span className="text-primary-text">{r.courseCode}</span> : null}
-                                          {r.courseCode ? " — " : ""}{r.electiveName}
-                                        </p>
-                                      </div>
-                                    </div>
-                                  ))}
-                                </div>
-                              </motion.div>
-                            </td>
-                          </tr>
-                        )}
-                      </AnimatePresence>
-                    </Fragment>
-                  );
-                })
-              )}
-            </tbody>
-          </table>
-        </div>
-      </div>
-
-      <p className="text-xs text-fg-muted text-right">Showing {filtered.length} student{filtered.length !== 1 ? "s" : ""}</p>
-      
-      <AnimatePresence>
-        {registeringStudent && eventId && (
-          <ManualRegisterModal
-            student={registeringStudent}
-            eventId={eventId}
-            availableElectives={availableElectives || []}
-            onClose={() => setRegisteringStudent(null)}
-          />
+                </div>
+                <div className="flex items-center gap-3 text-xs text-fg-subtle sm:flex-col sm:items-end sm:gap-1">
+                  <span className="font-mono text-fg-muted">{s.receiptNumber ?? "—"}</span>
+                  <time dateTime={s.submittedAt!}>{formatDateTime(s.submittedAt)}</time>
+                </div>
+              </li>
+            ))}
+          </ul>
         )}
-      </AnimatePresence>
+      </section>
     </div>
   );
 }
 
-// ── Manual Register Modal ────────────────────────────────────────────────
-function ManualRegisterModal({ student, eventId, availableElectives, onClose }: { student: Student; eventId: string; availableElectives: ElectiveOption[]; onClose: () => void }) {
+// ── Manual Register ──────────────────────────────────────────────────────
+function ManualRegister({ student, eventId, availableElectives, onClose }: { student: Student; eventId: string; availableElectives: ElectiveOption[]; onClose: () => void }) {
   const router = useRouter();
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [selections, setSelections] = useState<Record<string, string>>({});
 
   const groupOptions = useMemo(() => {
     const map = new Map<string, { groupId: string; groupName: string; electives: ElectiveOption[] }>();
-    availableElectives.forEach(e => {
+    availableElectives.forEach((e) => {
       if (!map.has(e.groupId)) {
         map.set(e.groupId, { groupId: e.groupId, groupName: e.groupName, electives: [] });
       }
@@ -995,9 +580,9 @@ function ManualRegisterModal({ student, eventId, availableElectives, onClose }: 
       toast.error("Please select a subject for all groups");
       return;
     }
-    
+
     const formattedSelections = Object.entries(selections).map(([groupId, electiveId]) => ({ groupId, electiveId }));
-    
+
     setIsSubmitting(true);
     try {
       await manualRegisterStudentByTutor(student.id, eventId, formattedSelections);
@@ -1012,57 +597,40 @@ function ManualRegisterModal({ student, eventId, availableElectives, onClose }: 
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-overlay backdrop-blur-sm">
-      <motion.div
-        initial={{ opacity: 0, scale: 0.95 }}
-        animate={{ opacity: 1, scale: 1 }}
-        exit={{ opacity: 0, scale: 0.95 }}
-        className="w-full max-w-lg bg-surface border border-border rounded-card shadow-3 overflow-hidden"
-      >
-        <div className="p-6">
-          <h2 className="text-xl font-bold text-fg mb-1">Manual Registration</h2>
-          <p className="text-sm text-fg-muted mb-6">
-            Register subjects for {student.name} ({student.registerNumber})
-          </p>
-          
-          <div className="space-y-5">
-            {groupOptions.map(g => (
-              <div key={g.groupId}>
-                <label className="block text-sm font-medium text-fg mb-2">{g.groupName}</label>
-                <select
-                  value={selections[g.groupId] || ""}
-                  onChange={(e) => setSelections(prev => ({ ...prev, [g.groupId]: e.target.value }))}
-                  className="w-full bg-surface border border-border-strong rounded-control px-3 py-2.5 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                >
-                  <option value="" disabled>Select a subject</option>
-                  {g.electives.map(e => (
-                    <option key={e.id} value={e.id} disabled={e.availableSeats <= 0}>
-                      {e.courseCode ? `${e.courseCode} - ` : ""}{e.name} ({e.availableSeats} seats left)
-                    </option>
-                  ))}
-                </select>
-              </div>
-            ))}
-          </div>
-        </div>
-        <div className="flex items-center justify-end gap-3 px-6 py-4 bg-surface-2/30 border-t border-border">
-          <button
-            onClick={onClose}
-            disabled={isSubmitting}
-            className="px-4 py-2 text-sm font-medium text-fg-muted hover:text-fg transition-colors"
-          >
-            Cancel
-          </button>
-          <button
-            onClick={handleSubmit}
-            disabled={isSubmitting}
-            className="px-5 py-2 bg-primary hover:bg-primary-strong text-primary-fg text-sm font-medium rounded-control transition-colors disabled:opacity-50"
-          >
-            {isSubmitting ? "Registering..." : "Confirm Registration"}
-          </button>
-        </div>
-      </motion.div>
-    </div>
+    <>
+      <DialogHeader>
+        <DialogTitle>Register manually</DialogTitle>
+        <DialogDescription>
+          Pick one subject per group for {student.name}
+          {student.registerNumber ? <span className="font-mono"> ({student.registerNumber})</span> : null}.
+        </DialogDescription>
+      </DialogHeader>
+      <DialogBody className="space-y-4">
+        {groupOptions.length === 0 ? <p className="text-sm text-fg-muted">No electives are available for this event.</p> : null}
+        {groupOptions.map((g) => (
+          <Field key={g.groupId} label={g.groupName}>
+            <Select
+              value={selections[g.groupId] || null}
+              onValueChange={(v) => setSelections((prev) => ({ ...prev, [g.groupId]: v }))}
+              placeholder="Select a subject"
+              options={g.electives.map((e) => ({
+                value: e.id,
+                label: `${e.courseCode ? `${e.courseCode} - ` : ""}${e.name} (${e.availableSeats} seats left)`,
+                disabled: e.availableSeats <= 0,
+              }))}
+            />
+          </Field>
+        ))}
+      </DialogBody>
+      <DialogFooter>
+        <Button variant="secondary" onClick={onClose} disabled={isSubmitting}>
+          Cancel
+        </Button>
+        <Button onClick={handleSubmit} loading={isSubmitting} loadingText="Registering">
+          Confirm registration
+        </Button>
+      </DialogFooter>
+    </>
   );
 }
 
@@ -1072,21 +640,13 @@ function SubjectsTab({ groupedSubjects, totalStudents, students }: { groupedSubj
   const [expandedSubjects, setExpandedSubjects] = useState<Set<string>>(new Set());
   const [subjectSearch, setSubjectSearch] = useState("");
 
-  const toggleGroup = (name: string) => {
-    setExpandedGroups(prev => {
+  const toggle = (setter: React.Dispatch<React.SetStateAction<Set<string>>>, key: string) =>
+    setter((prev) => {
       const next = new Set(prev);
-      if (next.has(name)) next.delete(name); else next.add(name);
+      if (next.has(key)) next.delete(key);
+      else next.add(key);
       return next;
     });
-  };
-
-  const toggleSubject = (key: string) => {
-    setExpandedSubjects(prev => {
-      const next = new Set(prev);
-      if (next.has(key)) next.delete(key); else next.add(key);
-      return next;
-    });
-  };
 
   // Build a map of (electiveName) -> list of students registered for it
   const studentsPerSubject = useMemo(() => {
@@ -1096,12 +656,7 @@ function SubjectsTab({ groupedSubjects, totalStudents, students }: { groupedSubj
       for (const reg of student.registrations) {
         const key = `${reg.groupName}::${reg.electiveName}`;
         const list = map.get(key) || [];
-        list.push({
-          id: student.id,
-          name: student.name,
-          registerNumber: student.registerNumber,
-          submittedAt: student.submittedAt,
-        });
+        list.push({ id: student.id, name: student.name, registerNumber: student.registerNumber, submittedAt: student.submittedAt });
         map.set(key, list);
       }
     }
@@ -1111,26 +666,15 @@ function SubjectsTab({ groupedSubjects, totalStudents, students }: { groupedSubj
   }, [students]);
 
   if (groupedSubjects.length === 0) {
-    return (
-      <div className="bg-surface border border-border rounded-control p-12 text-center">
-        <BookOpen className="w-10 h-10 text-fg-muted mx-auto mb-3 opacity-50" />
-        <p className="text-fg-muted">No elective subjects have been selected yet.</p>
-      </div>
-    );
+    return <EmptyState icon={<BookOpen />} title="No subjects chosen yet" description="Subjects appear here once students confirm." />;
   }
+
+  const q = subjectSearch.toLowerCase().trim();
 
   return (
     <div className="space-y-3">
-      {/* Search */}
-      <div className="relative">
-        <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-fg-muted" />
-        <input
-          type="text"
-          placeholder="Search students by name or register number..."
-          value={subjectSearch}
-          onChange={(e) => setSubjectSearch(e.target.value)}
-          className="w-full pl-9 pr-4 py-2.5 bg-surface border border-border-strong rounded-control text-sm text-fg placeholder:text-fg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-        />
+      <div className="sm:max-w-sm">
+        <SearchInput value={subjectSearch} onChange={setSubjectSearch} placeholder="Find a student in any subject" />
       </div>
 
       {groupedSubjects.map(([groupName, subjects]) => {
@@ -1138,133 +682,87 @@ function SubjectsTab({ groupedSubjects, totalStudents, students }: { groupedSubj
         const groupTotal = subjects.reduce((sum, s) => sum + s.count, 0);
 
         return (
-          <div key={groupName} className="bg-surface border border-border rounded-card overflow-hidden">
+          <section key={groupName} className="overflow-hidden rounded-card border border-border bg-surface shadow-1">
             <button
-              onClick={() => toggleGroup(groupName)}
-              className="w-full flex items-center justify-between p-5 hover:bg-surface-2/30 transition-colors"
+              type="button"
+              aria-expanded={isOpen}
+              onClick={() => toggle(setExpandedGroups, groupName)}
+              className="flex w-full items-center gap-3 p-4 text-left transition-colors hover:bg-surface-2/70 sm:px-5"
             >
-              <div className="flex items-center gap-3">
-                <div className="w-9 h-9 rounded-control bg-primary/10 flex items-center justify-center">
-                  <BookOpen className="w-4.5 h-4.5 text-primary-text" />
-                </div>
-                <div className="text-left">
-                  <h3 className="text-sm font-semibold text-fg">{groupName}</h3>
-                  <p className="text-xs text-fg-muted">{subjects.length} subject{subjects.length !== 1 ? "s" : ""} • {groupTotal} enrollment{groupTotal !== 1 ? "s" : ""}</p>
-                </div>
-              </div>
-              <ChevronDown className={`w-4 h-4 text-fg-muted transition-transform duration-200 ${isOpen ? "rotate-180" : ""}`} />
+              <span aria-hidden className="inline-flex size-9 shrink-0 items-center justify-center rounded-full bg-fg text-canvas">
+                <BookOpen className="size-4" />
+              </span>
+              <span className="min-w-0 flex-1">
+                <span className="block text-sm font-medium text-fg">{groupName}</span>
+                <span className="block text-xs text-fg-muted">
+                  {subjects.length} subject{subjects.length !== 1 ? "s" : ""} · {groupTotal} enrollment{groupTotal !== 1 ? "s" : ""}
+                </span>
+              </span>
+              <ChevronDown className={cn("size-4 shrink-0 text-fg-subtle transition-transform duration-200", isOpen && "rotate-180")} />
             </button>
-            <AnimatePresence>
-              {isOpen && (
-                <motion.div
-                  initial={{ height: 0, opacity: 0 }}
-                  animate={{ height: "auto", opacity: 1 }}
-                  exit={{ height: 0, opacity: 0 }}
-                  transition={transition.fade}
-                  className="border-t border-border"
-                >
-                  <div className="p-4 space-y-2">
-                    {subjects.map((sub, idx) => {
-                      const pct = totalStudents > 0 ? Math.round((sub.count / totalStudents) * 100) : 0;
-                      const subjectKey = `${groupName}::${sub.electiveName}`;
-                      const isSubjectExpanded = expandedSubjects.has(subjectKey);
-                      const enrolledStudents = studentsPerSubject.get(subjectKey) || [];
 
-                      // Filter students by search query
-                      const q = subjectSearch.toLowerCase().trim();
-                      const filteredStudents = q
-                        ? enrolledStudents.filter(s =>
-                            s.name.toLowerCase().includes(q) ||
-                            (s.registerNumber && s.registerNumber.toLowerCase().includes(q))
-                          )
-                        : enrolledStudents;
+            <Disclosure open={isOpen}>
+              <ul className="space-y-2 border-t border-border p-3 sm:p-4">
+                {subjects.map((sub, idx) => {
+                  const pct = totalStudents > 0 ? Math.round((sub.count / totalStudents) * 100) : 0;
+                  const subjectKey = `${groupName}::${sub.electiveName}`;
+                  const isSubjectExpanded = expandedSubjects.has(subjectKey);
+                  const enrolledStudents = studentsPerSubject.get(subjectKey) || [];
 
-                      // If searching and no students match, hide this subject
-                      if (q && filteredStudents.length === 0) return null;
+                  // Filter students by search query
+                  const filteredStudents = q
+                    ? enrolledStudents.filter((s) => s.name.toLowerCase().includes(q) || (s.registerNumber && s.registerNumber.toLowerCase().includes(q)))
+                    : enrolledStudents;
 
-                      return (
-                        <div key={idx} className="rounded-control border border-border overflow-hidden">
-                          <button
-                            onClick={() => toggleSubject(subjectKey)}
-                            className="w-full flex items-center gap-4 p-3 hover:bg-surface-2/20 transition-colors"
-                          >
-                            <div className="flex-1 min-w-0">
-                              <div className="flex items-center gap-2">
-                                {sub.courseCode && (
-                                  <span className="text-2xs font-mono font-semibold text-primary-text bg-primary/10 px-1.5 py-0.5 rounded-badge">{sub.courseCode}</span>
-                                )}
-                                <span className="text-sm font-medium text-fg truncate">{sub.electiveName}</span>
-                              </div>
-                            </div>
-                            <div className="flex items-center gap-3 shrink-0">
-                              <div className="w-24 h-1.5 rounded-full bg-surface-2 overflow-hidden">
-                                <motion.div
-                                  className="h-full rounded-full bg-brand"
-                                  initial={{ width: 0 }}
-                                  animate={{ width: `${pct}%` }}
-                                  transition={transition.value}
-                                />
-                              </div>
-                              <span className="text-xs font-bold text-fg tabular-nums w-8 text-right">{sub.count}</span>
-                              <span className="text-2xs text-fg-muted tabular-nums w-8">({pct}%)</span>
-                              <ChevronDown className={`w-3.5 h-3.5 text-fg-muted transition-transform duration-200 ${isSubjectExpanded ? "rotate-180" : ""}`} />
-                            </div>
-                          </button>
+                  // If searching and no students match, hide this subject
+                  if (q && filteredStudents.length === 0) return null;
 
-                          <AnimatePresence>
-                            {isSubjectExpanded && (
-                              <motion.div
-                                initial={{ height: 0, opacity: 0 }}
-                                animate={{ height: "auto", opacity: 1 }}
-                                exit={{ height: 0, opacity: 0 }}
-                                transition={transition.fade}
-                                className="border-t border-border bg-surface-2/50"
-                              >
-                                <div className="p-3">
-                                  {/* Table Header */}
-                                  <div className="grid grid-cols-[40px_1fr_1fr] gap-2 px-2 pb-2 mb-1 border-b border-border">
-                                    <span className="text-2xs font-bold uppercase tracking-wider text-fg-muted">#</span>
-                                    <span className="text-2xs font-bold uppercase tracking-wider text-fg-muted">Student Name</span>
-                                    <span className="text-2xs font-bold uppercase tracking-wider text-fg-muted">Register Number</span>
-                                  </div>
+                  return (
+                    <li key={idx} className="overflow-hidden rounded-control border border-border">
+                      <button
+                        type="button"
+                        aria-expanded={isSubjectExpanded}
+                        onClick={() => toggle(setExpandedSubjects, subjectKey)}
+                        className="w-full p-3 text-left transition-colors hover:bg-surface-2/60"
+                      >
+                        <span className="flex items-center gap-2">
+                          <span className="min-w-0 flex-1 truncate text-sm font-medium text-fg">
+                            {sub.courseCode ? <span className="font-mono text-fg-muted">{sub.courseCode} · </span> : null}
+                            {sub.electiveName}
+                          </span>
+                          <span className="shrink-0 font-mono text-xs tabular-nums text-fg">{sub.count}</span>
+                          <span className="w-10 shrink-0 text-right font-mono text-2xs tabular-nums text-fg-subtle">{pct}%</span>
+                          <ChevronDown className={cn("size-3.5 shrink-0 text-fg-subtle transition-transform duration-200", isSubjectExpanded && "rotate-180")} />
+                        </span>
+                        <Meter value={sub.count} max={totalStudents} label={`${sub.electiveName}: ${pct}% of section`} className="mt-2.5 h-1" />
+                      </button>
 
-                                  {filteredStudents.length > 0 ? (
-                                    <div className="space-y-0.5 max-h-80 overflow-y-auto scrollbar-thin">
-                                      {filteredStudents.map((s, sIdx) => (
-                                        <div
-                                          key={s.id}
-                                          className="grid grid-cols-[40px_1fr_1fr] gap-2 px-2 py-2 rounded-badge hover:bg-surface-2/30 transition-colors items-center"
-                                        >
-                                          <span className="text-xs font-mono text-fg-muted">{sIdx + 1}</span>
-                                          <span className="text-sm text-fg font-medium truncate">{s.name}</span>
-                                          <span className="text-xs font-mono text-fg-muted">{s.registerNumber || "—"}</span>
-                                        </div>
-                                      ))}
-                                    </div>
-                                  ) : (
-                                    <p className="text-xs text-fg-muted text-center py-4">No students found.</p>
-                                  )}
-
-                                  <div className="mt-2 pt-2 border-t border-border flex justify-between items-center px-2">
-                                    <span className="text-2xs text-fg-muted">
-                                      Showing {filteredStudents.length} of {enrolledStudents.length} student{enrolledStudents.length !== 1 ? "s" : ""}
-                                    </span>
-                                    <span className="text-2xs font-bold text-primary-text">
-                                      {pct}% of section
-                                    </span>
-                                  </div>
-                                </div>
-                              </motion.div>
-                            )}
-                          </AnimatePresence>
+                      <Disclosure open={isSubjectExpanded}>
+                        <div className="border-t border-border bg-surface-2/50 p-3">
+                          {filteredStudents.length > 0 ? (
+                            <ol className="max-h-80 space-y-0.5 overflow-y-auto scrollbar-thin">
+                              {filteredStudents.map((s, sIdx) => (
+                                <li key={s.id} className="grid grid-cols-[2rem_minmax(0,1fr)_auto] items-center gap-2 rounded-tight px-2 py-1.5">
+                                  <span className="font-mono text-xs text-fg-subtle">{sIdx + 1}</span>
+                                  <span className="truncate text-sm text-fg">{s.name}</span>
+                                  <span className="font-mono text-xs text-fg-muted">{s.registerNumber || "—"}</span>
+                                </li>
+                              ))}
+                            </ol>
+                          ) : (
+                            <p className="py-4 text-center text-xs text-fg-muted">No students found.</p>
+                          )}
+                          <p className="mt-2 border-t border-border px-2 pt-2 text-2xs text-fg-muted">
+                            Showing {filteredStudents.length} of {enrolledStudents.length} student{enrolledStudents.length !== 1 ? "s" : ""} · {pct}% of section
+                          </p>
                         </div>
-                      );
-                    })}
-                  </div>
-                </motion.div>
-              )}
-            </AnimatePresence>
-          </div>
+                      </Disclosure>
+                    </li>
+                  );
+                })}
+              </ul>
+            </Disclosure>
+          </section>
         );
       })}
     </div>

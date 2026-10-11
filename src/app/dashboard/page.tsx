@@ -67,7 +67,7 @@ export default async function StudentDashboardRouterPage() {
   const [userRegistration] = await db.select().from(registrations)
     .where(and(eq(registrations.studentId, student.id), eq(registrations.eventId, event.id))).limit(1);
 
-  const hasSubmitted = userRegistration?.status === "CONFIRMED";
+  const hasSubmitted = userRegistration?.status === "CONFIRMED" || userRegistration?.status === "WAITLISTED";
 
   if (hasSubmitted) {
     redirect("/dashboard/success");

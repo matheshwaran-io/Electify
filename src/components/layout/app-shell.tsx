@@ -24,7 +24,7 @@ import {
 import { logout } from "@/app/actions/auth";
 import { cn } from "@/lib/utils";
 import { spring } from "@/lib/motion";
-import { BrandMark, Wordmark } from "@/components/brand";
+import { Logo, LogoMark } from "@/components/brand";
 import { HeroGeometricBackground } from "@/components/background/hero-geometric-background";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { CommandPalette, type Command } from "@/components/ui/command-palette";
@@ -33,7 +33,7 @@ import { Avatar } from "@/components/ui/layout";
 import { Menu, MenuContent, MenuItem, MenuLabel, MenuLinkItem, MenuSeparator, MenuTrigger } from "@/components/ui/menu";
 import { Sheet, SheetContent, SheetTitle } from "@/components/ui/sheet";
 import { Tooltip } from "@/components/ui/tooltip";
-import { buildNav, isActive, ROLE_LABEL, type NavGroup, type Role } from "@/components/layout/nav-config";
+import { buildNav, isActive, ROLE_CONTROL, ROLE_LABEL, type NavGroup, type Role } from "@/components/layout/nav-config";
 import { RealtimeStatus } from "@/components/layout/realtime-status";
 import { SectionSwitcher, sectionName, useSwitchSection, type AssignedSection } from "@/components/layout/section-switcher";
 import { ShortcutsDialog, useGlobalShortcuts } from "@/components/layout/shortcuts";
@@ -124,7 +124,7 @@ export function AppShell({ children, session, assignedSections = [], activeWorks
             group: "Switch section",
             label: `Switch to ${sectionName(s)}`,
             hint: `${s.programme} · ${s.batch}`,
-            icon: <span className="font-mono text-xs font-semibold">{s.label}</span>,
+            icon: <span className="font-mono text-xs font-medium">{s.label}</span>,
             keywords: [s.programme, s.batch],
             perform: () => switchTo(s),
           }))
@@ -150,7 +150,7 @@ export function AppShell({ children, session, assignedSections = [], activeWorks
       <div className="relative flex min-h-dvh flex-col">
         <HeroGeometricBackground />
         <header className="sticky top-0 z-30 flex h-16 items-center justify-between border-b border-border bg-canvas/80 px-5 backdrop-blur-md sm:px-8">
-          <Wordmark />
+          <Logo />
           <div className="flex items-center gap-2">
             <ThemeToggle />
             <button
@@ -206,9 +206,8 @@ export function AppShell({ children, session, assignedSections = [], activeWorks
           >
             <MenuIcon className="size-5" />
           </button>
-          <Link href="/faculty/dashboard" className="flex items-center gap-2 rounded-control pr-2" aria-label="Electify dashboard">
-            <BrandMark size="sm" />
-            <span className="text-sm font-semibold tracking-tight">Electify</span>
+          <Link href="/faculty/dashboard" className="flex h-10 items-center rounded-control px-1" aria-label="Electify dashboard">
+            <Logo size="sm" label={false} />
           </Link>
           <div className="ml-auto flex items-center gap-1">
             <RealtimeStatus compact />
@@ -291,7 +290,9 @@ export function AppShell({ children, session, assignedSections = [], activeWorks
               <Avatar name={session.name} />
               <div className="min-w-0 flex-1">
                 <p className="truncate text-sm font-medium">{session.name}</p>
-                <p className="truncate text-xs text-fg-muted">{ROLE_LABEL[session.role]}</p>
+                <p className="truncate text-xs text-fg-muted">
+                  {ROLE_LABEL[session.role]} {ROLE_CONTROL[session.role] ? `· ${ROLE_CONTROL[session.role]}` : ""}
+                </p>
               </div>
             </div>
             <NavList groups={groups} pathname={pathname} collapsed={false} large />
@@ -328,8 +329,10 @@ function BottomLink({ label, href, icon: Icon, active }: { label: string; href: 
       aria-current={active ? "page" : undefined}
       className={cn("relative flex h-full flex-col items-center justify-center gap-1 transition-colors", active ? "text-fg" : "text-fg-muted")}
     >
-      {active ? <motion.span layoutId="bottom-active" transition={spring.snappy} className="absolute inset-x-5 top-0 h-0.5 rounded-full bg-primary" /> : null}
-      <Icon className="size-5" />
+      <span className="relative flex h-8 w-14 items-center justify-center">
+        {active ? <motion.span layoutId="bottom-active" transition={spring.snappy} className="absolute inset-0 rounded-full bg-surface-3" /> : null}
+        <Icon className="relative size-5" />
+      </span>
       <span className="text-2xs font-medium">{label}</span>
     </Link>
   );
@@ -363,9 +366,8 @@ function SidebarContent({
   return (
     <div className="flex h-full min-h-0 flex-col">
       <div className={cn("flex h-14 shrink-0 items-center gap-2", collapsed ? "justify-center px-2" : "px-4")}>
-        <Link href="/faculty/dashboard" aria-label="Electify dashboard" className="flex items-center gap-2.5 rounded-control">
-          <BrandMark size="sm" />
-          {!collapsed ? <span className="text-sm font-semibold tracking-tight">Electify</span> : null}
+        <Link href="/faculty/dashboard" aria-label="Electify dashboard" className="flex h-10 items-center rounded-control">
+          {collapsed ? <LogoMark size="md" label={false} /> : <Logo size="sm" label={false} />}
         </Link>
         {!collapsed ? (
           <div className="ml-auto">
@@ -391,7 +393,7 @@ function SidebarContent({
           <button
             type="button"
             onClick={onSearch}
-            className="flex h-9 w-full items-center gap-2 rounded-control border border-border bg-surface-2/50 px-2.5 text-sm text-fg-subtle transition-colors hover:border-border-strong hover:text-fg-muted"
+            className="flex h-9 w-full items-center gap-2 rounded-full border border-border bg-surface px-3 text-sm text-fg-subtle shadow-1 transition-colors hover:text-fg-muted"
           >
             <Search className="size-4" />
             <span className="flex-1 text-left">Search or jump to</span>
@@ -444,17 +446,17 @@ function NavList({ groups, pathname, collapsed, large }: { groups: NavGroup[]; p
                   href={item.href}
                   aria-current={active ? "page" : undefined}
                   className={cn(
-                    "group relative flex items-center gap-2.5 rounded-control text-sm transition-colors",
-                    large ? "h-11 px-3" : "h-9 px-2.5",
+                    "group relative isolate flex items-center gap-2.5 rounded-full text-sm transition-colors duration-150",
+                    large ? "h-11 px-4" : "h-9 px-3",
                     collapsed && "w-10 justify-center px-0",
-                    active ? "bg-surface-2 font-medium text-fg" : "text-fg-muted hover:bg-surface-2/60 hover:text-fg"
+                    active ? "font-medium text-fg" : "text-fg-muted hover:bg-surface-2/70 hover:text-fg"
                   )}
                 >
                   {active ? (
                     <motion.span
                       layoutId={large ? "nav-active-sheet" : "nav-active"}
                       transition={spring.snappy}
-                      className="absolute -left-3 top-1/2 h-5 w-0.75 -translate-y-1/2 rounded-r-full bg-primary"
+                      className="absolute inset-0 -z-10 rounded-full bg-surface-2 shadow-[inset_0_0_0_1px_var(--border)]"
                     />
                   ) : null}
                   <item.icon className={cn("size-4 shrink-0", active ? "text-fg" : "text-fg-subtle group-hover:text-fg-muted")} />
@@ -507,7 +509,9 @@ function UserMenu({
         {!collapsed ? (
           <span className="min-w-0 flex-1">
             <span className="block truncate text-sm font-medium text-fg">{session.name}</span>
-            <span className="block truncate text-xs text-fg-muted">{ROLE_LABEL[session.role] ?? session.role}</span>
+            <span className="block truncate text-xs text-fg-muted">
+              {ROLE_LABEL[session.role] ?? session.role} {ROLE_CONTROL[session.role] ? `· ${ROLE_CONTROL[session.role]}` : ""}
+            </span>
           </span>
         ) : null}
       </MenuTrigger>

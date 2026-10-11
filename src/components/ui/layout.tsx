@@ -1,5 +1,6 @@
 import * as React from "react"
 import { cn } from "@/lib/utils"
+import { cleanDisplayName } from "@/lib/format"
 
 /** Page title block: one clear message, actions on the right. */
 export function PageHeader({
@@ -19,7 +20,7 @@ export function PageHeader({
     <header className={cn("flex flex-col gap-4 pb-6 sm:flex-row sm:items-end sm:justify-between", className)}>
       <div className="min-w-0 space-y-1.5">
         {meta ? <div className="flex flex-wrap items-center gap-2">{meta}</div> : null}
-        <h1 className="text-2xl font-semibold tracking-tight text-fg sm:text-3xl">{title}</h1>
+        <h1 className="text-2xl font-light tracking-display text-fg sm:text-3xl">{title}</h1>
         {description ? <p className="max-w-2xl text-sm text-fg-muted sm:text-base">{description}</p> : null}
       </div>
       {actions ? <div className="flex shrink-0 flex-wrap items-center gap-2">{actions}</div> : null}
@@ -46,7 +47,7 @@ export function Section({
       {title || action ? (
         <div className="flex items-end justify-between gap-4">
           <div>
-            {title ? <h2 className="text-base font-semibold tracking-tight text-fg">{title}</h2> : null}
+            {title ? <h2 className="text-base font-medium tracking-tight text-fg">{title}</h2> : null}
             {description ? <p className="mt-0.5 text-sm text-fg-muted">{description}</p> : null}
           </div>
           {action}
@@ -69,7 +70,8 @@ export function Separator({ className, vertical }: { className?: string; vertica
 
 /** Neutral initials avatar. Identity, not state, so no colour. */
 export function Avatar({ name, className, size = "md" }: { name: string; className?: string; size?: "sm" | "md" | "lg" }) {
-  const initials = name
+  const clean = cleanDisplayName(name) || name;
+  const initials = clean
     .split(/\s+/)
     .filter(Boolean)
     .slice(0, 2)
@@ -80,7 +82,7 @@ export function Avatar({ name, className, size = "md" }: { name: string; classNa
     <span
       aria-hidden
       className={cn(
-        "inline-flex shrink-0 select-none items-center justify-center rounded-full border border-border bg-surface-2 font-semibold text-fg-muted",
+        "inline-flex shrink-0 select-none items-center justify-center rounded-full border border-border bg-surface-2 font-medium text-fg-muted",
         sizes[size],
         className
       )}

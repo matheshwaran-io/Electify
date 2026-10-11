@@ -3,55 +3,68 @@
 @custom-variant dark (&:where(.dark, .dark *));
 
 /* ════════════════════════════════════════════════════════════════════
-   ELECTIFY DESIGN TOKENS — single source of truth
-   Raw tokens live on :root (light) and .dark. Components never use raw
-   colours; they use the semantic utilities exposed by @theme below.
-   Every text/fill pairing was checked against WCAG 2.2 AA (4.5:1 text,
-   3:1 UI boundaries) on bg and all three surfaces.
+   ELECTIFY DESIGN TOKENS — "warm editorial"
+   Eggshell paper, ink type, whisper-weight display headlines, pill
+   actions. The logo brings its own colours (midnight, scholar gold);
+   gold appears only in the logo and the product sphere, never as UI
+   chrome. Status colours exist only to carry meaning and always travel
+   with a text label.
+   Every text pairing was checked for WCAG 2.2 AA on canvas and all
+   surfaces; spec greys that failed on taupe/stone were deepened.
    ════════════════════════════════════════════════════════════════════ */
 
 :root {
   color-scheme: light;
 
-  /* Surfaces */
-  --bg: oklch(98.4% 0.003 247.9);         /* #F8FAFC */
-  --surface-1: oklch(100% 0 0);           /* #FFFFFF  cards, inputs */
-  --surface-2: oklch(96.8% 0.007 247.9);  /* #F1F5F9  wells, hover, table heads */
-  --surface-3: oklch(94.4% 0.010 252.8);  /* #E8EDF3  pressed, selected */
-  --border: oklch(92.9% 0.013 255.5);     /* #E2E8F0 */
-  --border-strong: oklch(64.5% 0.036 256.8); /* ≥3:1 on surface-1/2 — control outlines */
-  --overlay: oklch(20.8% 0.040 265.8 / 0.32);
+  /* Surfaces: eggshell → taupe → stone */
+  --bg: oklch(99.2% 0.001 60);            /* #FDFCFC eggshell canvas */
+  --surface-1: oklch(99.2% 0.001 60);     /* cards sit on the canvas with a whisper shadow */
+  --surface-2: oklch(96.5% 0.003 67.8);   /* #F5F3F1 warm taupe: wells, feature cards, hover */
+  --surface-3: oklch(93.2% 0.006 75.4);   /* #EBE8E4 stone: pressed, icon plates */
+  --border: oklch(93.2% 0.006 75.4);      /* #EBE8E4 hairline */
+  --border-strong: oklch(64.3% 0.014 75.3); /* ≥3:1 on canvas + taupe: control outlines */
+  --overlay: oklch(20% 0.01 60 / 0.28);
 
-  /* Text */
-  --text: oklch(20.8% 0.040 265.8);       /* #0F172A */
-  --text-muted: oklch(44.6% 0.037 257.3); /* #475569 */
-  --text-subtle: oklch(52.8% 0.041 258.8);/* placeholders, meta — ≥4.5:1 on every surface */
+  /* Ink + warm greys */
+  --text: oklch(14.7% 0.004 49.2);        /* #0C0A09 ink (warm, not pure black) */
+  --text-muted: oklch(42% 0.011 73.6);    /* graphite-smoke: secondary copy */
+  --text-subtle: oklch(52% 0.014 75.3);   /* smoke, deepened to pass on stone */
 
-  /* Primary. #6366F1 nudged −0.6% L so white labels clear 4.5:1 */
-  --primary: oklch(57.9% 0.204 277);
-  --primary-strong: oklch(51.7% 0.204 277);
-  --primary-text: oklch(51.1% 0.230 277);
-  --primary-fg: oklch(100% 0 0);
-  --brand-to: oklch(58.8% 0.219 292.7);   /* gradient end — primary CTA + brand mark only */
+  /* Primary action is ink. No coloured CTA fills. */
+  --primary: oklch(14.7% 0.004 49.2);
+  --primary-strong: oklch(26% 0.006 50);  /* hover: lifts toward graphite */
+  --primary-text: oklch(14.7% 0.004 49.2);
+  --primary-fg: oklch(99.2% 0.001 60);
+  --brand-to: var(--primary);
 
-  /* Semantic */
-  --live: oklch(71.5% 0.126 215.2);       /* #06B6D4 */
-  --live-text: oklch(52% 0.094 223.1);
-  --success: oklch(69.6% 0.149 162.5);    /* #10B981 */
-  --success-text: oklch(50.8% 0.105 165.6);
-  --warning: oklch(76.9% 0.165 70.1);     /* #F59E0B */
-  --warning-text: oklch(54.1% 0.145 49.1);
-  --danger: oklch(64.5% 0.215 16.4);      /* #F43F5E */
-  --danger-strong: oklch(59.1% 0.215 16.3); /* solid fills behind white labels */
-  --danger-text: oklch(51.4% 0.198 16.9);
-  --on-accent: oklch(14% 0.012 265.8);    /* label colour on live/success/warning fills */
+  /* Logo (from the "Electify Logo" canvas). Exact brand hexes, not tuned. */
+  --brand-ink: #0E1330;                   /* Midnight: bars + wordmark */
+  --brand-gold: #E9B44C;                  /* Scholar Gold: the dot */
+  --brand-midnight: #0E1330;              /* the check, in both themes */
 
-  --ring: var(--primary);
+  /* Product sparks: visuals only, never chrome */
+  --spark-violet: oklch(51.1% 0.274 263.7); /* #0447FF */
+  --spark-orange: oklch(66.2% 0.228 35.6);  /* #FF4704 */
+  --spark-pink: oklch(74% 0.16 350);
 
-  /* Elevation */
-  --elevation-1: 0 1px 2px 0 oklch(20.8% 0.04 265.8 / 0.05), 0 1px 1px 0 oklch(20.8% 0.04 265.8 / 0.03);
-  --elevation-2: 0 6px 16px -4px oklch(20.8% 0.04 265.8 / 0.08), 0 2px 4px -2px oklch(20.8% 0.04 265.8 / 0.05);
-  --elevation-3: 0 20px 48px -12px oklch(20.8% 0.04 265.8 / 0.18), 0 6px 16px -6px oklch(20.8% 0.04 265.8 / 0.08);
+  /* Meaning */
+  --live: oklch(51.1% 0.274 263.7);       /* violet spark as the live signal */
+  --live-text: oklch(51.1% 0.274 263.7);
+  --success: oklch(50.5% 0.120 155.8);
+  --success-text: oklch(50.5% 0.120 155.8);
+  --warning: oklch(52.7% 0.117 66.7);
+  --warning-text: oklch(52.7% 0.117 66.7);
+  --danger: oklch(54.1% 0.188 34.5);
+  --danger-strong: oklch(54.1% 0.188 34.5);
+  --danger-text: oklch(54.1% 0.188 34.5);
+  --on-accent: oklch(99.2% 0.001 60);     /* label on success/warning/live fills */
+
+  --ring: var(--text);
+
+  /* Whisper elevation, warm-tinted. Edges come from hairline borders. */
+  --elevation-1: 0 1px 1px 0 oklch(25% 0.01 60 / 0.04), 0 2px 4px 0 oklch(25% 0.01 60 / 0.04);
+  --elevation-2: 0 0 0 0.5px oklch(25% 0.01 60 / 0.06), 0 2px 4px 0 oklch(25% 0.01 60 / 0.04), 0 10px 24px -10px oklch(25% 0.01 60 / 0.14);
+  --elevation-3: 0 0 0 0.5px oklch(25% 0.01 60 / 0.08), 0 32px 72px -24px oklch(25% 0.01 60 / 0.28);
 }
 
 /* Screen-only so printed pages (receipts, reports) always use light tokens. */
@@ -59,28 +72,39 @@
   .dark {
     color-scheme: dark;
 
-    --bg: oklch(14% 0.012 265.8);          /* #07090E */
-    --surface-1: oklch(18.3% 0.020 265.9); /* #0E121B */
-    --surface-2: oklch(22.2% 0.023 265.6); /* #161B26 */
-    --surface-3: oklch(25.6% 0.026 265.3); /* #1D2330 */
-    --border: oklch(26.2% 0.030 267.5);    /* #1E2433 */
-    --border-strong: oklch(51.3% 0.029 265.4);
-    --overlay: oklch(0% 0 0 / 0.6);
+    --bg: oklch(16% 0.003 67.6);           /* #0E0D0C warm ink canvas */
+    --surface-1: oklch(19.6% 0.004 84.6);  /* #161513 */
+    --surface-2: oklch(22.8% 0.005 67.6);  /* #1E1C1A */
+    --surface-3: oklch(26.7% 0.007 67.5);  /* #282522 */
+    --border: oklch(27.5% 0.007 67.5);     /* #2A2724 */
+    --border-strong: oklch(51.6% 0.009 73.7);
+    --overlay: oklch(0% 0 0 / 0.62);
 
-    --text: oklch(94% 0.009 264.5);
-    --text-muted: oklch(71.7% 0.029 262.3);
-    --text-subtle: oklch(63.1% 0.040 256);
+    --text: oklch(95.9% 0.005 78.3);       /* #F3F1EE */
+    --text-muted: oklch(76% 0.012 75.3);
+    --text-subtle: oklch(64% 0.014 75.3);
 
-    --primary-text: oklch(70.1% 0.148 278.4);
-    --live-text: oklch(79.7% 0.134 211.5);
-    --success-text: oklch(77.3% 0.153 163.2);
-    --warning-text: oklch(83.7% 0.164 84.4);
-    --danger-text: oklch(71.9% 0.169 13.4);
+    /* Inverted pill: paper on ink */
+    --primary: oklch(95.9% 0.005 78.3);
+    --primary-strong: oklch(88% 0.008 75);
+    --primary-text: oklch(95.9% 0.005 78.3);
+    --primary-fg: oklch(16% 0.003 67.6);
 
-    /* 1px top highlight gives depth on dark surfaces */
-    --elevation-1: inset 0 1px 0 0 oklch(100% 0 0 / 0.04), 0 1px 2px 0 oklch(0% 0 0 / 0.4);
-    --elevation-2: inset 0 1px 0 0 oklch(100% 0 0 / 0.05), 0 8px 20px -6px oklch(0% 0 0 / 0.55);
-    --elevation-3: inset 0 1px 0 0 oklch(100% 0 0 / 0.06), 0 24px 56px -12px oklch(0% 0 0 / 0.65);
+    --live: oklch(64.4% 0.191 259.1);
+    --live-text: oklch(64.4% 0.191 259.1);
+    --brand-ink: #F5F6F9;                 /* Mist: the reverse lockup */
+    --success: oklch(62.6% 0.120 155.7);
+    --success-text: oklch(62.6% 0.120 155.7);
+    --warning: oklch(64.6% 0.124 70.5);
+    --warning-text: oklch(64.6% 0.124 70.5);
+    --danger: oklch(66.2% 0.188 34.7);
+    --danger-strong: oklch(66.2% 0.188 34.7);
+    --danger-text: oklch(66.2% 0.188 34.7);
+    --on-accent: oklch(16% 0.003 67.6);
+
+    --elevation-1: inset 0 1px 0 0 oklch(100% 0 0 / 0.03), 0 1px 2px 0 oklch(0% 0 0 / 0.35);
+    --elevation-2: inset 0 1px 0 0 oklch(100% 0 0 / 0.04), 0 12px 28px -10px oklch(0% 0 0 / 0.6);
+    --elevation-3: inset 0 1px 0 0 oklch(100% 0 0 / 0.05), 0 32px 72px -20px oklch(0% 0 0 / 0.7);
   }
 }
 
@@ -96,7 +120,6 @@
 
 /* ─── Semantic utilities ───────────────────────────────────────────────── */
 @theme inline {
-  /* bg-canvas, bg-surface, bg-surface-2/3 */
   --color-canvas: var(--bg);
   --color-surface: var(--surface-1);
   --color-surface-2: var(--surface-2);
@@ -105,7 +128,6 @@
   --color-border-strong: var(--border-strong);
   --color-overlay: var(--overlay);
 
-  /* text-fg, text-fg-muted, text-fg-subtle */
   --color-fg: var(--text);
   --color-fg-muted: var(--text-muted);
   --color-fg-subtle: var(--text-subtle);
@@ -116,12 +138,19 @@
   --color-primary-fg: var(--primary-fg);
   --color-brand-to: var(--brand-to);
 
+  --color-spark-violet: var(--spark-violet);
+  --color-spark-orange: var(--spark-orange);
+
+  --color-brand-ink: var(--brand-ink);
+  --color-brand-gold: var(--brand-gold);
+  --color-brand-midnight: var(--brand-midnight);
   --color-live: var(--live);
   --color-live-text: var(--live-text);
   --color-success: var(--success);
   --color-success-text: var(--success-text);
   --color-warning: var(--warning);
   --color-warning-text: var(--warning-text);
+  --color-warning-fg: var(--on-accent);
   --color-danger: var(--danger);
   --color-danger-strong: var(--danger-strong);
   --color-danger-text: var(--danger-text);
@@ -129,7 +158,6 @@
 
   --color-ring: var(--ring);
 
-  /* Elevation: shadow-1 (cards), shadow-2 (popovers, sticky), shadow-3 (dialogs) */
   --shadow-1: var(--elevation-1);
   --shadow-2: var(--elevation-2);
   --shadow-3: var(--elevation-3);
@@ -137,55 +165,70 @@
 }
 
 @theme {
-  /* Radius — the only four values. rounded-full is reserved for circles,
-     dots, avatars, switches and progress tracks. */
-  --radius-badge: 0.5rem;    /* 8  badges, tooltips, menu items */
-  --radius-control: 0.75rem; /* 12 buttons, inputs */
-  --radius-card: 1.125rem;   /* 18 cards, modals */
-  --radius-panel: 1.5rem;    /* 24 major panels */
-  --radius: 0.5rem;          /* bare `rounded` falls back to badge */
+  /* Radius: pills for actions and tags, 20px cards, 24px panels,
+     10px small controls, 6px for tiny glyph boxes. */
+  --radius-badge: 9999px;    /* tags, badges, tab pills, tooltips */
+  --radius-tight: 0.375rem;  /* 6  checkboxes, keycaps */
+  --radius-control: 0.625rem; /* 10 inputs, menu rows, small elements */
+  --radius-popover: 1rem;    /* 16 menus, popovers, palette rows container */
+  --radius-card: 1.25rem;    /* 20 cards, dialogs */
+  --radius-panel: 1.5rem;    /* 24 large feature panels */
+  --radius: 0.625rem;
 
-  /* Type — Geist variable + Geist Mono. Display sizes are fluid. */
-  --font-sans: var(--font-geist-sans), ui-sans-serif, system-ui, sans-serif;
+  /* Type: Inter for everything, light 300 for display, Geist Mono for codes. */
+  --font-sans: var(--font-inter), ui-sans-serif, system-ui, sans-serif;
   --font-mono: var(--font-geist-mono), ui-monospace, "SFMono-Regular", Menlo, monospace;
+  --tracking-display: -0.02em;
 
   --text-2xs: 0.6875rem;
-  --text-2xs--line-height: 1rem;
+  --text-2xs--line-height: 1.45;
   --text-2xs--letter-spacing: 0.01em;
   --text-xs: 0.75rem;
-  --text-xs--line-height: 1rem;
+  --text-xs--line-height: 1.5;
+  --text-xs--letter-spacing: 0.005em;
   --text-sm: 0.875rem;
-  --text-sm--line-height: 1.25rem;
+  --text-sm--line-height: 1.5;
+  --text-sm--letter-spacing: 0.01em;
   --text-base: 1rem;
-  --text-base--line-height: 1.5rem;
-  --text-lg: clamp(1.0625rem, 1.02rem + 0.2vw, 1.125rem);
+  --text-base--line-height: 1.5;
+  --text-base--letter-spacing: 0.01em;
+  --text-lg: 1.125rem;
   --text-lg--line-height: 1.6;
-  --text-xl: clamp(1.125rem, 1.05rem + 0.35vw, 1.25rem);
-  --text-xl--line-height: 1.5;
-  --text-2xl: clamp(1.25rem, 1.1rem + 0.7vw, 1.5rem);
-  --text-2xl--line-height: 1.3;
+  --text-xl: 1.25rem;
+  --text-xl--line-height: 1.35;
+  --text-2xl: clamp(1.375rem, 1.25rem + 0.5vw, 1.5rem);
+  --text-2xl--line-height: 1.25;
   --text-2xl--letter-spacing: -0.01em;
-  --text-3xl: clamp(1.5rem, 1.25rem + 1.1vw, 1.875rem);
-  --text-3xl--line-height: 1.2;
+  --text-3xl: clamp(1.625rem, 1.4rem + 1vw, 2rem);
+  --text-3xl--line-height: 1.13;
   --text-3xl--letter-spacing: -0.02em;
-  --text-4xl: clamp(1.875rem, 1.5rem + 1.6vw, 2.25rem);
-  --text-4xl--line-height: 1.15;
+  --text-4xl: clamp(1.875rem, 1.55rem + 1.4vw, 2.25rem);
+  --text-4xl--line-height: 1.17;
   --text-4xl--letter-spacing: -0.02em;
-  --text-5xl: clamp(2.25rem, 1.7rem + 2.5vw, 3rem);
+  --text-5xl: clamp(2.25rem, 1.75rem + 2.2vw, 3rem);
   --text-5xl--line-height: 1.08;
-  --text-5xl--letter-spacing: -0.025em;
-  --text-6xl: clamp(2.75rem, 1.9rem + 4vw, 3.75rem);
-  --text-6xl--line-height: 1.02;
-  --text-6xl--letter-spacing: -0.03em;
+  --text-5xl--letter-spacing: -0.02em;
+  --text-6xl: clamp(2.75rem, 1.9rem + 3.8vw, 4rem);
+  --text-6xl--line-height: 1.04;
+  --text-6xl--letter-spacing: -0.025em;
+  /* Countdown figures */
+  --text-display-xl: clamp(3.25rem, 1.6rem + 8vw, 6.5rem);
+  --text-display-xl--line-height: 1;
+  --text-display-xl--letter-spacing: -0.04em;
 
   /* Motion — CSS mirrors of src/lib/motion.ts */
   --ease-snappy: cubic-bezier(0.2, 0.9, 0.1, 1);
   --ease-gentle: cubic-bezier(0.16, 1, 0.3, 1);
-  --animate-enter: enter 420ms var(--ease-gentle) both;
+  --animate-enter: enter 520ms var(--ease-gentle) both;
+  --animate-sphere: sphere-drift 18s ease-in-out infinite;
 
   @keyframes enter {
-    from { opacity: 0; transform: translateY(6px); }
+    from { opacity: 0; transform: translateY(8px); }
     to { opacity: 1; transform: none; }
+  }
+  @keyframes sphere-drift {
+    0%, 100% { transform: rotate(0deg) scale(1); }
+    50% { transform: rotate(14deg) scale(1.04); }
   }
 }
 
@@ -302,9 +345,21 @@
   scrollbar-color: var(--border-strong) transparent;
 }
 
-/* Brand gradient — primary CTA and brand mark only. */
+/* Primary CTA surface. The system has no coloured CTA fills: ink with a faint top sheen. */
 @utility bg-brand {
-  background-image: linear-gradient(135deg, var(--primary), var(--brand-to));
+  background-color: var(--primary);
+  background-image: linear-gradient(180deg, color-mix(in oklab, var(--primary-fg) 9%, transparent), transparent 55%);
+}
+
+/* The product "sphere": a soft orb in the logo's Scholar Gold, light falling
+   from the top left into warm amber. Visuals only, never chrome. */
+@utility bg-sphere {
+  background:
+    radial-gradient(circle at 30% 24%, color-mix(in oklab, var(--brand-gold) 30%, white) 0%, transparent 42%),
+    radial-gradient(circle at 76% 78%, color-mix(in oklab, var(--brand-gold) 62%, oklch(42% 0.11 45)) 0%, transparent 54%),
+    radial-gradient(circle at 20% 76%, color-mix(in oklab, var(--brand-gold) 78%, oklch(62% 0.16 40)) 0%, transparent 56%),
+    radial-gradient(circle at 68% 28%, color-mix(in oklab, var(--brand-gold) 82%, white) 0%, transparent 64%),
+    var(--brand-gold);
 }
 
 /* Hide scrollbars on horizontal pill rows; content stays scrollable. */
@@ -378,7 +433,7 @@
   min-width: 1.375rem;
   height: 1.375rem;
   padding-inline: 0.375rem;
-  border-radius: --theme(--radius-badge);
+  border-radius: --theme(--radius-tight);
   border: 1px solid var(--border);
   border-bottom-width: 2px;
   background: linear-gradient(var(--surface-1), var(--surface-2));

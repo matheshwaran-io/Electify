@@ -1,10 +1,11 @@
 "use client";
 
 import { useState } from "react";
-import { motion } from "framer-motion";
-import { Layers, Search } from "lucide-react";
-import { format } from "date-fns";
-import { listDelay, spring } from "@/lib/motion";
+import { Layers, Search, X } from "lucide-react";
+import { formatDate } from "@/lib/format";
+import { PageHeader } from "@/components/ui/layout";
+import { Input } from "@/components/ui/input";
+import { EmptyState } from "@/components/ui/feedback";
 
 type Template = {
   id: string;
@@ -25,59 +26,73 @@ export function TemplatesClient({ templates }: { templates: Template[] }) {
   );
 
   return (
-    <div className="space-y-6">
-      <div>
-        <h1 className="text-3xl font-bold text-fg">Event Templates</h1>
-        <p className="text-fg-muted mt-1">Reusable templates for creating registration events.</p>
-      </div>
+    <div>
+      <PageHeader title="Event templates" description="Reusable setups for creating registration events." />
 
-      <div className="relative">
-        <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-fg-muted" />
-        <input
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-          placeholder="Search templates…"
-          className="w-full pl-11 pr-4 py-3 bg-surface border border-border-strong rounded-control text-sm text-fg placeholder:text-fg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-        />
-      </div>
+      {templates.length > 0 ? (
+        <div className="mb-5 sm:max-w-sm">
+          <Input
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            placeholder="Search templates or programmes"
+            aria-label="Search templates"
+            leading={<Search />}
+            trailing={
+              search ? (
+                <button
+                  type="button"
+                  aria-label="Clear search"
+                  onClick={() => setSearch("")}
+                  className="inline-flex size-8 items-center justify-center rounded-full text-fg-subtle hover:text-fg"
+                >
+                  <X className="size-4" />
+                </button>
+              ) : null
+            }
+          />
+        </div>
+      ) : null}
 
       {filtered.length === 0 ? (
-        <div className="text-center py-20 text-fg-muted">
-          <Layers className="w-10 h-10 mx-auto mb-3 opacity-30" />
-          <p className="font-medium">No templates found.</p>
-        </div>
+        <EmptyState
+          icon={<Layers />}
+          title={templates.length === 0 ? "No templates yet" : "No templates match"}
+          description={templates.length === 0 ? "Templates saved by course controllers appear here." : "Try a different search."}
+        />
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+        <ul className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-3">
           {filtered.map((template, i) => (
-            <motion.div
+            <li
               key={template.id}
-              initial={{ opacity: 0, y: 12 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ ...spring.gentle, delay: listDelay(i, 0.05) }}
-              className="bg-surface border border-border rounded-card p-6 hover:border-primary/50 transition-colors"
+              style={{ animationDelay: `${Math.min(i, 8) * 40}ms` }}
+              className="flex flex-col rounded-card bg-surface-2 p-5 animate-enter"
             >
-              <div className="flex items-start gap-3 mb-3">
-                <div className="w-10 h-10 rounded-control bg-primary/10 flex items-center justify-center shrink-0">
-                  <Layers className="w-5 h-5 text-primary-text" />
-                </div>
-                <div className="flex-1 min-w-0">
-                  <h3 className="font-semibold text-fg truncate">{template.name}</h3>
-                  <p className="text-xs text-fg-muted">{template.programmeName ?? "No programme"}</p>
+              <div className="flex items-start gap-3">
+                <span aria-hidden className="inline-flex size-10 shrink-0 items-center justify-center rounded-full bg-surface text-fg shadow-1">
+                  <Layers className="size-4" />
+                </span>
+                <div className="min-w-0 flex-1">
+                  <h2 className="truncate font-medium text-fg">{template.name}</h2>
+                  <p className="text-sm text-fg-muted">{template.programmeName ?? "No programme"}</p>
                 </div>
               </div>
-              {template.description && (
-                <p className="text-sm text-fg-muted line-clamp-2 mb-3">{template.description}</p>
-              )}
-              <div className="flex items-center justify-between text-xs text-fg-muted border-t border-border pt-3 mt-3">
-                <span>{template.groupCount ?? 0} group(s)</span>
-                <span>{format(new Date(template.createdAt), "MMM d, yyyy")}</span>
-              </div>
-              {template.creatorName && (
-                <p className="text-xs text-fg-muted mt-1">by {template.creatorName}</p>
-              )}
-            </motion.div>
+              {template.description ? <p className="mt-3 line-clamp-2 text-sm text-fg-muted">{template.description}</p> : null}
+              <dl className="mt-auto flex items-center justify-between gap-3 border-t border-border pt-3 text-xs text-fg-muted [margin-top:max(1rem,auto)]">
+                <div>
+                  <dt className="sr-only">Groups</dt>
+                  <dd>
+                    <span className="font-mono tabular-nums text-fg">{template.groupCount ?? 0}</span> group{template.groupCount === 1 ? "" : "s"}
+                    {template.creatorName ? <> · by {template.creatorName}</> : null}
+                  </dd>
+                </div>
+                <div>
+                  <dt className="sr-only">Created</dt>
+                  <dd>{formatDate(template.createdAt)}</dd>
+                </div>
+              </dl>
+            </li>
           ))}
-        </div>
+        </ul>
       )}
     </div>
   );

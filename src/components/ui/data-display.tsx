@@ -240,7 +240,7 @@ export function StatCard({
         <p className="text-sm text-fg-muted">{label}</p>
         {icon ? <span className="text-fg-subtle [&_svg]:size-4">{icon}</span> : null}
       </div>
-      <p className="mt-3 flex items-baseline gap-1 text-3xl font-semibold tracking-tight text-fg">
+      <p className="mt-3 flex items-baseline gap-1 text-3xl font-light tracking-display text-fg">
         {typeof value === "number" ? <AnimatedNumber value={value} format={format} /> : value}
         {suffix ? <span className="text-base font-medium text-fg-muted">{suffix}</span> : null}
       </p>

@@ -3,7 +3,7 @@
 import * as React from "react";
 import { toast } from "sonner";
 import { Check, Copy, Download, Printer } from "lucide-react";
-import { Wordmark } from "@/components/brand";
+import { Logo } from "@/components/brand";
 import { Button } from "@/components/ui/button";
 import { StudentHeader } from "@/components/student/student-chrome";
 import { downloadReceiptPdf } from "./receipt-pdf";
@@ -85,7 +85,7 @@ export function SuccessView({ student, event, registrations, receiptNumber }: Su
         {/* Confirmation */}
         <div className="mb-8 flex flex-col items-center text-center print:hidden">
           <SuccessMark />
-          <h1 className="mt-6 text-3xl font-semibold tracking-tight text-fg animate-enter [animation-delay:250ms]">You&apos;re registered</h1>
+          <h1 className="mt-7 text-4xl font-light tracking-display text-fg animate-enter [animation-delay:250ms]">You&apos;re registered</h1>
           <p className="mt-2 max-w-md text-fg-muted animate-enter [animation-delay:320ms]">
             Your seats for {event.name} are confirmed. Keep this receipt for your records.
           </p>
@@ -107,12 +107,12 @@ export function SuccessView({ student, event, registrations, receiptNumber }: Su
         >
           <header className="flex flex-wrap items-start justify-between gap-4 border-b border-border p-5 sm:p-6">
             <div>
-              <Wordmark size="sm" />
+              <Logo size="sm" />
               <p className="mt-3 text-xs text-fg-muted">Registration receipt</p>
             </div>
             <div className="text-right">
               <div className="flex items-center justify-end gap-1">
-                <span className="font-mono text-sm font-semibold text-fg">{receiptNumber}</span>
+                <span className="font-mono text-sm font-medium text-fg">{receiptNumber}</span>
                 <button
                   type="button"
                   onClick={copyReceipt}
@@ -129,7 +129,7 @@ export function SuccessView({ student, event, registrations, receiptNumber }: Su
           </header>
 
           <div className="space-y-6 p-5 sm:p-6">
-            <div className="flex items-center gap-2 rounded-control border border-success/25 bg-success/10 px-3.5 py-2.5 text-sm">
+            <div className="flex items-center gap-2 rounded-full border border-success/25 bg-success/10 px-4 py-2.5 text-sm">
               <Check className="size-4 text-success-text" strokeWidth={3} />
               <span className="font-medium text-success-text">Confirmed</span>
               <span className="text-fg-muted">for {event.name}</span>
@@ -155,7 +155,7 @@ export function SuccessView({ student, event, registrations, receiptNumber }: Su
                 {registrations.map((reg, index) => (
                   <li key={index} className="flex flex-col gap-0.5 px-4 py-3 sm:flex-row sm:items-center sm:justify-between sm:gap-4">
                     <span className="text-xs text-fg-muted sm:w-2/5">{reg.groupName}</span>
-                    <span className="text-sm font-semibold text-fg sm:flex-1 sm:text-right">{reg.electiveName || "Name unavailable"}</span>
+                    <span className="text-sm font-medium text-fg sm:flex-1 sm:text-right">{reg.electiveName || "Name unavailable"}</span>
                   </li>
                 ))}
               </ul>
@@ -176,35 +176,28 @@ export function SuccessView({ student, event, registrations, receiptNumber }: Su
   );
 }
 
-/** A circle and tick that draw themselves once. Static under reduced motion. */
+/**
+ * The logo's gold dot and check, enlarged: "your choice is confirmed".
+ * The tick draws itself once; static under reduced motion.
+ */
 function SuccessMark() {
   return (
-    <span className="relative inline-flex size-16 items-center justify-center">
-      <span aria-hidden className="absolute inset-0 rounded-full bg-success/15 motion-safe:animate-[enter_500ms_var(--ease-gentle)_both]" />
-      <svg viewBox="0 0 52 52" className="relative size-16 text-success" aria-hidden>
-        <circle
-          cx="26"
-          cy="26"
-          r="24"
-          fill="none"
-          stroke="currentColor"
-          strokeWidth="2.5"
-          strokeDasharray="151"
-          strokeDashoffset="151"
-          className="motion-safe:animate-[draw_600ms_var(--ease-gentle)_forwards] motion-reduce:[stroke-dashoffset:0]"
-        />
+    <div className="relative isolate size-24 animate-enter" aria-hidden>
+      <div className="absolute inset-[6%] -z-10 rounded-full bg-brand-gold opacity-40 blur-2xl" />
+      <svg viewBox="73 45 30 30" className="size-full">
+        <circle cx={88} cy={60} r={15} fill="var(--brand-gold)" />
         <path
-          d="M15 27l7 7 15-16"
+          d="M80.5 60.5L86 66L95.5 55"
           fill="none"
-          stroke="currentColor"
-          strokeWidth="3.5"
+          stroke="var(--brand-midnight)"
+          strokeWidth={4}
           strokeLinecap="round"
           strokeLinejoin="round"
-          strokeDasharray="36"
-          strokeDashoffset="36"
-          className="motion-safe:animate-[draw_400ms_var(--ease-gentle)_350ms_forwards] motion-reduce:[stroke-dashoffset:0]"
+          strokeDasharray="23"
+          strokeDashoffset="23"
+          className="motion-safe:animate-[draw_420ms_var(--ease-gentle)_320ms_forwards] motion-reduce:[stroke-dashoffset:0]"
         />
       </svg>
-    </span>
+    </div>
   );
 }

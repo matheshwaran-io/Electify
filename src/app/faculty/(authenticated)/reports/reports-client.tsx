@@ -1,145 +1,364 @@
 "use client";
 
-import { motion } from "framer-motion";
-import { FileText, Users, CheckCircle, Download } from "lucide-react";
-import jsPDF from "jspdf";
-import autoTable from "jspdf-autotable";
-import { listDelay, spring, transition } from "@/lib/motion";
+import { useMemo, useState } from "react";
+import { ArrowUpDown, Download, FileSpreadsheet, FileText, Layers, Users } from "lucide-react";
+import { toast } from "sonner";
+import type { CoordinatorReportsPayload, StudentAllotment } from "@/app/actions/coordinator";
+import { PageHeader } from "@/components/ui/layout";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { EmptyState } from "@/components/ui/feedback";
+import { AnimatedNumber, Meter } from "@/components/ui/data-display";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { DataTable, type Column, type FilterDef } from "@/components/ui/data-table";
 
-type SectionReport = { sectionId: string; sectionLabel: string; totalStudents: number; registeredCount: number };
+function sortAscendingByRegNo(items: StudentAllotment[]): StudentAllotment[] {
+  return [...items].sort((a, b) => {
+    const regA = (a.registerNumber || "").trim();
+    const regB = (b.registerNumber || "").trim();
+    if (regA && regB) {
+      return regA.localeCompare(regB, undefined, { numeric: true, sensitivity: "base" });
+    }
+    if (regA) return -1;
+    if (regB) return 1;
+    return a.name.localeCompare(b.name);
+  });
+}
 
-export function ReportsClient({ report }: { report: SectionReport[] }) {
-  const totalStudents = report.reduce((s, r) => s + r.totalStudents, 0);
-  const totalRegistered = report.reduce((s, r) => s + r.registeredCount, 0);
-  const overallPct = totalStudents > 0 ? Math.round((totalRegistered / totalStudents) * 100) : 0;
+const columns: Column<StudentAllotment>[] = [
+  {
+    id: "name",
+    header: "Student",
+    mobile: "title",
+    hideable: false,
+    cell: (s) => (
+      <span className="block min-w-0">
+        <span className="block font-medium text-fg">{s.name}</span>
+        <span className="block truncate text-xs font-normal text-fg-muted">{s.email}</span>
+      </span>
+    ),
+    searchValue: (s) => s.name,
+  },
+  {
+    id: "reg",
+    header: "Register no.",
+    mobile: "subtitle",
+    cell: (s) => <span className="font-mono text-xs text-fg">{s.registerNumber || "—"}</span>,
+    searchValue: (s) => s.registerNumber,
+  },
+  { id: "section", header: "Section", cell: (s) => <Badge size="sm">Section {s.sectionLabel}</Badge> },
+  {
+    id: "subjects",
+    header: "Allotted subjects",
+    mobileWide: true,
+    cell: (s) =>
+      s.subjects.length === 0 ? (
+        <span className="text-xs text-fg-subtle">No electives chosen</span>
+      ) : (
+        <span className="flex max-w-xl flex-wrap gap-1.5 whitespace-normal">
+          {s.subjects.map((sub, i) => (
+            <span key={i} className="inline-flex items-center gap-1.5 rounded-full border border-border bg-surface-2 px-2.5 py-1 text-xs text-fg">
+              {sub.courseCode ? <span className="font-mono text-fg-muted">{sub.courseCode}</span> : null}
+              <span>{sub.name}</span>
+            </span>
+          ))}
+        </span>
+      ),
+    searchValue: (s) => s.subjects.map((sub) => `${sub.name} ${sub.courseCode ?? ""}`).join(" "),
+  },
+  {
+    id: "receipt",
+    header: "Receipt",
+    cell: (s) => (
+      <span className="flex flex-col items-start gap-1">
+        <span className="font-mono text-xs text-fg-muted">{s.receiptNumber || "—"}</span>
+        {s.status === "WAITLISTED" ? (
+          <Badge size="sm" tone="warning">
+            Waitlisted
+          </Badge>
+        ) : null}
+      </span>
+    ),
+  },
+];
 
-  const exportCSV = () => {
-    const headers = ["Section", "Total Students", "Registered", "Completion Rate"];
-    const rows = report.map(r => {
-      const pct = r.totalStudents > 0 ? Math.round((r.registeredCount / r.totalStudents) * 100) : 0;
-      return [r.sectionLabel, r.totalStudents, r.registeredCount, `${pct}%`];
+/** Coloured by completion, because the colour carries meaning here. */
+const pctTone = (pct: number) => (pct >= 80 ? "success" : pct >= 50 ? "warning" : "danger") as "success" | "warning" | "danger";
+
+export function ReportsClient({ data }: { data: CoordinatorReportsPayload }) {
+  const { sections, allotments, events } = data;
+  const [tab, setTab] = useState<"allotments" | "sections">("allotments");
+
+  // Compute metrics
+  const totalStudentsInSections = sections.reduce((s, r) => s + r.totalStudents, 0);
+  const totalRegisteredCount = allotments.length;
+  const overallPct = totalStudentsInSections > 0 ? Math.round((totalRegisteredCount / totalStudentsInSections) * 100) : 0;
+  const totalSubjectsAllotted = allotments.reduce((sum, a) => sum + a.subjects.length, 0);
+
+  const sorted = useMemo(() => sortAscendingByRegNo(allotments), [allotments]);
+
+  // Unique sections list from data
+  const availableSectionLabels = useMemo(() => {
+    const set = new Set<string>();
+    sections.forEach((s) => set.add(s.sectionLabel));
+    allotments.forEach((a) => {
+      if (a.sectionLabel) set.add(a.sectionLabel);
     });
-    const csvContent = "data:text/csv;charset=utf-8," + [headers.join(","), ...rows.map(e => e.join(","))].join("\n");
-    const encodedUri = encodeURI(csvContent);
+    return Array.from(set).sort();
+  }, [sections, allotments]);
+
+  const filters = useMemo<FilterDef<StudentAllotment>[]>(() => {
+    const out: FilterDef<StudentAllotment>[] = [];
+    if (availableSectionLabels.length > 1) {
+      out.push({
+        id: "section",
+        label: "Section",
+        options: availableSectionLabels.map((l) => ({ value: l, label: `Section ${l}` })),
+        predicate: (a, v) => a.sectionLabel === v || a.sectionId === v,
+      });
+    }
+    if (events.length > 1) {
+      out.push({ id: "event", label: "Event", options: events.map((ev) => ({ value: ev.id, label: ev.name })), predicate: (a, v) => a.eventId === v });
+    }
+    return out;
+  }, [availableSectionLabels, events]);
+
+  // ── Download 1: CSV Spreadsheet in Ascending Order ────────────────────────
+  const exportCSV = (rows: StudentAllotment[]) => {
+    const list = sortAscendingByRegNo(rows);
+    if (list.length === 0) {
+      toast.error("No student allotments match your filter.");
+      return;
+    }
+
+    const BOM = "﻿";
+    const maxSubjects = Math.max(1, ...list.map((s) => s.subjects.length));
+    const subjectHeaders = Array.from({ length: maxSubjects }, (_, i) => `Subject ${i + 1}`);
+
+    const headers = [
+      "S.No",
+      "Register Number",
+      "Student Name",
+      "Section",
+      "Programme",
+      "Chosen Subjects (All)",
+      ...subjectHeaders,
+      "Total Chosen Subjects",
+      "Receipt Number",
+      "Registration Status",
+      "Submitted At",
+    ];
+
+    const csvRows = list.map((s, idx) => {
+      const allSubjects = s.subjects.map((sub) => (sub.courseCode ? `${sub.courseCode}: ${sub.name}` : sub.name)).join(" | ");
+
+      const subjectCols = Array.from({ length: maxSubjects }, (_, i) => {
+        const sub = s.subjects[i];
+        return sub ? (sub.courseCode ? `${sub.courseCode}: ${sub.name}` : sub.name) : "";
+      });
+
+      return [
+        idx + 1,
+        s.registerNumber || "—",
+        s.name,
+        s.sectionLabel,
+        s.programmeName,
+        allSubjects || "None",
+        ...subjectCols,
+        s.subjects.length,
+        s.receiptNumber || "—",
+        s.status,
+        s.submittedAt ? new Date(s.submittedAt).toLocaleString("en-IN") : "—",
+      ].map((val) => `"${String(val).replace(/"/g, '""')}"`);
+    });
+
+    const csvContent = BOM + [headers.map((h) => `"${h}"`).join(","), ...csvRows.map((r) => r.join(","))].join("\r\n");
+    const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
     const link = document.createElement("a");
-    link.setAttribute("href", encodedUri);
-    link.setAttribute("download", "registration_report.csv");
+    link.href = url;
+    link.download = `student_allotments_ascending_${new Date().toISOString().split("T")[0]}.csv`;
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+    toast.success("CSV report downloaded in ascending order of register number");
   };
 
-  const exportPDF = () => {
-    const doc = new jsPDF();
-    doc.text("Registration Report", 14, 15);
-    
-    const tableData = report.map(r => {
-      const pct = r.totalStudents > 0 ? Math.round((r.registeredCount / r.totalStudents) * 100) : 0;
-      return [r.sectionLabel, r.totalStudents, r.registeredCount, `${pct}%`];
+  // ── Download 2: PDF Document in Ascending Order ───────────────────────────
+  const exportPDF = async (rows: StudentAllotment[]) => {
+    const list = sortAscendingByRegNo(rows);
+    if (list.length === 0) {
+      toast.error("No student allotments to export.");
+      return;
+    }
+
+    // Loaded on demand so the PDF library never ships with the page.
+    const [{ default: jsPDF }, { default: autoTable }] = await Promise.all([import("jspdf"), import("jspdf-autotable")]);
+
+    const sectionLabels = new Set(list.map((s) => s.sectionLabel));
+    const sectionText = sectionLabels.size === 1 ? `Section ${[...sectionLabels][0]}` : "All Sections";
+
+    const doc = new jsPDF({ orientation: "landscape" });
+    const pageWidth = doc.internal.pageSize.getWidth();
+
+    // Navy header bar
+    doc.setFillColor(15, 23, 42);
+    doc.rect(0, 0, pageWidth, 28, "F");
+    doc.setTextColor(255, 255, 255);
+    doc.setFontSize(15);
+    doc.setFont("helvetica", "bold");
+    doc.text("ELECTIFY - STUDENT ELECTIVE ALLOTMENTS REPORT", 14, 13);
+    doc.setFontSize(9);
+    doc.setFont("helvetica", "normal");
+    doc.text(`Sorted: Ascending by Register Number • Section: ${sectionText}`, 14, 21);
+    doc.text(`Total Records: ${list.length} Students`, pageWidth - 14, 13, { align: "right" });
+    doc.text(`Generated: ${new Date().toLocaleString("en-IN")}`, pageWidth - 14, 21, { align: "right" });
+
+    const tableData = list.map((s, idx) => {
+      const subjectsStr =
+        s.subjects.length > 0
+          ? s.subjects.map((sub, i) => `${i + 1}. ${sub.courseCode ? sub.courseCode + ": " : ""}${sub.name}`).join("\n")
+          : "No electives chosen";
+      return [idx + 1, s.registerNumber || "—", s.name, `Sec ${s.sectionLabel}`, subjectsStr, s.status || "CONFIRMED", s.receiptNumber || "—"];
     });
 
     autoTable(doc, {
-      head: [["Section", "Total Students", "Registered", "Completion Rate"]],
+      head: [["S.No", "Register Number", "Student Name", "Section", "Chosen Subjects", "Status", "Receipt No."]],
       body: tableData,
-      startY: 20,
+      startY: 34,
+      styles: { fontSize: 8, cellPadding: 3.5, valign: "middle" },
+      headStyles: { fillColor: [30, 41, 59], textColor: [255, 255, 255], fontStyle: "bold", fontSize: 8 },
+      alternateRowStyles: { fillColor: [248, 250, 252] },
+      columnStyles: {
+        0: { cellWidth: 12, halign: "center" },
+        1: { cellWidth: 38, fontStyle: "bold" },
+        2: { cellWidth: 40 },
+        3: { cellWidth: 18, halign: "center" },
+        4: { cellWidth: "auto" },
+        5: { cellWidth: 24, halign: "center" },
+        6: { cellWidth: 36 },
+      },
     });
-    
-    doc.save("registration_report.pdf");
+
+    doc.save(`student_allotments_ascending_${new Date().toISOString().split("T")[0]}.pdf`);
+    toast.success("PDF report downloaded in ascending order of register number");
   };
 
+  const stats = [
+    { label: "Students", value: totalStudentsInSections, sub: "Across all sections" },
+    { label: "Registered", value: totalRegisteredCount, sub: `${Math.max(0, totalStudentsInSections - totalRegisteredCount)} still to register` },
+    { label: "Completion", value: overallPct, suffix: "%", sub: "Registration turnout" },
+    { label: "Selections", value: totalSubjectsAllotted, sub: "Elective choices recorded" },
+  ];
+
   return (
-    <div className="space-y-8">
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        <div>
-          <h1 className="text-3xl font-bold text-fg">Registration Reports</h1>
-          <p className="text-fg-muted mt-1">Section-wise registration completion statistics.</p>
-        </div>
-        <div className="flex items-center gap-3">
-          <button onClick={exportCSV} className="flex items-center gap-2 px-4 py-2 bg-surface hover:bg-surface-2 border border-border rounded-control text-sm font-medium transition-colors">
-            <Download className="w-4 h-4" /> CSV
-          </button>
-          <button onClick={exportPDF} className="flex items-center gap-2 px-4 py-2 bg-primary hover:bg-primary-strong text-primary-fg rounded-control text-sm font-medium transition-colors">
-            <Download className="w-4 h-4" /> PDF
-          </button>
-        </div>
+    <div>
+      <PageHeader
+        title="Reports"
+        description="Who picked what, section by section. Exports follow your search and filters."
+        meta={
+          <Badge tone="outline">
+            <ArrowUpDown /> Sorted by register number
+          </Badge>
+        }
+      />
+
+      <div className="mb-6 grid grid-cols-2 gap-3 lg:grid-cols-4">
+        {stats.map((s) => (
+          <div key={s.label} className="rounded-card bg-surface-2 p-4 sm:p-5">
+            <p className="text-sm text-fg-muted">{s.label}</p>
+            <p className="mt-1 flex items-baseline">
+              <AnimatedNumber value={s.value} className="text-4xl font-light tracking-display text-fg" tabular />
+              {s.suffix ? <span className="text-2xl font-light text-fg-muted">{s.suffix}</span> : null}
+            </p>
+            <p className="mt-1 text-xs text-fg-subtle">{s.sub}</p>
+          </div>
+        ))}
       </div>
 
-      {/* Summary Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-        <div className="bg-surface border border-border rounded-card p-6">
-          <div className="flex items-center gap-3 mb-2">
-            <div className="w-9 h-9 rounded-control bg-primary/10 flex items-center justify-center">
-              <Users className="w-5 h-5 text-primary-text" />
-            </div>
-            <p className="text-sm text-fg-muted">Total Students</p>
-          </div>
-          <p className="text-3xl font-bold text-fg">{totalStudents}</p>
-        </div>
-        <div className="bg-surface border border-border rounded-card p-6">
-          <div className="flex items-center gap-3 mb-2">
-            <div className="w-9 h-9 rounded-control bg-success/10 flex items-center justify-center">
-              <CheckCircle className="w-5 h-5 text-success-text" />
-            </div>
-            <p className="text-sm text-fg-muted">Registered</p>
-          </div>
-          <p className="text-3xl font-bold text-fg">{totalRegistered}</p>
-        </div>
-        <div className="bg-surface border border-border rounded-card p-6">
-          <div className="flex items-center gap-3 mb-2">
-            <div className="w-9 h-9 rounded-control bg-primary/10 flex items-center justify-center">
-              <FileText className="w-5 h-5 text-primary-text" />
-            </div>
-            <p className="text-sm text-fg-muted">Completion Rate</p>
-          </div>
-          <p className="text-3xl font-bold text-fg">{overallPct}%</p>
-        </div>
-      </div>
+      <Tabs value={tab} onValueChange={(v) => setTab(v as "allotments" | "sections")}>
+        <TabsList variant="pill" className="mb-4 w-fit max-w-full">
+          <TabsTrigger value="allotments">
+            <Users /> Allotments <span className="font-mono text-xs tabular-nums text-fg-subtle">{allotments.length}</span>
+          </TabsTrigger>
+          <TabsTrigger value="sections">
+            <Layers /> Sections <span className="font-mono text-xs tabular-nums text-fg-subtle">{sections.length}</span>
+          </TabsTrigger>
+        </TabsList>
 
-      {/* Section Breakdown */}
-      {report.length === 0 ? (
-        <div className="text-center py-16 text-fg-muted">
-          <FileText className="w-8 h-8 mx-auto mb-2 opacity-30" />
-          <p>No sections in your programme yet.</p>
-        </div>
-      ) : (
-        <div className="space-y-3">
-          {report.map((sec, i) => {
-            const pct = sec.totalStudents > 0 ? Math.round((sec.registeredCount / sec.totalStudents) * 100) : 0;
-            return (
-              <motion.div
-                key={sec.sectionId}
-                initial={{ opacity: 0, x: -12 }}
-                animate={{ opacity: 1, x: 0 }}
-                transition={{ ...spring.gentle, delay: listDelay(i, 0.05) }}
-                className="bg-surface border border-border rounded-card p-6"
-              >
-                <div className="flex items-center justify-between mb-3">
-                  <div className="flex items-center gap-3">
-                    <div className="w-9 h-9 rounded-control bg-primary/10 flex items-center justify-center font-bold text-primary-text text-sm">
-                      {sec.sectionLabel}
+        <TabsContent value="allotments">
+          <DataTable
+            data={sorted}
+            columns={columns}
+            getRowId={(s) => `${s.studentId}-${s.eventId}`}
+            caption="Student elective allotments"
+            searchPlaceholder="Search register no., name or subject"
+            filters={filters}
+            pageSize={25}
+            urlKey="allot"
+            toolbar={(rows) => (
+              <>
+                <Button size="sm" variant="secondary" onClick={() => exportCSV(rows)}>
+                  <FileSpreadsheet /> CSV
+                </Button>
+                <Button size="sm" onClick={() => exportPDF(rows)}>
+                  <Download /> PDF
+                </Button>
+              </>
+            )}
+            empty={
+              <EmptyState
+                compact
+                icon={<FileText />}
+                title={allotments.length === 0 ? "No allotments yet" : "No student allotments found"}
+                description={allotments.length === 0 ? "Confirmed registrations appear here." : "Try clearing your search or filters."}
+              />
+            }
+          />
+        </TabsContent>
+
+        <TabsContent value="sections">
+          {sections.length === 0 ? (
+            <EmptyState icon={<FileText />} title="No sections found" description="Sections for this programme appear here." />
+          ) : (
+            <ul className="grid grid-cols-1 gap-3 md:grid-cols-2">
+              {sections.map((sec, i) => {
+                const pct = sec.totalStudents > 0 ? Math.round((sec.registeredCount / sec.totalStudents) * 100) : 0;
+                const tone = pctTone(pct);
+                return (
+                  <li
+                    key={sec.sectionId}
+                    style={{ animationDelay: `${Math.min(i, 8) * 40}ms` }}
+                    className="rounded-card border border-border bg-surface p-4 shadow-1 animate-enter sm:p-5"
+                  >
+                    <div className="flex items-center gap-3">
+                      <span className="inline-flex size-10 shrink-0 items-center justify-center rounded-full bg-surface-2 font-mono text-sm font-medium text-fg">
+                        {sec.sectionLabel}
+                      </span>
+                      <div className="min-w-0 flex-1">
+                        <p className="font-medium text-fg">Section {sec.sectionLabel}</p>
+                        <p className="text-xs text-fg-muted">
+                          <span className="font-mono tabular-nums text-fg">{sec.registeredCount}</span> of{" "}
+                          <span className="font-mono tabular-nums">{sec.totalStudents}</span> registered
+                        </p>
+                      </div>
+                      <span
+                        className={
+                          tone === "success" ? "text-2xl font-light text-success-text" : tone === "warning" ? "text-2xl font-light text-warning-text" : "text-2xl font-light text-danger-text"
+                        }
+                      >
+                        <span className="tabular-nums">{pct}</span>%
+                      </span>
                     </div>
-                    <div>
-                      <p className="font-semibold text-fg">Section {sec.sectionLabel}</p>
-                      <p className="text-xs text-fg-muted">{sec.registeredCount} / {sec.totalStudents} registered</p>
-                    </div>
-                  </div>
-                  <span className={`text-2xl font-bold ${pct >= 80 ? "text-success-text" : pct >= 50 ? "text-warning-text" : "text-danger-text"}`}>
-                    {pct}%
-                  </span>
-                </div>
-                <div className="w-full bg-surface-2 rounded-full h-2">
-                  <motion.div
-                    initial={{ width: 0 }}
-                    animate={{ width: `${pct}%` }}
-                    transition={{ ...transition.value, delay: listDelay(i, 0.05) }}
-                    className={`h-2 rounded-full ${pct >= 80 ? "bg-success" : pct >= 50 ? "bg-warning" : "bg-danger"}`}
-                  />
-                </div>
-              </motion.div>
-            );
-          })}
-        </div>
-      )}
+                    <Meter value={sec.registeredCount} max={sec.totalStudents} tone={tone} label={`Section ${sec.sectionLabel} completion`} className="mt-4" />
+                  </li>
+                );
+              })}
+            </ul>
+          )}
+        </TabsContent>
+      </Tabs>
     </div>
   );
 }

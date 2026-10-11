@@ -149,7 +149,7 @@ export function CommandPalette({
                         onMouseMove={() => setActive(i)}
                         onClick={() => run(c)}
                         className={cn(
-                          "flex cursor-pointer items-center gap-3 rounded-badge px-3 py-2.5 text-sm",
+                          "flex cursor-pointer items-center gap-3 rounded-control px-3 py-2.5 text-sm",
                           isActive ? "bg-surface-2 text-fg" : "text-fg-muted"
                         )}
                       >

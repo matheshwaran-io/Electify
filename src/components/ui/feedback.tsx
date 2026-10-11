@@ -19,11 +19,11 @@ export function EmptyState({ icon, title, description, action, className, compac
   return (
     <div className={cn("flex flex-col items-center justify-center text-center", compact ? "px-4 py-8" : "px-6 py-14", className)}>
       {icon ? (
-        <div className="mb-4 inline-flex size-11 items-center justify-center rounded-control border border-border bg-surface-2 text-fg-subtle [&_svg]:size-5">
+        <div className="mb-4 inline-flex size-12 items-center justify-center rounded-full border border-border bg-surface text-fg-muted shadow-1 [&_svg]:size-5">
           {icon}
         </div>
       ) : null}
-      <p className="text-sm font-semibold text-fg">{title}</p>
+      <p className="text-sm font-medium text-fg">{title}</p>
       {description ? <p className="mt-1 max-w-sm text-sm text-fg-muted">{description}</p> : null}
       {action ? <div className="mt-5">{action}</div> : null}
     </div>
@@ -42,7 +42,7 @@ export function ErrorState({
       <div className="mb-4 inline-flex size-11 items-center justify-center rounded-control border border-danger/25 bg-danger/10 text-danger-text">
         {offline ? <WifiOff className="size-5" /> : <AlertCircle className="size-5" />}
       </div>
-      <p className="text-sm font-semibold text-fg">{offline ? "You're offline" : title}</p>
+      <p className="text-sm font-medium text-fg">{offline ? "You're offline" : title}</p>
       <p className="mt-1 max-w-sm text-sm text-fg-muted">{description}</p>
       {onRetry ? (
         <button

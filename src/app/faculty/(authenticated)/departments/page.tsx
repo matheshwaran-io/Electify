@@ -5,7 +5,7 @@ import { DepartmentsClient } from "./departments-client";
 
 export default async function DepartmentsPage() {
   const session = await getSession();
-  if (!session || session.role !== "SYSTEM_ADMIN") redirect("/faculty/dashboard");
+  if (!session || (session.role !== "SYSTEM_ADMIN" && session.role !== "COURSE_COORDINATOR")) redirect("/faculty/dashboard");
   const tree = await getDepartmentsTree();
   return <DepartmentsClient tree={tree} />;
 }

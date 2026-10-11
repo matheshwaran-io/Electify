@@ -15,10 +15,18 @@ async function assertAdmin() {
   return session;
 }
 
+async function assertAdminOrCoordinator() {
+  const session = await getSession();
+  if (!session || (session.role !== "SYSTEM_ADMIN" && session.role !== "COURSE_COORDINATOR")) {
+    throw new Error("Unauthorized");
+  }
+  return session;
+}
+
 // ── Events ──────────────────────────────────────────────────────────────────
 
 export async function getEvents() {
-  await assertAdmin();
+  await assertAdminOrCoordinator();
   const events = await db
     .select({
       id: registrationEvents.id,
@@ -45,9 +53,9 @@ import { unstable_cache } from "next/cache";
 const getCachedDepartmentsTree = unstable_cache(
   async () => {
     // Only cache the database fetch and shaping part
-    const allFaculties = await db.select().from(faculties).orderBy(asc(faculties.name));
-    const allDepts = await db.select().from(departments).orderBy(asc(departments.name));
-    const allProgs = await db.select().from(programmes).orderBy(asc(programmes.name));
+    const allFaculties = await db.select().from(faculties).where(eq(faculties.isActive, true)).orderBy(asc(faculties.name));
+    const allDepts = await db.select().from(departments).where(eq(departments.isActive, true)).orderBy(asc(departments.name));
+    const allProgs = await db.select().from(programmes).where(eq(programmes.isActive, true)).orderBy(asc(programmes.name));
     const allBatches = await db.select().from(academicBatches).orderBy(asc(academicBatches.year));
     const allSections = await db.select().from(sections).orderBy(asc(sections.label));
 
@@ -78,7 +86,7 @@ const getCachedDepartmentsTree = unstable_cache(
 );
 
 export async function getDepartmentsTree() {
-  await assertAdmin();
+  await assertAdminOrCoordinator();
   return getCachedDepartmentsTree();
 }
 

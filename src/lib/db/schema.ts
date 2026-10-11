@@ -103,6 +103,7 @@ export const users = pgTable("users", {
   sectionId: uuid("section_id").references(() => sections.id),
   isActive: boolean("is_active").default(true).notNull(),
   isEligible: boolean("is_eligible").default(true).notNull(),
+  currentSessionId: text("current_session_id"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 },
@@ -170,6 +171,9 @@ export const registrationEvents = pgTable("registration_events", {
   closeDate: timestamp("close_date"),
   status: text("status").default("DRAFT").notNull(),
   // DRAFT | PUBLISHED | OPEN | CLOSED | VERIFICATION | FINALIZED | ARCHIVED
+  allowEditing: boolean("allow_editing").default(true).notNull(),
+  autoClose: boolean("auto_close").default(true).notNull(),
+  enableWaitlist: boolean("enable_waitlist").default(false).notNull(),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 },
@@ -239,6 +243,36 @@ export const electives = pgTable("electives", {
   (table) => [index("electives_group_idx").on(table.groupId)]);
 
 // ────────────────────────────────────────────────────────────────────
+// ELECTIVE SEAT ALLOCATIONS (Department & Class Section Quotas)
+// ────────────────────────────────────────────────────────────────────
+
+export const electiveSeatAllocations = pgTable(
+  "elective_seat_allocations",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    electiveId: uuid("elective_id")
+      .notNull()
+      .references(() => electives.id, { onDelete: "cascade" }),
+    departmentId: uuid("department_id")
+      .notNull()
+      .references(() => departments.id, { onDelete: "cascade" }),
+    sectionId: uuid("section_id")
+      .references(() => sections.id, { onDelete: "cascade" }),
+    maxSeats: integer("max_seats").notNull(),
+    availableSeats: integer("available_seats").notNull(),
+    isFull: boolean("is_full").default(false).notNull(),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+    updatedAt: timestamp("updated_at").defaultNow().notNull(),
+  },
+  (table) => [
+    index("allocations_elective_idx").on(table.electiveId),
+    index("allocations_dept_idx").on(table.departmentId),
+    index("allocations_section_idx").on(table.sectionId),
+    unique("elective_section_allocation_unique").on(table.electiveId, table.sectionId),
+  ]
+);
+
+// ────────────────────────────────────────────────────────────────────
 // STUDENT REGISTRATIONS
 // ────────────────────────────────────────────────────────────────────
 
@@ -259,6 +293,8 @@ export const studentRegistrations = pgTable(
       .notNull()
       .references(() => electives.id),
     isLocked: boolean("is_locked").default(true).notNull(),
+    isWaitlisted: boolean("is_waitlisted").default(false).notNull(),
+    waitlistPosition: integer("waitlist_position"),
     submittedAt: timestamp("submitted_at").defaultNow().notNull(),
     updatedAt: timestamp("updated_at").defaultNow().notNull(),
   },
@@ -353,6 +389,7 @@ export const systemSettings = pgTable("system_settings", {
 export const registrationStatusEnum = pgEnum("registration_status", [
   "NOT_REGISTERED",
   "CONFIRMED",
+  "WAITLISTED",
   "CANCELLED",
   "RESET_BY_COORDINATOR"
 ]);
@@ -509,10 +546,26 @@ export const electiveGroupsRelations = relations(electiveGroups, ({ one, many })
   electives: many(electives),
 }));
 
-export const electivesRelations = relations(electives, ({ one }) => ({
+export const electivesRelations = relations(electives, ({ one, many }) => ({
   group: one(electiveGroups, {
     fields: [electives.groupId],
     references: [electiveGroups.id],
+  }),
+  allocations: many(electiveSeatAllocations),
+}));
+
+export const electiveSeatAllocationsRelations = relations(electiveSeatAllocations, ({ one }) => ({
+  elective: one(electives, {
+    fields: [electiveSeatAllocations.electiveId],
+    references: [electives.id],
+  }),
+  department: one(departments, {
+    fields: [electiveSeatAllocations.departmentId],
+    references: [departments.id],
+  }),
+  section: one(sections, {
+    fields: [electiveSeatAllocations.sectionId],
+    references: [sections.id],
   }),
 }));
 

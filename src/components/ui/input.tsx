@@ -72,7 +72,7 @@ type InputProps = React.ComponentProps<"input"> & {
   inputSize?: "sm" | "md" | "lg"
 }
 
-const heights = { sm: "h-8 text-sm", md: "h-10 text-sm", lg: "h-12 text-base" }
+const heights = { sm: "h-9 text-sm", md: "h-11 text-sm sm:h-10", lg: "h-12 text-base" }
 
 export const Input = React.forwardRef<HTMLInputElement, InputProps>(function Input(
   { className, leading, trailing, inputSize = "md", id, ...props },
