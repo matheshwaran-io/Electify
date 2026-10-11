@@ -77,8 +77,8 @@ const getCachedDepartmentsTree = unstable_cache(
     const allFaculties = await db.select().from(faculties).where(eq(faculties.isActive, true)).orderBy(asc(faculties.name));
     const allDepts = await db.select().from(departments).where(eq(departments.isActive, true)).orderBy(asc(departments.name));
     const allProgs = await db.select().from(programmes).where(eq(programmes.isActive, true)).orderBy(asc(programmes.name));
-    const allBatches = await db.select().from(academicBatches).orderBy(asc(academicBatches.year));
-    const allSections = await db.select().from(sections).orderBy(asc(sections.label));
+    const allBatches = await db.select().from(academicBatches).where(eq(academicBatches.isActive, true)).orderBy(asc(academicBatches.year));
+    const allSections = await db.select().from(sections).where(eq(sections.isActive, true)).orderBy(asc(sections.label));
 
     return {
       faculties: allFaculties.map((f) => ({
@@ -452,11 +452,18 @@ export async function createFaculty(data: {
   });
 
   try {
-    const { revalidatePath, revalidateTag } = await import("next/cache");
-    revalidatePath("/faculty/departments");
-    revalidatePath("/", "layout");
-    // @ts-expect-error next 16 revalidateTag overload
-    revalidateTag("hierarchy");
+    const cache = await import("next/cache") as any;
+    if (typeof cache.revalidatePath === "function") {
+      cache.revalidatePath("/faculty/departments");
+      cache.revalidatePath("/faculty/invites");
+      cache.revalidatePath("/", "layout");
+    }
+    if (typeof cache.updateTag === "function") {
+      cache.updateTag("hierarchy");
+    }
+    if (typeof cache.revalidateTag === "function") {
+      cache.revalidateTag("hierarchy", "max");
+    }
   } catch (err) {
     console.warn("Revalidation warning:", err);
   }
@@ -527,11 +534,18 @@ export async function createDepartment(data: {
   });
 
   try {
-    const { revalidatePath, revalidateTag } = await import("next/cache");
-    revalidatePath("/faculty/departments");
-    revalidatePath("/", "layout");
-    // @ts-expect-error next 16 revalidateTag overload
-    revalidateTag("hierarchy");
+    const cache = await import("next/cache") as any;
+    if (typeof cache.revalidatePath === "function") {
+      cache.revalidatePath("/faculty/departments");
+      cache.revalidatePath("/faculty/invites");
+      cache.revalidatePath("/", "layout");
+    }
+    if (typeof cache.updateTag === "function") {
+      cache.updateTag("hierarchy");
+    }
+    if (typeof cache.revalidateTag === "function") {
+      cache.revalidateTag("hierarchy", "max");
+    }
   } catch (err) {
     console.warn("Revalidation warning:", err);
   }
@@ -549,17 +563,112 @@ export async function deleteFaculty(facultyId: string) {
 
   if (!faculty) throw new Error("Faculty not found.");
 
-  // Check if any users are linked directly to this faculty
+  // Check if any users are linked directly to this faculty or to any child entity
+  // (departments, programmes, academic batches, sections, or tutor assignments)
   const [usersCount] = await db
     .select({ count: count() })
     .from(users)
-    .where(eq(users.facultyId, facultyId));
+    .where(
+      or(
+        eq(users.facultyId, facultyId),
+        sql`${users.departmentId} IN (
+          SELECT id FROM departments WHERE faculty_id = ${facultyId}
+        )`,
+        sql`${users.programmeId} IN (
+          SELECT p.id FROM programmes p
+          JOIN departments d ON p.department_id = d.id
+          WHERE d.faculty_id = ${facultyId}
+        )`,
+        sql`${users.academicBatchId} IN (
+          SELECT b.id FROM academic_batches b
+          JOIN programmes p ON b.programme_id = p.id
+          JOIN departments d ON p.department_id = d.id
+          WHERE d.faculty_id = ${facultyId}
+        )`,
+        sql`${users.sectionId} IN (
+          SELECT s.id FROM sections s
+          JOIN academic_batches b ON s.academic_batch_id = b.id
+          JOIN programmes p ON b.programme_id = p.id
+          JOIN departments d ON p.department_id = d.id
+          WHERE d.faculty_id = ${facultyId}
+        )`,
+        sql`${users.id} IN (
+          SELECT ts.tutor_id FROM tutor_sections ts
+          JOIN sections s ON ts.section_id = s.id
+          JOIN academic_batches b ON s.academic_batch_id = b.id
+          JOIN programmes p ON b.programme_id = p.id
+          JOIN departments d ON p.department_id = d.id
+          WHERE d.faculty_id = ${facultyId}
+        )`
+      )
+    );
 
   if (Number(usersCount?.count || 0) > 0) {
-    throw new Error(`Cannot delete "${faculty.name}" because ${usersCount.count} user(s) are assigned to it.`);
+    throw new Error(`Cannot delete "${faculty.name}" because ${usersCount.count} user(s) are assigned to it or its child departments/classes.`);
+  }
+
+  // Check if any registration events are linked to batches under this faculty
+  const [eventsCount] = await db
+    .select({ count: count() })
+    .from(registrationEvents)
+    .where(
+      sql`${registrationEvents.academicBatchId} IN (
+        SELECT b.id FROM academic_batches b
+        JOIN programmes p ON b.programme_id = p.id
+        JOIN departments d ON p.department_id = d.id
+        WHERE d.faculty_id = ${facultyId}
+      )`
+    );
+
+  if (Number(eventsCount?.count || 0) > 0) {
+    throw new Error(`Cannot delete "${faculty.name}" because ${eventsCount.count} registration event(s) are associated with it.`);
+  }
+
+  // Check if any event templates are linked to programmes under this faculty
+  const [templatesCount] = await db
+    .select({ count: count() })
+    .from(eventTemplates)
+    .where(
+      sql`${eventTemplates.programmeId} IN (
+        SELECT p.id FROM programmes p
+        JOIN departments d ON p.department_id = d.id
+        WHERE d.faculty_id = ${facultyId}
+      )`
+    );
+
+  if (Number(templatesCount?.count || 0) > 0) {
+    throw new Error(`Cannot delete "${faculty.name}" because ${templatesCount.count} event template(s) are associated with it.`);
   }
 
   await db.transaction(async (tx) => {
+    // Clean up any invite codes linked to this faculty or its child hierarchy
+    await tx.delete(inviteCodes).where(
+      or(
+        eq(inviteCodes.facultyId, facultyId),
+        sql`${inviteCodes.departmentId} IN (
+          SELECT id FROM departments WHERE faculty_id = ${facultyId}
+        )`,
+        sql`${inviteCodes.programmeId} IN (
+          SELECT p.id FROM programmes p
+          JOIN departments d ON p.department_id = d.id
+          WHERE d.faculty_id = ${facultyId}
+        )`,
+        sql`${inviteCodes.academicBatchId} IN (
+          SELECT b.id FROM academic_batches b
+          JOIN programmes p ON b.programme_id = p.id
+          JOIN departments d ON p.department_id = d.id
+          WHERE d.faculty_id = ${facultyId}
+        )`,
+        sql`${inviteCodes.sectionId} IN (
+          SELECT s.id FROM sections s
+          JOIN academic_batches b ON s.academic_batch_id = b.id
+          JOIN programmes p ON b.programme_id = p.id
+          JOIN departments d ON p.department_id = d.id
+          WHERE d.faculty_id = ${facultyId}
+        )`
+      )
+    );
+
     // Delete faculty - cascade deletes departments, programmes, batches, sections
     await tx.delete(faculties).where(eq(faculties.id, facultyId));
 
@@ -573,11 +682,18 @@ export async function deleteFaculty(facultyId: string) {
   });
 
   try {
-    const { revalidatePath, revalidateTag } = await import("next/cache");
-    revalidatePath("/faculty/departments");
-    revalidatePath("/", "layout");
-    // @ts-expect-error next 16 revalidateTag overload
-    revalidateTag("hierarchy");
+    const cache = await import("next/cache") as any;
+    if (typeof cache.revalidatePath === "function") {
+      cache.revalidatePath("/faculty/departments");
+      cache.revalidatePath("/faculty/invites");
+      cache.revalidatePath("/", "layout");
+    }
+    if (typeof cache.updateTag === "function") {
+      cache.updateTag("hierarchy");
+    }
+    if (typeof cache.revalidateTag === "function") {
+      cache.revalidateTag("hierarchy", "max");
+    }
   } catch (err) {
     console.warn("Revalidation warning:", err);
   }
@@ -595,17 +711,93 @@ export async function deleteDepartment(departmentId: string) {
 
   if (!department) throw new Error("Department not found.");
 
-  // Check if any users are linked directly to this department
+  // Check if any users are linked directly to this department or child entities
   const [usersCount] = await db
     .select({ count: count() })
     .from(users)
-    .where(eq(users.departmentId, departmentId));
+    .where(
+      or(
+        eq(users.departmentId, departmentId),
+        sql`${users.programmeId} IN (
+          SELECT id FROM programmes WHERE department_id = ${departmentId}
+        )`,
+        sql`${users.academicBatchId} IN (
+          SELECT b.id FROM academic_batches b
+          JOIN programmes p ON b.programme_id = p.id
+          WHERE p.department_id = ${departmentId}
+        )`,
+        sql`${users.sectionId} IN (
+          SELECT s.id FROM sections s
+          JOIN academic_batches b ON s.academic_batch_id = b.id
+          JOIN programmes p ON b.programme_id = p.id
+          WHERE p.department_id = ${departmentId}
+        )`,
+        sql`${users.id} IN (
+          SELECT ts.tutor_id FROM tutor_sections ts
+          JOIN sections s ON ts.section_id = s.id
+          JOIN academic_batches b ON s.academic_batch_id = b.id
+          JOIN programmes p ON b.programme_id = p.id
+          WHERE p.department_id = ${departmentId}
+        )`
+      )
+    );
 
   if (Number(usersCount?.count || 0) > 0) {
-    throw new Error(`Cannot delete "${department.name}" because ${usersCount.count} user(s) are assigned to it.`);
+    throw new Error(`Cannot delete "${department.name}" because ${usersCount.count} user(s) are assigned to it or its programmes/classes.`);
+  }
+
+  // Check if any registration events are linked to batches under this department
+  const [eventsCount] = await db
+    .select({ count: count() })
+    .from(registrationEvents)
+    .where(
+      sql`${registrationEvents.academicBatchId} IN (
+        SELECT b.id FROM academic_batches b
+        JOIN programmes p ON b.programme_id = p.id
+        WHERE p.department_id = ${departmentId}
+      )`
+    );
+
+  if (Number(eventsCount?.count || 0) > 0) {
+    throw new Error(`Cannot delete "${department.name}" because ${eventsCount.count} registration event(s) are associated with it.`);
+  }
+
+  // Check if any event templates are linked to programmes under this department
+  const [templatesCount] = await db
+    .select({ count: count() })
+    .from(eventTemplates)
+    .where(
+      sql`${eventTemplates.programmeId} IN (
+        SELECT id FROM programmes WHERE department_id = ${departmentId}
+      )`
+    );
+
+  if (Number(templatesCount?.count || 0) > 0) {
+    throw new Error(`Cannot delete "${department.name}" because ${templatesCount.count} event template(s) are associated with it.`);
   }
 
   await db.transaction(async (tx) => {
+    // Clean up any invite codes linked to this department or child hierarchy
+    await tx.delete(inviteCodes).where(
+      or(
+        eq(inviteCodes.departmentId, departmentId),
+        sql`${inviteCodes.programmeId} IN (
+          SELECT id FROM programmes WHERE department_id = ${departmentId}
+        )`,
+        sql`${inviteCodes.academicBatchId} IN (
+          SELECT b.id FROM academic_batches b
+          JOIN programmes p ON b.programme_id = p.id
+          WHERE p.department_id = ${departmentId}
+        )`,
+        sql`${inviteCodes.sectionId} IN (
+          SELECT s.id FROM sections s
+          JOIN academic_batches b ON s.academic_batch_id = b.id
+          JOIN programmes p ON b.programme_id = p.id
+          WHERE p.department_id = ${departmentId}
+        )`
+      )
+    );
+
     // Delete department - cascade deletes programmes, batches, sections
     await tx.delete(departments).where(eq(departments.id, departmentId));
 
@@ -619,11 +811,18 @@ export async function deleteDepartment(departmentId: string) {
   });
 
   try {
-    const { revalidatePath, revalidateTag } = await import("next/cache");
-    revalidatePath("/faculty/departments");
-    revalidatePath("/", "layout");
-    // @ts-expect-error next 16 revalidateTag overload
-    revalidateTag("hierarchy");
+    const cache = await import("next/cache") as any;
+    if (typeof cache.revalidatePath === "function") {
+      cache.revalidatePath("/faculty/departments");
+      cache.revalidatePath("/faculty/invites");
+      cache.revalidatePath("/", "layout");
+    }
+    if (typeof cache.updateTag === "function") {
+      cache.updateTag("hierarchy");
+    }
+    if (typeof cache.revalidateTag === "function") {
+      cache.revalidateTag("hierarchy", "max");
+    }
   } catch (err) {
     console.warn("Revalidation warning:", err);
   }

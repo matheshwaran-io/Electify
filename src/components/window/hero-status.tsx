@@ -6,8 +6,9 @@ import { cn } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
 import { windowPhase, type WindowEvent, type WindowPhase } from "./types";
 
-const PHASE: Record<WindowPhase, { label: string; tone: "live" | "primary" | "neutral" | "outline"; dot?: boolean; line: string }> = {
+const PHASE: Record<WindowPhase, { label: string; tone: "live" | "primary" | "neutral" | "outline" | "warning"; dot?: boolean; line: string }> = {
   live: { label: "Live", tone: "live", dot: true, line: "Students are submitting their elective choices right now." },
+  paused: { label: "Paused", tone: "warning", dot: false, line: "Registration is temporarily paused. Students cannot submit choices." },
   scheduled: { label: "Scheduled", tone: "primary", line: "The portal opens automatically at the time below." },
   closed: { label: "Closed", tone: "neutral", line: "The portal is not accepting registrations." },
   configured: { label: "Not scheduled", tone: "outline", line: "Set an opening and closing time to schedule the window." },
@@ -30,9 +31,21 @@ export function HeroStatus({ event }: { event: WindowEvent }) {
     >
       <div className="flex flex-col gap-8 md:flex-row md:items-end md:justify-between">
         <div className="min-w-0 space-y-4">
-          <Badge tone={meta.tone} dot={meta.dot}>
-            {meta.label}
-          </Badge>
+          <div className="flex flex-wrap items-center gap-2">
+            <Badge tone={meta.tone} dot={meta.dot}>
+              {meta.label}
+            </Badge>
+            {event.enableWaitlist ? (
+              <Badge tone="warning">
+                Waitlist active
+              </Badge>
+            ) : null}
+            {event.allowEditing ? (
+              <Badge tone="neutral">
+                Edits allowed
+              </Badge>
+            ) : null}
+          </div>
           <div>
             <h2 className="text-3xl font-light tracking-display text-fg lg:text-4xl">{event.name}</h2>
             <p className="mt-2 max-w-md text-fg-muted">{meta.line}</p>

@@ -13,7 +13,7 @@ import {
   tutorSections
 } from "@/lib/db/schema";
 import { getSession } from "@/lib/auth";
-import { eq, and, count, desc, inArray } from "drizzle-orm";
+import { eq, and, count, desc, inArray, asc } from "drizzle-orm";
 
 export async function getSystemAdminMetrics() {
   const session = await getSession();
@@ -29,7 +29,7 @@ export async function getSystemAdminMetrics() {
   ] = await Promise.all([
     db.select({ totalStudents: count() }).from(users).where(eq(users.role, "STUDENT")),
     db.select({ totalFaculty: count() }).from(users).where(and(eq(users.isActive, true), eq(users.role, "COURSE_COORDINATOR"))),
-    db.select({ activeEvents: count() }).from(registrationEvents).where(eq(registrationEvents.status, "PUBLISHED")),
+    db.select({ activeEvents: count() }).from(registrationEvents).where(inArray(registrationEvents.status, ["PUBLISHED", "OPEN", "PAUSED"])),
     db.select().from(auditLogs).orderBy(desc(auditLogs.createdAt)).limit(5)
   ]);
 
@@ -51,7 +51,7 @@ export async function getCourseCoordinatorMetrics() {
   ] = await Promise.all([
     db.select({ totalTemplates: count() }).from(eventTemplates),
     db.select({ totalEvents: count() }).from(registrationEvents),
-    db.select({ activeEventsCount: count() }).from(registrationEvents).where(eq(registrationEvents.status, "PUBLISHED")),
+    db.select({ activeEventsCount: count() }).from(registrationEvents).where(inArray(registrationEvents.status, ["PUBLISHED", "OPEN", "PAUSED"])),
     db.select({ totalElectives: count() }).from(electives),
     db.select({
       id: registrationEvents.id,
@@ -98,9 +98,9 @@ export async function getClassTutorMetrics() {
 
   if (!activeSectionId) {
     return { 
-      totalStudents: 0, registeredCount: 0, courseOptionsCount: 0, 
-      allocationRate: 0, activeEvent: null, recentRegistrations: [],
-      pendingStudents: []
+      totalStudents: 0, registeredCount: 0, waitlistedCount: 0,
+      courseOptionsCount: 0, groupsCount: 0, allocationRate: 0,
+      activeEvent: null, recentRegistrations: [], pendingStudents: []
     };
   }
 
@@ -109,19 +109,33 @@ export async function getClassTutorMetrics() {
     eventLinks
   ] = await Promise.all([
     db.select({ totalStudents: count() }).from(users).where(and(eq(users.role, "STUDENT"), eq(users.sectionId, activeSectionId))),
-    db.select({ eventId: eventSections.eventId }).from(eventSections).where(eq(eventSections.sectionId, activeSectionId))
+    db.select({ 
+      eventId: eventSections.eventId,
+      status: registrationEvents.status,
+      createdAt: registrationEvents.createdAt,
+    })
+    .from(eventSections)
+    .innerJoin(registrationEvents, eq(eventSections.eventId, registrationEvents.id))
+    .where(eq(eventSections.sectionId, activeSectionId))
+    .orderBy(desc(registrationEvents.createdAt))
   ]);
 
-  const eventLink = eventLinks[0];
+  // Prioritize active or scheduled event over closed ones
+  const eventLink =
+    eventLinks.find((e) => e.status === "OPEN" || e.status === "PUBLISHED" || e.status === "PAUSED") ||
+    eventLinks[0];
 
   let courseOptionsCount = 0;
+  let groupsCount = 0;
   let allocationRate = 0;
   let activeEvent = null;
   let recentRegistrations: any[] = [];
   let registeredCount = 0;
+  let waitlistedCount = 0;
+  let uniqueStudents = new Set<string>();
 
   if (eventLink) {
-    // Fetch Event, Groups, Registrations, and Recent Regs in parallel
+    // Fetch Event details, Groups, Registrations, and Recent Regs in parallel
     const [eventRecords, groups, registeredStudents, recent] = await Promise.all([
       db.select({
         id: registrationEvents.id,
@@ -129,6 +143,9 @@ export async function getClassTutorMetrics() {
         status: registrationEvents.status,
         openDate: registrationEvents.openDate,
         closeDate: registrationEvents.closeDate,
+        enableWaitlist: registrationEvents.enableWaitlist,
+        allowEditing: registrationEvents.allowEditing,
+        autoClose: registrationEvents.autoClose,
       })
       .from(registrationEvents)
       .where(eq(registrationEvents.id, eventLink.eventId))
@@ -138,7 +155,10 @@ export async function getClassTutorMetrics() {
       .from(electiveGroups)
       .where(eq(electiveGroups.eventId, eventLink.eventId)),
 
-      db.select({ studentId: studentRegistrations.studentId })
+      db.select({ 
+        studentId: studentRegistrations.studentId,
+        isWaitlisted: studentRegistrations.isWaitlisted,
+      })
       .from(studentRegistrations)
       .innerJoin(users, eq(studentRegistrations.studentId, users.id))
       .where(and(eq(studentRegistrations.eventId, eventLink.eventId), eq(users.sectionId, activeSectionId))),
@@ -149,21 +169,33 @@ export async function getClassTutorMetrics() {
         studentName: users.name,
         studentRegNo: users.registerNumber,
         electiveName: electives.name,
+        courseCode: electives.courseCode,
+        groupName: electiveGroups.name,
+        isWaitlisted: studentRegistrations.isWaitlisted,
+        waitlistPosition: studentRegistrations.waitlistPosition,
       })
       .from(studentRegistrations)
       .innerJoin(users, eq(studentRegistrations.studentId, users.id))
       .innerJoin(electives, eq(studentRegistrations.electiveId, electives.id))
+      .innerJoin(electiveGroups, eq(studentRegistrations.groupId, electiveGroups.id))
       .where(and(eq(studentRegistrations.eventId, eventLink.eventId), eq(users.sectionId, activeSectionId)))
       .orderBy(desc(studentRegistrations.submittedAt))
-      .limit(5)
+      .limit(8)
     ]);
 
     activeEvent = eventRecords[0] || null;
     recentRegistrations = recent;
+    groupsCount = groups.length;
     
-    // Unique students count
-    const uniqueStudents = new Set(registeredStudents.map(r => r.studentId));
+    // Unique students registered
+    uniqueStudents = new Set(registeredStudents.map(r => r.studentId));
     registeredCount = uniqueStudents.size;
+
+    // Unique students on waitlist
+    const waitlistedStudents = new Set(
+      registeredStudents.filter(r => r.isWaitlisted).map(r => r.studentId)
+    );
+    waitlistedCount = waitlistedStudents.size;
 
     if (groups.length > 0) {
       const groupIds = groups.map(g => g.id);
@@ -188,33 +220,29 @@ export async function getClassTutorMetrics() {
     }
   }
 
-  // Get list of pending students
+  // Get list of pending students with email for reminders
   const allStudents = await db
     .select({
       id: users.id,
       name: users.name,
       registerNumber: users.registerNumber,
+      email: users.email,
     })
     .from(users)
-    .where(and(eq(users.role, "STUDENT"), eq(users.sectionId, activeSectionId)));
+    .where(and(eq(users.role, "STUDENT"), eq(users.sectionId, activeSectionId)))
+    .orderBy(asc(users.name));
     
-  let pendingStudents = [];
-  if (activeEvent) {
-    const registeredIds = new Set(
-      (await db
-        .select({ studentId: studentRegistrations.studentId })
-        .from(studentRegistrations)
-        .where(eq(studentRegistrations.eventId, activeEvent.id)))
-        .map(r => r.studentId)
-    );
-    pendingStudents = allStudents.filter(s => !registeredIds.has(s.id));
-  } else {
-    pendingStudents = allStudents;
-  }
+  const pendingStudents = allStudents.filter(s => !uniqueStudents.has(s.id));
 
   return {
-    totalStudents, registeredCount, courseOptionsCount,
-    allocationRate, activeEvent, recentRegistrations,
+    totalStudents, 
+    registeredCount, 
+    waitlistedCount,
+    courseOptionsCount,
+    groupsCount,
+    allocationRate, 
+    activeEvent, 
+    recentRegistrations,
     pendingStudents
   };
 }
