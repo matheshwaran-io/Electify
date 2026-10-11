@@ -194,7 +194,11 @@ export function ReportsClient({ data }: { data: CoordinatorReportsPayload }) {
     }
 
     // Loaded on demand so the PDF library never ships with the page.
-    const [{ default: jsPDF }, { default: autoTable }] = await Promise.all([import("jspdf"), import("jspdf-autotable")]);
+    const [{ default: jsPDF }, { default: autoTable }, { drawLogo, BRAND_PDF }] = await Promise.all([
+      import("jspdf"),
+      import("jspdf-autotable"),
+      import("@/lib/brand-pdf"),
+    ]);
 
     const sectionLabels = new Set(list.map((s) => s.sectionLabel));
     const sectionText = sectionLabels.size === 1 ? `Section ${[...sectionLabels][0]}` : "All Sections";
@@ -202,13 +206,14 @@ export function ReportsClient({ data }: { data: CoordinatorReportsPayload }) {
     const doc = new jsPDF({ orientation: "landscape" });
     const pageWidth = doc.internal.pageSize.getWidth();
 
-    // Navy header bar
-    doc.setFillColor(15, 23, 42);
+    // Midnight header bar with the reverse logo (E 7mm; wordmark baseline at y 12.05)
+    doc.setFillColor(...BRAND_PDF.midnight);
     doc.rect(0, 0, pageWidth, 28, "F");
+    const logo = drawLogo(doc, { x: 14, y: 6, height: 7, ink: BRAND_PDF.mist });
     doc.setTextColor(255, 255, 255);
-    doc.setFontSize(15);
+    doc.setFontSize(13);
     doc.setFont("helvetica", "bold");
-    doc.text("ELECTIFY - STUDENT ELECTIVE ALLOTMENTS REPORT", 14, 13);
+    doc.text("STUDENT ELECTIVE ALLOTMENTS REPORT", 14 + logo.width + 6, 12.05);
     doc.setFontSize(9);
     doc.setFont("helvetica", "normal");
     doc.text(`Sorted: Ascending by Register Number • Section: ${sectionText}`, 14, 21);

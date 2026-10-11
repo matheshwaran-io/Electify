@@ -11,7 +11,6 @@ const C = {
   subtle: [93, 108, 131] as const, // --text-subtle
   border: [226, 232, 240] as const, // --border
   surface2: [241, 245, 249] as const, // --surface-2
-  primary: [97, 100, 239] as const, // --primary
   success: [4, 120, 87] as const, // --success-text
 }
 
@@ -24,22 +23,18 @@ export type ReceiptData = {
 }
 
 export async function downloadReceiptPdf(data: ReceiptData) {
-  const [{ default: jsPDF }, { default: autoTable }] = await Promise.all([import("jspdf"), import("jspdf-autotable")])
+  const [{ default: jsPDF }, { default: autoTable }, { drawLogo }] = await Promise.all([
+    import("jspdf"),
+    import("jspdf-autotable"),
+    import("@/lib/brand-pdf"),
+  ])
   const doc = new jsPDF({ unit: "mm", format: "a4" })
   const W = doc.internal.pageSize.getWidth()
   const M = 18
   let y = M
 
-  // Brand mark: rounded square + check
-  doc.setFillColor(...C.primary)
-  doc.roundedRect(M, y, 10, 10, 2, 2, "F")
-  doc.setDrawColor(255, 255, 255)
-  doc.setLineWidth(0.9)
-  doc.lines([[2.2, 2.2], [4.2, -4.6]], M + 2.6, y + 5.2)
-  doc.setFont("helvetica", "bold")
-  doc.setFontSize(13)
-  doc.setTextColor(...C.text)
-  doc.text("Electify", M + 13, y + 6.8)
+  // Logo: the primary lockup, E 8mm tall
+  drawLogo(doc, { x: M, y: y + 1, height: 8 })
 
   doc.setFont("helvetica", "normal")
   doc.setFontSize(9)

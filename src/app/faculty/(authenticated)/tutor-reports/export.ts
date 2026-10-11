@@ -124,18 +124,20 @@ export function exportSectionCSV(d: ExportInput) {
 // ── Premium PDF Export ─────────────────────────────────────────────────
 export async function exportSectionPDF(d: ExportInput) {
   const { students, groups, groupedSubjects, totalStudents, registeredCount, pendingCount, overallPct, sectionLabel, programmeName, departmentName } = d;
-  const [{ default: jsPDF }, { default: autoTable }] = await Promise.all([import("jspdf"), import("jspdf-autotable")]);
+  const [{ default: jsPDF }, { default: autoTable }, { drawLogo, BRAND_PDF }] = await Promise.all([
+    import("jspdf"),
+    import("jspdf-autotable"),
+    import("@/lib/brand-pdf"),
+  ]);
 
   const doc = new jsPDF({ orientation: "landscape" });
   const pageWidth = doc.internal.pageSize.getWidth();
 
-  // Header
-  doc.setFillColor(15, 23, 42);
+  // Header: midnight bar with the reverse logo (E 8mm)
+  doc.setFillColor(...BRAND_PDF.midnight);
   doc.rect(0, 0, pageWidth, 32, "F");
+  drawLogo(doc, { x: 14, y: 7.5, height: 8, ink: BRAND_PDF.mist });
   doc.setTextColor(255, 255, 255);
-  doc.setFontSize(18);
-  doc.setFont("helvetica", "bold");
-  doc.text("ELECTIFY", 14, 15);
   doc.setFontSize(10);
   doc.setFont("helvetica", "normal");
   doc.text("Elective Registration Report", 14, 23);
@@ -171,7 +173,7 @@ export async function exportSectionPDF(d: ExportInput) {
 
   // Student table sorted ascending by register number
   let startY = boxY + 30;
-  doc.setTextColor(15, 23, 42);
+  doc.setTextColor(14, 19, 48);
   doc.setFontSize(11);
   doc.setFont("helvetica", "bold");
   doc.text("Student Registration Details (Ascending by Reg. No.)", 14, startY);
@@ -194,7 +196,7 @@ export async function exportSectionPDF(d: ExportInput) {
     body: tableData,
     startY,
     styles: { fontSize: 7, cellPadding: 3, lineWidth: 0.1, lineColor: [226, 232, 240] },
-    headStyles: { fillColor: [15, 23, 42], textColor: [255, 255, 255], fontStyle: "bold", fontSize: 7 },
+    headStyles: { fillColor: [14, 19, 48], textColor: [255, 255, 255], fontStyle: "bold", fontSize: 7 },
     alternateRowStyles: { fillColor: [248, 250, 252] },
     columnStyles: {
       0: { cellWidth: 10, halign: "center" },
@@ -221,7 +223,7 @@ export async function exportSectionPDF(d: ExportInput) {
 
   // Subject Distribution Page
   doc.addPage();
-  doc.setFillColor(15, 23, 42);
+  doc.setFillColor(14, 19, 48);
   doc.rect(0, 0, pageWidth, 24, "F");
   doc.setTextColor(255, 255, 255);
   doc.setFontSize(14);
@@ -233,7 +235,7 @@ export async function exportSectionPDF(d: ExportInput) {
     body: groups.map((g) => [g.groupName, g.courseCode ?? "—", g.electiveName, String(g.count)]),
     startY: 30,
     styles: { fontSize: 8, cellPadding: 4, lineWidth: 0.1, lineColor: [226, 232, 240] },
-    headStyles: { fillColor: [15, 23, 42], textColor: [255, 255, 255], fontStyle: "bold" },
+    headStyles: { fillColor: [14, 19, 48], textColor: [255, 255, 255], fontStyle: "bold" },
     alternateRowStyles: { fillColor: [248, 250, 252] },
     columnStyles: {
       3: { halign: "center", fontStyle: "bold" },
@@ -245,7 +247,7 @@ export async function exportSectionPDF(d: ExportInput) {
     groupSubjects.forEach((subject) => {
       doc.addPage();
 
-      doc.setFillColor(15, 23, 42);
+      doc.setFillColor(14, 19, 48);
       doc.rect(0, 0, pageWidth, 24, "F");
       doc.setTextColor(255, 255, 255);
       doc.setFontSize(14);
@@ -274,7 +276,7 @@ export async function exportSectionPDF(d: ExportInput) {
           body: subjectTableData,
           startY: 30,
           styles: { fontSize: 7, cellPadding: 3, lineWidth: 0.1, lineColor: [226, 232, 240] },
-          headStyles: { fillColor: [15, 23, 42], textColor: [255, 255, 255], fontStyle: "bold", fontSize: 7 },
+          headStyles: { fillColor: [14, 19, 48], textColor: [255, 255, 255], fontStyle: "bold", fontSize: 7 },
           alternateRowStyles: { fillColor: [248, 250, 252] },
           columnStyles: {
             0: { cellWidth: 10, halign: "center" },
