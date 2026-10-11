@@ -23,7 +23,7 @@ export default function BrandPage() {
       <header className="space-y-2">
         <Logo size="lg" />
         <p className="text-sm text-fg-muted">
-          Logo from the &ldquo;Electify Logo&rdquo; canvas. Size = height of the E. The check appears from 48px, as on the canvas&apos;s favicon drawings.
+          The E as a seat map: taken seats spell the E, the gold dot is the confirmed seat. Size = height of the E. From 48px the full 10 × 10 seat map and the check are drawn; below that, the same E at 5 × 5 seats so it stays crisp.
         </p>
       </header>
 

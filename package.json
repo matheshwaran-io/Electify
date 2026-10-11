@@ -12,7 +12,8 @@
     "db:push": "drizzle-kit push",
     "db:seed": "tsx src/lib/db/seed.ts",
     "db:reset": "tsx src/lib/db/reset.ts",
-    "fix:passwords": "tsx scripts/fix-passwords.ts"
+    "fix:passwords": "tsx scripts/fix-passwords.ts",
+    "brand:generate": "tsx scripts/brand/generate-brand-assets.ts"
   },
   "dependencies": {
     "@base-ui/react": "^1.5.0",

@@ -8,5 +8,5 @@ export default async function UsersPage() {
   const session = await getSession();
   if (!session || session.role !== "SYSTEM_ADMIN") redirect("/faculty/dashboard");
   const [staff, students, hierarchy] = await Promise.all([getStaffUsers(), getStudentUsers(), getPublicHierarchy()]);
-  return <UsersClient staff={staff} students={students} hierarchy={hierarchy.faculties} />;
+  return <UsersClient staff={staff} students={students} hierarchy={hierarchy.faculties} currentUserId={session.userId} />;
 }

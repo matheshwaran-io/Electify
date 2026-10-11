@@ -1,41 +1,13 @@
 "use client"
 
-import * as React from "react"
-import { motion, useMotionValue, useReducedMotion, useSpring } from "framer-motion"
 import { FileCheck2, Lock, RadioTower } from "lucide-react"
-import { spring } from "@/lib/motion"
-import { Sphere } from "@/components/sphere"
+import { SeatMark } from "@/components/auth/seat-mark"
 
 const POINTS = [
   { icon: RadioTower, title: "Live seat counts", body: "Every card updates the moment a seat is taken." },
   { icon: Lock, title: "No double booking", body: "Each confirmation locks its seats before it commits." },
   { icon: FileCheck2, title: "A receipt that stays put", body: "Your choices are saved the moment you confirm." },
 ]
-
-/** Sphere that leans a few pixels toward the cursor (pointer devices only). */
-function DriftingSphere({ size }: { size: number }) {
-  const reduce = useReducedMotion()
-  const x = useMotionValue(0)
-  const y = useMotionValue(0)
-  const sx = useSpring(x, spring.gentle)
-  const sy = useSpring(y, spring.gentle)
-
-  React.useEffect(() => {
-    if (reduce || !window.matchMedia("(hover: hover)").matches) return
-    const onMove = (e: PointerEvent) => {
-      x.set((e.clientX / window.innerWidth - 0.5) * 18)
-      y.set((e.clientY / window.innerHeight - 0.5) * 18)
-    }
-    window.addEventListener("pointermove", onMove)
-    return () => window.removeEventListener("pointermove", onMove)
-  }, [reduce, x, y])
-
-  return (
-    <motion.div style={{ x: sx, y: sy }}>
-      <Sphere size={size} />
-    </motion.div>
-  )
-}
 
 /** Editorial hero for the sign-in screen. Compact on phones, full on desktop. */
 export function BrandPanel() {
@@ -47,7 +19,7 @@ export function BrandPanel() {
           Elective registration, without the scramble.
         </h1>
         <div className="-mr-2 mb-1 shrink-0 animate-enter [animation-delay:120ms]">
-          <Sphere size={84} halo={false} />
+          <SeatMark size={84} interactive={false} />
         </div>
       </div>
 
@@ -61,7 +33,12 @@ export function BrandPanel() {
         </p>
 
         <div className="mt-14 flex items-center gap-12 animate-enter [animation-delay:160ms]">
-          <DriftingSphere size={220} />
+          <figure className="flex shrink-0 flex-col items-center gap-3">
+            <SeatMark size={236} />
+            <figcaption aria-hidden className="text-xs text-fg-muted">
+              Tap an open seat
+            </figcaption>
+          </figure>
           <ul className="flex-1 divide-y divide-border border-y border-border">
             {POINTS.map(({ icon: Icon, title, body }) => (
               <li key={title} className="flex gap-4 py-4">

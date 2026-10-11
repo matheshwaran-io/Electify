@@ -4,10 +4,12 @@ import { db } from "@/lib/db";
 import {
   users, registrationEvents, faculties, departments,
   programmes, academicBatches, sections, auditLogs, eventTemplates,
-  templateGroups, inviteCodes, systemSettings, tutorSections
+  templateGroups, inviteCodes, systemSettings, tutorSections,
+  studentRegistrations, registrations, electives, electiveSeatAllocations, eventStudents
 } from "@/lib/db/schema";
 import { getSession } from "@/lib/auth";
-import { eq, desc, count, asc, or, inArray } from "drizzle-orm";
+import { eq, desc, count, asc, or, inArray, sql, and } from "drizzle-orm";
+import * as bcrypt from "bcryptjs";
 
 async function assertAdmin() {
   const session = await getSession();
@@ -31,7 +33,9 @@ export async function getEvents() {
     .select({
       id: registrationEvents.id,
       name: registrationEvents.name,
+      description: registrationEvents.description,
       academicYear: registrationEvents.academicYear,
+      academicBatchId: registrationEvents.academicBatchId,
       status: registrationEvents.status,
       openDate: registrationEvents.openDate,
       closeDate: registrationEvents.closeDate,
@@ -45,6 +49,23 @@ export async function getEvents() {
     .orderBy(desc(registrationEvents.createdAt));
   return events;
 }
+
+export async function getBatchesForEvents() {
+  await assertAdminOrCoordinator();
+  return db
+    .select({
+      id: academicBatches.id,
+      year: academicBatches.year,
+      programmeId: programmes.id,
+      programmeName: programmes.name,
+      programmeCode: programmes.code,
+    })
+    .from(academicBatches)
+    .leftJoin(programmes, eq(academicBatches.programmeId, programmes.id))
+    .where(eq(academicBatches.isActive, true))
+    .orderBy(asc(programmes.name), asc(academicBatches.year));
+}
+
 
 // ── Academic Hierarchy ──────────────────────────────────────────────────────
 
@@ -130,6 +151,7 @@ export async function getStaffUsers() {
       email: users.email,
       role: users.role,
       employeeId: users.employeeId,
+      phone: users.phone,
       isActive: users.isActive,
       createdAt: users.createdAt,
     })
@@ -166,6 +188,10 @@ export async function getStudentUsers() {
       name: users.name,
       email: users.email,
       registerNumber: users.registerNumber,
+      phone: users.phone,
+      programmeId: users.programmeId,
+      academicBatchId: users.academicBatchId,
+      sectionId: users.sectionId,
       isActive: users.isActive,
       isEligible: users.isEligible,
       createdAt: users.createdAt,
@@ -176,6 +202,7 @@ export async function getStudentUsers() {
     .leftJoin(programmes, eq(users.programmeId, programmes.id))
     .orderBy(asc(users.name));
 }
+
 
 // ── Invite Codes ─────────────────────────────────────────────────────────────
 
@@ -314,3 +341,619 @@ export async function assignTutorSections(tutorId: string, sectionIds: string[])
 
   return { success: true };
 }
+
+// ── Faculty & Department Management ─────────────────────────────────────────
+
+export async function createFaculty(data: {
+  name: string;
+  code: string;
+  initialDepartment?: {
+    name: string;
+    code: string;
+  };
+}) {
+  const session = await assertAdminOrCoordinator();
+
+  const name = data.name?.trim();
+  const code = data.code?.trim().toUpperCase();
+
+  if (!name || !code) {
+    throw new Error("Faculty name and code are required.");
+  }
+
+  // Check if faculty with same code or name exists
+  const existingFaculty = await db
+    .select({ id: faculties.id, code: faculties.code, name: faculties.name })
+    .from(faculties)
+    .where(
+      or(
+        eq(sql`lower(${faculties.code})`, code.toLowerCase()),
+        eq(sql`lower(${faculties.name})`, name.toLowerCase())
+      )
+    )
+    .limit(1);
+
+  if (existingFaculty.length > 0) {
+    if (existingFaculty[0].code.toUpperCase() === code) {
+      throw new Error(`Faculty code "${code}" already exists.`);
+    }
+    throw new Error(`Faculty name "${name}" already exists.`);
+  }
+
+  let initialDeptData = data.initialDepartment;
+  if (initialDeptData && (!initialDeptData.name?.trim() || !initialDeptData.code?.trim())) {
+    initialDeptData = undefined;
+  }
+
+  if (initialDeptData) {
+    const deptName = initialDeptData.name.trim();
+    const deptCode = initialDeptData.code.trim().toUpperCase();
+
+    const existingDept = await db
+      .select({ id: departments.id, code: departments.code, name: departments.name })
+      .from(departments)
+      .where(
+        or(
+          eq(sql`lower(${departments.code})`, deptCode.toLowerCase()),
+          eq(sql`lower(${departments.name})`, deptName.toLowerCase())
+        )
+      )
+      .limit(1);
+
+    if (existingDept.length > 0) {
+      if (existingDept[0].code.toUpperCase() === deptCode) {
+        throw new Error(`Department code "${deptCode}" already exists.`);
+      }
+      throw new Error(`Department name "${deptName}" already exists.`);
+    }
+  }
+
+  const result = await db.transaction(async (tx) => {
+    const [newFaculty] = await tx
+      .insert(faculties)
+      .values({
+        name,
+        code,
+      })
+      .returning();
+
+    let newDept = null;
+    if (initialDeptData) {
+      const deptName = initialDeptData.name.trim();
+      const deptCode = initialDeptData.code.trim().toUpperCase();
+      const [insertedDept] = await tx
+        .insert(departments)
+        .values({
+          name: deptName,
+          code: deptCode,
+          facultyId: newFaculty.id,
+        })
+        .returning();
+      newDept = insertedDept;
+
+      await tx.insert(auditLogs).values({
+        action: "DEPARTMENT_CREATED",
+        userId: session.userId,
+        userEmail: session.email,
+        userRole: session.role,
+        newValue: { id: insertedDept.id, name: deptName, code: deptCode, facultyId: newFaculty.id },
+      });
+    }
+
+    await tx.insert(auditLogs).values({
+      action: "FACULTY_CREATED",
+      userId: session.userId,
+      userEmail: session.email,
+      userRole: session.role,
+      newValue: { id: newFaculty.id, name, code },
+    });
+
+    return { faculty: newFaculty, department: newDept };
+  });
+
+  try {
+    const { revalidatePath, revalidateTag } = await import("next/cache");
+    revalidatePath("/faculty/departments");
+    revalidatePath("/", "layout");
+    // @ts-expect-error next 16 revalidateTag overload
+    revalidateTag("hierarchy");
+  } catch (err) {
+    console.warn("Revalidation warning:", err);
+  }
+
+  return { success: true, ...result };
+}
+
+export async function createDepartment(data: {
+  facultyId: string;
+  name: string;
+  code: string;
+}) {
+  const session = await assertAdminOrCoordinator();
+
+  const facultyId = data.facultyId?.trim();
+  const name = data.name?.trim();
+  const code = data.code?.trim().toUpperCase();
+
+  if (!facultyId) {
+    throw new Error("Faculty is required.");
+  }
+  if (!name || !code) {
+    throw new Error("Department name and code are required.");
+  }
+
+  const [faculty] = await db
+    .select({ id: faculties.id, name: faculties.name })
+    .from(faculties)
+    .where(eq(faculties.id, facultyId));
+
+  if (!faculty) {
+    throw new Error("Selected faculty not found.");
+  }
+
+  const existingDept = await db
+    .select({ id: departments.id, code: departments.code, name: departments.name })
+    .from(departments)
+    .where(
+      or(
+        eq(sql`lower(${departments.code})`, code.toLowerCase()),
+        eq(sql`lower(${departments.name})`, name.toLowerCase())
+      )
+    )
+    .limit(1);
+
+  if (existingDept.length > 0) {
+    if (existingDept[0].code.toUpperCase() === code) {
+      throw new Error(`Department code "${code}" already exists.`);
+    }
+    throw new Error(`Department name "${name}" already exists.`);
+  }
+
+  const [newDepartment] = await db
+    .insert(departments)
+    .values({
+      name,
+      code,
+      facultyId,
+    })
+    .returning();
+
+  await db.insert(auditLogs).values({
+    action: "DEPARTMENT_CREATED",
+    userId: session.userId,
+    userEmail: session.email,
+    userRole: session.role,
+    newValue: { id: newDepartment.id, name, code, facultyId },
+  });
+
+  try {
+    const { revalidatePath, revalidateTag } = await import("next/cache");
+    revalidatePath("/faculty/departments");
+    revalidatePath("/", "layout");
+    // @ts-expect-error next 16 revalidateTag overload
+    revalidateTag("hierarchy");
+  } catch (err) {
+    console.warn("Revalidation warning:", err);
+  }
+
+  return { success: true, department: newDepartment };
+}
+
+export async function deleteFaculty(facultyId: string) {
+  const session = await assertAdminOrCoordinator();
+
+  const [faculty] = await db
+    .select()
+    .from(faculties)
+    .where(eq(faculties.id, facultyId));
+
+  if (!faculty) throw new Error("Faculty not found.");
+
+  // Check if any users are linked directly to this faculty
+  const [usersCount] = await db
+    .select({ count: count() })
+    .from(users)
+    .where(eq(users.facultyId, facultyId));
+
+  if (Number(usersCount?.count || 0) > 0) {
+    throw new Error(`Cannot delete "${faculty.name}" because ${usersCount.count} user(s) are assigned to it.`);
+  }
+
+  await db.transaction(async (tx) => {
+    // Delete faculty - cascade deletes departments, programmes, batches, sections
+    await tx.delete(faculties).where(eq(faculties.id, facultyId));
+
+    await tx.insert(auditLogs).values({
+      action: "FACULTY_DELETED",
+      userId: session.userId,
+      userEmail: session.email,
+      userRole: session.role,
+      metadata: { id: facultyId, name: faculty.name, code: faculty.code },
+    });
+  });
+
+  try {
+    const { revalidatePath, revalidateTag } = await import("next/cache");
+    revalidatePath("/faculty/departments");
+    revalidatePath("/", "layout");
+    // @ts-expect-error next 16 revalidateTag overload
+    revalidateTag("hierarchy");
+  } catch (err) {
+    console.warn("Revalidation warning:", err);
+  }
+
+  return { success: true };
+}
+
+export async function deleteDepartment(departmentId: string) {
+  const session = await assertAdminOrCoordinator();
+
+  const [department] = await db
+    .select()
+    .from(departments)
+    .where(eq(departments.id, departmentId));
+
+  if (!department) throw new Error("Department not found.");
+
+  // Check if any users are linked directly to this department
+  const [usersCount] = await db
+    .select({ count: count() })
+    .from(users)
+    .where(eq(users.departmentId, departmentId));
+
+  if (Number(usersCount?.count || 0) > 0) {
+    throw new Error(`Cannot delete "${department.name}" because ${usersCount.count} user(s) are assigned to it.`);
+  }
+
+  await db.transaction(async (tx) => {
+    // Delete department - cascade deletes programmes, batches, sections
+    await tx.delete(departments).where(eq(departments.id, departmentId));
+
+    await tx.insert(auditLogs).values({
+      action: "DEPARTMENT_DELETED",
+      userId: session.userId,
+      userEmail: session.email,
+      userRole: session.role,
+      metadata: { id: departmentId, name: department.name, code: department.code, facultyId: department.facultyId },
+    });
+  });
+
+  try {
+    const { revalidatePath, revalidateTag } = await import("next/cache");
+    revalidatePath("/faculty/departments");
+    revalidatePath("/", "layout");
+    // @ts-expect-error next 16 revalidateTag overload
+    revalidateTag("hierarchy");
+  } catch (err) {
+    console.warn("Revalidation warning:", err);
+  }
+
+  return { success: true };
+}
+
+// ── User Management (Create, Update, Delete, Password Reset, Status Toggle) ──
+
+export async function createUser(data: {
+  name: string;
+  email: string;
+  password?: string;
+  role: "SYSTEM_ADMIN" | "COURSE_COORDINATOR" | "CLASS_TUTOR" | "STUDENT";
+  employeeId?: string;
+  registerNumber?: string;
+  phone?: string;
+  programmeId?: string;
+  academicBatchId?: string;
+  sectionId?: string;
+  isEligible?: boolean;
+}) {
+  const session = await assertAdmin();
+
+  const name = data.name?.trim();
+  const email = data.email?.trim().toLowerCase();
+  if (!name) throw new Error("Name is required.");
+  if (!email) throw new Error("Email is required.");
+
+  // Check email uniqueness
+  const [existingEmail] = await db
+    .select({ id: users.id })
+    .from(users)
+    .where(eq(sql`lower(${users.email})`, email));
+  if (existingEmail) throw new Error(`User with email "${email}" already exists.`);
+
+  // Check employeeId if staff
+  const employeeId = data.employeeId?.trim() || null;
+  if (employeeId) {
+    const [existingEmp] = await db
+      .select({ id: users.id })
+      .from(users)
+      .where(eq(sql`lower(${users.employeeId})`, employeeId.toLowerCase()));
+    if (existingEmp) throw new Error(`Employee ID "${employeeId}" already exists.`);
+  }
+
+  // Check registerNumber if student
+  const registerNumber = data.registerNumber?.trim().toUpperCase() || null;
+  if (registerNumber) {
+    const [existingReg] = await db
+      .select({ id: users.id })
+      .from(users)
+      .where(eq(sql`lower(${users.registerNumber})`, registerNumber.toLowerCase()));
+    if (existingReg) throw new Error(`Register number "${registerNumber}" already exists.`);
+  }
+
+  const rawPassword = data.password?.trim() || (data.role === "STUDENT" ? (registerNumber || "Student@123") : "Welcome@123");
+  const passwordHash = await bcrypt.hash(rawPassword, 12);
+
+  const [newUser] = await db
+    .insert(users)
+    .values({
+      name,
+      email,
+      passwordHash,
+      role: data.role,
+      employeeId,
+      registerNumber,
+      phone: data.phone?.trim() || null,
+      programmeId: data.programmeId || null,
+      academicBatchId: data.academicBatchId || null,
+      sectionId: data.sectionId || null,
+      isEligible: data.isEligible !== undefined ? data.isEligible : true,
+      isActive: true,
+    })
+    .returning();
+
+  await db.insert(auditLogs).values({
+    action: "USER_CREATED",
+    userId: session.userId,
+    userEmail: session.email,
+    userRole: session.role,
+    newValue: { id: newUser.id, name, email, role: data.role },
+  });
+
+  const { revalidatePath } = await import("next/cache");
+  revalidatePath("/faculty/users");
+
+  return { success: true, user: newUser };
+}
+
+export async function updateUser(
+  userId: string,
+  data: {
+    name?: string;
+    email?: string;
+    role?: string;
+    employeeId?: string | null;
+    registerNumber?: string | null;
+    phone?: string | null;
+    isActive?: boolean;
+    isEligible?: boolean;
+  }
+) {
+  const session = await assertAdmin();
+
+  const [user] = await db.select().from(users).where(eq(users.id, userId));
+  if (!user) throw new Error("User not found.");
+
+  const updates: Record<string, any> = { updatedAt: new Date() };
+
+  if (data.name !== undefined) {
+    const name = data.name.trim();
+    if (!name) throw new Error("Name cannot be empty.");
+    updates.name = name;
+  }
+
+  if (data.email !== undefined) {
+    const email = data.email.trim().toLowerCase();
+    if (!email) throw new Error("Email cannot be empty.");
+    if (email !== user.email.toLowerCase()) {
+      const [existing] = await db
+        .select({ id: users.id })
+        .from(users)
+        .where(and(eq(sql`lower(${users.email})`, email), sql`${users.id} != ${userId}`));
+      if (existing) throw new Error(`Email "${email}" is already in use.`);
+    }
+    updates.email = email;
+  }
+
+  if (data.employeeId !== undefined) {
+    const emp = data.employeeId?.trim() || null;
+    if (emp && emp !== user.employeeId) {
+      const [existing] = await db
+        .select({ id: users.id })
+        .from(users)
+        .where(and(eq(sql`lower(${users.employeeId})`, emp.toLowerCase()), sql`${users.id} != ${userId}`));
+      if (existing) throw new Error(`Employee ID "${emp}" is already in use.`);
+    }
+    updates.employeeId = emp;
+  }
+
+  if (data.registerNumber !== undefined) {
+    const reg = data.registerNumber?.trim().toUpperCase() || null;
+    if (reg && reg !== user.registerNumber) {
+      const [existing] = await db
+        .select({ id: users.id })
+        .from(users)
+        .where(and(eq(sql`lower(${users.registerNumber})`, reg.toLowerCase()), sql`${users.id} != ${userId}`));
+      if (existing) throw new Error(`Register number "${reg}" is already in use.`);
+    }
+    updates.registerNumber = reg;
+  }
+
+  if (data.phone !== undefined) updates.phone = data.phone?.trim() || null;
+  if (data.role !== undefined && ["SYSTEM_ADMIN", "COURSE_COORDINATOR", "CLASS_TUTOR", "STUDENT"].includes(data.role)) {
+    updates.role = data.role;
+  }
+  if (data.isActive !== undefined) updates.isActive = data.isActive;
+  if (data.isEligible !== undefined) updates.isEligible = data.isEligible;
+
+  await db.update(users).set(updates).where(eq(users.id, userId));
+
+  await db.insert(auditLogs).values({
+    action: "USER_UPDATED",
+    userId: session.userId,
+    userEmail: session.email,
+    userRole: session.role,
+    oldValue: { name: user.name, email: user.email, role: user.role, isActive: user.isActive },
+    newValue: updates,
+    metadata: { targetUserId: userId },
+  });
+
+  const { revalidatePath } = await import("next/cache");
+  revalidatePath("/faculty/users");
+
+  return { success: true };
+}
+
+export async function toggleUserActive(userId: string, isActive: boolean) {
+  const session = await assertAdmin();
+  if (session.userId === userId && !isActive) {
+    throw new Error("You cannot deactivate your own account.");
+  }
+
+  await db
+    .update(users)
+    .set({ isActive, updatedAt: new Date() })
+    .where(eq(users.id, userId));
+
+  await db.insert(auditLogs).values({
+    action: isActive ? "USER_ACTIVATED" : "USER_DEACTIVATED",
+    userId: session.userId,
+    userEmail: session.email,
+    userRole: session.role,
+    metadata: { targetUserId: userId, newStatus: isActive },
+  });
+
+  const { revalidatePath } = await import("next/cache");
+  revalidatePath("/faculty/users");
+
+  return { success: true };
+}
+
+export async function toggleStudentEligibility(studentId: string, isEligible: boolean) {
+  const session = await assertAdmin();
+
+  await db
+    .update(users)
+    .set({ isEligible, updatedAt: new Date() })
+    .where(eq(users.id, studentId));
+
+  await db.insert(auditLogs).values({
+    action: isEligible ? "STUDENT_MARKED_ELIGIBLE" : "STUDENT_MARKED_INELIGIBLE",
+    userId: session.userId,
+    userEmail: session.email,
+    userRole: session.role,
+    metadata: { targetStudentId: studentId, isEligible },
+  });
+
+  const { revalidatePath } = await import("next/cache");
+  revalidatePath("/faculty/users");
+
+  return { success: true };
+}
+
+export async function adminResetPassword(userId: string, newPassword: string) {
+  const session = await assertAdmin();
+
+  if (!newPassword || newPassword.trim().length < 6) {
+    throw new Error("Password must be at least 6 characters.");
+  }
+
+  const passwordHash = await bcrypt.hash(newPassword.trim(), 12);
+
+  await db
+    .update(users)
+    .set({ passwordHash, updatedAt: new Date() })
+    .where(eq(users.id, userId));
+
+  await db.insert(auditLogs).values({
+    action: "PASSWORD_RESET_BY_ADMIN",
+    userId: session.userId,
+    userEmail: session.email,
+    userRole: session.role,
+    metadata: { targetUserId: userId },
+  });
+
+  return { success: true };
+}
+
+export async function deleteUser(userId: string) {
+  const session = await assertAdmin();
+  if (session.userId === userId) {
+    throw new Error("You cannot delete your own account.");
+  }
+
+  const [user] = await db.select().from(users).where(eq(users.id, userId));
+  if (!user) throw new Error("User not found.");
+
+  await db.transaction(async (tx) => {
+    // 1. If user is a student, refund seats and clean up student records
+    if (user.role === "STUDENT") {
+      const studentRegs = await tx
+        .select()
+        .from(studentRegistrations)
+        .where(eq(studentRegistrations.studentId, userId));
+
+      for (const reg of studentRegs) {
+        const [elective] = await tx
+          .select({ availableSeats: electives.availableSeats })
+          .from(electives)
+          .where(eq(electives.id, reg.electiveId));
+        if (elective) {
+          await tx
+            .update(electives)
+            .set({ availableSeats: elective.availableSeats + 1, isFull: false })
+            .where(eq(electives.id, reg.electiveId));
+        }
+
+        if (user.sectionId) {
+          await tx
+            .update(electiveSeatAllocations)
+            .set({
+              availableSeats: sql`${electiveSeatAllocations.availableSeats} + 1`,
+              isFull: false,
+              updatedAt: new Date(),
+            })
+            .where(
+              and(
+                eq(electiveSeatAllocations.electiveId, reg.electiveId),
+                eq(electiveSeatAllocations.sectionId, user.sectionId)
+              )
+            );
+        }
+      }
+
+      await tx.delete(studentRegistrations).where(eq(studentRegistrations.studentId, userId));
+      await tx.delete(registrations).where(eq(registrations.studentId, userId));
+      await tx.delete(eventStudents).where(eq(eventStudents.studentId, userId));
+    }
+
+    // 2. If tutor, delete tutor section mappings
+    if (user.role === "CLASS_TUTOR") {
+      await tx.delete(tutorSections).where(eq(tutorSections.tutorId, userId));
+    }
+
+    // 3. Reassign references on items created by this user to current admin
+    await tx.update(inviteCodes).set({ createdById: session.userId }).where(eq(inviteCodes.createdById, userId));
+    await tx.update(eventTemplates).set({ createdById: session.userId }).where(eq(eventTemplates.createdById, userId));
+    await tx.update(registrationEvents).set({ createdById: session.userId }).where(eq(registrationEvents.createdById, userId));
+
+    // 4. Delete the user
+    await tx.delete(users).where(eq(users.id, userId));
+
+    // 5. Audit log
+    await tx.insert(auditLogs).values({
+      action: "USER_DELETED",
+      userId: session.userId,
+      userEmail: session.email,
+      userRole: session.role,
+      metadata: { deletedUserId: userId, name: user.name, email: user.email, role: user.role },
+    });
+  });
+
+  const { revalidatePath } = await import("next/cache");
+  revalidatePath("/faculty/users");
+
+  return { success: true };
+}
+
+
+
