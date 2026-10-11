@@ -42,7 +42,7 @@ export default async function ReplayIndexPage() {
   return (
     <div className="space-y-8">
       <div>
-        <h1 className="text-3xl font-bold tracking-tight text-fg">Registration Replay</h1>
+        <h1 className="text-3xl font-light tracking-display text-fg">Registration Replay</h1>
         <p className="text-fg-muted mt-2">
           Select an event to replay the entire registration session chronologically.
         </p>
@@ -56,16 +56,12 @@ export default async function ReplayIndexPage() {
                 <div className="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center group-hover:scale-110 transition-transform">
                   <PlayCircle className="w-6 h-6 text-primary-text" />
                 </div>
-                <span className={`px-3 py-1 rounded-full text-xs font-medium uppercase tracking-wider ${
-                  event.status === "OPEN" ? "bg-success/10 text-success-text" :
-                  event.status === "CLOSED" ? "bg-danger/10 text-danger-text" :
-                  "bg-surface-2 text-fg-muted"
-                }`}>
+                <span className={`px-3 py-1 rounded-full text-xs font-medium ${ event.status === "OPEN" ? "bg-success/10 text-success-text" : event.status === "CLOSED" ? "bg-danger/10 text-danger-text" : "bg-surface-2 text-fg-muted" }`}>
                   {event.status}
                 </span>
               </div>
               
-              <h3 className="text-lg font-bold text-fg mb-2 line-clamp-2">
+              <h3 className="text-lg font-medium text-fg mb-2 line-clamp-2">
                 {event.name}
               </h3>
               

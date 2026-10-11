@@ -33,7 +33,7 @@ export function MenuContent({
 }
 
 const itemClass = cn(
-  "flex w-full cursor-default select-none items-center gap-2.5 rounded-badge px-2.5 py-2 text-sm text-fg outline-none",
+  "flex w-full cursor-default select-none items-center gap-2.5 rounded-control px-2.5 py-2 text-sm text-fg outline-none",
   "data-highlighted:bg-surface-2 data-disabled:pointer-events-none data-disabled:opacity-50",
   "[&_svg]:size-4 [&_svg]:shrink-0 [&_svg]:text-fg-subtle"
 )
@@ -55,8 +55,8 @@ export function MenuLinkItem({ className, ...props }: MenuPrimitive.LinkItem.Pro
   return <MenuPrimitive.LinkItem className={cn(itemClass, className)} {...props} />
 }
 
-export function MenuLabel({ className, ...props }: MenuPrimitive.GroupLabel.Props) {
-  return <MenuPrimitive.GroupLabel className={cn("px-2.5 pb-1 pt-2 text-xs font-medium text-fg-subtle", className)} {...props} />
+export function MenuLabel({ className, ...props }: React.ComponentProps<"div">) {
+  return <div className={cn("px-2.5 pb-1 pt-2 text-xs font-medium text-fg-subtle", className)} {...props} />
 }
 
 export function MenuSeparator({ className }: { className?: string }) {

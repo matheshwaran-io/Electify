@@ -120,7 +120,7 @@ export function ConfirmDialog({
           {requireText ? (
             <div className="space-y-2">
               <label htmlFor={inputId} className="text-sm text-fg-muted">
-                Type <span className="font-mono font-semibold text-fg">{requireText}</span> to confirm
+                Type <span className="font-mono font-medium text-fg">{requireText}</span> to confirm
               </label>
               <Input
                 id={inputId}

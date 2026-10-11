@@ -9,6 +9,8 @@ export interface Elective {
   availableSeats: number;
   isActive: boolean;
   isFull: boolean;
+  sectionAvailableSeats?: number;
+  sectionMaxSeats?: number;
 }
 
 export interface Group {

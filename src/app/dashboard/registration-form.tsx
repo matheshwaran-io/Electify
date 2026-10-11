@@ -32,6 +32,7 @@ interface Event {
   status: string;
   openDate: Date | null;
   closeDate: Date | null;
+  enableWaitlist?: boolean;
 }
 
 interface RegistrationFormProps {
@@ -177,14 +178,18 @@ export function RegistrationForm({ event, student, groups, electives, initialReg
       if (before === undefined || before === e.availableSeats || !picked.has(e.id)) continue;
       const group = groups.find((g) => g.id === e.groupId);
       if (e.availableSeats <= 0 && !initiallySelected.has(e.id)) {
-        setSelections((prev) => ({ ...prev, [e.groupId]: (prev[e.groupId] ?? []).filter((id) => id !== e.id) }));
-        setConflicts((c) => ({ ...c, [e.id]: "This filled up while you were choosing. Your other picks are safe." }));
-        setAnnouncement(`${e.name} just filled up and was removed from your picks. Choose another in ${group?.name ?? "this group"}.`);
+        if (!event.enableWaitlist) {
+          setSelections((prev) => ({ ...prev, [e.groupId]: (prev[e.groupId] ?? []).filter((id) => id !== e.id) }));
+          setConflicts((c) => ({ ...c, [e.id]: "This filled up while you were choosing. Your other picks are safe." }));
+          setAnnouncement(`${e.name} just filled up and was removed from your picks. Choose another in ${group?.name ?? "this group"}.`);
+        } else {
+          setAnnouncement(`${e.name} has filled up. You will be registered on the waitlist upon submission.`);
+        }
       } else if (e.availableSeats < 10 && before >= 10) {
         setAnnouncement(`Only ${e.availableSeats} seats left in ${e.name}, one of your picks.`);
       }
     }
-  }, [localElectives, selections, groups, initiallySelected]);
+  }, [localElectives, selections, groups, initiallySelected, event.enableWaitlist]);
 
   const canSubmit = React.useMemo(() => {
     return groups.every((g) => groupComplete(g, selections[g.id]?.length || 0)) && student.isEligible;
@@ -402,6 +407,7 @@ export function RegistrationForm({ event, student, groups, electives, initialReg
             compare={compare}
             conflicts={conflicts}
             suggestionsFor={suggestionsFor}
+            waitlistEnabled={Boolean(event.enableWaitlist)}
             onSelect={handleSelect}
             onDetails={setDetailId}
             onCompare={toggleCompare}
@@ -413,14 +419,11 @@ export function RegistrationForm({ event, student, groups, electives, initialReg
       <div className="fixed inset-x-0 bottom-0 z-30 pb-safe">
         <div className="mx-auto max-w-6xl px-3 pb-3 sm:px-6 sm:pb-5">
           <motion.div
-            initial={{ y: 24, opacity: 0 }}
-            animate={{ y: 0, opacity: 1 }}
-            transition={spring.gentle}
-            className="flex flex-col gap-3 rounded-card border border-border bg-surface/92 p-3 shadow-3 backdrop-blur-xl sm:flex-row sm:items-center sm:p-4"
+            className="flex flex-col gap-3 rounded-panel border border-border bg-surface/90 p-3 shadow-3 backdrop-blur-xl animate-enter [animation-delay:200ms] sm:flex-row sm:items-center sm:rounded-full sm:py-2.5 sm:pl-6 sm:pr-2.5"
           >
             <div className="min-w-0 flex-1">
               <div className="flex items-center gap-2">
-                <p className="text-sm font-semibold text-fg">
+                <p className="text-sm font-medium text-fg">
                   {canSubmit ? "Ready to confirm" : `${completeCount} of ${groups.length} groups done`}
                 </p>
                 {compare.length > 0 ? (
@@ -501,6 +504,7 @@ export function RegistrationForm({ event, student, groups, electives, initialReg
         selections={selections}
         electives={localElectives}
         submitting={isSubmitting}
+        waitlistEnabled={Boolean(event.enableWaitlist)}
         onConfirm={handleRegister}
       />
     </div>
@@ -555,6 +559,7 @@ function GroupSection({
   compare,
   conflicts,
   suggestionsFor,
+  waitlistEnabled,
   onSelect,
   onDetails,
   onCompare,
@@ -567,6 +572,7 @@ function GroupSection({
   compare: string[];
   conflicts: Record<string, string>;
   suggestionsFor: (e: Elective) => Elective[];
+  waitlistEnabled?: boolean;
   onSelect: (groupId: string, electiveId: string) => void;
   onDetails: (id: string) => void;
   onCompare: (id: string) => void;
@@ -593,7 +599,7 @@ function GroupSection({
     <section id={`group-${group.id}`} aria-labelledby={`group-title-${group.id}`} className="scroll-mt-32">
       <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
         <div>
-          <h2 id={`group-title-${group.id}`} className="text-xl font-semibold tracking-tight text-fg">
+          <h2 id={`group-title-${group.id}`} className="text-xl font-medium tracking-tight text-fg">
             {group.name}
           </h2>
           <p className="mt-1 flex items-center gap-2 text-sm text-fg-muted">
@@ -657,7 +663,8 @@ function GroupSection({
               groupId={group.id}
               multiple={group.maxChoices > 1}
               selected={isSelected}
-              disabled={(isFull && !initiallySelected.has(elective.id)) || !eligible || (!isSelected && group.maxChoices > 1 && selected.length >= group.maxChoices)}
+              disabled={(!waitlistEnabled && isFull && !initiallySelected.has(elective.id)) || !eligible || (!isSelected && group.maxChoices > 1 && selected.length >= group.maxChoices)}
+              waitlistEnabled={waitlistEnabled}
               compared={compare.includes(elective.id)}
               compareFull={compare.length >= MAX_COMPARE}
               conflict={conflicts[elective.id]}

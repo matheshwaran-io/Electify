@@ -8,6 +8,7 @@ import { CalendarClock, CalendarX2, Clock3, Lock, RadioTower, UserX, Users } fro
 import { CountdownTimer } from "./countdown-timer";
 import { StudentHeader, StudentStatus } from "@/components/student/student-chrome";
 import { formatDateTime, formatOpening } from "@/lib/format";
+import { Sphere } from "@/components/sphere";
 
 export const dynamic = "force-dynamic";
 export const metadata = { title: "Registration opens soon" };
@@ -112,24 +113,23 @@ export default async function CountdownPage() {
     <div className="flex min-h-dvh flex-col">
       <StudentHeader />
 
-      <main className="relative flex flex-1 flex-col items-center justify-center overflow-hidden px-5 py-12">
-        <div
-          aria-hidden
-          className="pointer-events-none absolute inset-x-0 top-0 -z-10 h-[50vh]"
-          style={{ background: "radial-gradient(ellipse 50% 70% at 50% 0%, color-mix(in oklab, var(--primary) 12%, transparent), transparent)" }}
-        />
+      <main className="flex flex-1 flex-col items-center px-5 pb-12 pt-10 sm:pt-16">
+        <div className="flex w-full max-w-3xl flex-col items-center text-center">
+          <div className="animate-enter">
+            <Sphere size={148} className="sm:hidden" />
+            <Sphere size={196} className="hidden sm:block" />
+          </div>
 
-        <div className="w-full max-w-3xl text-center">
-          <p className="inline-flex items-center gap-2 rounded-full border border-border bg-surface px-3 py-1.5 text-sm text-fg-muted shadow-1 animate-enter">
-            <CalendarClock className="size-4 text-primary-text" />
+          <p className="mt-8 inline-flex items-center gap-2 rounded-full border border-border bg-surface px-3.5 py-1.5 text-sm text-fg-muted shadow-1 animate-enter [animation-delay:60ms]">
+            <CalendarClock className="size-4 text-fg-subtle" />
             {event.openDate ? `Opens ${formatOpening(event.openDate)}` : "Opening time not set yet"}
           </p>
 
-          <h1 className="mt-6 text-3xl font-semibold tracking-tight text-fg sm:text-4xl animate-enter [animation-delay:60ms]">
+          <h1 className="mt-5 max-w-2xl text-4xl font-light tracking-display text-fg animate-enter [animation-delay:100ms]">
             {event.name}
           </h1>
 
-          <div className="mt-10 animate-enter [animation-delay:120ms]">
+          <div className="mt-10 animate-enter [animation-delay:160ms]">
             {event.openDate ? (
               <CountdownTimer
                 startDateStr={event.openDate.toISOString()}
@@ -141,30 +141,32 @@ export default async function CountdownPage() {
             )}
           </div>
 
-          <p className="mx-auto mt-10 max-w-md text-sm text-fg-muted animate-enter [animation-delay:180ms]">
-            The picker opens on this page automatically when the countdown ends. No need to refresh.
+          <p className="mx-auto mt-8 max-w-md text-fg-muted animate-enter [animation-delay:220ms]">
+            The picker opens here automatically when the countdown ends. No need to refresh.
           </p>
         </div>
 
-        <div className="mt-12 grid w-full max-w-3xl gap-3 sm:grid-cols-3 animate-enter [animation-delay:240ms]">
-          <div className="rounded-card border border-border bg-surface p-4 text-left shadow-1">
-            <p className="text-xs text-fg-muted">Signed in as</p>
-            <p className="mt-1 truncate text-sm font-medium text-fg">{student.name}</p>
-            <p className="mt-0.5 truncate font-mono text-xs text-fg-muted">{student.registerNumber}</p>
+        <dl className="mt-14 grid w-full max-w-3xl divide-y divide-border rounded-card bg-surface-2 animate-enter [animation-delay:280ms] sm:grid-cols-3 sm:divide-x sm:divide-y-0">
+          <div className="p-5 text-left">
+            <dt className="text-sm text-fg-muted">Signed in as</dt>
+            <dd className="mt-1 truncate font-medium text-fg">{student.name}</dd>
+            <dd className="mt-0.5 truncate font-mono text-sm text-fg-muted">{student.registerNumber}</dd>
           </div>
-          <div className="flex gap-3 rounded-card border border-border bg-surface p-4 text-left shadow-1">
+          <div className="flex gap-3 p-5 text-left">
             <RadioTower className="mt-0.5 size-4 shrink-0 text-fg-subtle" />
-            <p className="text-sm text-fg-muted">
-              <span className="font-medium text-fg">Seats are live.</span> Counts update as classmates confirm.
-            </p>
+            <div>
+              <dt className="font-medium text-fg">Seats are live</dt>
+              <dd className="mt-0.5 text-sm text-fg-muted">Counts update as classmates confirm.</dd>
+            </div>
           </div>
-          <div className="flex gap-3 rounded-card border border-border bg-surface p-4 text-left shadow-1">
+          <div className="flex gap-3 p-5 text-left">
             <Lock className="mt-0.5 size-4 shrink-0 text-fg-subtle" />
-            <p className="text-sm text-fg-muted">
-              <span className="font-medium text-fg">Choices are final.</span> You can&apos;t change them after you confirm.
-            </p>
+            <div>
+              <dt className="font-medium text-fg">Choices are final</dt>
+              <dd className="mt-0.5 text-sm text-fg-muted">You can&apos;t change them after you confirm.</dd>
+            </div>
           </div>
-        </div>
+        </dl>
       </main>
     </div>
   );

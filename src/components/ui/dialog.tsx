@@ -90,7 +90,7 @@ export function DialogFooter({ className, ...props }: React.ComponentProps<"div"
 }
 
 export function DialogTitle({ className, ...props }: DialogPrimitive.Title.Props) {
-  return <DialogPrimitive.Title className={cn("text-lg font-semibold tracking-tight text-fg", className)} {...props} />
+  return <DialogPrimitive.Title className={cn("text-lg font-medium tracking-tight text-fg", className)} {...props} />
 }
 
 export function DialogDescription({ className, ...props }: DialogPrimitive.Description.Props) {

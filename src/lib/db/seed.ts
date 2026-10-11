@@ -12,20 +12,36 @@ import * as bcrypt from "bcryptjs";
 import * as schema from "./schema";
 import { srmData } from "./srm-data";
 
-function parseProgramme(progName: string) {
+function parseProgramme(progName: string, deptCode: string = "") {
   let degreeType = "UG";
   let durationYears = 3;
 
-  if (progName.includes("B.Tech") || progName.includes("B.Pharm") || progName.includes("BPT") || progName.includes("BOT")) {
-    durationYears = 4;
-  } else if (progName.includes("B.Arch") || progName.includes("BA LLB") || progName.includes("BBA LLB") || progName.includes("MBBS") || progName.includes("BDS") || progName.includes("Pharm.D")) {
-    durationYears = 5;
-  } else if (progName.includes("M.") || progName.includes("MBA") || progName.includes("MCA") || progName.includes("LLM") || progName.includes("MPH") || progName.includes("MD") || progName.includes("MS") || progName.includes("DM")) {
-    degreeType = "PG";
-    durationYears = 2;
-  } else if (progName.includes("Ph.D")) {
+  const isPhd = progName.includes("Ph.D") || progName.includes("PhD.") || progName.includes("Ph.D.") || progName.includes("Doctoral");
+  const isLaw5Yr = (progName.includes("LL.B") || progName.includes("LLB")) && !progName.includes("LL.M") && !progName.includes("LLM");
+  const isArch5Yr = progName.includes("B.Arch") || progName.includes("Pharm.D") || progName.includes("MBBS") || progName.includes("BDS");
+  const isEng4Yr = progName.includes("B.Tech") || progName.includes("B.Pharm") || progName.includes("BPT") || progName.includes("B.P.T") || progName.includes("BOT") || progName.includes("B.Des");
+  const isPG = progName.includes("M.") || progName.includes("MBA") || progName.includes("M.B.A") || progName.includes("MCA") || progName.includes("M.C.A") || progName.includes("LL.M") || progName.includes("LLM") || progName.includes("MPH") || progName.includes("MD") || progName.includes("M.D") || progName.includes("MS") || progName.includes("M.S") || progName.includes("DM") || progName.includes("D.M") || progName.includes("M.Ch") || progName.includes("M.Pharm") || progName.includes("M.O.T") || progName.includes("M.P.T") || progName.includes("MSW") || progName.includes("M.Com") || progName.includes("M.Ed") || progName.includes("M.Arch") || progName.includes("M.Des");
+  const isMinor = progName.includes("Minor Degree");
+  const isDiploma = progName.includes("Diploma") || progName.includes("Certificate");
+
+  if (isPhd) {
     degreeType = "PHD";
     durationYears = 3;
+  } else if (isLaw5Yr || isArch5Yr) {
+    durationYears = progName.includes("LL.B. Bachelor") ? 3 : 5;
+    degreeType = "UG";
+  } else if (isEng4Yr) {
+    durationYears = 4;
+    degreeType = "UG";
+  } else if (isPG) {
+    degreeType = "PG";
+    durationYears = progName.includes("Integrated") ? 5 : 2;
+  } else if (isMinor) {
+    degreeType = "MINOR";
+    durationYears = 2;
+  } else if (isDiploma) {
+    degreeType = "DIPLOMA";
+    durationYears = 1;
   }
 
   // Create a unique code
@@ -42,9 +58,9 @@ function parseProgramme(progName: string) {
   // Just in case we get very long or empty codes
   if (code.length < 2) code = progName.substring(0, 3).toUpperCase();
 
-  // Append hash of full name to avoid code collisions for B.Tech CSE variants etc.
-  const hash = Math.abs(progName.split('').reduce((a,b)=>{a=((a<<5)-a)+b.charCodeAt(0);return a&a},0)).toString(36).substring(0,4).toUpperCase();
-  code = `${code}-${hash}`;
+  // Append hash of full name + deptCode to avoid code collisions
+  const hash = Math.abs((progName + (deptCode || "")).split('').reduce((a,b)=>{a=((a<<5)-a)+b.charCodeAt(0);return a&a},0)).toString(36).substring(0,4).toUpperCase();
+  code = deptCode ? `${code}-${deptCode}-${hash}` : `${code}-${hash}`;
 
   return {
     name: progName,
@@ -77,7 +93,7 @@ async function seed() {
       .returning();
 
     for (const dept of faculty.departments) {
-      const deptCode = dept.name.split(/\s+/).map(w => w[0]?.toUpperCase()).join("") + "-" + faculty.code;
+      const deptCode = (dept as any).code || (dept.name.split(/\s+/).map((w: string) => w[0]?.toUpperCase()).join("") + "-" + faculty.code);
       const [d] = await db
         .insert(schema.departments)
         .values({ name: dept.name, code: deptCode, facultyId: f.id })
@@ -85,7 +101,7 @@ async function seed() {
         .returning();
 
       for (const progStr of dept.programmes) {
-        const pData = parseProgramme(progStr);
+        const pData = parseProgramme(progStr, deptCode);
         const [p] = await db
           .insert(schema.programmes)
           .values({ ...pData, departmentId: d.id })

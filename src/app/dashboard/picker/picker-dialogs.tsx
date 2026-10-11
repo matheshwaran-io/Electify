@@ -47,7 +47,7 @@ export function ElectiveDetail({
                     <p className="text-xs text-fg-muted">
                       {group.name} · {ruleText(group)}
                     </p>
-                    <DialogPrimitive.Title className="mt-1.5 text-xl font-semibold tracking-tight text-fg">{elective.name}</DialogPrimitive.Title>
+                    <DialogPrimitive.Title className="mt-1.5 text-xl font-medium tracking-tight text-fg">{elective.name}</DialogPrimitive.Title>
                     <div className="mt-2 flex flex-wrap items-center gap-2 text-sm text-fg-muted">
                       {elective.courseCode ? <span className="font-mono">{elective.courseCode}</span> : null}
                       {typeof elective.credits === "number" ? <span>{elective.credits} credits</span> : null}
@@ -69,7 +69,7 @@ export function ElectiveDetail({
                     size={52}
                   />
                   <div>
-                    <p className="text-sm font-semibold text-fg">
+                    <p className="text-sm font-medium text-fg">
                       {elective.availableSeats <= 0 ? "No seats left" : `${elective.availableSeats} of ${elective.maxSeats} seats left`}
                     </p>
                     <p className="text-xs text-fg-muted">Updates live while this is open.</p>
@@ -155,7 +155,7 @@ export function CompareDialog({
             {electives.map((e) => (
               <div key={e.id} className="flex flex-col rounded-control border border-border">
                 <div className="flex items-start justify-between gap-2 border-b border-border p-3">
-                  <p className="text-sm font-semibold leading-snug text-fg">{e.name}</p>
+                  <p className="text-sm font-medium leading-snug text-fg">{e.name}</p>
                   <button type="button" aria-label={`Remove ${e.name} from comparison`} onClick={() => onRemove(e.id)} className="inline-flex size-7 shrink-0 items-center justify-center rounded-badge text-fg-subtle hover:bg-surface-2 hover:text-fg">
                     <X className="size-3.5" />
                   </button>
@@ -205,6 +205,7 @@ export function ReviewDialog({
   selections,
   electives,
   submitting,
+  waitlistEnabled,
   onConfirm,
 }: {
   open: boolean;
@@ -213,6 +214,7 @@ export function ReviewDialog({
   selections: Selections;
   electives: Elective[];
   submitting: boolean;
+  waitlistEnabled?: boolean;
   onConfirm: () => void;
 }) {
   const picked = groups.flatMap((g) => (selections[g.id] ?? []).map((id) => electives.find((e) => e.id === id)).filter(Boolean)) as Elective[];
@@ -245,9 +247,15 @@ export function ReviewDialog({
                         {e.name}
                       </p>
                       {full ? (
-                        <p className="mt-1 flex items-center gap-1.5 text-xs font-medium text-danger-text">
-                          <AlertTriangle className="size-3.5" /> This just filled up. Go back and pick another.
-                        </p>
+                        waitlistEnabled ? (
+                          <p className="mt-1 flex items-center gap-1.5 text-xs font-medium text-warning-text">
+                            <AlertTriangle className="size-3.5" /> This subject is full. You will be registered on the waitlist.
+                          </p>
+                        ) : (
+                          <p className="mt-1 flex items-center gap-1.5 text-xs font-medium text-danger-text">
+                            <AlertTriangle className="size-3.5" /> This just filled up. Go back and pick another.
+                          </p>
+                        )
                       ) : null}
                     </div>
                     {typeof e.credits === "number" ? <span className="shrink-0 text-xs text-fg-muted">{e.credits} cr</span> : null}

@@ -6,9 +6,9 @@ import { extendTailwindMerge } from "tailwind-merge"
 const twMerge = extendTailwindMerge({
   extend: {
     theme: {
-      radius: ["badge", "control", "card", "panel"],
+      radius: ["badge", "tight", "control", "popover", "card", "panel"],
       shadow: ["1", "2", "3"],
-      text: ["2xs"],
+      text: ["2xs", "display-xl"],
     },
     classGroups: {
       "bg-image": ["bg-brand"],

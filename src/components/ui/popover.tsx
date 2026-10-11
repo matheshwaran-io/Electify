@@ -11,7 +11,7 @@ export const PopoverTitle = PopoverPrimitive.Title
 export const PopoverDescription = PopoverPrimitive.Description
 
 export const overlaySurface = cn(
-  "rounded-control border border-border bg-surface text-fg shadow-2 outline-none",
+  "rounded-popover border border-border bg-surface text-fg shadow-2 outline-none",
   "origin-(--transform-origin) transition-[opacity,transform] duration-150 ease-snappy",
   "data-starting-style:scale-[0.97] data-starting-style:opacity-0 data-ending-style:scale-[0.97] data-ending-style:opacity-0"
 )

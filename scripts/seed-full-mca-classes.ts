@@ -40,14 +40,15 @@ async function main() {
   const secB = mcaSections.find(s => s.label === "B");
   if (!secA || !secB) throw new Error("Section A or B not found!");
 
-  // 3. Dr. Angel B
+  // 3. Angel B
   const angel = await db.query.users.findFirst({
     where: eq(users.email, "angelb1@srmist.edu.in")
   });
-  if (!angel) throw new Error("Dr. Angel B not found!");
+  if (!angel) throw new Error("Angel B not found!");
 
   await db.update(users)
     .set({
+      name: "Angel B",
       programmeId: mcaProg.id,
       sectionId: secA.id,
       departmentId: mcaProg.departmentId,

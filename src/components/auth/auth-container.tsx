@@ -108,7 +108,7 @@ export function AuthContainer() {
   return (
     <div className="w-full">
       <div className="mb-8 space-y-2">
-        <h2 className="text-2xl font-semibold tracking-tight text-fg">
+        <h2 className="text-3xl font-light tracking-display text-fg">
           {view === "register" ? "Create a staff account" : "Sign in"}
         </h2>
         <p className="text-sm text-fg-muted">
@@ -208,7 +208,7 @@ function RevealToggle({ shown, onToggle, label }: { shown: boolean; onToggle: ()
       onClick={onToggle}
       aria-label={shown ? `Hide ${label}` : `Show ${label}`}
       aria-pressed={shown}
-      className="inline-flex size-9 items-center justify-center rounded-badge text-fg-subtle transition-colors hover:text-fg"
+      className="inline-flex size-9 items-center justify-center rounded-full text-fg-subtle transition-colors hover:text-fg"
     >
       {shown ? <EyeOff className="size-4" /> : <Eye className="size-4" />}
     </button>
@@ -291,7 +291,7 @@ function StaffLoginForm({ status, onSubmit, onRegister }: FormProps & { onRegist
       <SubmitButton status={status} label="Sign in" />
       <p className="text-center text-sm text-fg-muted">
         Have an invite code?{" "}
-        <button type="button" data-inline onClick={onRegister} disabled={busy} className="font-medium text-primary-text underline-offset-4 hover:underline">
+        <button type="button" data-inline onClick={onRegister} disabled={busy} className="font-medium text-fg underline decoration-border-strong underline-offset-4 transition-colors hover:decoration-fg">
           Create a staff account
         </button>
       </p>

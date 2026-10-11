@@ -6,6 +6,7 @@ import * as bcrypt from "bcryptjs";
 import { signJWT, setSessionCookie, clearSessionCookie, getSession, type UserSession } from "@/lib/auth";
 import { eq, and, asc, or } from "drizzle-orm";
 import { z } from "zod";
+import { cleanDisplayName } from "@/lib/format";
 
 const MAX_ATTEMPTS = 5;
 const LOCKOUT_DURATION_MS = 15 * 60 * 1000; // 15 minutes
@@ -168,12 +169,20 @@ export async function login(formData: {
       }
     }
 
+    // Enforce 1 session per login: Generate new unique session ID and invalidate any previous sessions
+    const sessionId = crypto.randomUUID();
+    await db
+      .update(users)
+      .set({ currentSessionId: sessionId, updatedAt: new Date() })
+      .where(eq(users.id, user.id));
+
     // Create JWT session
     const token = await signJWT({
       userId: user.id,
-      name: user.name,
+      name: cleanDisplayName(user.name),
       email: user.email,
       role: user.role as UserSession["role"],
+      sessionId,
       ...(user.employeeId && { employeeId: user.employeeId }),
       ...(user.registerNumber && { registerNumber: user.registerNumber }),
       ...(user.facultyId && { facultyId: user.facultyId }),
@@ -220,6 +229,12 @@ export async function login(formData: {
 // ────────────────────────────────────────────────────────────────────
 
 export async function logout() {
+  const session = await getSession();
+  if (session?.userId) {
+    try {
+      await db.update(users).set({ currentSessionId: null }).where(eq(users.id, session.userId));
+    } catch {}
+  }
   await clearSessionCookie();
 }
 
@@ -368,9 +383,9 @@ import { unstable_cache } from "next/cache";
 
 export const getPublicHierarchy = unstable_cache(
   async () => {
-    const allFaculties = await db.select().from(faculties).orderBy(asc(faculties.name));
-    const allDepts = await db.select().from(departments).orderBy(asc(departments.name));
-    const allProgs = await db.select().from(programmes).orderBy(asc(programmes.name));
+    const allFaculties = await db.select().from(faculties).where(eq(faculties.isActive, true)).orderBy(asc(faculties.name));
+    const allDepts = await db.select().from(departments).where(eq(departments.isActive, true)).orderBy(asc(departments.name));
+    const allProgs = await db.select().from(programmes).where(eq(programmes.isActive, true)).orderBy(asc(programmes.name));
     const allBatches = await db.select().from(academicBatches).orderBy(asc(academicBatches.year));
     const allSections = await db.select().from(sections).orderBy(asc(sections.label));
 

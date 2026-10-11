@@ -3,7 +3,7 @@
 import * as React from "react"
 import { toast } from "sonner"
 import { BookOpen, Download, GraduationCap, LayoutDashboard, Plus, Settings, Trash2, Users } from "lucide-react"
-import { Wordmark } from "@/components/brand"
+import { Logo } from "@/components/brand"
 import { ThemeToggle } from "@/components/theme-toggle"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
@@ -171,7 +171,7 @@ function Specimens() {
         </div>
         <Card padded spotlight className="flex items-center gap-4">
           <OccupancyRing filled={40 - seats} total={40} state={seatState(seats, 40)} size={52}>
-            <span className="font-mono text-xs font-semibold tabular-nums">
+            <span className="font-mono text-xs font-medium tabular-nums">
               <AnimatedNumber value={seats} tabular />
             </span>
           </OccupancyRing>
@@ -244,7 +244,7 @@ export function Showcase() {
       <PageHeader
         title="Component system"
         description="Every primitive in both themes. Development only."
-        meta={<Wordmark size="sm" />}
+        meta={<Logo size="sm" />}
         actions={
           <>
             <ThemeToggle />

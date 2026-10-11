@@ -48,7 +48,7 @@ export default async function DevStudentPreview({ searchParams }: { searchParams
       <main className="mx-auto w-full max-w-6xl flex-1 px-4 pt-6 sm:px-6 sm:pt-10">
         <div className="mb-2 flex flex-col gap-1">
           <p className="text-sm text-fg-muted">Sample event (dev preview)</p>
-          <h1 className="text-2xl font-semibold tracking-tight text-fg sm:text-3xl">Choose your electives</h1>
+          <h1 className="text-4xl font-light tracking-display text-fg">Choose your electives</h1>
           <p className="text-sm text-fg-muted">
             Preview student <span aria-hidden className="mx-2 text-border-strong">/</span>
             <span className="font-mono">RA0000000000000</span>

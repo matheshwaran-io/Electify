@@ -103,7 +103,7 @@ export function ReplayEngine({ eventId }: { eventId: string }) {
       );
     return (
       <div className="w-8 h-8 rounded-full bg-surface-2 flex items-center justify-center shrink-0">
-        <span className="text-xs font-bold text-fg-muted">
+        <span className="text-xs font-medium text-fg-muted">
           {rank}
         </span>
       </div>
@@ -134,7 +134,7 @@ export function ReplayEngine({ eventId }: { eventId: string }) {
       <div className="bg-surface border border-border rounded-card p-6 shadow-1 shrink-0">
         <div className="flex items-center justify-between flex-wrap gap-4">
           <div>
-            <h2 className="text-xl font-bold text-fg">
+            <h2 className="text-xl font-medium text-fg">
               Registration Replay
             </h2>
             <p className="text-sm text-fg-muted mt-0.5">
@@ -143,26 +143,26 @@ export function ReplayEngine({ eventId }: { eventId: string }) {
           </div>
           <div className="flex items-center gap-6">
             <div className="text-center px-4 py-2 bg-primary/10 rounded-control">
-              <p className="text-xs font-bold uppercase tracking-wider text-primary-text">
+              <p className="text-xs font-medium text-primary-text">
                 Total
               </p>
-              <p className="text-2xl font-mono font-bold text-primary-text">
+              <p className="text-2xl font-mono font-normal text-primary-text">
                 {data?.totalRegistered || 0}
               </p>
             </div>
             <div className="text-center px-4 py-2 bg-success/10 rounded-control">
-              <p className="text-xs font-bold uppercase tracking-wider text-success-text">
+              <p className="text-xs font-medium text-success-text">
                 Self
               </p>
-              <p className="text-2xl font-mono font-bold text-success-text">
+              <p className="text-2xl font-mono font-normal text-success-text">
                 {data?.totalSelfRegistered || 0}
               </p>
             </div>
             <div className="text-center px-4 py-2 bg-warning/10 rounded-control">
-              <p className="text-xs font-bold uppercase tracking-wider text-warning-text">
+              <p className="text-xs font-medium text-warning-text">
                 Manual
               </p>
-              <p className="text-2xl font-mono font-bold text-warning-text">
+              <p className="text-2xl font-mono font-normal text-warning-text">
                 {data?.totalManual || 0}
               </p>
             </div>
@@ -188,11 +188,7 @@ export function ReplayEngine({ eventId }: { eventId: string }) {
             <button
               key={type}
               onClick={() => setFilterType(type)}
-              className={`px-3 py-1.5 rounded-badge text-xs font-bold capitalize transition-colors ${
-                filterType === type
-                  ? "bg-primary/20 text-primary-text"
-                  : "text-fg-muted hover:bg-surface-2"
-              }`}
+              className={`px-3 py-1.5 rounded-badge text-xs font-medium capitalize transition-colors ${ filterType === type ? "bg-primary/20 text-primary-text" : "text-fg-muted hover:bg-surface-2" }`}
             >
               {type === "all"
                 ? `All (${data?.totalRegistered || 0})`
@@ -235,11 +231,11 @@ export function ReplayEngine({ eventId }: { eventId: string }) {
                   {/* Student Info */}
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2">
-                      <span className="text-sm font-bold text-fg truncate">
+                      <span className="text-sm font-medium text-fg truncate">
                         {reg.studentName}
                       </span>
                       {reg.isManual && (
-                        <span className="px-1.5 py-0.5 bg-warning/15 text-warning-text text-2xs font-bold rounded-badge uppercase tracking-wider shrink-0">
+                        <span className="px-1.5 py-0.5 bg-warning/15 text-warning-text text-2xs font-medium rounded-badge shrink-0">
                           Manual
                         </span>
                       )}
@@ -260,11 +256,7 @@ export function ReplayEngine({ eventId }: { eventId: string }) {
                       )}
                     </p>
                     <p
-                      className={`text-2xs font-bold mt-0.5 ${
-                        reg.rank === 1
-                          ? "text-warning-text"
-                          : "text-fg-muted"
-                      }`}
+                      className={`text-2xs font-medium mt-0.5 ${ reg.rank === 1 ? "text-warning-text" : "text-fg-muted" }`}
                     >
                       {getTimeDiff(reg.submittedAt)}
                     </p>
@@ -305,7 +297,7 @@ export function ReplayEngine({ eventId }: { eventId: string }) {
                             <Clock className="w-3.5 h-3.5" />
                             <span>
                               Rank:{" "}
-                              <span className="font-bold text-fg">
+                              <span className="font-medium text-fg">
                                 #{reg.rank}
                               </span>{" "}
                               of {data?.totalRegistered}
@@ -313,7 +305,7 @@ export function ReplayEngine({ eventId }: { eventId: string }) {
                           </div>
                         </div>
 
-                        <p className="text-2xs uppercase font-bold tracking-wider text-fg-muted mb-2">
+                        <p className="text-2xs font-medium text-fg-muted mb-2">
                           Selected Electives
                         </p>
                         <div className="space-y-1.5">

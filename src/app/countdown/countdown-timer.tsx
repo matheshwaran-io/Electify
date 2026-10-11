@@ -65,22 +65,22 @@ export function CountdownTimer({ startDateStr, registrationEnabled, serverNow }:
       <div
         role="timer"
         aria-label={`Registration opens in ${days ? `${days} days, ` : ""}${hours} hours, ${minutes} minutes`}
-        className="flex items-start justify-center gap-2 sm:gap-4"
+        className="flex items-start justify-center gap-1.5 sm:gap-3"
       >
         {units.map((u, i) => (
           <React.Fragment key={u.label}>
             {i > 0 ? (
-              <span aria-hidden className="pt-2 font-mono text-4xl font-light text-fg-subtle sm:pt-3 sm:text-6xl">
+              <span aria-hidden className="text-display-xl font-extralight text-fg-subtle">
                 :
               </span>
             ) : null}
             <div className="flex flex-col items-center">
-              <span aria-hidden className="flex font-mono text-5xl font-medium tracking-tight text-fg tabular-nums sm:text-7xl" suppressHydrationWarning>
+              <span aria-hidden className="flex text-display-xl font-extralight text-fg tabular-nums" suppressHydrationWarning>
                 {u.value.split("").map((digit, d) => (
                   <RollingDigit key={d} digit={digit} />
                 ))}
               </span>
-              <span className="mt-2 text-xs text-fg-muted">{u.label}</span>
+              <span className="mt-1 text-sm text-fg-muted">{u.label}</span>
             </div>
           </React.Fragment>
         ))}

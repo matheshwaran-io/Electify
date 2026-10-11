@@ -53,3 +53,16 @@ export function formatRemaining(ms: number) {
   if (minutes > 0) return `${minutes}m ${pad2(seconds)}s`
   return `${seconds}s`
 }
+
+/** Strips honorific prefixes (Dr., Prof., Mr., Mrs., Ms., etc.) from display names. */
+export function cleanDisplayName(name: string | null | undefined): string {
+  if (!name) return ""
+  return name.replace(/^(dr|prof|mr|mrs|ms)\.?\s+/i, "").trim()
+}
+
+
+/** "USER_LOGIN" → "User login". For enum-like strings from the backend. */
+export function humanizeEnum(value: string) {
+  const s = value.replace(/_/g, " ").toLowerCase()
+  return s.charAt(0).toUpperCase() + s.slice(1)
+}

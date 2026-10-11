@@ -20,11 +20,11 @@ const STATUS: Record<string, { tone: BadgeTone; label: string; dot?: boolean }> 
   USED: { tone: "neutral", label: "Used" },
   EXPIRED: { tone: "warning", label: "Expired" },
   REVOKED: { tone: "danger", label: "Revoked" },
-  // Roles (identity, not state: neutral on purpose)
-  SYSTEM_ADMIN: { tone: "outline", label: "System admin" },
-  COURSE_COORDINATOR: { tone: "outline", label: "Course coordinator" },
-  CLASS_TUTOR: { tone: "outline", label: "Class tutor" },
-  STUDENT: { tone: "outline", label: "Student" },
+  // Roles (identity and control scope)
+  SYSTEM_ADMIN: { tone: "outline", label: "Admin · Full Control" },
+  COURSE_COORDINATOR: { tone: "outline", label: "Course Controller · Semi Control" },
+  CLASS_TUTOR: { tone: "outline", label: "Faculty · Class Control" },
+  STUDENT: { tone: "outline", label: "Students · Elective" },
 }
 
 export function statusLabel(status: string) {

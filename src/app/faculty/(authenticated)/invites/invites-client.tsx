@@ -1,13 +1,20 @@
 "use client";
 
 import { useState, useTransition } from "react";
-import { motion, AnimatePresence } from "framer-motion";
-import { Mail, Plus, X, Copy, Check, Trash2 } from "lucide-react";
-import { StatusBadge } from "@/components/ui/status-badge";
-import { format } from "date-fns";
+import { Check, Copy, Mail, Plus, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { createInviteCode, revokeInviteCode } from "@/app/actions/admin";
-import { listDelay, spring, transition } from "@/lib/motion";
+import { cn } from "@/lib/utils";
+import { formatDate } from "@/lib/format";
+import { PageHeader } from "@/components/ui/layout";
+import { Button } from "@/components/ui/button";
+import { Field, Input } from "@/components/ui/input";
+import { StatusBadge, statusLabel } from "@/components/ui/status-badge";
+import { EmptyState } from "@/components/ui/feedback";
+import { Tooltip } from "@/components/ui/tooltip";
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
+import { DataTable, type Column, type FilterDef } from "@/components/ui/data-table";
+import { Dialog, DialogBody, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 
 type InviteCode = {
   id: string;
@@ -26,6 +33,8 @@ type Programme = { id: string; name: string; code: string; batches: Batch[] };
 type Department = { id: string; name: string; programmes: Programme[] };
 type Faculty = { id: string; name: string; departments: Department[] };
 
+const ROLES = ["COURSE_COORDINATOR", "CLASS_TUTOR"] as const;
+
 export function InvitesClient({
   codes: initialCodes,
 }: {
@@ -35,6 +44,8 @@ export function InvitesClient({
   const [codes, setCodes] = useState(initialCodes);
   const [showModal, setShowModal] = useState(false);
   const [copiedId, setCopiedId] = useState<string | null>(null);
+  const [revoking, setRevoking] = useState<InviteCode | null>(null);
+  const [revokeOpen, setRevokeOpen] = useState(false);
   const [isPending, startTransition] = useTransition();
 
   // Form state
@@ -45,7 +56,7 @@ export function InvitesClient({
   const copyCode = (code: string, id: string) => {
     navigator.clipboard.writeText(code);
     setCopiedId(id);
-    toast.success("Code copied to clipboard!");
+    toast.success("Code copied to clipboard");
     setTimeout(() => setCopiedId(null), 2000);
   };
 
@@ -66,225 +77,204 @@ export function InvitesClient({
     });
   };
 
-  const handleRevoke = (id: string) => {
-    startTransition(async () => {
-      try {
-        await revokeInviteCode(id);
-        setCodes((prev) =>
-          prev.map((c) => (c.id === id ? { ...c, status: "REVOKED" } : c))
-        );
-        toast.success("Invite code revoked.");
-      } catch {
-        toast.error("Failed to revoke invite code.");
-      }
-    });
+  const handleRevoke = async () => {
+    if (!revoking) return;
+    const id = revoking.id;
+    try {
+      await revokeInviteCode(id);
+      setCodes((prev) => prev.map((c) => (c.id === id ? { ...c, status: "REVOKED" } : c)));
+      toast.success("Invite code revoked.");
+    } catch (err) {
+      toast.error("Failed to revoke invite code.");
+      throw err;
+    }
   };
 
-  return (
-    <div className="space-y-6">
-      {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        <div>
-          <h1 className="text-3xl font-bold text-fg">Invite Codes</h1>
-          <p className="text-fg-muted mt-1">
-            Generate one-time codes to invite staff members.
-          </p>
-        </div>
-        <button
-          onClick={() => setShowModal(true)}
-          className="flex items-center gap-2 px-5 py-3 bg-primary hover:bg-primary-strong text-primary-fg rounded-control font-medium transition-colors cursor-pointer"
-        >
-          <Plus className="w-4 h-4" />
-          Generate Invite
-        </button>
-      </div>
-
-      {/* Table */}
-      <div className="bg-surface rounded-card border border-border overflow-hidden">
-        <div className="overflow-x-auto">
-          <table className="w-full text-sm">
-            <thead>
-              <tr className="border-b border-border bg-surface-2/30">
-                <th className="text-left px-6 py-4 font-semibold text-fg-muted">Code</th>
-                <th className="text-left px-6 py-4 font-semibold text-fg-muted">Role</th>
-                <th className="text-left px-6 py-4 font-semibold text-fg-muted">Status</th>
-                <th className="text-left px-6 py-4 font-semibold text-fg-muted">Uses</th>
-                <th className="text-left px-6 py-4 font-semibold text-fg-muted">Expires</th>
-                <th className="text-left px-6 py-4 font-semibold text-fg-muted">Created</th>
-                <th className="text-left px-6 py-4 font-semibold text-fg-muted">Actions</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-border">
-              {codes.length === 0 ? (
-                <tr>
-                  <td colSpan={7} className="text-center py-16 text-fg-muted">
-                    <Mail className="w-8 h-8 mx-auto mb-2 opacity-30" />
-                    No invite codes generated yet.
-                  </td>
-                </tr>
-              ) : (
-                codes.map((c, i) => (
-                  <motion.tr
-                    key={c.id}
-                    initial={{ opacity: 0 }}
-                    animate={{ opacity: 1 }}
-                    transition={{ ...transition.fade, delay: listDelay(i, 0.02) }}
-                    className="hover:bg-surface-2/20 transition-colors"
-                  >
-                    <td className="px-6 py-4">
-                      <div className="flex items-center gap-2">
-                        <span className="font-mono font-bold text-fg tracking-widest">
-                          {c.code}
-                        </span>
-                        <button
-                          onClick={() => copyCode(c.code, c.id)}
-                          className="p-1.5 rounded-control hover:bg-surface-2 transition-colors cursor-pointer text-fg-muted"
-                        >
-                          {copiedId === c.id ? (
-                            <Check className="w-3.5 h-3.5 text-success-text" />
-                          ) : (
-                            <Copy className="w-3.5 h-3.5" />
-                          )}
-                        </button>
-                      </div>
-                    </td>
-                    <td className="px-6 py-4">
-                      <StatusBadge status={c.role} />
-                    </td>
-                    <td className="px-6 py-4">
-                      <StatusBadge status={c.status} />
-                    </td>
-                    <td className="px-6 py-4 text-fg-muted">
-                      {c.usedCount} / {c.maxUses}
-                    </td>
-                    <td className="px-6 py-4 text-fg-muted">
-                      {format(new Date(c.expiresAt), "MMM d, yyyy")}
-                    </td>
-                    <td className="px-6 py-4 text-fg-muted">
-                      {format(new Date(c.createdAt), "MMM d, yyyy")}
-                    </td>
-                    <td className="px-6 py-4">
-                      {c.status === "ACTIVE" && (
-                        <button
-                          onClick={() => handleRevoke(c.id)}
-                          disabled={isPending}
-                          className="flex items-center gap-1.5 text-xs text-danger-text hover:text-danger-text transition-colors disabled:opacity-50 cursor-pointer"
-                        >
-                          <Trash2 className="w-3.5 h-3.5" />
-                          Revoke
-                        </button>
-                      )}
-                    </td>
-                  </motion.tr>
-                ))
-              )}
-            </tbody>
-          </table>
-        </div>
-      </div>
-
-      {/* Create Modal */}
-      <AnimatePresence>
-        {showModal && (
-          <>
-            <motion.div
-              key="backdrop"
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              onClick={() => setShowModal(false)}
-              className="fixed inset-0 z-50 bg-overlay backdrop-blur-sm"
-            />
-            <motion.div
-              key="modal"
-              initial={{ opacity: 0, scale: 0.95, y: 20 }}
-              animate={{ opacity: 1, scale: 1, y: 0 }}
-              exit={{ opacity: 0, scale: 0.95, y: 20 }}
-              transition={spring.gentle}
-              className="fixed inset-0 z-50 flex items-center justify-center p-4 pointer-events-none"
+  const columns: Column<InviteCode>[] = [
+    {
+      id: "code",
+      header: "Code",
+      mobile: "title",
+      hideable: false,
+      cell: (c) => (
+        <span className="flex items-center gap-1.5">
+          <span className="font-mono font-medium tracking-[0.12em] text-fg">{c.code}</span>
+          <Tooltip content={copiedId === c.id ? "Copied" : "Copy code"}>
+            <button
+              type="button"
+              data-inline
+              aria-label={`Copy code ${c.code}`}
+              onClick={(e) => {
+                e.stopPropagation();
+                copyCode(c.code, c.id);
+              }}
+              className="inline-flex size-8 items-center justify-center rounded-full text-fg-subtle transition-colors hover:bg-surface-2 hover:text-fg"
             >
-              <div className="bg-surface border border-border rounded-card shadow-3 w-full max-w-lg pointer-events-auto">
-                {/* Modal Header */}
-                <div className="flex items-center justify-between px-6 py-5 border-b border-border">
-                  <div>
-                    <h2 className="text-xl font-bold text-fg">Generate Invite Code</h2>
-                    <p className="text-sm text-fg-muted mt-0.5">Configure and generate a staff invite link.</p>
-                  </div>
+              {copiedId === c.id ? <Check className="size-3.5 text-success-text" /> : <Copy className="size-3.5" />}
+            </button>
+          </Tooltip>
+        </span>
+      ),
+      searchValue: (c) => c.code,
+    },
+    { id: "role", header: "Role", mobileWide: true, cell: (c) => <StatusBadge status={c.role} size="sm" />, sortValue: (c) => c.role },
+    { id: "status", header: "Status", cell: (c) => <StatusBadge status={c.status} size="sm" />, sortValue: (c) => c.status },
+    {
+      id: "uses",
+      header: "Uses",
+      cell: (c) => (
+        <span className="font-mono tabular-nums text-fg-muted">
+          <span className="text-fg">{c.usedCount}</span> / {c.maxUses}
+        </span>
+      ),
+      sortValue: (c) => c.usedCount,
+    },
+    {
+      id: "expires",
+      header: "Expires",
+      cell: (c) => <span className="whitespace-nowrap text-fg-muted">{formatDate(c.expiresAt)}</span>,
+      sortValue: (c) => new Date(c.expiresAt).getTime(),
+    },
+    {
+      id: "created",
+      header: "Created",
+      cell: (c) => <span className="whitespace-nowrap text-fg-muted">{formatDate(c.createdAt)}</span>,
+      sortValue: (c) => new Date(c.createdAt).getTime(),
+    },
+    {
+      id: "actions",
+      header: "Actions",
+      align: "right",
+      mobile: "actions",
+      hideable: false,
+      cell: (c) =>
+        c.status === "ACTIVE" ? (
+          <Button
+            size="sm"
+            variant="destructive-soft"
+            disabled={isPending}
+            onClick={() => {
+              setRevoking(c);
+              setRevokeOpen(true);
+            }}
+          >
+            <Trash2 /> Revoke
+          </Button>
+        ) : null,
+    },
+  ];
+
+  const statuses = [...new Set(codes.map((c) => c.status))];
+  const filters: FilterDef<InviteCode>[] = [
+    { id: "role", label: "Role", options: ROLES.map((r) => ({ value: r, label: statusLabel(r) })), predicate: (c, v) => c.role === v },
+    ...(statuses.length > 1
+      ? [{ id: "status", label: "Status", options: statuses.map((s) => ({ value: s, label: statusLabel(s) })), predicate: (c: InviteCode, v: string) => c.status === v }]
+      : []),
+  ];
+
+  return (
+    <div>
+      <PageHeader
+        title="Invite codes"
+        description="One-time codes that let new staff create an account."
+        actions={
+          <Button onClick={() => setShowModal(true)}>
+            <Plus /> Generate invite
+          </Button>
+        }
+      />
+
+      <DataTable
+        data={codes}
+        columns={columns}
+        getRowId={(c) => c.id}
+        caption="Invite codes"
+        searchPlaceholder="Search codes"
+        filters={filters}
+        empty={
+          <EmptyState
+            compact
+            icon={<Mail />}
+            title="No invite codes yet"
+            description="Generate a code and share it with a new staff member."
+          />
+        }
+      />
+
+      <Dialog open={showModal} onOpenChange={(o) => !isPending && setShowModal(o)}>
+        <DialogContent size="md" showClose={!isPending}>
+          <DialogHeader>
+            <DialogTitle>Generate invite code</DialogTitle>
+            <DialogDescription>The code signs a new staff member up with the role you pick.</DialogDescription>
+          </DialogHeader>
+
+          <DialogBody className="space-y-5">
+            <fieldset className="space-y-2">
+              <legend className="text-sm font-medium text-fg">Role</legend>
+              <div className="grid gap-2 sm:grid-cols-2">
+                {ROLES.map((r) => (
                   <button
-                    onClick={() => setShowModal(false)}
-                    className="p-2 rounded-control hover:bg-surface-2 text-fg-muted transition-colors cursor-pointer"
+                    key={r}
+                    type="button"
+                    aria-pressed={role === r}
+                    onClick={() => setRole(r)}
+                    className={cn(
+                      "flex min-h-11 items-center justify-between gap-2 rounded-control border px-3.5 py-2.5 text-left text-sm font-medium transition-colors",
+                      role === r ? "border-primary bg-primary text-primary-fg" : "border-border bg-surface text-fg-muted hover:bg-surface-2 hover:text-fg"
+                    )}
                   >
-                    <X className="w-5 h-5" />
+                    {statusLabel(r)}
+                    {role === r ? <Check className="size-4 shrink-0" /> : null}
                   </button>
-                </div>
-
-                {/* Modal Body */}
-                <div className="px-6 py-5 space-y-5">
-                  {/* Role */}
-                  <div className="space-y-2">
-                    <label className="text-sm font-medium text-fg">Role *</label>
-                    <div className="flex gap-3">
-                      {(["COURSE_COORDINATOR", "CLASS_TUTOR"] as const).map((r) => (
-                        <button
-                          key={r}
-                          onClick={() => setRole(r)}
-                          className={`flex-1 py-2.5 px-4 rounded-control text-sm font-medium border transition-all cursor-pointer ${role === r ? "bg-primary text-primary-fg border-primary" : "bg-transparent text-fg-muted border-border hover:border-primary/50"}`}
-                        >
-                          {r.replace("_", " ")}
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-
-
-                  {/* Max Uses + Expiry */}
-                  <div className="grid grid-cols-2 gap-4">
-                    <div className="space-y-2">
-                      <label className="text-sm font-medium text-fg">Max Uses</label>
-                      <input
-                        type="number"
-                        min={1}
-                        max={50}
-                        value={maxUses}
-                        onChange={(e) => setMaxUses(Number(e.target.value))}
-                        className="w-full px-4 py-2.5 bg-surface border border-border-strong rounded-control text-sm text-fg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                      />
-                    </div>
-                    <div className="space-y-2">
-                      <label className="text-sm font-medium text-fg">Expires In (days)</label>
-                      <input
-                        type="number"
-                        min={1}
-                        max={90}
-                        value={expiresInDays}
-                        onChange={(e) => setExpiresInDays(Number(e.target.value))}
-                        className="w-full px-4 py-2.5 bg-surface border border-border-strong rounded-control text-sm text-fg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                      />
-                    </div>
-                  </div>
-                </div>
-
-                {/* Modal Footer */}
-                <div className="px-6 py-5 border-t border-border flex gap-3">
-                  <button
-                    onClick={() => setShowModal(false)}
-                    className="flex-1 py-2.5 rounded-control border border-border text-sm font-medium text-fg-muted hover:bg-surface-2 transition-colors cursor-pointer"
-                  >
-                    Cancel
-                  </button>
-                  <button
-                    onClick={handleCreate}
-                    disabled={isPending}
-                    className="flex-1 py-2.5 rounded-control bg-primary hover:bg-primary-strong text-primary-fg text-sm font-medium transition-colors disabled:opacity-50 cursor-pointer"
-                  >
-                    {isPending ? "Generating…" : "Generate Code"}
-                  </button>
-                </div>
+                ))}
               </div>
-            </motion.div>
-          </>
-        )}
-      </AnimatePresence>
+            </fieldset>
+
+            <div className="grid grid-cols-2 gap-4">
+              <Field label="Max uses" description="1 to 50">
+                <Input type="number" inputMode="numeric" min={1} max={50} value={maxUses} onChange={(e) => setMaxUses(Number(e.target.value))} />
+              </Field>
+              <Field label="Expires in (days)" description="1 to 90">
+                <Input
+                  type="number"
+                  inputMode="numeric"
+                  min={1}
+                  max={90}
+                  value={expiresInDays}
+                  onChange={(e) => setExpiresInDays(Number(e.target.value))}
+                />
+              </Field>
+            </div>
+          </DialogBody>
+
+          <DialogFooter>
+            <Button variant="secondary" onClick={() => setShowModal(false)} disabled={isPending}>
+              Cancel
+            </Button>
+            <Button onClick={handleCreate} loading={isPending} loadingText="Generating">
+              Generate code
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <ConfirmDialog
+        open={revokeOpen}
+        onOpenChange={setRevokeOpen}
+        tone="danger"
+        title="Revoke this invite code?"
+        description="Anyone holding the code will no longer be able to sign up with it."
+        impact={
+          revoking
+            ? [
+                { label: "Code", value: revoking.code },
+                { label: "Uses so far", value: `${revoking.usedCount} / ${revoking.maxUses}` },
+              ]
+            : undefined
+        }
+        confirmLabel="Revoke code"
+        onConfirm={handleRevoke}
+      />
     </div>
   );
 }

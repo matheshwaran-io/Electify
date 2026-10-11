@@ -1,97 +1,76 @@
 "use client";
 
-import { format, differenceInSeconds } from "date-fns";
-import { useEffect, useState } from "react";
+import { formatDateTime, splitDuration, pad2 } from "@/lib/format";
+import { useTicker } from "@/lib/use-server-clock";
+import { cn } from "@/lib/utils";
+import { Badge } from "@/components/ui/badge";
+import { windowPhase, type WindowEvent, type WindowPhase } from "./types";
 
-export function HeroStatus({ 
-  event 
-}: { 
-  event: any 
-}) {
-  const [, setTick] = useState(0);
+const PHASE: Record<WindowPhase, { label: string; tone: "live" | "primary" | "neutral" | "outline"; dot?: boolean; line: string }> = {
+  live: { label: "Live", tone: "live", dot: true, line: "Students are submitting their elective choices right now." },
+  scheduled: { label: "Scheduled", tone: "primary", line: "The portal opens automatically at the time below." },
+  closed: { label: "Closed", tone: "neutral", line: "The portal is not accepting registrations." },
+  configured: { label: "Not scheduled", tone: "outline", line: "Set an opening and closing time to schedule the window." },
+};
 
-  useEffect(() => {
-    const timer = setInterval(() => setTick(t => t + 1), 1000);
-    return () => clearInterval(timer);
-  }, []);
-
+export function HeroStatus({ event }: { event: WindowEvent }) {
+  useTicker(true);
   const now = new Date();
-  
-  let statusText = "CONFIGURED";
-  let statusColor = "text-fg-muted";
-  let statusDot = "bg-fg-subtle";
-  let countdownTarget = null;
+  const { phase, target } = windowPhase(event, now);
+  const meta = PHASE[phase];
 
-  if (event.status === "OPEN" || (event.openDate && now >= event.openDate && (!event.closeDate || now < event.closeDate))) {
-    statusText = "LIVE";
-    statusColor = "text-success-text";
-    statusDot = "bg-success";
-    countdownTarget = event.closeDate;
-  } else if (event.openDate && now < event.openDate) {
-    statusText = "SCHEDULED";
-    statusColor = "text-primary-text";
-    statusDot = "bg-primary";
-    countdownTarget = event.openDate;
-  } else if (event.closeDate && now >= event.closeDate || event.status === "CLOSED") {
-    statusText = "CLOSED";
-    statusColor = "text-danger-text";
-    statusDot = "bg-danger";
-  }
-
-  let timeString = "00h 00m 00s";
-  if (countdownTarget) {
-    const diff = Math.max(0, differenceInSeconds(new Date(countdownTarget), now));
-    const h = Math.floor(diff / 3600);
-    const m = Math.floor((diff % 3600) / 60);
-    const s = diff % 60;
-    timeString = `${h.toString().padStart(2, '0')}h ${m.toString().padStart(2, '0')}m ${s.toString().padStart(2, '0')}s`;
-  }
+  const remaining = target ? Math.max(0, new Date(target).getTime() - now.getTime()) : 0;
+  const { days, hours, minutes, seconds } = splitDuration(remaining);
+  const totalHours = days * 24 + hours;
 
   return (
-    <div className="col-span-1 lg:col-span-8 bg-surface border border-border rounded-panel p-8 shadow-2 relative overflow-hidden flex flex-col justify-between">
-      <div className="relative z-10 flex flex-col md:flex-row justify-between items-start md:items-end h-full">
-        <div className="space-y-6 flex-1">
-          <div className="flex items-center gap-3">
-            <div aria-hidden className={`w-3 h-3 rounded-full ${statusDot}`} />
-            <span className={`text-xs font-bold uppercase tracking-widest ${statusColor}`}>
-              REGISTRATION {statusText}
-            </span>
-          </div>
-
+    <section
+      aria-label="Window status"
+      className="relative col-span-1 overflow-hidden rounded-panel bg-surface-2 p-5 sm:p-7 lg:col-span-8"
+    >
+      <div className="flex flex-col gap-8 md:flex-row md:items-end md:justify-between">
+        <div className="min-w-0 space-y-4">
+          <Badge tone={meta.tone} dot={meta.dot}>
+            {meta.label}
+          </Badge>
           <div>
-            <h2 className="text-3xl lg:text-4xl font-bold text-fg tracking-tight">
-              {event.name}
-            </h2>
-            <p className="text-fg-muted mt-2 max-w-lg">
-              {statusText === "LIVE" ? "Students are currently submitting their elective preferences." : "Portal is currently not accepting registrations."}
+            <h2 className="text-3xl font-light tracking-display text-fg lg:text-4xl">{event.name}</h2>
+            <p className="mt-2 max-w-md text-fg-muted">{meta.line}</p>
+          </div>
+        </div>
+
+        {target ? (
+          <div className="md:text-right">
+            <p className="text-xs font-medium text-fg-muted">{phase === "live" ? "Closes in" : "Opens in"}</p>
+            <p
+              className="mt-1 font-light tabular-nums tracking-display text-fg text-5xl lg:text-6xl"
+              role="timer"
+              suppressHydrationWarning
+              aria-label={`${totalHours} hours ${minutes} minutes ${seconds} seconds`}
+            >
+              {pad2(totalHours)}
+              <span className="text-fg-subtle">:</span>
+              {pad2(minutes)}
+              <span className="text-fg-subtle">:</span>
+              {pad2(seconds)}
             </p>
           </div>
-        </div>
-
-        <div className="mt-8 md:mt-0 flex flex-col items-start md:items-end space-y-4">
-          <div className="text-left md:text-right">
-            <p className="text-xs font-bold text-fg-muted uppercase tracking-wider mb-2">Countdown</p>
-            <div className="font-mono text-4xl lg:text-5xl font-bold text-fg">
-              {timeString}
-            </div>
-          </div>
-
-          <div className="flex items-center gap-6 mt-4 pt-4 border-t border-border w-full justify-start md:justify-end">
-            <div className="text-left">
-              <p className="text-2xs text-fg-muted uppercase font-bold tracking-wider mb-1">Opens</p>
-              <p className="text-sm font-semibold text-fg">
-                {event.openDate ? format(new Date(event.openDate), "dd MMM yyyy, hh:mm a") : "Not Set"}
-              </p>
-            </div>
-            <div className="text-left">
-              <p className="text-2xs text-fg-muted uppercase font-bold tracking-wider mb-1">Closes</p>
-              <p className="text-sm font-semibold text-fg">
-                {event.closeDate ? format(new Date(event.closeDate), "dd MMM yyyy, hh:mm a") : "Not Set"}
-              </p>
-            </div>
-          </div>
-        </div>
+        ) : null}
       </div>
-    </div>
+
+      <dl className="mt-8 grid grid-cols-2 gap-4 border-t border-border pt-5 sm:max-w-md md:ml-auto">
+        {[
+          { label: "Opens", value: event.openDate },
+          { label: "Closes", value: event.closeDate },
+        ].map((row) => (
+          <div key={row.label}>
+            <dt className="text-xs text-fg-muted">{row.label}</dt>
+            <dd className={cn("mt-0.5 text-sm font-medium", row.value ? "text-fg" : "text-fg-subtle")}>
+              {row.value ? formatDateTime(row.value) : "Not set"}
+            </dd>
+          </div>
+        ))}
+      </dl>
+    </section>
   );
 }

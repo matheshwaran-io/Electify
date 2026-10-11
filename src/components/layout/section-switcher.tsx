@@ -4,7 +4,7 @@ import * as React from "react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
 import { toast } from "sonner"
-import { Check, ChevronsUpDown, Search, Settings2 } from "lucide-react"
+import { Check, ChevronsUpDown, LogOut, Search, Settings2 } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 import { Spinner } from "@/components/ui/spinner"
@@ -77,7 +77,7 @@ export function SectionSwitcher({
         collapsed ? "size-10 justify-center p-0" : "px-2.5 py-2"
       )}
     >
-      <span className="inline-flex size-7 shrink-0 items-center justify-center rounded-badge bg-surface-2 font-mono text-xs font-semibold text-fg">
+      <span className="inline-flex size-7 shrink-0 items-center justify-center rounded-badge bg-surface-2 font-mono text-xs font-medium text-fg">
         {pending ? <Spinner className="size-3.5" /> : active.label}
       </span>
       {!collapsed ? (
@@ -122,29 +122,54 @@ export function SectionSwitcher({
           {filtered.map((s) => {
             const isActive = s.id === active.id
             return (
-              <button
+              <div
                 key={s.id}
-                type="button"
-                role="option"
-                aria-selected={isActive}
-                disabled={pending}
-                onClick={() => {
-                  setOpen(false)
-                  if (!isActive) switchTo(s)
-                }}
-                className="flex w-full items-center gap-3 rounded-badge px-2.5 py-2 text-left hover:bg-surface-2 disabled:opacity-60"
+                className="group/item flex w-full items-center gap-2 rounded-control px-2.5 py-1.5 hover:bg-surface-2"
               >
-                <span className="inline-flex size-7 shrink-0 items-center justify-center rounded-badge border border-border font-mono text-xs font-semibold">
-                  {target === s.id ? <Spinner className="size-3.5" /> : s.label}
-                </span>
-                <span className="min-w-0 flex-1">
-                  <span className="block truncate text-sm font-medium text-fg">{sectionName(s)}</span>
-                  <span className="block truncate text-xs text-fg-muted">
-                    {s.programme} · {s.batch}
+                <button
+                  type="button"
+                  role="option"
+                  aria-selected={isActive}
+                  disabled={pending}
+                  onClick={() => {
+                    setOpen(false)
+                    if (!isActive) switchTo(s)
+                  }}
+                  className="flex min-w-0 flex-1 items-center gap-3 text-left disabled:opacity-60"
+                >
+                  <span className="inline-flex size-7 shrink-0 items-center justify-center rounded-badge border border-border font-mono text-xs font-medium">
+                    {target === s.id ? <Spinner className="size-3.5" /> : s.label}
                   </span>
-                </span>
-                {isActive ? <Check className="size-4 text-primary-text" /> : null}
-              </button>
+                  <span className="min-w-0 flex-1">
+                    <span className="block truncate text-sm font-medium text-fg">{sectionName(s)}</span>
+                    <span className="block truncate text-xs text-fg-muted">
+                      {s.programme} · {s.batch}
+                    </span>
+                  </span>
+                  {isActive ? <Check className="size-4 text-primary-text shrink-0" /> : null}
+                </button>
+                <button
+                  type="button"
+                  aria-label={`Exit Section ${s.label}`}
+                  title={`Exit from Section ${s.label}`}
+                  onClick={async (e) => {
+                    e.stopPropagation();
+                    if (confirm(`Exit from Section ${s.label}? You can re-claim it later from Manage sections.`)) {
+                      try {
+                        const { exitTutorSection } = await import("@/app/actions/tutor");
+                        await exitTutorSection(s.id);
+                        toast.success(`Exited Section ${s.label}`);
+                        window.location.reload();
+                      } catch (err: unknown) {
+                        toast.error(err instanceof Error ? err.message : "Failed to exit section");
+                      }
+                    }
+                  }}
+                  className="opacity-0 group-hover/item:opacity-100 p-1.5 text-fg-muted hover:text-danger-text hover:bg-danger/10 rounded-control transition-all shrink-0"
+                >
+                  <LogOut className="size-3.5" />
+                </button>
+              </div>
             )
           })}
         </div>
@@ -152,7 +177,7 @@ export function SectionSwitcher({
           <Link
             href="/faculty/assign-sections"
             onClick={() => setOpen(false)}
-            className="flex items-center gap-2.5 rounded-badge px-2.5 py-2 text-sm text-fg-muted hover:bg-surface-2 hover:text-fg"
+            className="flex items-center gap-2.5 rounded-control px-2.5 py-2 text-sm text-fg-muted hover:bg-surface-2 hover:text-fg"
           >
             <Settings2 className="size-4" /> Manage sections
           </Link>
