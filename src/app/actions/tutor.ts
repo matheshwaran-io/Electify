@@ -572,6 +572,19 @@ export async function getRegistrationMetrics(eventId: string) {
     );
   const registeredStudents = registeredStudentsRes?.count ?? 0;
 
+  const [waitlistedStudentsRes] = await db
+    .select({ count: count() })
+    .from(registrations)
+    .innerJoin(users, eq(registrations.studentId, users.id))
+    .where(
+      and(
+        eq(registrations.eventId, eventId),
+        eq(registrations.status, "WAITLISTED"),
+        session.sectionId ? eq(users.sectionId, session.sectionId) : undefined
+      )
+    );
+  const waitlistedStudents = waitlistedStudentsRes?.count ?? 0;
+
   // 2. Seats filled vs total
   const electivesList = await db
     .select({
@@ -603,7 +616,12 @@ export async function getRegistrationMetrics(eventId: string) {
       receiptSnapshot: registrations.receiptSnapshot,
     })
     .from(registrations)
-    .where(and(eq(registrations.eventId, eventId), eq(registrations.status, "CONFIRMED")));
+    .where(
+      and(
+        eq(registrations.eventId, eventId),
+        inArray(registrations.status, ["CONFIRMED", "WAITLISTED"])
+      )
+    );
 
   const subjectCounts: Record<string, number> = {};
   const hourCounts: Record<string, number> = {};
@@ -618,7 +636,11 @@ export async function getRegistrationMetrics(eventId: string) {
       const snap = reg.receiptSnapshot as any;
       if (snap.electives && Array.isArray(snap.electives)) {
         for (const el of snap.electives) {
-          subjectCounts[el.electiveName] = (subjectCounts[el.electiveName] || 0) + 1;
+          const rawName = String(el.electiveName || "");
+          const cleanName = rawName.replace(/\s*\[Waitlisted\s*#\d+\]$/i, "").trim();
+          if (cleanName) {
+            subjectCounts[cleanName] = (subjectCounts[cleanName] || 0) + 1;
+          }
         }
       }
     }
@@ -643,7 +665,7 @@ export async function getRegistrationMetrics(eventId: string) {
 
   for (const el of electivesList) {
     const name = el.courseCode ? `${el.courseCode} - ${el.name}` : el.name;
-    const c = subjectCounts[name] || 0;
+    const c = subjectCounts[name] || subjectCounts[el.name] || 0;
     if (c > maxSubCount) {
       maxSubCount = c;
       popularSubject = el.name;
@@ -657,6 +679,7 @@ export async function getRegistrationMetrics(eventId: string) {
   return {
     totalStudents,
     registeredStudents,
+    waitlistedStudents,
     totalSeats,
     filledSeats,
     fullSubjects,
@@ -717,24 +740,53 @@ export async function updateWindowTimers(
     allowEditing?: boolean;
     autoClose?: boolean;
     enableWaitlist?: boolean;
+    status?: string;
   }
 ) {
   const session = await assertTutor();
   await assertEventAccess(session, eventId);
 
-  // Determine status based on dates relative to now
-  const now = new Date();
-  let status: string;
+  const [existingEvent] = await db
+    .select()
+    .from(registrationEvents)
+    .where(eq(registrationEvents.id, eventId));
 
-  if (!openDate && !closeDate) {
-    status = "DRAFT";
-  } else if (closeDate && now >= closeDate) {
-    status = "CLOSED";
-  } else if (openDate && now >= openDate) {
-    status = "OPEN";
+  if (!existingEvent) throw new Error("Registration event not found.");
+
+  const now = new Date();
+  let status = existingEvent.status;
+
+  if (config?.status) {
+    status = config.status;
   } else {
-    // openDate is in the future
-    status = "PUBLISHED";
+    // Only update status based on dates if status is not explicitly paused
+    if (existingEvent.status === "PAUSED") {
+      status = "PAUSED";
+    } else if (existingEvent.status === "OPEN") {
+      const isAutoClose = config?.autoClose !== undefined ? config.autoClose : existingEvent.autoClose;
+      if (isAutoClose && closeDate && now >= closeDate) {
+        status = "CLOSED";
+      } else {
+        status = "OPEN";
+      }
+    } else if (existingEvent.status === "CLOSED") {
+      if (closeDate && now < closeDate && (!openDate || now >= openDate)) {
+        status = "OPEN";
+      } else {
+        status = "CLOSED";
+      }
+    } else {
+      // For DRAFT or PUBLISHED: schedule accordingly
+      if (!openDate && !closeDate) {
+        status = "DRAFT";
+      } else if (closeDate && now >= closeDate) {
+        status = "CLOSED";
+      } else if (openDate && now >= openDate) {
+        status = "OPEN";
+      } else {
+        status = "PUBLISHED";
+      }
+    }
   }
 
   const updateData: Record<string, any> = {
@@ -759,7 +811,92 @@ export async function updateWindowTimers(
     .set(updateData)
     .where(eq(registrationEvents.id, eventId));
 
+  // Insert audit log
+  await db.insert(auditLogs).values({
+    action: "UPDATE_WINDOW_SETTINGS",
+    userId: session.userId,
+    userEmail: session.email,
+    userRole: session.role,
+    metadata: {
+      eventId,
+      eventName: existingEvent.name,
+      openDate,
+      closeDate,
+      status,
+      allowEditing: updateData.allowEditing,
+      autoClose: updateData.autoClose,
+      enableWaitlist: updateData.enableWaitlist,
+    },
+  });
+
+  // Revalidate caches and paths
+  try {
+    const cache = await import("next/cache") as any;
+    if (typeof cache.revalidatePath === "function") {
+      cache.revalidatePath("/faculty/window");
+      cache.revalidatePath("/faculty/events");
+      cache.revalidatePath("/faculty/dashboard");
+      cache.revalidatePath("/dashboard");
+      cache.revalidatePath("/dashboard/electives");
+      cache.revalidatePath("/", "layout");
+    }
+    if (typeof cache.updateTag === "function") {
+      cache.updateTag("hierarchy");
+    }
+    if (typeof cache.revalidateTag === "function") {
+      cache.revalidateTag("hierarchy", "max");
+    }
+  } catch (err) {
+    console.warn("Revalidation warning:", err);
+  }
+
   return { success: true, status };
+}
+
+export async function toggleWindowStatus(eventId: string, newStatus: "OPEN" | "PAUSED" | "CLOSED") {
+  const session = await assertTutor();
+  await assertEventAccess(session, eventId);
+
+  const [existingEvent] = await db
+    .select()
+    .from(registrationEvents)
+    .where(eq(registrationEvents.id, eventId));
+
+  if (!existingEvent) throw new Error("Registration event not found.");
+
+  await db
+    .update(registrationEvents)
+    .set({ status: newStatus, updatedAt: new Date() })
+    .where(eq(registrationEvents.id, eventId));
+
+  await db.insert(auditLogs).values({
+    action: "UPDATE_WINDOW_STATUS",
+    userId: session.userId,
+    userEmail: session.email,
+    userRole: session.role,
+    metadata: {
+      eventId,
+      eventName: existingEvent.name,
+      oldStatus: existingEvent.status,
+      newStatus,
+    },
+  });
+
+  try {
+    const cache = await import("next/cache") as any;
+    if (typeof cache.revalidatePath === "function") {
+      cache.revalidatePath("/faculty/window");
+      cache.revalidatePath("/faculty/events");
+      cache.revalidatePath("/faculty/dashboard");
+      cache.revalidatePath("/dashboard");
+      cache.revalidatePath("/dashboard/electives");
+      cache.revalidatePath("/", "layout");
+    }
+  } catch (err) {
+    console.warn("Revalidation warning:", err);
+  }
+
+  return { success: true, status: newStatus };
 }
 
 import * as bcrypt from "bcryptjs";

@@ -1,25 +1,32 @@
 "use client";
 
-import { useState } from "react";
-import { Info, Save } from "lucide-react";
-import { updateWindowTimers } from "@/app/actions/tutor";
+import { useState, useEffect } from "react";
+import { Info, Save, Pause, Play, RotateCcw } from "lucide-react";
+import { updateWindowTimers, toggleWindowStatus } from "@/app/actions/tutor";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Field, Input } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
 import { Tooltip } from "@/components/ui/tooltip";
+import { Badge } from "@/components/ui/badge";
 import type { WindowEvent } from "./types";
 
 /**
- * `<input type="datetime-local">` takes local wall-clock time. Slicing an ISO
- * string would show UTC, and saving would then shift the window by the UTC
- * offset every time, so convert to local first.
+ * `<input type="datetime-local">` takes local wall-clock time format (YYYY-MM-DDTHH:mm).
+ * Using local calendar getters avoids timezone and DST shift anomalies.
  */
 function toLocalInput(d: Date | string | null) {
   if (!d) return "";
   const date = new Date(d);
-  return new Date(date.getTime() - date.getTimezoneOffset() * 60_000).toISOString().slice(0, 16);
+  if (isNaN(date.getTime())) return "";
+  const pad = (n: number) => String(n).padStart(2, "0");
+  const y = date.getFullYear();
+  const m = pad(date.getMonth() + 1);
+  const day = pad(date.getDate());
+  const h = pad(date.getHours());
+  const min = pad(date.getMinutes());
+  return `${y}-${m}-${day}T${h}:${min}`;
 }
 
 function ToggleRow({
@@ -42,7 +49,12 @@ function ToggleRow({
           {label}
           {hint ? (
             <Tooltip content={hint}>
-              <button type="button" data-inline aria-label={`About ${label}`} className="inline-flex size-5 items-center justify-center rounded-full text-fg-subtle hover:text-fg">
+              <button
+                type="button"
+                data-inline
+                aria-label={`About ${label}`}
+                className="inline-flex size-5 items-center justify-center rounded-full text-fg-subtle hover:text-fg focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/40"
+              >
                 <Info className="size-3.5" />
               </button>
             </Tooltip>
@@ -50,7 +62,7 @@ function ToggleRow({
         </p>
         <p className="mt-0.5 text-xs text-fg-muted">{description}</p>
       </div>
-      <Switch checked={checked} onCheckedChange={onChange} aria-label={label} className="mt-0.5" />
+      <Switch checked={checked} onCheckedChange={onChange} aria-label={label} className="mt-0.5 shrink-0" />
     </div>
   );
 }
@@ -58,23 +70,42 @@ function ToggleRow({
 export function ConfigurationCard({ event }: { event: WindowEvent }) {
   const router = useRouter();
   const [isSaving, setIsSaving] = useState(false);
-  const [openDate, setOpenDate] = useState(toLocalInput(event.openDate));
-  const [closeDate, setCloseDate] = useState(toLocalInput(event.closeDate));
+  const [isUpdatingStatus, setIsUpdatingStatus] = useState(false);
 
+  const [openDate, setOpenDate] = useState(() => toLocalInput(event.openDate));
+  const [closeDate, setCloseDate] = useState(() => toLocalInput(event.closeDate));
   const [allowEditing, setAllowEditing] = useState(event.allowEditing ?? true);
   const [autoClose, setAutoClose] = useState(event.autoClose ?? true);
   const [enableWaitlist, setEnableWaitlist] = useState(event.enableWaitlist ?? false);
 
+  // Sync state when event props update after a refresh or navigation
+  useEffect(() => {
+    setOpenDate(toLocalInput(event.openDate));
+    setCloseDate(toLocalInput(event.closeDate));
+    setAllowEditing(event.allowEditing ?? true);
+    setAutoClose(event.autoClose ?? true);
+    setEnableWaitlist(event.enableWaitlist ?? false);
+  }, [event.openDate, event.closeDate, event.allowEditing, event.autoClose, event.enableWaitlist]);
+
   const invalidRange = Boolean(openDate && closeDate && new Date(closeDate) <= new Date(openDate));
 
   async function handleSave() {
+    if (invalidRange) {
+      toast.error("Closing time must be after the opening time.");
+      return;
+    }
     setIsSaving(true);
     try {
-      await updateWindowTimers(event.id, openDate ? new Date(openDate) : null, closeDate ? new Date(closeDate) : null, {
-        allowEditing,
-        autoClose,
-        enableWaitlist,
-      });
+      await updateWindowTimers(
+        event.id,
+        openDate ? new Date(openDate) : null,
+        closeDate ? new Date(closeDate) : null,
+        {
+          allowEditing,
+          autoClose,
+          enableWaitlist,
+        }
+      );
       toast.success("Settings saved successfully!");
       router.refresh();
     } catch (err: any) {
@@ -84,24 +115,88 @@ export function ConfigurationCard({ event }: { event: WindowEvent }) {
     }
   }
 
+  async function handleStatusToggle(newStatus: "OPEN" | "PAUSED" | "CLOSED") {
+    setIsUpdatingStatus(true);
+    try {
+      await toggleWindowStatus(event.id, newStatus);
+      const actionName =
+        newStatus === "OPEN"
+          ? "Window resumed / opened"
+          : newStatus === "PAUSED"
+          ? "Window paused"
+          : "Window closed";
+      toast.success(`${actionName} successfully!`);
+      router.refresh();
+    } catch (err: any) {
+      toast.error(err.message || "Failed to update status");
+    } finally {
+      setIsUpdatingStatus(false);
+    }
+  }
+
+  const isBusy = isSaving || isUpdatingStatus;
+
   return (
-    <section aria-label="Window settings" className="col-span-1 flex flex-col rounded-card border border-border bg-surface shadow-1 lg:col-span-4">
-      <div className="px-4 pt-4 sm:px-5 sm:pt-5">
-        <h2 className="text-sm font-medium text-fg">Settings</h2>
-        <p className="mt-0.5 text-xs text-fg-muted">Times are in your device&apos;s time zone.</p>
+    <section
+      aria-label="Window settings"
+      className="col-span-1 flex flex-col rounded-card border border-border bg-surface shadow-1 lg:col-span-4"
+    >
+      <div className="flex items-center justify-between px-4 pt-4 sm:px-5 sm:pt-5">
+        <div>
+          <h2 className="text-sm font-medium text-fg">Settings & Controls</h2>
+          <p className="mt-0.5 text-xs text-fg-muted">Times are in your device&apos;s time zone.</p>
+        </div>
+        <Badge
+          tone={
+            event.status === "OPEN"
+              ? "live"
+              : event.status === "PAUSED"
+              ? "warning"
+              : event.status === "CLOSED"
+              ? "neutral"
+              : "outline"
+          }
+          dot={event.status === "OPEN"}
+          size="sm"
+        >
+          {event.status}
+        </Badge>
       </div>
 
       <div className="flex-1 space-y-4 px-4 py-4 sm:px-5">
         <Field label="Portal opens">
-          <Input type="datetime-local" value={openDate} onChange={(e) => setOpenDate(e.target.value)} />
+          <Input
+            type="datetime-local"
+            value={openDate}
+            onChange={(e) => setOpenDate(e.target.value)}
+            disabled={isBusy}
+          />
         </Field>
-        <Field label="Portal closes" error={invalidRange ? "Closing time must be after the opening time." : undefined}>
-          <Input type="datetime-local" value={closeDate} onChange={(e) => setCloseDate(e.target.value)} />
+        <Field
+          label="Portal closes"
+          error={invalidRange ? "Closing time must be after the opening time." : undefined}
+        >
+          <Input
+            type="datetime-local"
+            value={closeDate}
+            onChange={(e) => setCloseDate(e.target.value)}
+            disabled={isBusy}
+          />
         </Field>
 
         <div className="divide-y divide-border border-t border-border">
-          <ToggleRow label="Allow editing" description="Students can change choices until the window closes." checked={allowEditing} onChange={setAllowEditing} />
-          <ToggleRow label="Auto close" description="The portal closes itself at the closing time." checked={autoClose} onChange={setAutoClose} />
+          <ToggleRow
+            label="Allow editing"
+            description="Students can change choices until the window closes."
+            checked={allowEditing}
+            onChange={setAllowEditing}
+          />
+          <ToggleRow
+            label="Auto close"
+            description="The portal closes itself at the closing time."
+            checked={autoClose}
+            onChange={setAutoClose}
+          />
           <ToggleRow
             label="Waitlist"
             description="Students can join a waitlist for full electives."
@@ -112,8 +207,49 @@ export function ConfigurationCard({ event }: { event: WindowEvent }) {
         </div>
       </div>
 
-      <div className="border-t border-border bg-surface-2/50 px-4 py-3 sm:px-5">
-        <Button onClick={handleSave} loading={isSaving} loadingText="Saving" disabled={invalidRange} className="w-full">
+      <div className="space-y-2 border-t border-border bg-surface-2/50 px-4 py-3 sm:px-5">
+        {event.status === "OPEN" ? (
+          <Button
+            type="button"
+            variant="outline"
+            onClick={() => handleStatusToggle("PAUSED")}
+            loading={isUpdatingStatus}
+            disabled={isSaving}
+            className="w-full text-warning-text hover:bg-warning/10"
+          >
+            <Pause /> Pause window
+          </Button>
+        ) : event.status === "PAUSED" ? (
+          <Button
+            type="button"
+            variant="outline"
+            onClick={() => handleStatusToggle("OPEN")}
+            loading={isUpdatingStatus}
+            disabled={isSaving}
+            className="w-full text-success-text hover:bg-success/10"
+          >
+            <Play /> Resume window
+          </Button>
+        ) : event.status === "CLOSED" ? (
+          <Button
+            type="button"
+            variant="outline"
+            onClick={() => handleStatusToggle("OPEN")}
+            loading={isUpdatingStatus}
+            disabled={isSaving}
+            className="w-full"
+          >
+            <RotateCcw /> Re-open window
+          </Button>
+        ) : null}
+
+        <Button
+          onClick={handleSave}
+          loading={isSaving}
+          loadingText="Saving"
+          disabled={invalidRange || isUpdatingStatus}
+          className="w-full"
+        >
           <Save /> Save settings
         </Button>
       </div>

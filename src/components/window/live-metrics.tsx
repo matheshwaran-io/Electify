@@ -31,12 +31,25 @@ export function LiveMetrics({ metrics }: { metrics: WindowMetrics | null }) {
           <Meter value={t.value} max={t.of} label={t.label} className="mt-3" />
         </div>
       ))}
-      <div className="col-span-2 flex items-center justify-between gap-4 rounded-card border border-border bg-surface p-4 shadow-1 sm:p-5 lg:col-span-1">
-        <p className="text-sm text-fg-muted">Subjects full</p>
-        <AnimatedNumber
-          value={metrics.fullSubjects}
-          className={metrics.fullSubjects > 0 ? "text-3xl font-light tabular-nums text-warning-text" : "text-3xl font-light tabular-nums text-fg"}
-        />
+      <div className="col-span-2 grid grid-cols-2 gap-3 lg:col-span-1">
+        <div className="flex flex-col justify-between rounded-card border border-border bg-surface p-4 shadow-1 sm:p-5">
+          <p className="text-sm text-fg-muted">Subjects full</p>
+          <div className="mt-2">
+            <AnimatedNumber
+              value={metrics.fullSubjects}
+              className={metrics.fullSubjects > 0 ? "text-3xl font-light tabular-nums text-warning-text" : "text-3xl font-light tabular-nums text-fg"}
+            />
+          </div>
+        </div>
+        <div className="flex flex-col justify-between rounded-card border border-border bg-surface p-4 shadow-1 sm:p-5">
+          <p className="text-sm text-fg-muted">Waitlisted</p>
+          <div className="mt-2">
+            <AnimatedNumber
+              value={metrics.waitlistedStudents ?? 0}
+              className={(metrics.waitlistedStudents ?? 0) > 0 ? "text-3xl font-light tabular-nums text-warning-text" : "text-3xl font-light tabular-nums text-fg"}
+            />
+          </div>
+        </div>
       </div>
     </div>
   );

@@ -498,8 +498,8 @@ export const getPublicHierarchy = unstable_cache(
     const allFaculties = await db.select().from(faculties).where(eq(faculties.isActive, true)).orderBy(asc(faculties.name));
     const allDepts = await db.select().from(departments).where(eq(departments.isActive, true)).orderBy(asc(departments.name));
     const allProgs = await db.select().from(programmes).where(eq(programmes.isActive, true)).orderBy(asc(programmes.name));
-    const allBatches = await db.select().from(academicBatches).orderBy(asc(academicBatches.year));
-    const allSections = await db.select().from(sections).orderBy(asc(sections.label));
+    const allBatches = await db.select().from(academicBatches).where(eq(academicBatches.isActive, true)).orderBy(asc(academicBatches.year));
+    const allSections = await db.select().from(sections).where(eq(sections.isActive, true)).orderBy(asc(sections.label));
 
     return {
       faculties: allFaculties.map((f) => ({

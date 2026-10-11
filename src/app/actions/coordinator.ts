@@ -131,8 +131,8 @@ export async function getAcademicHierarchyForAllocations() {
 
   const allDepts = await db.select().from(departments).where(eq(departments.isActive, true)).orderBy(asc(departments.name));
   const allProgs = await db.select().from(programmes).where(eq(programmes.isActive, true)).orderBy(asc(programmes.name));
-  const allBatches = await db.select().from(academicBatches).orderBy(asc(academicBatches.year));
-  const allSections = await db.select().from(sections).orderBy(asc(sections.label));
+  const allBatches = await db.select().from(academicBatches).where(eq(academicBatches.isActive, true)).orderBy(asc(academicBatches.year));
+  const allSections = await db.select().from(sections).where(eq(sections.isActive, true)).orderBy(asc(sections.label));
 
   return allDepts.map((dept) => {
     const deptProgs = allProgs.filter((p) => p.departmentId === dept.id);
