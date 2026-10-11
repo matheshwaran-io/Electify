@@ -105,13 +105,13 @@ export function SuccessView({ student, event, registrations, receiptNumber }: Su
           aria-label="Registration receipt"
           className="overflow-hidden rounded-card border border-border bg-surface shadow-2 animate-enter [animation-delay:450ms] print:rounded-none print:border-0 print:shadow-none print:animate-none"
         >
-          <header className="flex flex-wrap items-start justify-between gap-4 border-b border-border p-5 sm:p-6">
+          <header className="flex flex-col gap-4 border-b border-border p-5 sm:flex-row sm:items-start sm:justify-between sm:p-6">
             <div>
               <Logo size="sm" />
               <p className="mt-3 text-xs text-fg-muted">Registration receipt</p>
             </div>
-            <div className="text-right">
-              <div className="flex items-center justify-end gap-1">
+            <div className="sm:text-right">
+              <div className="flex items-center gap-1 sm:justify-end">
                 <span className="font-mono text-sm font-medium text-fg">{receiptNumber}</span>
                 <button
                   type="button"
