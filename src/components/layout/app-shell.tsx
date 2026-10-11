@@ -365,8 +365,12 @@ function SidebarContent({
 }) {
   return (
     <div className="flex h-full min-h-0 flex-col">
-      <div className={cn("flex h-14 shrink-0 items-center gap-2", collapsed ? "justify-center px-2" : "px-4")}>
-        <Link href="/faculty/dashboard" aria-label="Electify dashboard" className="flex h-10 items-center rounded-control">
+      <div className={cn("flex h-14 shrink-0 items-center gap-2", collapsed ? "px-3" : "pl-6 pr-3")}>
+        <Link
+          href="/faculty/dashboard"
+          aria-label="Electify dashboard"
+          className={cn("flex h-10 items-center rounded-control", collapsed && "w-10 justify-center")}
+        >
           {collapsed ? <LogoMark size="md" label={false} /> : <Logo size="sm" label={false} />}
         </Link>
         {!collapsed ? (
@@ -393,7 +397,7 @@ function SidebarContent({
           <button
             type="button"
             onClick={onSearch}
-            className="flex h-9 w-full items-center gap-2 rounded-full border border-border bg-surface px-3 text-sm text-fg-subtle shadow-1 transition-colors hover:text-fg-muted"
+            className="flex h-9 w-full items-center gap-2 rounded-full border border-border bg-surface pl-[11px] pr-3 text-sm text-fg-subtle shadow-1 transition-colors hover:text-fg-muted"
           >
             <Search className="size-4" />
             <span className="flex-1 text-left">Search or jump to</span>
@@ -437,7 +441,7 @@ function NavList({ groups, pathname, collapsed, large }: { groups: NavGroup[]; p
     <div className="space-y-5">
       {groups.map((group) => (
         <div key={group.label}>
-          {!collapsed ? <p className="mb-1 px-2.5 text-xs font-medium text-fg-subtle">{group.label}</p> : <div className="mx-auto mb-2 h-px w-6 bg-border" />}
+          {!collapsed ? <p className="mb-1 px-3 text-xs font-medium text-fg-subtle">{group.label}</p> : <div className="mx-auto mb-2 h-px w-6 bg-border" />}
           <ul className="space-y-0.5">
             {group.items.map((item) => {
               const active = isActive(pathname, item.href);

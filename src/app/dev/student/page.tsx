@@ -2,12 +2,14 @@ import { notFound } from "next/navigation"
 import { StudentHeader } from "@/components/student/student-chrome"
 import { RegistrationForm } from "@/app/dashboard/registration-form"
 import { CountdownTimer } from "@/app/countdown/countdown-timer"
+import { SuccessView } from "@/app/dashboard/success/success-view"
 
 export const metadata = { title: "Student flow preview" }
 
 /**
- * Development-only preview of the student picker and countdown with sample
- * data, for visual QA when no registration window is open locally.
+ * Development-only preview of the student picker, countdown (?view=countdown)
+ * and receipt (?view=success) with sample data, for visual QA when no
+ * registration window is open locally.
  * Confirming here calls the real action, which rejects non-student sessions.
  */
 export default async function DevStudentPreview({ searchParams }: { searchParams: Promise<{ view?: string }> }) {
@@ -23,6 +25,21 @@ export default async function DevStudentPreview({ searchParams }: { searchParams
           <CountdownTimer startDateStr={new Date(now + 3 * 3600_000 + 754_000).toISOString()} registrationEnabled serverNow={now} />
         </main>
       </div>
+    )
+  }
+
+  if (view === "success") {
+    return (
+      <SuccessView
+        student={{ name: "Preview student", registerNumber: "RA0000000000000", email: "preview@srmist.edu.in", department: "Computer Applications", degree: "MCA", section: "A" }}
+        event={{ name: "Sample event" }}
+        registrations={[
+          { groupName: "Professional Elective I", electiveName: "Software Quality Assurance", submittedAt: new Date(now - 60_000) },
+          { groupName: "Open Elective", electiveName: "Design Thinking", submittedAt: new Date(now - 60_000) },
+        ]}
+        allowRegistrationEdit={false}
+        receiptNumber="EL-PREVIEW-0001"
+      />
     )
   }
 
