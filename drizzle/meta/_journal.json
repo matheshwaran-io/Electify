@@ -15,6 +15,13 @@
       "when": 1784057322571,
       "tag": "0001_kind_mandarin",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1791729968811,
+      "tag": "0002_lethal_war_machine",
+      "breakpoints": true
     }
   ]
 }

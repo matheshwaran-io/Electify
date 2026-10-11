@@ -81,7 +81,27 @@ export async function getSession(): Promise<UserSession | null> {
         session.name = cleanDisplayName(userRecord.name);
       }
     } catch (err) {
-      console.error("Session single-login verification error:", err);
+      console.warn("Session single-login verification warning (fallback to active check):", err);
+      try {
+        const [fallbackRecord] = await db
+          .select({ isActive: users.isActive, name: users.name })
+          .from(users)
+          .where(eq(users.id, session.userId))
+          .limit(1);
+
+        if (!fallbackRecord || !fallbackRecord.isActive) {
+          cookieStore.delete("electify_session");
+          cookieStore.delete("electify_active_section");
+          cookieStore.delete("electify_active_workspace");
+          return null;
+        }
+
+        if (fallbackRecord.name) {
+          session.name = cleanDisplayName(fallbackRecord.name);
+        }
+      } catch (fallbackErr) {
+        console.error("Fallback session check error:", fallbackErr);
+      }
     }
   }
 
