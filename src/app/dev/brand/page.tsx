@@ -33,7 +33,7 @@ export default function BrandPage() {
           <Panel dark={dark}>
             <div className="space-y-6">
               {SIZES.map((s) => (
-                <div key={s} className="flex flex-wrap items-center gap-x-10 gap-y-3">
+                <div key={s} className="flex flex-wrap items-center gap-x-10 gap-y-3 overflow-x-auto">
                   <span className="w-20 font-mono text-xs text-fg-subtle">
                     {s} · {PX[s]}px
                   </span>
