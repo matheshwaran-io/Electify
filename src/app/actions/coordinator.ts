@@ -4,7 +4,8 @@ import { db } from "@/lib/db";
 import {
   users, registrationEvents, sections, departments, programmes,
   electiveGroups, electives, electiveSeatAllocations, studentRegistrations,
-  academicBatches, auditLogs, registrations
+  academicBatches, auditLogs, registrations,
+  eventSections, eventStudents, replayEvents
 } from "@/lib/db/schema";
 import { getSession } from "@/lib/auth";
 import { eq, and, count, asc, desc, inArray, sql } from "drizzle-orm";
@@ -778,4 +779,210 @@ export async function resetRegistrationEvent(eventId: string) {
     });
   });
 }
+
+// ── Registration Event Management ───────────────────────────────────────────
+
+export async function deleteRegistrationEvent(eventId: string) {
+  const session = await getSession();
+  if (!session || (session.role !== "COURSE_COORDINATOR" && session.role !== "SYSTEM_ADMIN")) {
+    throw new Error("Unauthorized");
+  }
+
+  const [event] = await db.select().from(registrationEvents).where(eq(registrationEvents.id, eventId));
+  if (!event) throw new Error("Event not found.");
+
+  await db.transaction(async (tx) => {
+    // 1. Delete student registrations (selections)
+    await tx.delete(studentRegistrations).where(eq(studentRegistrations.eventId, eventId));
+
+    // 2. Delete registrations (overall student registration state)
+    await tx.delete(registrations).where(eq(registrations.eventId, eventId));
+
+    // 3. Delete event replay logs
+    await tx.delete(replayEvents).where(eq(replayEvents.registrationEventId, eventId));
+
+    // 4. Delete event students and sections
+    await tx.delete(eventStudents).where(eq(eventStudents.eventId, eventId));
+    await tx.delete(eventSections).where(eq(eventSections.eventId, eventId));
+
+    // 5. Delete elective groups (cascade deletes electives and elective_seat_allocations)
+    await tx.delete(electiveGroups).where(eq(electiveGroups.eventId, eventId));
+
+    // 6. Delete the event itself
+    await tx.delete(registrationEvents).where(eq(registrationEvents.id, eventId));
+
+    // 7. Audit log
+    await tx.insert(auditLogs).values({
+      action: "DELETE_REGISTRATION_EVENT",
+      userId: session.userId,
+      userEmail: session.email,
+      userRole: session.role,
+      metadata: { eventId, eventName: event.name },
+    });
+  });
+
+  const { revalidatePath } = await import("next/cache");
+  revalidatePath("/faculty/events");
+  revalidatePath("/faculty/dashboard");
+  revalidatePath("/", "layout");
+
+  return { success: true };
+}
+
+export async function updateRegistrationEventStatus(eventId: string, status: string) {
+  const session = await getSession();
+  if (!session || (session.role !== "COURSE_COORDINATOR" && session.role !== "SYSTEM_ADMIN")) {
+    throw new Error("Unauthorized");
+  }
+
+  const validStatuses = ["DRAFT", "PUBLISHED", "CLOSED", "ARCHIVED"];
+  if (!validStatuses.includes(status)) {
+    throw new Error("Invalid status.");
+  }
+
+  const [event] = await db.select().from(registrationEvents).where(eq(registrationEvents.id, eventId));
+  if (!event) throw new Error("Event not found.");
+
+  await db.transaction(async (tx) => {
+    await tx
+      .update(registrationEvents)
+      .set({ status, updatedAt: new Date() })
+      .where(eq(registrationEvents.id, eventId));
+
+    await tx.insert(auditLogs).values({
+      action: "UPDATE_EVENT_STATUS",
+      userId: session.userId,
+      userEmail: session.email,
+      userRole: session.role,
+      oldValue: { status: event.status },
+      newValue: { status },
+      metadata: { eventId, eventName: event.name },
+    });
+  });
+
+  const { revalidatePath } = await import("next/cache");
+  revalidatePath("/faculty/events");
+  revalidatePath("/faculty/dashboard");
+  revalidatePath("/", "layout");
+
+  return { success: true };
+}
+
+export async function updateRegistrationEvent(
+  eventId: string,
+  data: {
+    name: string;
+    academicYear?: string | null;
+    openDate?: string | null;
+    closeDate?: string | null;
+    status?: string;
+    description?: string | null;
+  }
+) {
+  const session = await getSession();
+  if (!session || (session.role !== "COURSE_COORDINATOR" && session.role !== "SYSTEM_ADMIN")) {
+    throw new Error("Unauthorized");
+  }
+
+  const name = data.name?.trim();
+  if (!name) throw new Error("Event name is required.");
+
+  const [event] = await db.select().from(registrationEvents).where(eq(registrationEvents.id, eventId));
+  if (!event) throw new Error("Event not found.");
+
+  const openDate = data.openDate ? new Date(data.openDate) : null;
+  const closeDate = data.closeDate ? new Date(data.closeDate) : null;
+
+  if (openDate && closeDate && closeDate < openDate) {
+    throw new Error("Close date cannot be before open date.");
+  }
+
+  await db.transaction(async (tx) => {
+    await tx
+      .update(registrationEvents)
+      .set({
+        name,
+        academicYear: data.academicYear?.trim() || null,
+        description: data.description?.trim() || null,
+        openDate,
+        closeDate,
+        status: data.status || event.status,
+        updatedAt: new Date(),
+      })
+      .where(eq(registrationEvents.id, eventId));
+
+    await tx.insert(auditLogs).values({
+      action: "UPDATE_REGISTRATION_EVENT",
+      userId: session.userId,
+      userEmail: session.email,
+      userRole: session.role,
+      oldValue: { name: event.name, status: event.status },
+      newValue: { name, status: data.status || event.status },
+      metadata: { eventId },
+    });
+  });
+
+  const { revalidatePath } = await import("next/cache");
+  revalidatePath("/faculty/events");
+  revalidatePath("/faculty/dashboard");
+  revalidatePath("/", "layout");
+
+  return { success: true };
+}
+
+export async function createRegistrationEvent(data: {
+  name: string;
+  academicBatchId: string;
+  academicYear?: string;
+  openDate?: string | null;
+  closeDate?: string | null;
+  status?: string;
+  description?: string;
+}) {
+  const session = await getSession();
+  if (!session || (session.role !== "COURSE_COORDINATOR" && session.role !== "SYSTEM_ADMIN")) {
+    throw new Error("Unauthorized");
+  }
+
+  const name = data.name?.trim();
+  if (!name) throw new Error("Event name is required.");
+  if (!data.academicBatchId) throw new Error("Academic batch / programme is required.");
+
+  const openDate = data.openDate ? new Date(data.openDate) : null;
+  const closeDate = data.closeDate ? new Date(data.closeDate) : null;
+
+  if (openDate && closeDate && closeDate < openDate) {
+    throw new Error("Close date cannot be before open date.");
+  }
+
+  const [newEvent] = await db
+    .insert(registrationEvents)
+    .values({
+      name,
+      academicBatchId: data.academicBatchId,
+      academicYear: data.academicYear?.trim() || null,
+      description: data.description?.trim() || null,
+      openDate,
+      closeDate,
+      status: data.status || "DRAFT",
+      createdById: session.userId,
+    })
+    .returning();
+
+  await db.insert(auditLogs).values({
+    action: "CREATE_REGISTRATION_EVENT",
+    userId: session.userId,
+    userEmail: session.email,
+    userRole: session.role,
+    newValue: { id: newEvent.id, name: newEvent.name, status: newEvent.status },
+  });
+
+  const { revalidatePath } = await import("next/cache");
+  revalidatePath("/faculty/events");
+  revalidatePath("/faculty/dashboard");
+  revalidatePath("/", "layout");
+
+  return { success: true, event: newEvent };
+}
+
 

@@ -476,3 +476,68 @@
     stroke-dashoffset: 0;
   }
 }
+
+/* ─── Seat mark (sign-in hero) ──────────────────────────────────────────
+   The E as a seat map: taken seats in brand ink, open seats as outlines,
+   the logo's gold dot as the confirmed seat. See components/auth/seat-mark.tsx. */
+@layer components {
+  .seat-mark .seat {
+    transform-box: fill-box;
+    transform-origin: center;
+    transition:
+      scale 260ms var(--ease-gentle),
+      fill 320ms var(--ease-gentle),
+      stroke 320ms var(--ease-gentle);
+  }
+  .seat-mark .seat-open {
+    fill: transparent;
+    stroke: color-mix(in oklab, var(--brand-ink) 22%, transparent);
+    stroke-width: 0.8;
+  }
+  .seat-mark .seat-open:hover {
+    stroke: color-mix(in oklab, var(--brand-ink) 55%, transparent);
+  }
+  /* Someone else takes an open seat for a moment: live counts. */
+  .seat-mark .seat-open.seat-live {
+    fill: color-mix(in oklab, var(--brand-ink) 28%, transparent);
+    stroke: transparent;
+  }
+  .seat-mark .seat-taken,
+  .seat-mark .seat-claimed {
+    fill: var(--brand-ink);
+    animation: seat-take 520ms var(--ease-snappy) both;
+  }
+  .seat-mark .seat-nope {
+    animation: seat-nope 380ms var(--ease-snappy);
+  }
+  .seat-mark .seat-dot {
+    transform-box: fill-box;
+    transform-origin: center;
+    animation: seat-dot 680ms var(--ease-gentle) both;
+  }
+  .seat-mark .seat-check {
+    stroke-dasharray: 1;
+    stroke-dashoffset: 1;
+    animation: draw 460ms var(--ease-gentle) forwards;
+  }
+}
+
+@keyframes seat-take {
+  0% { opacity: 0; transform: scale(0.35); }
+  60% { opacity: 1; transform: scale(1.14); }
+  100% { opacity: 1; transform: scale(1); }
+}
+
+/* "Already taken": a short refusal, no double booking. */
+@keyframes seat-nope {
+  0%, 100% { transform: translateX(0); }
+  20% { transform: translateX(-1.6px); }
+  45% { transform: translateX(1.4px); }
+  70% { transform: translateX(-0.8px); }
+}
+
+@keyframes seat-dot {
+  0% { opacity: 0; transform: scale(0.2); }
+  65% { opacity: 1; transform: scale(1.1); }
+  100% { opacity: 1; transform: scale(1); }
+}

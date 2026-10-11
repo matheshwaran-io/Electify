@@ -281,8 +281,10 @@ function StaffLoginForm({ status, onSubmit, onRegister }: FormProps & { onRegist
         <Input
           type={shown ? "text" : "password"}
           autoComplete="current-password"
+          placeholder="Welcome@123"
           leading={<KeyRound />}
           trailing={<RevealToggle shown={shown} onToggle={() => setShown((s) => !s)} label="password" />}
+          className="placeholder:text-fg-muted/70"
           disabled={busy}
           inputSize="lg"
           {...register("password")}

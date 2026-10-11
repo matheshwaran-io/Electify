@@ -8,7 +8,7 @@ import { CalendarClock, CalendarX2, Clock3, Lock, RadioTower, UserX, Users } fro
 import { CountdownTimer } from "./countdown-timer";
 import { StudentHeader, StudentStatus } from "@/components/student/student-chrome";
 import { formatDateTime, formatOpening } from "@/lib/format";
-import { Sphere } from "@/components/sphere";
+import { SeatMark } from "@/components/auth/seat-mark";
 
 export const dynamic = "force-dynamic";
 export const metadata = { title: "Registration opens soon" };
@@ -116,8 +116,8 @@ export default async function CountdownPage() {
       <main className="flex flex-1 flex-col items-center px-5 pb-12 pt-10 sm:pt-16">
         <div className="flex w-full max-w-3xl flex-col items-center text-center">
           <div className="animate-enter">
-            <Sphere size={148} className="sm:hidden" />
-            <Sphere size={196} className="hidden sm:block" />
+            <SeatMark size={148} className="sm:hidden" />
+            <SeatMark size={196} className="hidden sm:block" />
           </div>
 
           <p className="mt-8 inline-flex items-center gap-2 rounded-full border border-border bg-surface px-3.5 py-1.5 text-sm text-fg-muted shadow-1 animate-enter [animation-delay:60ms]">
