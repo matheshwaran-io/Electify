@@ -6,6 +6,7 @@ import { AlertTriangle, Archive, BookOpen, Database, Trash2, Users } from "lucid
 import { toast } from "sonner";
 import { resetSectionRegistrationEvent } from "@/app/actions/tutor";
 import { deleteAllRegistrations, deleteAllStudents, deleteAllSubjects, resetAllSeats, archiveEvent } from "@/app/actions/database";
+import { deleteRegistrationEvent } from "@/app/actions/coordinator";
 import { cn } from "@/lib/utils";
 import { PageHeader } from "@/components/ui/layout";
 import { Button } from "@/components/ui/button";
@@ -85,6 +86,17 @@ export function DatabaseClient({ events, role }: { events: any[]; role: string }
       icon: BookOpen,
       tone: "danger",
       actionFn: async () => await deleteAllSubjects(event.id),
+      hidden: !isAdminOrCoord,
+    },
+    {
+      key: "delete_event",
+      title: "Delete registration event",
+      desc: "Permanently deletes this entire event, including all elective baskets, courses, seat quotas, and student selections.",
+      icon: Trash2,
+      tone: "danger",
+      actionFn: async () => {
+        await deleteRegistrationEvent(event.id);
+      },
       hidden: !isAdminOrCoord,
     },
   ];

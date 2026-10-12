@@ -4,9 +4,10 @@ import { db } from "@/lib/db";
 import {
   users, electives, electiveGroups, registrationEvents, tutorSections,
   studentRegistrations, eventSections, sections, programmes, academicBatches, auditLogs, registrations, departments,
-  replayEvents
+  replayEvents, inviteCodes, faculties, pinResetRequests
 } from "@/lib/db/schema";
 import { getSession } from "@/lib/auth";
+import { generateClassSignupCode } from "@/lib/invites";
 import { eq, and, or, asc, desc, count, inArray, notInArray, sql } from "drizzle-orm";
 
 async function assertTutor() {
@@ -1616,9 +1617,9 @@ export async function manualRegisterStudentByTutor(studentId: string, eventId: s
 
     const year = new Date().getFullYear();
     const [seqRow] = await tx
-      .select({ maxSeq: sql<number>`COALESCE(MAX(CAST(SUBSTRING(${registrations.receiptNumber} FROM 14) AS INTEGER)), 0)` })
+      .select({ maxSeq: sql<number>`COALESCE(MAX(CAST(NULLIF(SUBSTRING(${registrations.receiptNumber} FROM '^ELC-[0-9]+-MAN-([0-9]+)$'), '') AS BIGINT)), 0)` })
       .from(registrations);
-    const nextSeq = (seqRow?.maxSeq || 0) + 1;
+    const nextSeq = Number(seqRow?.maxSeq || 0) + 1;
     const receiptNumber = `ELC-${year}-MAN-${String(nextSeq).padStart(6, "0")}`; // Distinguish manual receipts
 
     const receiptSnapshot = {
@@ -1660,4 +1661,409 @@ export async function manualRegisterStudentByTutor(studentId: string, eventId: s
       metadata: { studentId, eventId, selections },
     });
   });
+}
+
+// ────────────────────────────────────────────────────────────────────
+// CLASS SIGNUP CODE MANAGEMENT & PIN RESET AUTHORIZATIONS
+// ────────────────────────────────────────────────────────────────────
+
+/**
+ * Creates an illustrative, secure Class Signup Code for the tutor's section (e.g. EF-MCA-F-7X9K).
+ * Hard server-side limit of 100 successful activations.
+ */
+export async function createClassSignupCode(params?: {
+  sectionId?: string;
+  maxActivations?: number;
+  expiryDays?: number;
+}) {
+  const session = await assertTutor();
+  const targetSectionId = params?.sectionId || session.sectionId;
+
+  if (!targetSectionId) {
+    throw new Error("No section specified. Please assign or select a section first.");
+  }
+
+  // Verify tutor is assigned to this section (or is Admin / Coordinator)
+  if (session.role === "CLASS_TUTOR") {
+    const [assigned] = await db
+      .select({ id: tutorSections.id })
+      .from(tutorSections)
+      .where(and(eq(tutorSections.tutorId, session.userId), eq(tutorSections.sectionId, targetSectionId)))
+      .limit(1);
+
+    if (!assigned && session.sectionId !== targetSectionId) {
+      throw new Error("You are not authorized to create codes for this section.");
+    }
+  }
+
+  // Fetch section hierarchy
+  const [sectionData] = await db
+    .select({
+      sectionId: sections.id,
+      sectionLabel: sections.label,
+      academicBatchId: sections.academicBatchId,
+      programmeId: academicBatches.programmeId,
+      programmeName: programmes.name,
+      programmeCode: programmes.code,
+      departmentId: programmes.departmentId,
+      facultyId: departments.facultyId,
+    })
+    .from(sections)
+    .innerJoin(academicBatches, eq(sections.academicBatchId, academicBatches.id))
+    .innerJoin(programmes, eq(academicBatches.programmeId, programmes.id))
+    .innerJoin(departments, eq(programmes.departmentId, departments.id))
+    .where(eq(sections.id, targetSectionId))
+    .limit(1);
+
+  if (!sectionData) {
+    throw new Error("Section record not found.");
+  }
+
+  // Hard server-side limit: default 100, capped at 100
+  const maxActivations = Math.min(Math.max(1, params?.maxActivations || 100), 100);
+  const expiryDays = Math.max(1, Math.min(90, params?.expiryDays || 14));
+  const expiresAt = new Date(Date.now() + expiryDays * 24 * 60 * 60 * 1000);
+
+  // Generate unique code in format EF-[PROG]-[SEC]-[RAND4]
+  let generatedCode = "";
+  let isUnique = false;
+  for (let attempt = 0; attempt < 5; attempt++) {
+    const candidate = generateClassSignupCode(sectionData.programmeCode, sectionData.sectionLabel);
+    const [existing] = await db
+      .select({ id: inviteCodes.id })
+      .from(inviteCodes)
+      .where(eq(inviteCodes.code, candidate))
+      .limit(1);
+    if (!existing) {
+      generatedCode = candidate;
+      isUnique = true;
+      break;
+    }
+  }
+
+  if (!isUnique || !generatedCode) {
+    generatedCode = generateClassSignupCode(sectionData.programmeCode, sectionData.sectionLabel) + Math.floor(Math.random() * 90 + 10);
+  }
+
+  const [newCode] = await db
+    .insert(inviteCodes)
+    .values({
+      code: generatedCode,
+      role: "STUDENT",
+      facultyId: sectionData.facultyId,
+      departmentId: sectionData.departmentId,
+      programmeId: sectionData.programmeId,
+      academicBatchId: sectionData.academicBatchId,
+      sectionId: sectionData.sectionId,
+      createdById: session.userId,
+      expiresAt,
+      maxUses: maxActivations,
+      usedCount: 0,
+      status: "ACTIVE",
+    })
+    .returning();
+
+  // Audit log
+  await db.insert(auditLogs).values({
+    action: "CLASS_CODE_CREATED",
+    userId: session.userId,
+    userEmail: session.email,
+    userRole: session.role,
+    metadata: {
+      code: newCode.code,
+      sectionId: targetSectionId,
+      programme: sectionData.programmeName,
+      maxActivations,
+      expiresAt: expiresAt.toISOString(),
+    },
+  });
+
+  return {
+    success: true,
+    code: newCode.code,
+    id: newCode.id,
+    maxUses: newCode.maxUses,
+    expiresAt: newCode.expiresAt,
+  };
+}
+
+/**
+ * Returns class signup codes created for or associated with the tutor's section.
+ */
+export async function getClassSignupCodesForTutor(sectionId?: string) {
+  const session = await assertTutor();
+  const targetSectionId = sectionId || session.sectionId;
+
+  // Find all sections tutor has access to
+  let authorizedSectionIds: string[] = [];
+  if (session.role === "SYSTEM_ADMIN") {
+    if (targetSectionId) authorizedSectionIds = [targetSectionId];
+  } else {
+    const tutorAssigned = await db
+      .select({ sectionId: tutorSections.sectionId })
+      .from(tutorSections)
+      .where(eq(tutorSections.tutorId, session.userId));
+    authorizedSectionIds = tutorAssigned.map((s) => s.sectionId);
+    if (session.sectionId && !authorizedSectionIds.includes(session.sectionId)) {
+      authorizedSectionIds.push(session.sectionId);
+    }
+    if (targetSectionId && !authorizedSectionIds.includes(targetSectionId)) {
+      authorizedSectionIds.push(targetSectionId);
+    }
+  }
+
+  const list = await db
+    .select({
+      id: inviteCodes.id,
+      code: inviteCodes.code,
+      role: inviteCodes.role,
+      status: inviteCodes.status,
+      maxUses: inviteCodes.maxUses,
+      usedCount: inviteCodes.usedCount,
+      expiresAt: inviteCodes.expiresAt,
+      createdAt: inviteCodes.createdAt,
+      sectionId: inviteCodes.sectionId,
+      createdById: inviteCodes.createdById,
+      sectionLabel: sections.label,
+      programmeName: programmes.name,
+      programmeCode: programmes.code,
+      departmentName: departments.name,
+      tutorName: users.name,
+    })
+    .from(inviteCodes)
+    .leftJoin(sections, eq(inviteCodes.sectionId, sections.id))
+    .leftJoin(programmes, eq(inviteCodes.programmeId, programmes.id))
+    .leftJoin(departments, eq(inviteCodes.departmentId, departments.id))
+    .leftJoin(users, eq(inviteCodes.createdById, users.id))
+    .where(
+      and(
+        eq(inviteCodes.role, "STUDENT"),
+        authorizedSectionIds.length > 0
+          ? or(
+              inArray(inviteCodes.sectionId, authorizedSectionIds),
+              eq(inviteCodes.createdById, session.userId)
+            )
+          : eq(inviteCodes.createdById, session.userId)
+      )
+    )
+    .orderBy(desc(inviteCodes.createdAt));
+
+  const now = new Date();
+
+  // Auto-mark expired records
+  return list.map((item) => {
+    let effectiveStatus = item.status;
+    if (item.status === "ACTIVE" && item.expiresAt < now) {
+      effectiveStatus = "EXPIRED";
+    } else if (item.status === "ACTIVE" && item.usedCount >= item.maxUses) {
+      effectiveStatus = "USED";
+    }
+    return {
+      ...item,
+      status: effectiveStatus,
+    };
+  });
+}
+
+/**
+ * Revokes a class signup code so no more students can use it.
+ */
+export async function revokeClassSignupCode(codeId: string) {
+  const session = await assertTutor();
+
+  const [code] = await db
+    .select()
+    .from(inviteCodes)
+    .where(eq(inviteCodes.id, codeId))
+    .limit(1);
+
+  if (!code) {
+    throw new Error("Class code not found.");
+  }
+
+  if (session.role !== "SYSTEM_ADMIN" && code.createdById !== session.userId) {
+    // If assigned to section tutor
+    if (code.sectionId) {
+      const [assigned] = await db
+        .select({ id: tutorSections.id })
+        .from(tutorSections)
+        .where(and(eq(tutorSections.tutorId, session.userId), eq(tutorSections.sectionId, code.sectionId)))
+        .limit(1);
+      if (!assigned && session.sectionId !== code.sectionId) {
+        throw new Error("You are not authorized to revoke this code.");
+      }
+    }
+  }
+
+  await db
+    .update(inviteCodes)
+    .set({ status: "REVOKED" })
+    .where(eq(inviteCodes.id, codeId));
+
+  await db.insert(auditLogs).values({
+    action: "CLASS_CODE_REVOKED",
+    userId: session.userId,
+    userEmail: session.email,
+    userRole: session.role,
+    metadata: { codeId, code: code.code },
+  });
+
+  return { success: true };
+}
+
+/**
+ * Retrieves pending PIN reset requests for the tutor's section.
+ */
+export async function getPendingPinResetsForTutor(sectionId?: string) {
+  const session = await assertTutor();
+  const targetSectionId = sectionId || session.sectionId;
+
+  let authorizedSectionIds: string[] = [];
+  if (session.role === "SYSTEM_ADMIN") {
+    if (targetSectionId) authorizedSectionIds = [targetSectionId];
+  } else {
+    const tutorAssigned = await db
+      .select({ sectionId: tutorSections.sectionId })
+      .from(tutorSections)
+      .where(eq(tutorSections.tutorId, session.userId));
+    authorizedSectionIds = tutorAssigned.map((s) => s.sectionId);
+    if (session.sectionId && !authorizedSectionIds.includes(session.sectionId)) {
+      authorizedSectionIds.push(session.sectionId);
+    }
+  }
+
+  const { ensureDatabaseReady } = await import("@/lib/db");
+  await ensureDatabaseReady();
+
+  const requests = await db
+    .select({
+      id: pinResetRequests.id,
+      studentId: pinResetRequests.studentId,
+      sectionId: pinResetRequests.sectionId,
+      tutorId: pinResetRequests.tutorId,
+      status: pinResetRequests.status,
+      resetToken: pinResetRequests.resetToken,
+      tokenExpiresAt: pinResetRequests.tokenExpiresAt,
+      authorizedAt: pinResetRequests.authorizedAt,
+      completedAt: pinResetRequests.completedAt,
+      createdAt: pinResetRequests.createdAt,
+      studentName: users.name,
+      studentEmail: users.email,
+      registerNumber: users.registerNumber,
+      sectionLabel: sections.label,
+    })
+    .from(pinResetRequests)
+    .innerJoin(users, eq(pinResetRequests.studentId, users.id))
+    .leftJoin(sections, eq(pinResetRequests.sectionId, sections.id))
+    .where(
+      authorizedSectionIds.length > 0
+        ? inArray(pinResetRequests.sectionId, authorizedSectionIds)
+        : eq(users.sectionId, targetSectionId || "")
+    )
+    .orderBy(desc(pinResetRequests.createdAt));
+
+  return requests;
+}
+
+/**
+ * Authorizes a student's PIN reset request and generates an expiring authorization token.
+ */
+export async function authorizeStudentPinReset(requestId: string) {
+  const session = await assertTutor();
+
+  const { ensureDatabaseReady } = await import("@/lib/db");
+  await ensureDatabaseReady();
+
+  const [req] = await db
+    .select()
+    .from(pinResetRequests)
+    .where(eq(pinResetRequests.id, requestId))
+    .limit(1);
+
+  if (!req) {
+    throw new Error("PIN reset request not found.");
+  }
+
+  if (req.status !== "PENDING" && req.status !== "AUTHORIZED") {
+    throw new Error(`Cannot authorize request in status: ${req.status}`);
+  }
+
+  // Generate an unambiguous 6-character authorization code, e.g. RST-7X9K
+  const chars = "23456789ABCDEFGHJKLMNPQRSTUVWXYZ";
+  let tokenRand = "";
+  for (let i = 0; i < 4; i++) {
+    tokenRand += chars.charAt(Math.floor(Math.random() * chars.length));
+  }
+  const resetToken = `RST-${tokenRand}`;
+  const tokenExpiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000); // 24 hours
+
+  await db
+    .update(pinResetRequests)
+    .set({
+      status: "AUTHORIZED",
+      tutorId: session.userId,
+      resetToken,
+      tokenExpiresAt,
+      authorizedAt: new Date(),
+      updatedAt: new Date(),
+    })
+    .where(eq(pinResetRequests.id, requestId));
+
+  await db.insert(auditLogs).values({
+    action: "PIN_RESET_AUTHORIZED",
+    userId: session.userId,
+    userEmail: session.email,
+    userRole: session.role,
+    metadata: {
+      requestId,
+      studentId: req.studentId,
+      resetToken,
+      tokenExpiresAt: tokenExpiresAt.toISOString(),
+    },
+  });
+
+  return { success: true, resetToken, expiresAt: tokenExpiresAt };
+}
+
+/**
+ * Rejects an unauthorized or unverified student PIN reset request.
+ */
+export async function rejectStudentPinReset(requestId: string, reason?: string) {
+  const session = await assertTutor();
+
+  const { ensureDatabaseReady } = await import("@/lib/db");
+  await ensureDatabaseReady();
+
+  const [req] = await db
+    .select()
+    .from(pinResetRequests)
+    .where(eq(pinResetRequests.id, requestId))
+    .limit(1);
+
+  if (!req) {
+    throw new Error("PIN reset request not found.");
+  }
+
+  await db
+    .update(pinResetRequests)
+    .set({
+      status: "REJECTED",
+      tutorId: session.userId,
+      updatedAt: new Date(),
+    })
+    .where(eq(pinResetRequests.id, requestId));
+
+  await db.insert(auditLogs).values({
+    action: "PIN_RESET_REJECTED",
+    userId: session.userId,
+    userEmail: session.email,
+    userRole: session.role,
+    metadata: {
+      requestId,
+      studentId: req.studentId,
+      reason: reason || "Identity not verified",
+    },
+  });
+
+  return { success: true };
 }

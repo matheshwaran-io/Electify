@@ -6,18 +6,20 @@ import { Controller, useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
 import { AnimatePresence, motion } from "framer-motion";
-import { AlertCircle, ArrowLeft, ArrowRight, Check, Eye, EyeOff, GraduationCap, KeyRound, Mail, UserCog } from "lucide-react";
-import { login, registerStaff } from "@/app/actions/auth";
+import { AlertCircle, ArrowLeft, ArrowRight, Check, Eye, EyeOff, GraduationCap, KeyRound, Lock, Mail, Sparkles, UserCog } from "lucide-react";
+import { login, registerStaff, studentPinLogin } from "@/app/actions/auth";
 import { transition, variants } from "@/lib/motion";
 import { Button } from "@/components/ui/button";
 import { Field, Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { StudentJoinClassCard } from "./student-join-class-card";
+import { StudentPinResetModal } from "./student-pin-reset-modal";
 
-// --- Schemas (unchanged validation rules) ---
+// --- Schemas ---
 const studentLoginSchema = z.object({
-  email: z.string().min(1, "Email is required").email("Invalid email address"),
-  registerNumber: z.string().min(1, "Register number is required"),
+  identifier: z.string().min(1, "Email or register number is required"),
+  pin: z.string().regex(/^\d{6}$/, "PIN must be exactly 6 digits"),
 });
 
 const staffLoginSchema = z.object({
@@ -59,16 +61,17 @@ type Result = { success: boolean; error?: string; role?: string };
 function friendly(error?: string) {
   if (!error) return "We couldn't sign you in. Check your details and try again.";
   if (error === "Invalid credentials.") return "Those details don't match our records. Check them and try again.";
-  if (error === "Invalid credentials format.") return "Enter your email and password to continue.";
+  if (error === "Invalid credentials format.") return "Enter your credentials to continue.";
   return error;
 }
 
 export function AuthContainer() {
   const router = useRouter();
   const [accountType, setAccountType] = React.useState<"STUDENT" | "STAFF">("STUDENT");
-  const [authMode, setAuthMode] = React.useState<"LOGIN" | "REGISTER">("LOGIN");
+  const [authMode, setAuthMode] = React.useState<"LOGIN" | "REGISTER" | "JOIN_CLASS">("LOGIN");
   const [status, setStatus] = React.useState<Status>("idle");
   const [formError, setFormError] = React.useState<string | null>(null);
+  const [resetModalOpen, setResetModalOpen] = React.useState(false);
 
   // Runs the real server action; the button reflects its true progress.
   const submit = async (call: () => Promise<Result>) => {
@@ -102,25 +105,35 @@ export function AuthContainer() {
     setFormError(null);
   };
 
-  const view = accountType === "STUDENT" ? "student" : authMode === "LOGIN" ? "staff" : "register";
+  const view =
+    accountType === "STUDENT"
+      ? authMode === "JOIN_CLASS"
+        ? "join_class"
+        : "student"
+      : authMode === "LOGIN"
+        ? "staff"
+        : "register";
+
   const busy = status !== "idle";
 
   return (
     <div className="w-full">
-      <div className="mb-8 space-y-2">
-        <h2 className="text-3xl font-light tracking-display text-fg">
-          {view === "register" ? "Create a staff account" : "Sign in"}
-        </h2>
-        <p className="text-sm text-fg-muted">
-          {view === "student"
-            ? "Use your SRM email and register number."
-            : view === "staff"
-              ? "For class tutors, course coordinators and administrators."
-              : "You'll need the invite code your administrator sent you."}
-        </p>
-      </div>
+      {view !== "join_class" && (
+        <div className="mb-8 space-y-2">
+          <h2 className="text-3xl font-light tracking-display text-fg">
+            {view === "register" ? "Create a staff account" : "Sign in"}
+          </h2>
+          <p className="text-sm text-fg-muted">
+            {view === "student"
+              ? "Use your SRM email or register number and personal 6-digit PIN."
+              : view === "staff"
+                ? "For class tutors, course coordinators and administrators."
+                : "You'll need the invite code your administrator sent you."}
+          </p>
+        </div>
+      )}
 
-      {view !== "register" ? (
+      {view === "student" || view === "staff" ? (
         <Tabs value={accountType} onValueChange={(v) => switchType(v as "STUDENT" | "STAFF")} className="mb-6">
           <TabsList variant="pill" className="grid w-full grid-cols-2">
             <TabsTrigger value="STUDENT" disabled={busy}>
@@ -165,7 +178,25 @@ export function AuthContainer() {
 
       <AnimatePresence mode="wait" initial={false}>
         <motion.div key={view} variants={variants.rise} initial="hidden" animate="visible" exit="exit">
-          {view === "student" && <StudentForm status={status} onSubmit={submit} />}
+          {view === "student" && (
+            <StudentForm
+              status={status}
+              onSubmit={submit}
+              onJoinClass={() => {
+                setAuthMode("JOIN_CLASS");
+                setFormError(null);
+              }}
+              onForgotPin={() => setResetModalOpen(true)}
+            />
+          )}
+          {view === "join_class" && (
+            <StudentJoinClassCard
+              onSwitchToLogin={() => {
+                setAuthMode("LOGIN");
+                setFormError(null);
+              }}
+            />
+          )}
           {view === "staff" && (
             <StaffLoginForm
               status={status}
@@ -179,6 +210,9 @@ export function AuthContainer() {
           {view === "register" && <StaffRegisterForm status={status} onSubmit={submit} />}
         </motion.div>
       </AnimatePresence>
+
+      {/* Tutor-Authorized PIN Reset Modal */}
+      <StudentPinResetModal open={resetModalOpen} onOpenChange={setResetModalOpen} />
     </div>
   );
 }
@@ -215,7 +249,15 @@ function RevealToggle({ shown, onToggle, label }: { shown: boolean; onToggle: ()
   );
 }
 
-function StudentForm({ status, onSubmit }: FormProps) {
+function StudentForm({
+  status,
+  onSubmit,
+  onJoinClass,
+  onForgotPin,
+}: FormProps & {
+  onJoinClass: () => void;
+  onForgotPin: () => void;
+}) {
   const [shown, setShown] = React.useState(false);
   const { register, handleSubmit, formState: { errors } } = useForm<StudentLoginData>({ resolver: zodResolver(studentLoginSchema) });
   const busy = status !== "idle";
@@ -225,33 +267,66 @@ function StudentForm({ status, onSubmit }: FormProps) {
       noValidate
       onSubmit={handleSubmit((data) =>
         onSubmit(() =>
-          login({
-            identifier: data.email.toLowerCase().trim(),
-            password: data.registerNumber.toUpperCase().trim(),
+          studentPinLogin({
+            identifier: data.identifier.trim(),
+            pin: data.pin.trim(),
           })
         )
       )}
-      className="space-y-5"
+      className="space-y-4"
     >
-      <Field label="SRM email" error={errors.email?.message}>
-        <Input type="email" autoComplete="username" inputMode="email" placeholder="jd1234@srmist.edu.in" leading={<Mail />} disabled={busy} inputSize="lg" {...register("email")} />
-      </Field>
-      <Field label="Register number" error={errors.registerNumber?.message}>
+      <Field label="SRM email or register number" error={errors.identifier?.message}>
         <Input
-          type={shown ? "text" : "password"}
-          autoComplete="current-password"
-          autoCapitalize="characters"
-          spellCheck={false}
-          placeholder="RA2532241010001"
-          leading={<KeyRound />}
-          trailing={<RevealToggle shown={shown} onToggle={() => setShown((s) => !s)} label="register number" />}
-          className="font-mono tracking-wide"
+          type="text"
+          autoComplete="username"
+          placeholder="e.g. RA2532241010001 or jd1234@srmist.edu.in"
+          leading={<Mail />}
           disabled={busy}
           inputSize="lg"
-          {...register("registerNumber")}
+          {...register("identifier")}
         />
       </Field>
+
+      <Field label="Personal 6-digit PIN" error={errors.pin?.message}>
+        <Input
+          type={shown ? "text" : "password"}
+          inputMode="numeric"
+          maxLength={6}
+          autoComplete="current-password"
+          placeholder="••••••"
+          leading={<Lock />}
+          trailing={<RevealToggle shown={shown} onToggle={() => setShown((s) => !s)} label="PIN" />}
+          className="font-mono tracking-widest"
+          disabled={busy}
+          inputSize="lg"
+          {...register("pin")}
+        />
+      </Field>
+
+      <div className="flex items-center justify-end">
+        <button
+          type="button"
+          onClick={onForgotPin}
+          disabled={busy}
+          className="text-xs text-fg-subtle hover:text-fg hover:underline underline-offset-2 transition-colors"
+        >
+          Forgot PIN? Request tutor authorization
+        </button>
+      </div>
+
       <SubmitButton status={status} label="Sign in" />
+
+      <div className="pt-2 text-center text-sm text-fg-muted">
+        Need to onboard with your class?{" "}
+        <button
+          type="button"
+          onClick={onJoinClass}
+          disabled={busy}
+          className="font-medium text-fg underline decoration-border-strong underline-offset-4 transition-colors hover:decoration-fg"
+        >
+          Join your class with code
+        </button>
+      </div>
     </form>
   );
 }

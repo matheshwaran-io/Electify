@@ -292,13 +292,19 @@ export const studentRegistrations = pgTable(
     electiveId: uuid("elective_id")
       .notNull()
       .references(() => electives.id),
+    status: text("status").default("CONFIRMED").notNull(),
     isLocked: boolean("is_locked").default(true).notNull(),
     isWaitlisted: boolean("is_waitlisted").default(false).notNull(),
     waitlistPosition: integer("waitlist_position"),
     submittedAt: timestamp("submitted_at").defaultNow().notNull(),
     updatedAt: timestamp("updated_at").defaultNow().notNull(),
   },
-  (table) => [index("studentRegistrations_student_idx").on(table.studentId), index("studentRegistrations_event_idx").on(table.eventId), index("studentRegistrations_group_idx").on(table.groupId), index("studentRegistrations_elective_idx").on(table.electiveId), 
+  (table) => [
+    index("studentRegistrations_student_idx").on(table.studentId),
+    index("studentRegistrations_event_idx").on(table.eventId),
+    index("studentRegistrations_group_idx").on(table.groupId),
+    index("studentRegistrations_elective_idx").on(table.electiveId),
+    index("studentRegistrations_status_idx").on(table.status),
     unique("student_registrations_unique").on(table.studentId, table.eventId, table.groupId),
   ]
 );
@@ -646,5 +652,46 @@ export const registrationsRelations = relations(registrations, ({ one }) => ({
   event: one(registrationEvents, {
     fields: [registrations.eventId],
     references: [registrationEvents.id],
+  }),
+}));
+
+// ────────────────────────────────────────────────────────────────────
+// STUDENT PIN RESET REQUESTS (Tutor-Authorized Reset Flow)
+// ────────────────────────────────────────────────────────────────────
+
+export const pinResetRequests = pgTable("pin_reset_requests", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  studentId: uuid("student_id")
+    .notNull()
+    .references(() => users.id, { onDelete: "cascade" }),
+  sectionId: uuid("section_id")
+    .references(() => sections.id, { onDelete: "cascade" }),
+  tutorId: uuid("tutor_id")
+    .references(() => users.id, { onDelete: "set null" }),
+  status: text("status").default("PENDING").notNull(), // PENDING | AUTHORIZED | COMPLETED | REJECTED | EXPIRED
+  resetToken: text("reset_token").unique(),
+  tokenExpiresAt: timestamp("token_expires_at"),
+  authorizedAt: timestamp("authorized_at"),
+  completedAt: timestamp("completed_at"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+}, (table) => [
+  index("pinResetRequests_student_idx").on(table.studentId),
+  index("pinResetRequests_section_idx").on(table.sectionId),
+  index("pinResetRequests_status_idx").on(table.status),
+]);
+
+export const pinResetRequestsRelations = relations(pinResetRequests, ({ one }) => ({
+  student: one(users, {
+    fields: [pinResetRequests.studentId],
+    references: [users.id],
+  }),
+  section: one(sections, {
+    fields: [pinResetRequests.sectionId],
+    references: [sections.id],
+  }),
+  tutor: one(users, {
+    fields: [pinResetRequests.tutorId],
+    references: [users.id],
   }),
 }));

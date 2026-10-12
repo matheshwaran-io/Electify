@@ -778,6 +778,20 @@ export async function resetRegistrationEvent(eventId: string) {
       },
     });
   });
+
+  try {
+    const { revalidatePath } = await import("next/cache");
+    revalidatePath("/faculty/events");
+    revalidatePath("/faculty/window");
+    revalidatePath("/faculty/dashboard");
+    revalidatePath("/faculty/monitor");
+    revalidatePath("/faculty/database");
+    revalidatePath("/", "layout");
+  } catch {
+    // Ignore in non-HTTP / unit test environment
+  }
+
+  return { success: true };
 }
 
 // ── Registration Event Management ───────────────────────────────────────────
@@ -805,8 +819,24 @@ export async function deleteRegistrationEvent(eventId: string) {
     await tx.delete(eventStudents).where(eq(eventStudents.eventId, eventId));
     await tx.delete(eventSections).where(eq(eventSections.eventId, eventId));
 
-    // 5. Delete elective groups (cascade deletes electives and elective_seat_allocations)
-    await tx.delete(electiveGroups).where(eq(electiveGroups.eventId, eventId));
+    // 5. Delete elective groups, electives, and seat allocations cleanly
+    const groups = await tx
+      .select({ id: electiveGroups.id })
+      .from(electiveGroups)
+      .where(eq(electiveGroups.eventId, eventId));
+    const groupIds = groups.map((g) => g.id);
+    if (groupIds.length > 0) {
+      const allElectives = await tx
+        .select({ id: electives.id })
+        .from(electives)
+        .where(inArray(electives.groupId, groupIds));
+      const electiveIds = allElectives.map((e) => e.id);
+      if (electiveIds.length > 0) {
+        await tx.delete(electiveSeatAllocations).where(inArray(electiveSeatAllocations.electiveId, electiveIds));
+        await tx.delete(electives).where(inArray(electives.id, electiveIds));
+      }
+      await tx.delete(electiveGroups).where(eq(electiveGroups.eventId, eventId));
+    }
 
     // 6. Delete the event itself
     await tx.delete(registrationEvents).where(eq(registrationEvents.id, eventId));
@@ -821,10 +851,17 @@ export async function deleteRegistrationEvent(eventId: string) {
     });
   });
 
-  const { revalidatePath } = await import("next/cache");
-  revalidatePath("/faculty/events");
-  revalidatePath("/faculty/dashboard");
-  revalidatePath("/", "layout");
+  try {
+    const { revalidatePath } = await import("next/cache");
+    revalidatePath("/faculty/events");
+    revalidatePath("/faculty/window");
+    revalidatePath("/faculty/dashboard");
+    revalidatePath("/faculty/monitor");
+    revalidatePath("/faculty/database");
+    revalidatePath("/", "layout");
+  } catch {
+    // Ignore in non-HTTP / unit test environment
+  }
 
   return { success: true };
 }

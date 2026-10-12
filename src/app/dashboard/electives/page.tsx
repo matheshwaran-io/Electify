@@ -6,6 +6,7 @@ import { users, registrationEvents, electiveGroups, electives, electiveSeatAlloc
 import { eq, and, inArray, desc } from "drizzle-orm";
 import { RegistrationForm } from "../registration-form";
 import { Users } from "lucide-react";
+import Link from "next/link";
 import { StudentHeader, StudentStatus } from "@/components/student/student-chrome";
 
 export const dynamic = "force-dynamic";
@@ -62,7 +63,7 @@ export default async function StudentElectivesPage() {
   const hasSubmitted = userRegistration?.status === "CONFIRMED" || userRegistration?.status === "WAITLISTED";
 
   if (hasSubmitted) {
-    redirect("/dashboard/success");
+    redirect("/dashboard/my-registration");
   }
 
   // Verify time boundaries (openDate/closeDate are the source of truth)
@@ -129,7 +130,16 @@ export default async function StudentElectivesPage() {
 
   return (
     <div className="flex min-h-dvh flex-col">
-      <StudentHeader />
+      <StudentHeader>
+        {userRegistration ? (
+          <Link
+            href="/dashboard/my-registration"
+            className="inline-flex h-8 items-center gap-1.5 rounded-control border border-border px-2.5 text-xs font-medium text-fg hover:bg-surface-2 transition-colors"
+          >
+            My Registration
+          </Link>
+        ) : null}
+      </StudentHeader>
 
       <main className="mx-auto w-full max-w-6xl flex-1 px-4 pt-6 sm:px-6 sm:pt-10">
         <div className="mb-2 flex flex-col gap-1 animate-enter">

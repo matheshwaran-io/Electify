@@ -1,6 +1,6 @@
 "use client";
 
-import { Clock, Plus } from "lucide-react";
+import { Clock, Plus, Radio } from "lucide-react";
 import { useState } from "react";
 import { createRegistrationWindow } from "@/app/actions/tutor";
 import { useRouter } from "next/navigation";
@@ -92,7 +92,20 @@ export function WindowClient({ events, initialMetrics }: { events: WindowEvent[]
 
   return (
     <div>
-      <PageHeader title="Live window" description="Watch the session as it happens and adjust its settings." />
+      <PageHeader
+        title="Live window"
+        description="Watch the session as it happens and adjust its settings."
+        actions={
+          <Button
+            size="sm"
+            onClick={() => router.push(`/faculty/monitor?eventId=${event.id}`)}
+            className="bg-primary text-canvas hover:bg-primary/90"
+          >
+            <Radio className="w-3.5 h-3.5 mr-1.5" />
+            Live Registration Monitor
+          </Button>
+        }
+      />
 
       <div className="grid grid-cols-1 gap-3 lg:grid-cols-12 lg:gap-4">
         <HeroStatus event={event} />

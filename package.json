@@ -13,7 +13,8 @@
     "db:seed": "tsx src/lib/db/seed.ts",
     "db:reset": "tsx src/lib/db/reset.ts",
     "fix:passwords": "tsx scripts/fix-passwords.ts",
-    "brand:generate": "tsx scripts/brand/generate-brand-assets.ts"
+    "brand:generate": "tsx scripts/brand/generate-brand-assets.ts",
+    "test": "tsx --env-file=.env.local --test tests/**/*.test.ts"
   },
   "dependencies": {
     "@base-ui/react": "^1.5.0",

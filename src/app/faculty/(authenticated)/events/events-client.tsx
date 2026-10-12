@@ -13,6 +13,7 @@ import {
   MoreHorizontal,
   Pencil,
   Plus,
+  Radio,
   RotateCcw,
   Trash2,
 } from "lucide-react";
@@ -24,6 +25,7 @@ import {
   updateRegistrationEventStatus,
   createRegistrationEvent,
 } from "@/app/actions/coordinator";
+import { createEventFromTemplate, type DetailedTemplate } from "@/app/actions/templates";
 import { formatDate } from "@/lib/format";
 import { PageHeader } from "@/components/ui/layout";
 import { Button } from "@/components/ui/button";
@@ -82,9 +84,11 @@ const STATUS_OPTIONS = [
 export function EventsClient({
   events,
   batches = [],
+  templates = [],
 }: {
   events: EventItem[];
   batches?: BatchOption[];
+  templates?: DetailedTemplate[];
 }) {
   const router = useRouter();
 
@@ -109,6 +113,7 @@ export function EventsClient({
 
   // Create dialog state
   const [createOpen, setCreateOpen] = useState(false);
+  const [createTemplateId, setCreateTemplateId] = useState("");
   const [createName, setCreateName] = useState("");
   const [createBatchId, setCreateBatchId] = useState("");
   const [createAcademicYear, setCreateAcademicYear] = useState("");
@@ -202,6 +207,7 @@ export function EventsClient({
   };
 
   const openCreateModal = () => {
+    setCreateTemplateId("");
     setCreateName("");
     const defaultBatch = batches.length > 0 ? batches[0] : null;
     setCreateBatchId(defaultBatch ? defaultBatch.id : "");
@@ -232,17 +238,39 @@ export function EventsClient({
 
     startTransition(async () => {
       try {
-        const result = await createRegistrationEvent({
-          name: createName,
-          academicBatchId: createBatchId,
-          academicYear: createAcademicYear,
-          status: createStatus,
-          openDate: createOpenDate ? new Date(createOpenDate).toISOString() : null,
-          closeDate: createCloseDate ? new Date(createCloseDate).toISOString() : null,
-          description: createDescription,
-        });
+        if (createTemplateId) {
+          const res = await createEventFromTemplate({
+            templateId: createTemplateId,
+            name: createName,
+            academicBatchId: createBatchId,
+            academicYear: createAcademicYear,
+            status: createStatus,
+            openDate: createOpenDate ? new Date(createOpenDate).toISOString() : null,
+            closeDate: createCloseDate ? new Date(createCloseDate).toISOString() : null,
+            description: createDescription,
+          });
 
-        toast.success(`Registration event "${result.event.name}" created successfully.`);
+          if (!res.success) {
+            throw new Error(res.error || "Failed to create event from template");
+          }
+
+          toast.success(
+            `Registration event "${res.eventName}" created with pre-configured template electives.`
+          );
+        } else {
+          const result = await createRegistrationEvent({
+            name: createName,
+            academicBatchId: createBatchId,
+            academicYear: createAcademicYear,
+            status: createStatus,
+            openDate: createOpenDate ? new Date(createOpenDate).toISOString() : null,
+            closeDate: createCloseDate ? new Date(createCloseDate).toISOString() : null,
+            description: createDescription,
+          });
+
+          toast.success(`Registration event "${result.event.name}" created successfully.`);
+        }
+
         setCreateOpen(false);
         router.refresh();
       } catch (err: unknown) {
@@ -339,6 +367,19 @@ export function EventsClient({
             <RotateCcw className="size-3.5" /> Reset data
           </Button>
 
+          <Button
+            size="sm"
+            variant="destructive-soft"
+            onClick={() => {
+              setDeleting(e);
+              setDeleteConfirmOpen(true);
+            }}
+            aria-label={`Delete event ${e.name}`}
+            className="text-danger-text hover:bg-danger/10 hover:border-danger/25"
+          >
+            <Trash2 className="size-3.5" /> Delete
+          </Button>
+
           <Menu>
             <MenuTrigger render={<Button variant="ghost" size="icon-sm" aria-label={`More actions for ${e.name}`} />}>
               <MoreHorizontal className="size-4" />
@@ -366,13 +407,16 @@ export function EventsClient({
               ) : null}
 
               <MenuLabel>Navigation</MenuLabel>
+              <MenuItem onClick={() => router.push(`/faculty/monitor?eventId=${e.id}`)}>
+                <Radio className="size-4 text-emerald-400" /> Live monitor
+              </MenuItem>
               <MenuItem onClick={() => router.push("/faculty/electives")}>
                 <BookOpen className="size-4" /> Manage electives
               </MenuItem>
               <MenuItem onClick={() => router.push("/faculty/window")}>
                 <Activity className="size-4" /> Live window
               </MenuItem>
-              <MenuItem onClick={() => router.push("/faculty/replay")}>
+              <MenuItem onClick={() => router.push(`/faculty/replay/${e.id}`)}>
                 <History className="size-4" /> Replay log
               </MenuItem>
 
@@ -380,11 +424,20 @@ export function EventsClient({
               <MenuItem
                 tone="danger"
                 onClick={() => {
+                  setResetting(e);
+                  setResetConfirmOpen(true);
+                }}
+              >
+                <RotateCcw className="size-4" /> Reset registrations
+              </MenuItem>
+              <MenuItem
+                tone="danger"
+                onClick={() => {
                   setDeleting(e);
                   setDeleteConfirmOpen(true);
                 }}
               >
-                <Trash2 className="size-4" /> Delete event
+                <Trash2 className="size-4" /> Delete event permanently
               </MenuItem>
             </MenuContent>
           </Menu>
@@ -576,6 +629,40 @@ export function EventsClient({
 
           <form onSubmit={handleCreate}>
             <DialogBody className="space-y-4">
+              {templates.length > 0 && (
+                <Field
+                  label="Curriculum Template (Optional)"
+                  description="Pre-populate course baskets & electives from an existing blueprint"
+                >
+                  <Select
+                    value={createTemplateId || null}
+                    onValueChange={(val) => {
+                      setCreateTemplateId(val);
+                      const chosen = templates.find((t) => t.id === val);
+                      if (chosen) {
+                        if (!createName || templates.some((t) => createName.startsWith(t.name.slice(0, 8)))) {
+                          setCreateName(`${chosen.name.replace(" Template", "")} Registration`);
+                        }
+                        const matchedBatch = batches.find((b) => b.programmeId === chosen.programmeId);
+                        if (matchedBatch) {
+                          setCreateBatchId(matchedBatch.id);
+                          setCreateAcademicYear(matchedBatch.year);
+                        }
+                      }
+                    }}
+                    options={[
+                      { value: "", label: "None — Start with blank baskets" },
+                      ...templates.map((t) => ({
+                        value: t.id,
+                        label: `${t.name} (${t.groupCount} baskets, ${t.electiveCount} electives)`,
+                      })),
+                    ]}
+                    placeholder="Select template..."
+                    disabled={isPending}
+                  />
+                </Field>
+              )}
+
               <Field label="Event name" description="e.g. Fall 2026 Elective Registration" error={createErrors.name}>
                 <Input
                   placeholder="e.g. Fall 2026 Elective Registration"

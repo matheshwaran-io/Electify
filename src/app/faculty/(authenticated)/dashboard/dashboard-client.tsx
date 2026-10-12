@@ -16,6 +16,7 @@ import {
   GraduationCap,
   History,
   Layers,
+  Radio,
   Search,
   ShieldCheck,
   UserMinus,
@@ -299,6 +300,7 @@ function TutorView({ m }: { m: any }) {
 
       <Shortcuts
         items={[
+          { href: "/faculty/monitor", label: "Live monitor", icon: Radio },
           { href: "/faculty/section", label: "Students", icon: GraduationCap },
           { href: "/faculty/tutor-electives", label: "Electives & baskets", icon: BookOpen },
           { href: "/faculty/replay", label: "Replay", icon: History },
@@ -436,6 +438,7 @@ function CoordinatorView({ m }: { m: any }) {
 
       <Shortcuts
         items={[
+          { href: "/faculty/monitor", label: "Live monitor", icon: Radio },
           { href: "/faculty/events", label: "Registration events", icon: Calendar },
           { href: "/faculty/templates", label: "Event templates", icon: Layers },
           { href: "/faculty/electives", label: "Electives & baskets", icon: BookOpen },
@@ -489,6 +492,7 @@ function AdminView({ m }: { m: any }) {
 
       <Shortcuts
         items={[
+          { href: "/faculty/monitor", label: "Live monitor", icon: Radio },
           { href: "/faculty/users", label: "User access", icon: Users },
           { href: "/faculty/events", label: "Registration events", icon: Calendar },
           { href: "/faculty/audit", label: "Audit logs", icon: ShieldCheck },
