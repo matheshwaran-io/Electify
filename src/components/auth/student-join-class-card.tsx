@@ -312,8 +312,8 @@ export function StudentJoinClassCard({
         <div className="flex items-start gap-2.5 rounded-control border border-border bg-surface-3/40 p-3 text-xs text-fg-muted">
           <ShieldAlert className="mt-0.5 size-4 shrink-0 text-amber-500" />
           <p>
-            <strong className="font-semibold text-fg">Security notice:</strong> You&apos;ll sign in with your register number and this
-            password. Never share it with your class tutor or another student.
+            <strong className="font-semibold text-fg">Security notice:</strong>{" "}
+            You&apos;ll sign in with your register number and this password. Never share it with your class tutor or another student.
           </p>
         </div>
 
