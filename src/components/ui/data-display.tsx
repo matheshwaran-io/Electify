@@ -1,6 +1,7 @@
 "use client"
 
 import * as React from "react"
+import { seatState, type SeatState } from "@/lib/seats"
 import { animate, motion, useMotionValue, useReducedMotion, useSpring, useTransform } from "framer-motion"
 import { duration, ease, spring } from "@/lib/motion"
 import { cn } from "@/lib/utils"
@@ -57,13 +58,7 @@ export function AnimatedNumber({ value, format = defaultFormat, className, tabul
 
 /* ─── Occupancy ring (meter) ───────────────────────────────────────────── */
 
-export type SeatState = "available" | "low" | "full"
-
-export function seatState(available: number, max: number, lowThreshold = 10): SeatState {
-  if (available <= 0) return "full"
-  if (available < lowThreshold || (max > 0 && available / max <= 0.1)) return "low"
-  return "available"
-}
+export { seatState, type SeatState }
 
 const ringTone: Record<SeatState, string> = {
   available: "text-primary",

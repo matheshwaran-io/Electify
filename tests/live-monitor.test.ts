@@ -279,11 +279,6 @@ describe("Live Event Registration Monitor & Surveillance Module", () => {
     });
   });
 
-  after(async () => {
-    setTestSession(null);
-    setTimeout(() => process.exit(0), 100);
-  });
-
   test("1. Unauthorized users or students cannot access live monitoring data", async () => {
     setTestSession(null);
     const res = await getLiveMonitorEvents();
@@ -454,5 +449,35 @@ describe("Live Event Registration Monitor & Surveillance Module", () => {
       .from(auditLogs)
       .where(eq(auditLogs.action, "LIVE_MONITOR_SET_STATUS_PAUSED"));
     assert.ok(logs.length >= 1, "Audit log must be recorded for live window pause");
+  });
+
+  after(async () => {
+    setTestSession(null);
+    if (eventId) {
+      await db.delete(studentRegistrations).where(eq(studentRegistrations.eventId, eventId));
+      await db.delete(registrations).where(eq(registrations.eventId, eventId));
+      await db.delete(replayEvents).where(eq(replayEvents.registrationEventId, eventId));
+      await db.delete(eventSections).where(eq(eventSections.eventId, eventId));
+      if (groupId) {
+        await db.delete(electives).where(eq(electives.groupId, groupId));
+        await db.delete(electiveGroups).where(eq(electiveGroups.id, groupId));
+      }
+      await db.delete(registrationEvents).where(eq(registrationEvents.id, eventId));
+    }
+    const testUserIds = [adminUser?.id, coordinatorUser?.id, tutorUser?.id, student1?.id, student2?.id, student3?.id].filter(Boolean);
+    if (testUserIds.length > 0) {
+      await db.delete(studentRegistrations).where(inArray(studentRegistrations.studentId, testUserIds));
+      await db.delete(registrations).where(inArray(registrations.studentId, testUserIds));
+      await db.delete(replayEvents).where(inArray(replayEvents.studentId, testUserIds));
+      await db.delete(tutorSections).where(inArray(tutorSections.tutorId, testUserIds));
+      await db.delete(auditLogs).where(inArray(auditLogs.userId, testUserIds));
+      await db.delete(users).where(inArray(users.id, testUserIds));
+    }
+    const sectionIds = [section1Id, section2Id].filter(Boolean);
+    if (sectionIds.length > 0) await db.delete(sections).where(inArray(sections.id, sectionIds));
+    if (batchId) await db.delete(academicBatches).where(eq(academicBatches.id, batchId));
+    if (programmeId) await db.delete(programmes).where(eq(programmes.id, programmeId));
+    if (departmentId) await db.delete(departments).where(eq(departments.id, departmentId));
+    if (facultyId) await db.delete(faculties).where(eq(faculties.id, facultyId));
   });
 });

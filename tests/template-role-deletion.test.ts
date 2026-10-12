@@ -191,11 +191,6 @@ describe("Role-Based Event Template Deletion & Access Controls", () => {
     );
   });
 
-  after(async () => {
-    setTestSession(null);
-    setTimeout(() => process.exit(0), 100);
-  });
-
   test("1. Unauthenticated user cannot delete templates", async () => {
     setTestSession(null);
     const res = await deleteTemplate(templateProgAByAdmin);
@@ -409,5 +404,36 @@ describe("Role-Based Event Template Deletion & Access Controls", () => {
 
     // Cleanup test templates
     await db.delete(eventTemplates).where(inArray(eventTemplates.id, [tA.id, tB.id]));
+  });
+
+  after(async () => {
+    setTestSession(null);
+    const allTemplateIds = [
+      templateProgAByAdmin,
+      templateProgAByCoordA,
+      templateProgBByCoordB,
+      templateProgBByCoordA,
+    ].filter(Boolean);
+    if (allTemplateIds.length > 0) {
+      const groups = await db
+        .select({ id: templateGroups.id })
+        .from(templateGroups)
+        .where(inArray(templateGroups.templateId, allTemplateIds));
+      if (groups.length > 0) {
+        await db.delete(templateElectives).where(inArray(templateElectives.groupId, groups.map((g) => g.id)));
+        await db.delete(templateGroups).where(inArray(templateGroups.templateId, allTemplateIds));
+      }
+      await db.delete(eventTemplates).where(inArray(eventTemplates.id, allTemplateIds));
+    }
+
+    const testUserIds = [adminUser?.id, coordinatorA?.id, coordinatorB?.id, tutorUser?.id, studentUser?.id].filter(Boolean);
+    if (testUserIds.length > 0) {
+      await db.delete(auditLogs).where(inArray(auditLogs.userId, testUserIds));
+      await db.delete(users).where(inArray(users.id, testUserIds));
+    }
+    if (progAId) await db.delete(programmes).where(eq(programmes.id, progAId));
+    if (progBId) await db.delete(programmes).where(eq(programmes.id, progBId));
+    if (departmentId) await db.delete(departments).where(eq(departments.id, departmentId));
+    if (facultyId) await db.delete(faculties).where(eq(faculties.id, facultyId));
   });
 });

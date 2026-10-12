@@ -88,8 +88,8 @@ async function seed() {
     console.log(`  → Faculty: ${faculty.name}`);
     const [f] = await db
       .insert(schema.faculties)
-      .values({ name: faculty.name, code: faculty.code })
-      .onConflictDoUpdate({ target: schema.faculties.code, set: { name: faculty.name } })
+      .values({ name: faculty.name, code: faculty.code, isActive: true })
+      .onConflictDoUpdate({ target: schema.faculties.code, set: { name: faculty.name, isActive: true } })
       .returning();
 
     for (const dept of faculty.departments) {
@@ -156,6 +156,41 @@ async function seed() {
     .onConflictDoNothing({ target: schema.users.email });
 
   console.log(`    ✓ admin@electify.edu / Admin@12345`);
+
+  // ── Faculty Roles (Course Coordinator & Class Tutor) ───────
+  console.log("  → Core Faculty Accounts...");
+  const coordPassword = "Angel@12345";
+  const coordHash = await bcrypt.hash(coordPassword, 12);
+  await db
+    .insert(schema.users)
+    .values({
+      name: "Angel B",
+      email: "angelb1@srmist.edu.in",
+      passwordHash: coordHash,
+      role: "COURSE_COORDINATOR",
+      employeeId: "EMP-ANGEL-01",
+      isActive: true,
+      isEligible: true,
+    })
+    .onConflictDoNothing({ target: schema.users.email });
+
+  const tutorPassword = "Tutor@12345";
+  const tutorHash = await bcrypt.hash(tutorPassword, 12);
+  await db
+    .insert(schema.users)
+    .values({
+      name: "Sabenabanu",
+      email: "sabenaba@srmist.edu.in",
+      passwordHash: tutorHash,
+      role: "CLASS_TUTOR",
+      employeeId: "EMP-TUTOR-01",
+      isActive: true,
+      isEligible: true,
+    })
+    .onConflictDoNothing({ target: schema.users.email });
+
+  console.log(`    ✓ angelb1@srmist.edu.in / Angel@12345 (Course Coordinator)`);
+  console.log(`    ✓ sabenaba@srmist.edu.in / Tutor@12345 (Class Tutor)`);
 
   // ── System Settings ─────────────────────────────────────────
   console.log("  → System Settings...");

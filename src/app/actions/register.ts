@@ -17,27 +17,45 @@ import {
   replayEvents,
   auditLogs,
 } from "@/lib/db/schema";
-import { eq, and, sql, inArray, desc, not } from "drizzle-orm";
+import { eq, and, sql, inArray, desc, not, asc } from "drizzle-orm";
 import { getSession } from "@/lib/auth";
-import { promoteWaitlistedStudents, recompactWaitlistPositions } from "@/lib/waitlist";
+import { getRegistrationWindow, STUDENT_VISIBLE_EVENT_STATUSES } from "@/lib/registration-window";
+
+export type RegisterErrorCode =
+  | "UNAUTHORIZED"
+  | "MAINTENANCE"
+  | "INELIGIBLE"
+  | "NOT_FOUND"
+  | "WRONG_EVENT"
+  | "WINDOW_CLOSED"
+  | "INVALID_SELECTION"
+  | "SEAT_TAKEN"
+  | "ALREADY_REGISTERED"
+  | "SERVER_ERROR";
 
 export interface RegisterResult {
   success: boolean;
   error?: string;
-  isWaitlisted?: boolean;
+  /** Machine-readable reason, so the UI never has to parse `error`. */
+  code?: RegisterErrorCode;
+  /** For SEAT_TAKEN: the elective that ran out of seats. */
+  electiveId?: string;
 }
 
 export interface MutationResult {
   success: boolean;
   error?: string;
-  isWaitlisted?: boolean;
-  waitlistPosition?: number | null;
-  requiresConfirmation?: boolean;
   message?: string;
 }
 
+type Tx = Parameters<Parameters<typeof db.transaction>[0]>[0];
+
+/** A student may submit a fresh registration only from one of these states. */
+const REREGISTERABLE_STATUSES = new Set(["NOT_REGISTERED", "CANCELLED", "RESET_BY_COORDINATOR"]);
+
 /**
  * Checks whether an event's registration window is currently open for student actions.
+ * Thin wrapper over the shared rule in lib/registration-window.
  */
 export async function isEventRegistrationOpen(event: {
   openDate: Date | null;
@@ -45,43 +63,106 @@ export async function isEventRegistrationOpen(event: {
   status: string;
   autoClose?: boolean;
 }): Promise<{ isOpen: boolean; reason?: string }> {
-  const now = new Date();
+  const window = getRegistrationWindow(event, new Date());
+  return window.isOpen ? { isOpen: true } : { isOpen: false, reason: window.reason };
+}
 
-  if (event.status === "PAUSED") {
-    return { isOpen: false, reason: "Registration is currently paused by faculty." };
+function displayName(e: { courseCode: string | null; name: string }) {
+  return e.courseCode ? `${e.courseCode} - ${e.name}` : e.name;
+}
+
+/** Thrown when a seat ran out between the student opening the page and submitting. */
+class SeatTakenError extends Error {
+  constructor(readonly electiveId: string, name: string) {
+    super(`The last seat in ${name} was just taken. Please choose another elective.`);
+  }
+}
+
+class RegistrationRuleError extends Error {
+  constructor(readonly code: RegisterErrorCode, message: string) {
+    super(message);
+  }
+}
+
+/** Returns one confirmed seat to the elective and, if configured, the student's section quota. */
+async function releaseSeat(tx: Tx, electiveId: string, sectionId: string | null) {
+  await tx
+    .update(electives)
+    .set({ availableSeats: sql`${electives.availableSeats} + 1`, isFull: false, updatedAt: new Date() })
+    .where(eq(electives.id, electiveId));
+
+  if (sectionId) {
+    const [secAlloc] = await tx
+      .select()
+      .from(electiveSeatAllocations)
+      .where(and(eq(electiveSeatAllocations.electiveId, electiveId), eq(electiveSeatAllocations.sectionId, sectionId)))
+      .for("update");
+    if (secAlloc) {
+      await tx
+        .update(electiveSeatAllocations)
+        .set({ availableSeats: sql`${electiveSeatAllocations.availableSeats} + 1`, isFull: false, updatedAt: new Date() })
+        .where(eq(electiveSeatAllocations.id, secAlloc.id));
+    }
+  }
+}
+
+/**
+ * Takes one seat for the student, checking the elective and the student's section quota
+ * on rows the caller has locked. Throws if either is full.
+ */
+async function takeSeat(tx: Tx, elective: typeof electives.$inferSelect, sectionId: string | null) {
+  if (elective.availableSeats <= 0) throw new SeatTakenError(elective.id, elective.name);
+
+  let secAllocId: string | null = null;
+  if (sectionId) {
+    const [secAlloc] = await tx
+      .select()
+      .from(electiveSeatAllocations)
+      .where(and(eq(electiveSeatAllocations.electiveId, elective.id), eq(electiveSeatAllocations.sectionId, sectionId)))
+      .for("update");
+    if (secAlloc) {
+      if (secAlloc.availableSeats <= 0) throw new SeatTakenError(elective.id, elective.name);
+      secAllocId = secAlloc.id;
+    }
   }
 
-  if (
-    event.status === "CLOSED" ||
-    event.status === "VERIFICATION" ||
-    event.status === "FINALIZED" ||
-    event.status === "ARCHIVED"
-  ) {
-    return { isOpen: false, reason: "Registration has closed." };
+  await tx
+    .update(electives)
+    .set({
+      availableSeats: sql`${electives.availableSeats} - 1`,
+      isFull: sql`CASE WHEN ${electives.availableSeats} - 1 <= 0 THEN true ELSE false END`,
+      updatedAt: new Date(),
+    })
+    .where(eq(electives.id, elective.id));
+
+  if (secAllocId) {
+    await tx
+      .update(electiveSeatAllocations)
+      .set({
+        availableSeats: sql`${electiveSeatAllocations.availableSeats} - 1`,
+        isFull: sql`CASE WHEN ${electiveSeatAllocations.availableSeats} - 1 <= 0 THEN true ELSE false END`,
+        updatedAt: new Date(),
+      })
+      .where(eq(electiveSeatAllocations.id, secAllocId));
   }
+}
 
-  const isStarted =
-    (event.openDate && now >= event.openDate) ||
-    event.status === "OPEN" ||
-    event.status === "ACTIVE";
+/** Loads and validates the student for a registration mutation. */
+async function loadStudent(studentId: string) {
+  const [student] = await db.select().from(users).where(eq(users.id, studentId)).limit(1);
+  return student ?? null;
+}
 
-  if (!isStarted) {
-    return { isOpen: false, reason: "Registration has not opened yet." };
-  }
-
-  const isEnded =
-    (event.closeDate && now > event.closeDate && (event.autoClose ?? true)) ||
-    event.status === "CLOSED";
-
-  if (isEnded) {
-    return { isOpen: false, reason: "The registration deadline has passed. Modifications are closed." };
-  }
-
-  return { isOpen: true };
+async function maintenanceOn() {
+  const [settings] = await db.select().from(systemSettings).where(eq(systemSettings.id, "system")).limit(1);
+  return Boolean(settings?.maintenanceMode);
 }
 
 /**
  * Handles initial elective registration for the logged-in student.
+ *
+ * Everything is re-checked here on the server at submit time; the countdown and
+ * disabled buttons in the UI are conveniences only.
  */
 export async function registerElectives(
   eventId: string,
@@ -91,49 +172,71 @@ export async function registerElectives(
     // 1. Authenticate user
     const session = await getSession();
     if (!session || session.role !== "STUDENT") {
-      return { success: false, error: "Unauthorized. Please log in as a student." };
+      return { success: false, code: "UNAUTHORIZED", error: "Unauthorized. Please log in as a student." };
     }
 
     const studentId = session.userId;
 
-    // 2. Fetch system settings
-    const [settings] = await db.select().from(systemSettings).where(eq(systemSettings.id, "system")).limit(1);
-    if (settings?.maintenanceMode) {
-      return { success: false, error: "System is currently undergoing maintenance." };
+    // 2. Maintenance mode
+    if (await maintenanceOn()) {
+      return { success: false, code: "MAINTENANCE", error: "System is currently undergoing maintenance." };
     }
 
-    // 3. Fetch student
-    const [student] = await db.select().from(users).where(eq(users.id, studentId)).limit(1);
-
+    // 3. Student
+    const student = await loadStudent(studentId);
     if (!student) {
-      return { success: false, error: "Student record not found." };
+      return { success: false, code: "NOT_FOUND", error: "Student record not found." };
     }
-
     if (!student.isActive) {
-      return { success: false, error: "Your account is deactivated." };
+      return { success: false, code: "INELIGIBLE", error: "Your account is deactivated." };
     }
-
     if (!student.isEligible) {
-      return { success: false, error: "You are not eligible for registration. Please contact faculty." };
+      return { success: false, code: "INELIGIBLE", error: "You are not eligible for registration. Please contact faculty." };
     }
 
-    // 4. Fetch Registration Event
+    // 4. Event: exists, is for this student's batch, and is open right now (server clock)
     const [event] = await db.select().from(registrationEvents).where(eq(registrationEvents.id, eventId)).limit(1);
-
     if (!event) {
-      return { success: false, error: "Registration event not found." };
+      return { success: false, code: "NOT_FOUND", error: "Registration event not found." };
+    }
+    if (!student.academicBatchId || event.academicBatchId !== student.academicBatchId) {
+      return { success: false, code: "WRONG_EVENT", error: "This registration event is not open to your batch." };
     }
 
-    const windowCheck = await isEventRegistrationOpen(event);
-    if (!windowCheck.isOpen) {
-      return { success: false, error: windowCheck.reason || "Registration is currently closed." };
+    const window = getRegistrationWindow(event, new Date());
+    if (!window.isOpen) {
+      return { success: false, code: "WINDOW_CLOSED", error: window.reason || "Registration is currently closed." };
     }
 
-    let hasAnyWaitlisted = false;
+    // 5. Selections: well formed, in this event, within limits
+    if (!Array.isArray(selections) || selections.length === 0) {
+      return { success: false, code: "INVALID_SELECTION", error: "Choose at least one elective before submitting." };
+    }
 
-    // 5. Execute Transaction
+    const eventGroups = await db.select().from(electiveGroups).where(eq(electiveGroups.eventId, eventId));
+    const groupsById = new Map(eventGroups.map((g) => [g.id, g]));
+    const perGroup = new Map<string, number>();
+    const seenElectives = new Set<string>();
+
+    for (const sel of selections) {
+      const group = groupsById.get(sel.groupId);
+      if (!group) {
+        return { success: false, code: "INVALID_SELECTION", error: "One of your choices does not belong to this registration event." };
+      }
+      if (seenElectives.has(sel.electiveId)) {
+        return { success: false, code: "INVALID_SELECTION", error: "The same elective was selected more than once." };
+      }
+      seenElectives.add(sel.electiveId);
+      const count = (perGroup.get(sel.groupId) ?? 0) + 1;
+      perGroup.set(sel.groupId, count);
+      // One stored choice per group (unique student/event/group), and never above the group's limit.
+      if (count > Math.min(group.maxChoices, 1)) {
+        return { success: false, code: "INVALID_SELECTION", error: `Too many choices for ${group.name}.` };
+      }
+    }
+
+    // 6. Transaction: locks, seat checks, records, receipt
     await db.transaction(async (tx) => {
-      // Check existing registrations in the main registrations table
       const [existingReg] = await tx
         .select()
         .from(registrations)
@@ -141,11 +244,11 @@ export async function registerElectives(
         .limit(1)
         .for("update");
 
-      if (existingReg && (existingReg.status === "CONFIRMED" || existingReg.status === "WAITLISTED")) {
-        throw new Error("Registration already completed.");
+      if (existingReg && !REREGISTERABLE_STATUSES.has(existingReg.status)) {
+        throw new RegistrationRuleError("ALREADY_REGISTERED", "Registration already completed.");
       }
 
-      // Fetch student details with names for snapshot
+      // Student details for the receipt snapshot
       const [studentInfo] = await tx
         .select({
           name: users.name,
@@ -172,138 +275,47 @@ export async function registerElectives(
         section: studentInfo?.sectionName || "N/A",
       };
 
-      const selectedElectiveIds = selections.map((s) => s.electiveId);
-
-      // Lock chosen electives using SELECT FOR UPDATE
+      // Lock chosen electives in a stable order so concurrent submissions cannot deadlock.
+      const ordered = [...selections].sort((a, b) => a.electiveId.localeCompare(b.electiveId));
       const lockedElectives = await tx
         .select()
         .from(electives)
-        .where(inArray(electives.id, selectedElectiveIds))
+        .where(inArray(electives.id, ordered.map((s) => s.electiveId)))
+        .orderBy(asc(electives.id))
         .for("update");
+      const lockedById = new Map(lockedElectives.map((e) => [e.id, e]));
 
-      const lockedElectivesMap = new Map(lockedElectives.map((e) => [e.id, e]));
-
-      // Validate selections, seats, and capture detailed snapshot data
       const electiveSnapshots: {
-        groupId?: string;
+        groupId: string;
         groupName: string;
-        electiveId?: string;
+        electiveId: string;
         electiveName: string;
         courseCode?: string;
-        status?: string;
-        isWaitlisted?: boolean;
-        waitlistPosition?: number;
+        status: "CONFIRMED";
       }[] = [];
 
-      for (const sel of selections) {
-        const elective = lockedElectivesMap.get(sel.electiveId);
-
+      for (const sel of ordered) {
+        const elective = lockedById.get(sel.electiveId);
         if (!elective || !elective.isActive) {
-          throw new Error("Selected elective is invalid or inactive.");
+          throw new RegistrationRuleError("INVALID_SELECTION", "Selected elective is invalid or inactive.");
         }
         if (elective.groupId !== sel.groupId) {
-          throw new Error("Elective does not belong to the correct group.");
+          throw new RegistrationRuleError("INVALID_SELECTION", "Elective does not belong to the correct group.");
         }
 
-        let isSeatFull = elective.availableSeats <= 0;
-        let secAllocationId: string | null = null;
+        await takeSeat(tx, elective, student.sectionId);
 
-        // Check section allocation if configured
-        if (student.sectionId) {
-          const [secAllocation] = await tx
-            .select()
-            .from(electiveSeatAllocations)
-            .where(
-              and(
-                eq(electiveSeatAllocations.electiveId, sel.electiveId),
-                eq(electiveSeatAllocations.sectionId, student.sectionId)
-              )
-            )
-            .for("update");
-
-          if (secAllocation) {
-            secAllocationId = secAllocation.id;
-            if (secAllocation.availableSeats <= 0) {
-              isSeatFull = true;
-            }
-          }
-        }
-
-        const isWaitlistEnabled = Boolean(event.enableWaitlist);
-
-        if (isSeatFull && !isWaitlistEnabled) {
-          throw new Error(`Seats are fully booked for elective: ${elective.name}`);
-        }
-
-        const isWaitlisted = isSeatFull && isWaitlistEnabled;
-        let waitlistPosition: number | null = null;
-
-        if (isWaitlisted) {
-          hasAnyWaitlisted = true;
-          const [maxPosRow] = await tx
-            .select({
-              maxPos: sql<number>`COALESCE(MAX(${studentRegistrations.waitlistPosition}), 0)`,
-            })
-            .from(studentRegistrations)
-            .where(
-              and(
-                eq(studentRegistrations.eventId, eventId),
-                eq(studentRegistrations.electiveId, sel.electiveId),
-                eq(studentRegistrations.isWaitlisted, true),
-                eq(studentRegistrations.status, "WAITLISTED")
-              )
-            );
-          waitlistPosition = (maxPosRow?.maxPos || 0) + 1;
-        } else {
-          // Decrement general seats
-          await tx
-            .update(electives)
-            .set({
-              availableSeats: sql`${electives.availableSeats} - 1`,
-              isFull: sql`CASE WHEN ${electives.availableSeats} - 1 <= 0 THEN true ELSE false END`,
-              updatedAt: new Date(),
-            })
-            .where(eq(electives.id, sel.electiveId));
-
-          // Decrement section allotment seats if configured
-          if (secAllocationId) {
-            await tx
-              .update(electiveSeatAllocations)
-              .set({
-                availableSeats: sql`${electiveSeatAllocations.availableSeats} - 1`,
-                isFull: sql`CASE WHEN ${electiveSeatAllocations.availableSeats} - 1 <= 0 THEN true ELSE false END`,
-                updatedAt: new Date(),
-              })
-              .where(eq(electiveSeatAllocations.id, secAllocationId));
-          }
-        }
-
-        // Fetch group details for snapshot
-        const [group] = await tx
-          .select({ name: electiveGroups.name })
-          .from(electiveGroups)
-          .where(eq(electiveGroups.id, sel.groupId))
-          .limit(1);
-
-        const baseElectiveName = elective.courseCode
-          ? `${elective.courseCode} - ${elective.name}`
-          : elective.name;
-        const snapshotName = isWaitlisted
-          ? `${baseElectiveName} [Waitlisted #${waitlistPosition}]`
-          : baseElectiveName;
-
+        const name = displayName(elective);
         electiveSnapshots.push({
           groupId: sel.groupId,
-          groupName: group?.name || "Unknown Group",
+          groupName: groupsById.get(sel.groupId)?.name || "Unknown Group",
           electiveId: sel.electiveId,
-          electiveName: snapshotName,
+          electiveName: name,
           courseCode: elective.courseCode || undefined,
-          status: isWaitlisted ? "WAITLISTED" : "CONFIRMED",
-          isWaitlisted,
-          ...(waitlistPosition ? { waitlistPosition } : {}),
+          status: "CONFIRMED",
         });
 
-        // Upsert selection choice in case of prior cancelled registration
+        // Upsert: a previously cancelled choice for this group is reused.
         await tx
           .insert(studentRegistrations)
           .values({
@@ -311,51 +323,47 @@ export async function registerElectives(
             eventId,
             groupId: sel.groupId,
             electiveId: sel.electiveId,
-            status: isWaitlisted ? "WAITLISTED" : "CONFIRMED",
+            status: "CONFIRMED",
             isLocked: true,
-            isWaitlisted,
-            waitlistPosition: waitlistPosition || null,
             submittedAt: new Date(),
             updatedAt: new Date(),
           })
           .onConflictDoUpdate({
-            target: [
-              studentRegistrations.studentId,
-              studentRegistrations.eventId,
-              studentRegistrations.groupId,
-            ],
+            target: [studentRegistrations.studentId, studentRegistrations.eventId, studentRegistrations.groupId],
             set: {
               electiveId: sel.electiveId,
-              status: isWaitlisted ? "WAITLISTED" : "CONFIRMED",
+              status: "CONFIRMED",
               isLocked: true,
-              isWaitlisted,
-              waitlistPosition: waitlistPosition || null,
               submittedAt: new Date(),
               updatedAt: new Date(),
             },
           });
 
-        // Insert replay event
         await tx.insert(replayEvents).values({
           registrationEventId: eventId,
           studentId,
           studentName: studentDetails.name,
-          eventType: isWaitlisted ? "STUDENT_WAITLISTED" : "STUDENT_REGISTERED",
+          eventType: "STUDENT_REGISTERED",
           subjectId: sel.electiveId,
-          subjectName: baseElectiveName,
+          subjectName: name,
           seatBefore: elective.availableSeats,
-          seatAfter: isWaitlisted ? elective.availableSeats : elective.availableSeats - 1,
-          metadata: isWaitlisted ? { waitlistPosition } : undefined,
+          seatAfter: elective.availableSeats - 1,
         });
       }
 
-      // Generate sequence number for receipt
+      // Keep the snapshot in the event's group order for a readable receipt.
+      const groupOrder = new Map(eventGroups.map((g) => [g.id, g.sortOrder]));
+      electiveSnapshots.sort((a, b) => (groupOrder.get(a.groupId) ?? 0) - (groupOrder.get(b.groupId) ?? 0));
+
+      // Receipt number. The advisory lock serialises allocation so two simultaneous
+      // confirmations can never compute the same number.
       const isOdd = event.name.toLowerCase().includes("odd");
       const semester = isOdd ? "ODD" : "EVEN";
       const year = new Date().getFullYear();
 
       let receiptNumber = existingReg?.receiptNumber;
       if (!receiptNumber) {
+        await tx.execute(sql`SELECT pg_advisory_xact_lock(hashtext('electify_receipt_number'))`);
         const [seqRow] = await tx
           .select({
             maxSeq: sql<number>`COALESCE(MAX(CAST(NULLIF(SUBSTRING(${registrations.receiptNumber} FROM '^ELC-[0-9]+-[A-Za-z]+-([0-9]+)$'), '') AS BIGINT)), 0)`,
@@ -371,122 +379,128 @@ export async function registerElectives(
         submittedAt: new Date().toISOString(),
         student: studentDetails,
         electives: electiveSnapshots,
-        isWaitlisted: hasAnyWaitlisted,
       };
 
-      const regStatus = hasAnyWaitlisted ? "WAITLISTED" : "CONFIRMED";
-
-      // Insert/Update registrations table
       if (existingReg) {
         await tx
           .update(registrations)
-          .set({
-            status: regStatus,
-            receiptNumber,
-            receiptSnapshot,
-            submittedAt: new Date(),
-            updatedAt: new Date(),
-          })
+          .set({ status: "CONFIRMED", receiptNumber, receiptSnapshot, submittedAt: new Date(), updatedAt: new Date() })
           .where(eq(registrations.id, existingReg.id));
       } else {
         await tx.insert(registrations).values({
           studentId,
           eventId,
-          status: regStatus,
+          status: "CONFIRMED",
           receiptNumber,
           receiptSnapshot,
           submittedAt: new Date(),
         });
       }
 
-      // Audit log
       await tx.insert(auditLogs).values({
         action: "STUDENT_REGISTERED",
         userId: studentId,
         userRole: "STUDENT",
-        metadata: {
-          eventId,
-          receiptNumber,
-          isWaitlisted: hasAnyWaitlisted,
-          selectionsCount: selections.length,
-        },
+        metadata: { eventId, receiptNumber, selectionsCount: selections.length },
       });
     });
 
-    return { success: true, isWaitlisted: hasAnyWaitlisted };
+    return { success: true };
   } catch (error: unknown) {
-    const errorMessage =
-      error instanceof Error
-        ? error.message
-        : "Failed to complete registration due to database error. Please try again.";
-    console.error("Registration transaction error:", errorMessage);
+    if (error instanceof SeatTakenError) {
+      return { success: false, code: "SEAT_TAKEN", error: error.message, electiveId: error.electiveId };
+    }
+    if (error instanceof RegistrationRuleError) {
+      return { success: false, code: error.code, error: error.message };
+    }
+    console.error("Registration transaction error:", error instanceof Error ? error.message : error);
     return {
       success: false,
-      error: errorMessage,
+      code: "SERVER_ERROR",
+      error: "Registration didn't go through because of a server error. Nothing was registered. Please try again.",
     };
   }
 }
 
+/** Shared guard for change/cancel: session, maintenance, eligibility, window. */
+async function authorizeModification(eventId: string, requireEditing: boolean) {
+  const session = await getSession();
+  if (!session || session.role !== "STUDENT") {
+    return { error: "Unauthorized. Please log in as a student." } as const;
+  }
+
+  if (await maintenanceOn()) {
+    return { error: "System is currently undergoing maintenance." } as const;
+  }
+
+  const student = await loadStudent(session.userId);
+  if (!student || !student.isActive || !student.isEligible) {
+    return { error: "You are not eligible to modify registrations. Please contact faculty." } as const;
+  }
+
+  const [event] = await db.select().from(registrationEvents).where(eq(registrationEvents.id, eventId)).limit(1);
+  if (!event) {
+    return { error: "Registration event not found." } as const;
+  }
+
+  const window = getRegistrationWindow(event, new Date());
+  if (!window.isOpen) {
+    return { error: window.reason || "Registration window is closed." } as const;
+  }
+
+  if (requireEditing && !event.allowEditing) {
+    return { error: "Elective modifications are disabled for this registration event." } as const;
+  }
+
+  return { student, event } as const;
+}
+
+/** Recomputes the parent registration's status from its active choices. */
+async function activeChoices(tx: Tx, studentId: string, eventId: string) {
+  return tx
+    .select()
+    .from(studentRegistrations)
+    .where(
+      and(
+        eq(studentRegistrations.studentId, studentId),
+        eq(studentRegistrations.eventId, eventId),
+        not(eq(studentRegistrations.status, "CANCELLED"))
+      )
+    );
+}
+
+function markCancelled(name: string | undefined) {
+  const base = (name ?? "Elective").trim();
+  return base.endsWith("[Cancelled]") ? base : `${base} [Cancelled]`;
+}
+
 /**
- * Changes an existing elective choice to a replacement elective.
+ * Changes an existing elective choice to another elective in the same group.
  *
  * Rules:
- * - Student must own the registration.
- * - Registration window must be open and allow editing.
- * - Replacement elective must belong to the same group and be active.
- * - No duplicate elective selections across groups.
- * - Transactionally reserves replacement seat before releasing current confirmed seat.
- * - If replacement is full and waitlisting is enabled, requires acceptWaitlist=true.
- * - If replacement is full and waitlisting is disabled, rejects the change.
- * - When releasing a confirmed seat, FIFO waitlist promotion is triggered.
- * - Recompaction is triggered if relinquishing a waitlisted position.
- * - Overall registration status and receipt snapshot are updated.
+ * - Student must own the registration; window must be open and allow editing.
+ * - Replacement must be active, in the same group, and have a seat for this student.
+ * - The replacement seat is taken before the old seat is released, in one transaction.
+ * - A full replacement is rejected; the student keeps their current seat.
  */
 export async function changeStudentElective(
   eventId: string,
   groupId: string,
   currentElectiveId: string,
-  replacementElectiveId: string,
-  acceptWaitlist: boolean = false
+  replacementElectiveId: string
 ): Promise<MutationResult> {
   try {
-    const session = await getSession();
-    if (!session || session.role !== "STUDENT") {
-      return { success: false, error: "Unauthorized. Please log in as a student." };
-    }
-    const studentId = session.userId;
-
-    const [settings] = await db.select().from(systemSettings).where(eq(systemSettings.id, "system")).limit(1);
-    if (settings?.maintenanceMode) {
-      return { success: false, error: "System is currently undergoing maintenance." };
-    }
-
-    const [student] = await db.select().from(users).where(eq(users.id, studentId)).limit(1);
-    if (!student || !student.isActive || !student.isEligible) {
-      return { success: false, error: "You are not eligible to modify registrations. Please contact faculty." };
-    }
-
     if (currentElectiveId === replacementElectiveId) {
       return { success: false, error: "You already have this elective selected." };
     }
 
-    // Authoritative event checks
-    const [event] = await db.select().from(registrationEvents).where(eq(registrationEvents.id, eventId)).limit(1);
-    if (!event) {
-      return { success: false, error: "Registration event not found." };
-    }
-
-    const windowCheck = await isEventRegistrationOpen(event);
-    if (!windowCheck.isOpen) {
-      return { success: false, error: windowCheck.reason || "Registration window is closed." };
-    }
-
-    if (!event.allowEditing) {
-      return { success: false, error: "Elective modifications are disabled for this registration event." };
-    }
+    const auth = await authorizeModification(eventId, true);
+    if ("error" in auth) return { success: false, error: auth.error };
+    const { student } = auth;
+    const studentId = student.id;
 
     return await db.transaction(async (tx) => {
-      // 1. Fetch and lock student's current registration for this group
+      // 1. Lock the student's current choice for this group
       const [currentReg] = await tx
         .select()
         .from(studentRegistrations)
@@ -503,16 +517,14 @@ export async function changeStudentElective(
       if (!currentReg) {
         throw new Error("No existing elective registration found for this group.");
       }
-
       if (currentReg.electiveId !== currentElectiveId) {
         throw new Error("Current elective does not match the active registration record.");
       }
-
       if (currentReg.status === "CANCELLED") {
         throw new Error("This elective registration has been cancelled. Please register anew.");
       }
 
-      // 2. Ensure replacement elective is not already registered in another group
+      // 2. Not already held in another group
       const [duplicateCheck] = await tx
         .select()
         .from(studentRegistrations)
@@ -525,190 +537,51 @@ export async function changeStudentElective(
           )
         )
         .limit(1);
-
       if (duplicateCheck && duplicateCheck.groupId !== groupId) {
         throw new Error("You are already registered for this elective in another group.");
       }
 
-      // 3. Lock replacement elective row
-      const [replacement] = await tx
+      // 3. Lock both electives in a stable order, then validate the replacement
+      const lockedPair = await tx
         .select()
         .from(electives)
-        .where(eq(electives.id, replacementElectiveId))
+        .where(inArray(electives.id, [currentElectiveId, replacementElectiveId]))
+        .orderBy(asc(electives.id))
         .for("update");
+      const replacement = lockedPair.find((e) => e.id === replacementElectiveId);
+      const oldElective = lockedPair.find((e) => e.id === currentElectiveId);
 
       if (!replacement || !replacement.isActive) {
         throw new Error("Replacement elective is not available or inactive.");
       }
-
       if (replacement.groupId !== groupId) {
         throw new Error("Replacement elective belongs to a different elective group.");
       }
 
-      let isReplacementFull = replacement.availableSeats <= 0;
-      let replacementSecAllocId: string | null = null;
-
-      if (student.sectionId) {
-        const [secAlloc] = await tx
-          .select()
-          .from(electiveSeatAllocations)
-          .where(
-            and(
-              eq(electiveSeatAllocations.electiveId, replacementElectiveId),
-              eq(electiveSeatAllocations.sectionId, student.sectionId)
-            )
-          )
-          .for("update");
-
-        if (secAlloc) {
-          replacementSecAllocId = secAlloc.id;
-          if (secAlloc.availableSeats <= 0) {
-            isReplacementFull = true;
-          }
+      // 4. Take the replacement seat first (throws if full: current seat is kept)
+      try {
+        await takeSeat(tx, replacement, student.sectionId);
+      } catch (err) {
+        if (err instanceof SeatTakenError) {
+          throw new Error(`${replacement.name} is full. Your current elective has not been changed.`);
         }
+        throw err;
       }
 
-      const isWaitlistEnabled = Boolean(event.enableWaitlist);
-
-      if (isReplacementFull && !isWaitlistEnabled) {
-        throw new Error(`Seats are fully booked for ${replacement.name} and waitlisting is disabled.`);
+      // 5. Release the old seat if it was confirmed
+      if (currentReg.status === "CONFIRMED" && oldElective) {
+        await releaseSeat(tx, currentElectiveId, student.sectionId);
       }
 
-      if (isReplacementFull && !acceptWaitlist) {
-        // Require explicit confirmation before releasing current confirmed seat to join waitlist
-        return {
-          success: false,
-          requiresConfirmation: true,
-          isWaitlisted: true,
-          message: `Seats for ${replacement.name} are currently full. Confirming this change will place you on the waitlist and release your existing seat in ${currentReg.isWaitlisted ? "your previous waitlist position" : "your confirmed course"}.`,
-        };
-      }
-
-      const isReplacementWaitlisted = isReplacementFull;
-      let newWaitlistPos: number | null = null;
-
-      // 4. Reserve replacement seat or queue position transactionally BEFORE releasing old
-      if (!isReplacementWaitlisted) {
-        // Decrement general seats
-        await tx
-          .update(electives)
-          .set({
-            availableSeats: sql`${electives.availableSeats} - 1`,
-            isFull: sql`CASE WHEN ${electives.availableSeats} - 1 <= 0 THEN true ELSE false END`,
-            updatedAt: new Date(),
-          })
-          .where(eq(electives.id, replacementElectiveId));
-
-        if (replacementSecAllocId) {
-          await tx
-            .update(electiveSeatAllocations)
-            .set({
-              availableSeats: sql`${electiveSeatAllocations.availableSeats} - 1`,
-              isFull: sql`CASE WHEN ${electiveSeatAllocations.availableSeats} - 1 <= 0 THEN true ELSE false END`,
-              updatedAt: new Date(),
-            })
-            .where(eq(electiveSeatAllocations.id, replacementSecAllocId));
-        }
-      } else {
-        // Calculate next waitlist position deterministically
-        const [maxPosRow] = await tx
-          .select({
-            maxPos: sql<number>`COALESCE(MAX(${studentRegistrations.waitlistPosition}), 0)`,
-          })
-          .from(studentRegistrations)
-          .where(
-            and(
-              eq(studentRegistrations.eventId, eventId),
-              eq(studentRegistrations.electiveId, replacementElectiveId),
-              eq(studentRegistrations.isWaitlisted, true),
-              eq(studentRegistrations.status, "WAITLISTED")
-            )
-          );
-        newWaitlistPos = (maxPosRow?.maxPos || 0) + 1;
-      }
-
-      // 5. Handle old elective release & FIFO waitlist promotion
-      const oldWasConfirmed = !currentReg.isWaitlisted && currentReg.status === "CONFIRMED";
-      const [oldElective] = await tx
-        .select()
-        .from(electives)
-        .where(eq(electives.id, currentElectiveId))
-        .for("update");
-
-      if (oldWasConfirmed && oldElective) {
-        // Release confirmed seat
-        await tx
-          .update(electives)
-          .set({
-            availableSeats: sql`${electives.availableSeats} + 1`,
-            isFull: false,
-            updatedAt: new Date(),
-          })
-          .where(eq(electives.id, currentElectiveId));
-
-        if (student.sectionId) {
-          const [oldSecAlloc] = await tx
-            .select()
-            .from(electiveSeatAllocations)
-            .where(
-              and(
-                eq(electiveSeatAllocations.electiveId, currentElectiveId),
-                eq(electiveSeatAllocations.sectionId, student.sectionId)
-              )
-            )
-            .for("update");
-
-          if (oldSecAlloc) {
-            await tx
-              .update(electiveSeatAllocations)
-              .set({
-                availableSeats: sql`${electiveSeatAllocations.availableSeats} + 1`,
-                isFull: false,
-                updatedAt: new Date(),
-              })
-              .where(eq(electiveSeatAllocations.id, oldSecAlloc.id));
-          }
-        }
-
-        // Trigger FIFO waitlist promotion for old elective
-        await promoteWaitlistedStudents(tx, currentElectiveId, 1, eventId);
-      } else if (currentReg.isWaitlisted) {
-        // Student vacated old waitlist slot: recompact remaining waitlist positions
-        await recompactWaitlistPositions(tx, currentElectiveId);
-      }
-
-      // 6. Update studentRegistrations choice
+      // 6. Update the choice
       await tx
         .update(studentRegistrations)
-        .set({
-          electiveId: replacementElectiveId,
-          status: isReplacementWaitlisted ? "WAITLISTED" : "CONFIRMED",
-          isWaitlisted: isReplacementWaitlisted,
-          waitlistPosition: newWaitlistPos,
-          updatedAt: new Date(),
-        })
+        .set({ electiveId: replacementElectiveId, status: "CONFIRMED", updatedAt: new Date() })
         .where(eq(studentRegistrations.id, currentReg.id));
 
-      // 7. Update parent registration status and receipt snapshot
-      const allStudentRegs = await tx
-        .select({
-          groupId: studentRegistrations.groupId,
-          electiveId: studentRegistrations.electiveId,
-          status: studentRegistrations.status,
-          isWaitlisted: studentRegistrations.isWaitlisted,
-          waitlistPosition: studentRegistrations.waitlistPosition,
-        })
-        .from(studentRegistrations)
-        .where(
-          and(
-            eq(studentRegistrations.studentId, studentId),
-            eq(studentRegistrations.eventId, eventId),
-            not(eq(studentRegistrations.status, "CANCELLED"))
-          )
-        );
-
-      const hasAnyWaitlisted = allStudentRegs.some((r) => r.isWaitlisted || r.status === "WAITLISTED");
-      const overallStatus = allStudentRegs.length === 0 ? "CANCELLED" : hasAnyWaitlisted ? "WAITLISTED" : "CONFIRMED";
+      // 7. Parent status and receipt snapshot
+      const remaining = await activeChoices(tx, studentId, eventId);
+      const overallStatus = remaining.length === 0 ? "CANCELLED" : "CONFIRMED";
 
       const [parentReg] = await tx
         .select()
@@ -717,47 +590,31 @@ export async function changeStudentElective(
         .limit(1)
         .for("update");
 
-      const oldName = oldElective?.courseCode
-        ? `${oldElective.courseCode} - ${oldElective.name}`
-        : oldElective?.name || "Previous Elective";
-      const replacementName = replacement.courseCode
-        ? `${replacement.courseCode} - ${replacement.name}`
-        : replacement.name;
+      const oldName = oldElective ? displayName(oldElective) : "Previous Elective";
+      const replacementName = displayName(replacement);
 
       if (parentReg && parentReg.receiptSnapshot) {
-        const snapshot = { ...(parentReg.receiptSnapshot as any) };
+        const snapshot = { ...(parentReg.receiptSnapshot as Record<string, unknown>) } as { electives?: Record<string, unknown>[] };
         if (Array.isArray(snapshot.electives)) {
-          snapshot.electives = snapshot.electives.map((e: any) => {
-            if (e.groupId === groupId || e.electiveId === currentElectiveId) {
-              const formattedName = isReplacementWaitlisted
-                ? `${replacementName} [Waitlisted #${newWaitlistPos}]`
-                : replacementName;
-              return {
-                ...e,
-                electiveId: replacementElectiveId,
-                electiveName: formattedName,
-                courseCode: replacement.courseCode || undefined,
-                status: isReplacementWaitlisted ? "WAITLISTED" : "CONFIRMED",
-                isWaitlisted: isReplacementWaitlisted,
-                waitlistPosition: newWaitlistPos || undefined,
-              };
-            }
-            return e;
-          });
-          snapshot.isWaitlisted = hasAnyWaitlisted;
-
+          snapshot.electives = snapshot.electives.map((e) =>
+            e.groupId === groupId || e.electiveId === currentElectiveId
+              ? {
+                  ...e,
+                  electiveId: replacementElectiveId,
+                  electiveName: replacementName,
+                  courseCode: replacement.courseCode || undefined,
+                  status: "CONFIRMED",
+                }
+              : e
+          );
           await tx
             .update(registrations)
-            .set({
-              status: overallStatus,
-              receiptSnapshot: snapshot,
-              updatedAt: new Date(),
-            })
+            .set({ status: overallStatus, receiptSnapshot: snapshot, updatedAt: new Date() })
             .where(eq(registrations.id, parentReg.id));
         }
       }
 
-      // 8. Replay event and Audit log
+      // 8. Replay event and audit log
       await tx.insert(replayEvents).values({
         registrationEventId: eventId,
         studentId,
@@ -768,37 +625,21 @@ export async function changeStudentElective(
         oldSubject: oldName,
         newSubject: replacementName,
         seatBefore: replacement.availableSeats,
-        seatAfter: isReplacementWaitlisted ? replacement.availableSeats : replacement.availableSeats - 1,
+        seatAfter: replacement.availableSeats - 1,
         performedBy: studentId,
-        metadata: {
-          fromWaitlisted: currentReg.isWaitlisted,
-          toWaitlisted: isReplacementWaitlisted,
-          newWaitlistPosition: newWaitlistPos,
-        },
       });
 
       await tx.insert(auditLogs).values({
         action: "STUDENT_CHANGED_ELECTIVE",
         userId: studentId,
         userRole: "STUDENT",
-        metadata: {
-          eventId,
-          groupId,
-          oldElectiveId: currentElectiveId,
-          newElectiveId: replacementElectiveId,
-          isWaitlisted: isReplacementWaitlisted,
-        },
+        metadata: { eventId, groupId, oldElectiveId: currentElectiveId, newElectiveId: replacementElectiveId },
       });
 
-      return {
-        success: true,
-        isWaitlisted: isReplacementWaitlisted,
-        waitlistPosition: newWaitlistPos,
-      };
+      return { success: true };
     });
   } catch (error: unknown) {
-    const errorMessage =
-      error instanceof Error ? error.message : "Failed to change elective. Please try again.";
+    const errorMessage = error instanceof Error ? error.message : "Failed to change elective. Please try again.";
     console.error("Change elective error:", errorMessage);
     return { success: false, error: errorMessage };
   }
@@ -808,47 +649,19 @@ export async function changeStudentElective(
  * Cancels a single elective registration for the authenticated student.
  *
  * Rules:
- * - Mark elective registration as CANCELLED (do not hard-delete to preserve receipts/audit).
- * - Release seat only if confirmed; never release a seat for waitlist.
- * - Trigger FIFO waitlist promotion if confirmed seat was released.
- * - Recompact sequential waitlist positions if waitlisted entry was cancelled.
- * - Update overall registration status and receipt snapshot.
- * - Enforce deadline strictly.
+ * - The choice is marked CANCELLED, never deleted, so receipts and audit stay intact.
+ * - A confirmed seat is released back to the elective (and section quota).
+ * - Overall registration status and receipt snapshot are updated.
+ * - The deadline is enforced on the server.
  */
-export async function cancelStudentElective(
-  eventId: string,
-  groupId: string,
-  electiveId: string
-): Promise<MutationResult> {
+export async function cancelStudentElective(eventId: string, groupId: string, electiveId: string): Promise<MutationResult> {
   try {
-    const session = await getSession();
-    if (!session || session.role !== "STUDENT") {
-      return { success: false, error: "Unauthorized. Please log in as a student." };
-    }
-    const studentId = session.userId;
-
-    const [settings] = await db.select().from(systemSettings).where(eq(systemSettings.id, "system")).limit(1);
-    if (settings?.maintenanceMode) {
-      return { success: false, error: "System is currently undergoing maintenance." };
-    }
-
-    const [student] = await db.select().from(users).where(eq(users.id, studentId)).limit(1);
-    if (!student || !student.isActive || !student.isEligible) {
-      return { success: false, error: "You are not eligible to modify registrations. Please contact faculty." };
-    }
-
-    const [event] = await db.select().from(registrationEvents).where(eq(registrationEvents.id, eventId)).limit(1);
-    if (!event) {
-      return { success: false, error: "Registration event not found." };
-    }
-
-    const windowCheck = await isEventRegistrationOpen(event);
-    if (!windowCheck.isOpen) {
-      return { success: false, error: windowCheck.reason || "Registration window is closed." };
-    }
+    const auth = await authorizeModification(eventId, false);
+    if ("error" in auth) return { success: false, error: auth.error };
+    const { student } = auth;
+    const studentId = student.id;
 
     return await db.transaction(async (tx) => {
-      // 1. Fetch and lock target choice
       const [currentReg] = await tx
         .select()
         .from(studentRegistrations)
@@ -865,92 +678,26 @@ export async function cancelStudentElective(
       if (!currentReg) {
         throw new Error("No active elective registration found for this group.");
       }
-
       if (currentReg.electiveId !== electiveId) {
         throw new Error("Elective selection does not match active registration.");
       }
-
       if (currentReg.status === "CANCELLED") {
         throw new Error("This elective registration has already been cancelled.");
       }
 
-      const wasConfirmed = !currentReg.isWaitlisted && currentReg.status === "CONFIRMED";
-      const [elective] = await tx
-        .select()
-        .from(electives)
-        .where(eq(electives.id, electiveId))
-        .for("update");
+      const [elective] = await tx.select().from(electives).where(eq(electives.id, electiveId)).for("update");
 
-      // 2. Release seat only if held a confirmed seat
-      if (wasConfirmed && elective) {
-        await tx
-          .update(electives)
-          .set({
-            availableSeats: sql`${electives.availableSeats} + 1`,
-            isFull: false,
-            updatedAt: new Date(),
-          })
-          .where(eq(electives.id, electiveId));
-
-        if (student.sectionId) {
-          const [secAlloc] = await tx
-            .select()
-            .from(electiveSeatAllocations)
-            .where(
-              and(
-                eq(electiveSeatAllocations.electiveId, electiveId),
-                eq(electiveSeatAllocations.sectionId, student.sectionId)
-              )
-            )
-            .for("update");
-
-          if (secAlloc) {
-            await tx
-              .update(electiveSeatAllocations)
-              .set({
-                availableSeats: sql`${electiveSeatAllocations.availableSeats} + 1`,
-                isFull: false,
-                updatedAt: new Date(),
-              })
-              .where(eq(electiveSeatAllocations.id, secAlloc.id));
-          }
-        }
-
-        // Trigger FIFO waitlist promotion
-        await promoteWaitlistedStudents(tx, electiveId, 1, eventId);
-      } else if (currentReg.isWaitlisted) {
-        // Waitlisted: do not increment seats, recompact remaining positions
-        await recompactWaitlistPositions(tx, electiveId);
+      if (currentReg.status === "CONFIRMED" && elective) {
+        await releaseSeat(tx, electiveId, student.sectionId);
       }
 
-      // 3. Mark choice as cancelled
       await tx
         .update(studentRegistrations)
-        .set({
-          status: "CANCELLED",
-          isWaitlisted: false,
-          waitlistPosition: null,
-          updatedAt: new Date(),
-        })
+        .set({ status: "CANCELLED", updatedAt: new Date() })
         .where(eq(studentRegistrations.id, currentReg.id));
 
-      // 4. Update overall status and receipt snapshot
-      const remainingActive = await tx
-        .select()
-        .from(studentRegistrations)
-        .where(
-          and(
-            eq(studentRegistrations.studentId, studentId),
-            eq(studentRegistrations.eventId, eventId),
-            not(eq(studentRegistrations.status, "CANCELLED"))
-          )
-        );
-
-      let overallStatus: "CONFIRMED" | "WAITLISTED" | "CANCELLED" = "CANCELLED";
-      if (remainingActive.length > 0) {
-        const hasWaitlisted = remainingActive.some((r) => r.isWaitlisted || r.status === "WAITLISTED");
-        overallStatus = hasWaitlisted ? "WAITLISTED" : "CONFIRMED";
-      }
+      const remaining = await activeChoices(tx, studentId, eventId);
+      const overallStatus = remaining.length > 0 ? "CONFIRMED" : "CANCELLED";
 
       const [parentReg] = await tx
         .select()
@@ -959,38 +706,23 @@ export async function cancelStudentElective(
         .limit(1)
         .for("update");
 
-      const electiveName = elective?.courseCode
-        ? `${elective.courseCode} - ${elective.name}`
-        : elective?.name || "Elective";
+      const electiveName = elective ? displayName(elective) : "Elective";
 
-      if (parentReg && parentReg.receiptSnapshot) {
-        const snapshot = { ...(parentReg.receiptSnapshot as any) };
-        if (Array.isArray(snapshot.electives)) {
-          snapshot.electives = snapshot.electives.map((e: any) => {
-            if (e.groupId === groupId || e.electiveId === electiveId) {
-              return {
-                ...e,
-                status: "CANCELLED",
-                isWaitlisted: false,
-                electiveName: `${e.electiveName?.replace(/\[Waitlisted #\d+\]/, "").trim()} [Cancelled]`,
-              };
-            }
-            return e;
-          });
-          snapshot.isWaitlisted = remainingActive.some((r) => r.isWaitlisted || r.status === "WAITLISTED");
-
-          await tx
-            .update(registrations)
-            .set({
-              status: overallStatus,
-              receiptSnapshot: snapshot,
-              updatedAt: new Date(),
-            })
-            .where(eq(registrations.id, parentReg.id));
+      if (parentReg) {
+        const snapshot = parentReg.receiptSnapshot ? ({ ...(parentReg.receiptSnapshot as Record<string, unknown>) } as { electives?: Record<string, unknown>[] }) : null;
+        if (snapshot && Array.isArray(snapshot.electives)) {
+          snapshot.electives = snapshot.electives.map((e) =>
+            e.groupId === groupId || e.electiveId === electiveId
+              ? { ...e, status: "CANCELLED", electiveName: markCancelled(e.electiveName as string | undefined) }
+              : e
+          );
         }
+        await tx
+          .update(registrations)
+          .set({ status: overallStatus, receiptSnapshot: snapshot ?? parentReg.receiptSnapshot, updatedAt: new Date() })
+          .where(eq(registrations.id, parentReg.id));
       }
 
-      // 5. Replay and audit log
       await tx.insert(replayEvents).values({
         registrationEventId: eventId,
         studentId,
@@ -999,29 +731,20 @@ export async function cancelStudentElective(
         subjectId: electiveId,
         subjectName: electiveName,
         performedBy: studentId,
-        metadata: {
-          wasWaitlisted: currentReg.isWaitlisted,
-          groupId,
-        },
+        metadata: { groupId },
       });
 
       await tx.insert(auditLogs).values({
         action: "STUDENT_CANCELLED_ELECTIVE",
         userId: studentId,
         userRole: "STUDENT",
-        metadata: {
-          eventId,
-          groupId,
-          electiveId,
-          wasWaitlisted: currentReg.isWaitlisted,
-        },
+        metadata: { eventId, groupId, electiveId },
       });
 
       return { success: true };
     });
   } catch (error: unknown) {
-    const errorMessage =
-      error instanceof Error ? error.message : "Failed to cancel elective. Please try again.";
+    const errorMessage = error instanceof Error ? error.message : "Failed to cancel elective. Please try again.";
     console.error("Cancel elective error:", errorMessage);
     return { success: false, error: errorMessage };
   }
@@ -1031,41 +754,18 @@ export async function cancelStudentElective(
  * Cancels the student's entire registration for an event.
  *
  * Rules:
- * - Releases all confirmed elective seats.
- * - Promotes eligible waitlisted students for all released electives.
- * - Updates overall registration status to CANCELLED atomically.
- * - Idempotent if already cancelled.
+ * - Releases every confirmed seat.
+ * - Marks every choice and the parent registration CANCELLED atomically.
+ * - Rejected if already cancelled.
  */
 export async function cancelEntireRegistration(eventId: string): Promise<MutationResult> {
   try {
-    const session = await getSession();
-    if (!session || session.role !== "STUDENT") {
-      return { success: false, error: "Unauthorized. Please log in as a student." };
-    }
-    const studentId = session.userId;
-
-    const [settings] = await db.select().from(systemSettings).where(eq(systemSettings.id, "system")).limit(1);
-    if (settings?.maintenanceMode) {
-      return { success: false, error: "System is currently undergoing maintenance." };
-    }
-
-    const [student] = await db.select().from(users).where(eq(users.id, studentId)).limit(1);
-    if (!student || !student.isActive || !student.isEligible) {
-      return { success: false, error: "You are not eligible to modify registrations. Please contact faculty." };
-    }
-
-    const [event] = await db.select().from(registrationEvents).where(eq(registrationEvents.id, eventId)).limit(1);
-    if (!event) {
-      return { success: false, error: "Registration event not found." };
-    }
-
-    const windowCheck = await isEventRegistrationOpen(event);
-    if (!windowCheck.isOpen) {
-      return { success: false, error: windowCheck.reason || "Registration window is closed." };
-    }
+    const auth = await authorizeModification(eventId, false);
+    if ("error" in auth) return { success: false, error: auth.error };
+    const { student } = auth;
+    const studentId = student.id;
 
     return await db.transaction(async (tx) => {
-      // 1. Lock parent registration
       const [parentReg] = await tx
         .select()
         .from(registrations)
@@ -1076,12 +776,10 @@ export async function cancelEntireRegistration(eventId: string): Promise<Mutatio
       if (!parentReg) {
         throw new Error("No registration found to cancel.");
       }
-
       if (parentReg.status === "CANCELLED") {
         throw new Error("Registration has already been cancelled.");
       }
 
-      // 2. Fetch all active student choices
       const userChoices = await tx
         .select()
         .from(studentRegistrations)
@@ -1092,72 +790,22 @@ export async function cancelEntireRegistration(eventId: string): Promise<Mutatio
             not(eq(studentRegistrations.status, "CANCELLED"))
           )
         )
+        .orderBy(asc(studentRegistrations.electiveId))
         .for("update");
 
-      // 3. For each active choice, release seat if confirmed & promote, or recompact if waitlisted
       for (const choice of userChoices) {
-        const wasConfirmed = !choice.isWaitlisted && choice.status === "CONFIRMED";
-
-        if (wasConfirmed) {
-          const [elective] = await tx
-            .select()
-            .from(electives)
-            .where(eq(electives.id, choice.electiveId))
-            .for("update");
-
+        if (choice.status === "CONFIRMED") {
+          const [elective] = await tx.select().from(electives).where(eq(electives.id, choice.electiveId)).for("update");
           if (elective) {
-            await tx
-              .update(electives)
-              .set({
-                availableSeats: sql`${electives.availableSeats} + 1`,
-                isFull: false,
-                updatedAt: new Date(),
-              })
-              .where(eq(electives.id, choice.electiveId));
-
-            if (student.sectionId) {
-              const [secAlloc] = await tx
-                .select()
-                .from(electiveSeatAllocations)
-                .where(
-                  and(
-                    eq(electiveSeatAllocations.electiveId, choice.electiveId),
-                    eq(electiveSeatAllocations.sectionId, student.sectionId)
-                  )
-                )
-                .for("update");
-
-              if (secAlloc) {
-                await tx
-                  .update(electiveSeatAllocations)
-                  .set({
-                    availableSeats: sql`${electiveSeatAllocations.availableSeats} + 1`,
-                    isFull: false,
-                    updatedAt: new Date(),
-                  })
-                  .where(eq(electiveSeatAllocations.id, secAlloc.id));
-              }
-            }
-
-            // Promote earliest eligible waitlisted student
-            await promoteWaitlistedStudents(tx, choice.electiveId, 1, eventId);
+            await releaseSeat(tx, choice.electiveId, student.sectionId);
           }
-        } else if (choice.isWaitlisted) {
-          await recompactWaitlistPositions(tx, choice.electiveId);
         }
 
-        // Mark choice as cancelled
         await tx
           .update(studentRegistrations)
-          .set({
-            status: "CANCELLED",
-            isWaitlisted: false,
-            waitlistPosition: null,
-            updatedAt: new Date(),
-          })
+          .set({ status: "CANCELLED", updatedAt: new Date() })
           .where(eq(studentRegistrations.id, choice.id));
 
-        // Replay event for elective cancellation
         await tx.insert(replayEvents).values({
           registrationEventId: eventId,
           studentId,
@@ -1165,64 +813,47 @@ export async function cancelEntireRegistration(eventId: string): Promise<Mutatio
           eventType: "ELECTIVE_CANCELLED",
           subjectId: choice.electiveId,
           performedBy: studentId,
-          metadata: { wasWaitlisted: choice.isWaitlisted },
         });
       }
 
-      // 4. Update parent registrations table
-      let snapshot = parentReg.receiptSnapshot as any;
+      let snapshot = parentReg.receiptSnapshot as { electives?: Record<string, unknown>[] } | null;
       if (snapshot && Array.isArray(snapshot.electives)) {
         snapshot = {
           ...snapshot,
           status: "CANCELLED",
-          isWaitlisted: false,
-          electives: snapshot.electives.map((e: any) => ({
+          electives: snapshot.electives.map((e) => ({
             ...e,
             status: "CANCELLED",
-            isWaitlisted: false,
-            electiveName: `${e.electiveName?.replace(/\[Waitlisted #\d+\]/, "").trim()} [Cancelled]`,
+            electiveName: markCancelled(e.electiveName as string | undefined),
           })),
-        };
+        } as typeof snapshot;
       }
 
       await tx
         .update(registrations)
-        .set({
-          status: "CANCELLED",
-          receiptSnapshot: snapshot || parentReg.receiptSnapshot,
-          updatedAt: new Date(),
-        })
+        .set({ status: "CANCELLED", receiptSnapshot: snapshot ?? parentReg.receiptSnapshot, updatedAt: new Date() })
         .where(eq(registrations.id, parentReg.id));
 
-      // 5. Global replay event and audit log
       await tx.insert(replayEvents).values({
         registrationEventId: eventId,
         studentId,
         studentName: student.name,
         eventType: "REGISTRATION_CANCELLED",
         performedBy: studentId,
-        metadata: {
-          releasedChoicesCount: userChoices.length,
-          receiptNumber: parentReg.receiptNumber,
-        },
+        metadata: { releasedChoicesCount: userChoices.length, receiptNumber: parentReg.receiptNumber },
       });
 
       await tx.insert(auditLogs).values({
         action: "STUDENT_CANCELLED_REGISTRATION",
         userId: studentId,
         userRole: "STUDENT",
-        metadata: {
-          eventId,
-          receiptNumber: parentReg.receiptNumber,
-          cancelledCount: userChoices.length,
-        },
+        metadata: { eventId, receiptNumber: parentReg.receiptNumber, cancelledCount: userChoices.length },
       });
 
       return { success: true };
     });
   } catch (error: unknown) {
-    const errorMessage =
-      error instanceof Error ? error.message : "Failed to cancel registration. Please try again.";
+    const errorMessage = error instanceof Error ? error.message : "Failed to cancel registration. Please try again.";
     console.error("Cancel entire registration error:", errorMessage);
     return { success: false, error: errorMessage };
   }
@@ -1245,7 +876,7 @@ export async function getStudentRegistrationDetails(eventId?: string) {
       return { success: false, error: "Student or batch not found" };
     }
 
-    // Resolve event
+    // Resolve event (only events for this student's batch)
     let targetEventId = eventId;
     if (!targetEventId) {
       const [latestEvent] = await db
@@ -1254,14 +885,7 @@ export async function getStudentRegistrationDetails(eventId?: string) {
         .where(
           and(
             eq(registrationEvents.academicBatchId, student.academicBatchId),
-            inArray(registrationEvents.status, [
-              "PUBLISHED",
-              "OPEN",
-              "ACTIVE",
-              "CLOSED",
-              "VERIFICATION",
-              "FINALIZED",
-            ])
+            inArray(registrationEvents.status, [...STUDENT_VISIBLE_EVENT_STATUSES])
           )
         )
         .orderBy(desc(registrationEvents.createdAt))
@@ -1276,16 +900,26 @@ export async function getStudentRegistrationDetails(eventId?: string) {
     const [event] = await db
       .select()
       .from(registrationEvents)
-      .where(eq(registrationEvents.id, targetEventId))
+      .where(and(eq(registrationEvents.id, targetEventId), eq(registrationEvents.academicBatchId, student.academicBatchId)))
       .limit(1);
 
     if (!event) {
       return { success: false, error: "Event not found" };
     }
 
-    const windowCheck = await isEventRegistrationOpen(event);
+    const windowCheck = getRegistrationWindow(event, new Date());
+    const eventSummary = {
+      id: event.id,
+      name: event.name,
+      openDate: event.openDate,
+      closeDate: event.closeDate,
+      status: event.status,
+      allowEditing: event.allowEditing,
+      autoClose: event.autoClose,
+      isOpen: windowCheck.isOpen,
+      reason: windowCheck.reason,
+    };
 
-    // Fetch parent registration
     const [userReg] = await db
       .select()
       .from(registrations)
@@ -1293,25 +927,9 @@ export async function getStudentRegistrationDetails(eventId?: string) {
       .limit(1);
 
     if (!userReg) {
-      return {
-        success: true,
-        hasRegistered: false,
-        event: {
-          id: event.id,
-          name: event.name,
-          openDate: event.openDate,
-          closeDate: event.closeDate,
-          status: event.status,
-          allowEditing: event.allowEditing,
-          enableWaitlist: event.enableWaitlist,
-          autoClose: event.autoClose,
-          isOpen: windowCheck.isOpen,
-          reason: windowCheck.reason,
-        },
-      };
+      return { success: true, hasRegistered: false, event: eventSummary };
     }
 
-    // Fetch all studentRegistrations joined with electives and groups
     const studentChoices = await db
       .select({
         id: studentRegistrations.id,
@@ -1322,8 +940,6 @@ export async function getStudentRegistrationDetails(eventId?: string) {
         courseCode: electives.courseCode,
         credits: electives.credits,
         status: studentRegistrations.status,
-        isWaitlisted: studentRegistrations.isWaitlisted,
-        waitlistPosition: studentRegistrations.waitlistPosition,
         submittedAt: studentRegistrations.submittedAt,
         availableSeats: electives.availableSeats,
         maxSeats: electives.maxSeats,
@@ -1335,7 +951,6 @@ export async function getStudentRegistrationDetails(eventId?: string) {
       .where(and(eq(studentRegistrations.studentId, studentId), eq(studentRegistrations.eventId, event.id)))
       .orderBy(electiveGroups.sortOrder);
 
-    // Fetch section allocations for student's section
     const choiceElectiveIds = studentChoices.map((c) => c.electiveId);
     let sectionAllocations: { electiveId: string; availableSeats: number; maxSeats: number; isFull: boolean }[] = [];
 
@@ -1348,17 +963,23 @@ export async function getStudentRegistrationDetails(eventId?: string) {
           isFull: electiveSeatAllocations.isFull,
         })
         .from(electiveSeatAllocations)
-        .where(
-          and(
-            inArray(electiveSeatAllocations.electiveId, choiceElectiveIds),
-            eq(electiveSeatAllocations.sectionId, student.sectionId)
-          )
-        );
+        .where(and(inArray(electiveSeatAllocations.electiveId, choiceElectiveIds), eq(electiveSeatAllocations.sectionId, student.sectionId)));
     }
 
-    // Fetch alternative electives for each group to power the "Change Elective" picker
+    // Alternatives per group for the "Change elective" picker
     const groupIds = Array.from(new Set(studentChoices.map((c) => c.groupId)));
-    let alternativeElectives: any[] = [];
+    let alternativeElectives: {
+      id: string;
+      groupId: string;
+      name: string;
+      courseCode: string | null;
+      credits: number;
+      description: string | null;
+      maxSeats: number;
+      availableSeats: number;
+      isFull: boolean;
+      isActive: boolean;
+    }[] = [];
 
     if (groupIds.length > 0) {
       alternativeElectives = await db
@@ -1378,7 +999,6 @@ export async function getStudentRegistrationDetails(eventId?: string) {
         .where(and(inArray(electives.groupId, groupIds), eq(electives.isActive, true)));
     }
 
-    // Adjust seat counts for section allocations
     let allSectionAllocs: { electiveId: string; availableSeats: number; maxSeats: number; isFull: boolean }[] = [];
     if (student.sectionId && alternativeElectives.length > 0) {
       allSectionAllocs = await db
@@ -1397,20 +1017,17 @@ export async function getStudentRegistrationDetails(eventId?: string) {
         );
     }
 
-    const alternativesByGroup = new Map<string, any[]>();
+    const alternativesByGroup = new Map<string, (typeof alternativeElectives[number] & { sectionAvailableSeats?: number; sectionMaxSeats?: number })[]>();
     for (const alt of alternativeElectives) {
       const secAlloc = allSectionAllocs.find((s) => s.electiveId === alt.id);
       const effectiveAvailable = secAlloc ? Math.min(alt.availableSeats, secAlloc.availableSeats) : alt.availableSeats;
-      const effectiveFull = alt.isFull || (secAlloc ? secAlloc.isFull || secAlloc.availableSeats <= 0 : effectiveAvailable <= 0);
-
       const item = {
         ...alt,
         availableSeats: Math.max(0, effectiveAvailable),
-        isFull: effectiveFull,
+        isFull: effectiveAvailable <= 0,
         sectionAvailableSeats: secAlloc?.availableSeats,
         sectionMaxSeats: secAlloc?.maxSeats,
       };
-
       const list = alternativesByGroup.get(alt.groupId) || [];
       list.push(item);
       alternativesByGroup.set(alt.groupId, list);
@@ -1420,7 +1037,6 @@ export async function getStudentRegistrationDetails(eventId?: string) {
       const secAlloc = sectionAllocations.find((s) => s.electiveId === c.electiveId);
       const effectiveAvailable = secAlloc ? Math.min(c.availableSeats, secAlloc.availableSeats) : c.availableSeats;
       const alternatives = (alternativesByGroup.get(c.groupId) || []).filter((a) => a.id !== c.electiveId);
-
       return {
         ...c,
         availableSeats: Math.max(0, effectiveAvailable),
@@ -1430,23 +1046,12 @@ export async function getStudentRegistrationDetails(eventId?: string) {
       };
     });
 
-    const snapshot = userReg.receiptSnapshot as any;
+    const snapshot = userReg.receiptSnapshot as { student?: Record<string, string> } | null;
 
     return {
       success: true,
       hasRegistered: true,
-      event: {
-        id: event.id,
-        name: event.name,
-        openDate: event.openDate,
-        closeDate: event.closeDate,
-        status: event.status,
-        allowEditing: event.allowEditing,
-        enableWaitlist: event.enableWaitlist,
-        autoClose: event.autoClose,
-        isOpen: windowCheck.isOpen,
-        reason: windowCheck.reason,
-      },
+      event: eventSummary,
       registration: {
         id: userReg.id,
         status: userReg.status,

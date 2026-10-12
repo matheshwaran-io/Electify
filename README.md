@@ -173,7 +173,7 @@ npx drizzle-kit migrate
 ```
 
 ### 4. Seed the Database
-Populate defaults including system settings, the default System Admin account (`admin@electify.edu`), SRM university structure, and mock cohorts:
+Populate defaults including system settings, core faculty accounts, default System Admin account (`admin@electify.edu`), and full SRM university structure:
 ```bash
 npx tsx src/lib/db/seed.ts
 ```

@@ -404,7 +404,6 @@ export async function createEventFromTemplate(input: {
           createdById: session.userId,
           allowEditing: true,
           autoClose: true,
-          enableWaitlist: false,
         })
         .returning();
 

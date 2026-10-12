@@ -4,11 +4,14 @@ import { getSession } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { users, systemSettings, registrationEvents, registrations } from "@/lib/db/schema";
 import { eq, and, inArray, desc } from "drizzle-orm";
-import { CalendarClock, CalendarX2, Clock3, Lock, RadioTower, UserX, Users } from "lucide-react";
+import Link from "next/link";
+import { ArrowRight, CalendarClock, CalendarX2, Clock3, Lock, PauseCircle, RadioTower, UserX, Users } from "lucide-react";
 import { CountdownTimer } from "./countdown-timer";
 import { StudentHeader, StudentStatus } from "@/components/student/student-chrome";
 import { formatDateTime, formatOpening } from "@/lib/format";
 import { SeatMark } from "@/components/auth/seat-mark";
+import { buttonVariants } from "@/components/ui/button";
+import { getRegistrationWindow, STUDENT_VISIBLE_EVENT_STATUSES } from "@/lib/registration-window";
 
 export const dynamic = "force-dynamic";
 export const metadata = { title: "Registration opens soon" };
@@ -52,7 +55,7 @@ export default async function CountdownPage() {
     .where(
       and(
         eq(registrationEvents.academicBatchId, student.academicBatchId),
-        inArray(registrationEvents.status, ["PUBLISHED", "OPEN", "ACTIVE", "CLOSED", "VERIFICATION", "FINALIZED"])
+        inArray(registrationEvents.status, [...STUDENT_VISIBLE_EVENT_STATUSES])
       )
     ).orderBy(desc(registrationEvents.createdAt)).limit(1);
 
@@ -71,21 +74,10 @@ export default async function CountdownPage() {
   const hasSubmitted = userRegistration?.status === "CONFIRMED";
 
   const now = new Date();
+  // Same rule the register action enforces, evaluated on the server clock.
+  const regWindow = getRegistrationWindow(event, now);
 
-  // Time-based checks (openDate/closeDate are the source of truth)
-  const isRegistrationStarted =
-    (event.openDate && now >= event.openDate) ||
-    event.status === "OPEN" ||
-    event.status === "ACTIVE";
-
-  const isRegistrationEnded =
-    (event.closeDate && now > event.closeDate) ||
-    event.status === "CLOSED" ||
-    event.status === "VERIFICATION" ||
-    event.status === "FINALIZED";
-
-  // If registration is currently open, redirect to dashboard
-  if (isRegistrationStarted && !isRegistrationEnded) {
+  if (regWindow.isOpen) {
     redirect("/dashboard");
   }
 
@@ -94,7 +86,31 @@ export default async function CountdownPage() {
     redirect("/dashboard/success");
   }
 
-  if (isRegistrationEnded) {
+  if (regWindow.state === "PAUSED") {
+    return (
+      <StudentStatus
+        icon={<PauseCircle />}
+        tone="warning"
+        title="Registration is paused"
+        next={
+          <>
+            You can still{" "}
+            <Link href="/dashboard/subjects" className="font-medium text-fg underline underline-offset-4">
+              read about the subjects
+            </Link>{" "}
+            while you wait.
+          </>
+        }
+      >
+        <p>
+          Your coordinators paused <span className="font-medium text-fg">{event.name}</span>. This page doesn&apos;t update on its own, so check back
+          later.
+        </p>
+      </StudentStatus>
+    );
+  }
+
+  if (regWindow.state === "CLOSED") {
     return (
       <StudentStatus
         icon={<CalendarX2 />}
@@ -144,6 +160,13 @@ export default async function CountdownPage() {
           <p className="mx-auto mt-8 max-w-md text-fg-muted animate-enter [animation-delay:220ms]">
             The picker opens here automatically when the countdown ends. No need to refresh.
           </p>
+
+          <Link
+            href="/dashboard/subjects"
+            className={buttonVariants({ variant: "secondary", size: "lg", className: "mt-6 animate-enter [animation-delay:240ms]" })}
+          >
+            Explore subjects while you wait <ArrowRight />
+          </Link>
         </div>
 
         <dl className="mt-14 grid w-full max-w-3xl divide-y divide-border rounded-card bg-surface-2 animate-enter [animation-delay:280ms] sm:grid-cols-3 sm:divide-x sm:divide-y-0">
@@ -162,8 +185,10 @@ export default async function CountdownPage() {
           <div className="flex gap-3 p-5 text-left">
             <Lock className="mt-0.5 size-4 shrink-0 text-fg-subtle" />
             <div>
-              <dt className="font-medium text-fg">Choices are final</dt>
-              <dd className="mt-0.5 text-sm text-fg-muted">You can&apos;t change them after you confirm.</dd>
+              <dt className="font-medium text-fg">{event.allowEditing ? "Changes close with the window" : "Choices are final"}</dt>
+              <dd className="mt-0.5 text-sm text-fg-muted">
+                {event.allowEditing ? "You can change or cancel a pick until registration closes." : "You can't change them after you confirm."}
+              </dd>
             </div>
           </div>
         </dl>

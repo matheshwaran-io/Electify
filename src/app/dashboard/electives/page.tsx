@@ -8,6 +8,7 @@ import { RegistrationForm } from "../registration-form";
 import { Users } from "lucide-react";
 import Link from "next/link";
 import { StudentHeader, StudentStatus } from "@/components/student/student-chrome";
+import { getRegistrationWindow, STUDENT_VISIBLE_EVENT_STATUSES } from "@/lib/registration-window";
 
 export const dynamic = "force-dynamic";
 export const metadata = { title: "Choose your electives" };
@@ -48,7 +49,7 @@ export default async function StudentElectivesPage() {
     .where(
       and(
         eq(registrationEvents.academicBatchId, student.academicBatchId),
-        inArray(registrationEvents.status, ["PUBLISHED", "OPEN", "ACTIVE", "CLOSED", "VERIFICATION", "FINALIZED"])
+        inArray(registrationEvents.status, [...STUDENT_VISIBLE_EVENT_STATUSES])
       )
     ).orderBy(desc(registrationEvents.createdAt)).limit(1);
 
@@ -60,27 +61,15 @@ export default async function StudentElectivesPage() {
   const [userRegistration] = await db.select().from(registrations)
     .where(and(eq(registrations.studentId, student.id), eq(registrations.eventId, event.id))).limit(1);
 
-  const hasSubmitted = userRegistration?.status === "CONFIRMED" || userRegistration?.status === "WAITLISTED";
+  const hasSubmitted = userRegistration?.status === "CONFIRMED";
 
   if (hasSubmitted) {
     redirect("/dashboard/my-registration");
   }
 
-  // Verify time boundaries (openDate/closeDate are the source of truth)
+  // Same rule the register action enforces; /dashboard explains every closed state.
   const now = new Date();
-
-  const isRegistrationStarted =
-    (event.openDate && now >= event.openDate) ||
-    event.status === "OPEN" ||
-    event.status === "ACTIVE";
-
-  const isRegistrationEnded =
-    (event.closeDate && now > event.closeDate) ||
-    event.status === "CLOSED" ||
-    event.status === "VERIFICATION" ||
-    event.status === "FINALIZED";
-
-  if (!isRegistrationStarted || isRegistrationEnded) {
+  if (!getRegistrationWindow(event, now).isOpen) {
     redirect("/dashboard");
   }
 
@@ -131,6 +120,12 @@ export default async function StudentElectivesPage() {
   return (
     <div className="flex min-h-dvh flex-col">
       <StudentHeader>
+        <Link
+          href="/dashboard/subjects"
+          className="inline-flex h-8 items-center rounded-control px-2.5 text-xs font-medium text-fg-muted transition-colors hover:bg-surface-2 hover:text-fg"
+        >
+          Subjects
+        </Link>
         {userRegistration ? (
           <Link
             href="/dashboard/my-registration"
@@ -159,7 +154,6 @@ export default async function StudentElectivesPage() {
             openDate: event.openDate,
             closeDate: event.closeDate,
             status: event.status,
-            enableWaitlist: event.enableWaitlist,
           }}
           student={{
             id: student.id,

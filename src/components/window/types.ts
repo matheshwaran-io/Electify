@@ -2,7 +2,6 @@
 export type WindowMetrics = {
   totalStudents: number
   registeredStudents: number
-  waitlistedStudents?: number
   totalSeats: number
   filledSeats: number
   fullSubjects: number
@@ -22,7 +21,6 @@ export type WindowEvent = {
   description: string | null
   allowEditing?: boolean
   autoClose?: boolean
-  enableWaitlist?: boolean
   groupCount: number
 }
 

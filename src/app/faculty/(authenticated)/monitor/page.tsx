@@ -24,7 +24,6 @@ export default async function MonitorPage({
           kpis: {
             totalEligibleStudents: 0,
             registeredStudents: 0,
-            waitlistedStudents: 0,
             unregisteredStudents: 0,
             completionRate: 0,
             totalCapacity: 0,

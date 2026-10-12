@@ -826,7 +826,7 @@
             &nbsp;&nbsp;groupId: uuid("group_id").notNull().references(() =&gt; electiveGroups.id),<br>
             &nbsp;&nbsp;electiveId: uuid("elective_id").notNull().references(() =&gt; electives.id),<br>
             &nbsp;&nbsp;isLocked: boolean("is_locked").default(true).notNull(),<br>
-            &nbsp;&nbsp;isWaitlisted: boolean("is_waitlisted").default(false).notNull(),<br>
+            &nbsp;&nbsp;status: text("status").default("CONFIRMED").notNull(),<br>
             &nbsp;&nbsp;submittedAt: timestamp("submitted_at").defaultNow().notNull(),<br>
             }, (t) =&gt; [<br>
             &nbsp;&nbsp;unique("student_registrations_unique").on(t.studentId, t.eventId, t.groupId),<br>
@@ -842,7 +842,7 @@
     </section>
 
     <!-- SLIDE 7: CONCURRENCY & REGISTRATION TRANSACTION FLOW -->
-    <section class="slide" data-slide="7" data-notes="This slide explains the exact concurrency algorithm. When a student clicks confirm, we open a database transaction. We lock the electives table rows using SELECT FOR UPDATE. We check general seats and section quota. If full, we divert to waitlist. If available, we decrement seats, write to replay_events, generate a sequential receipt number, and commit.">
+    <section class="slide" data-slide="7" data-notes="This slide explains the exact concurrency algorithm. When a student clicks confirm, we open a database transaction. We lock the electives table rows using SELECT FOR UPDATE. We check general seats and section quota. If full, the transaction rolls back and the student is told to pick another elective. If available, we decrement seats, write to replay_events, generate a sequential receipt number, and commit.">
       <div class="slide-badge">Concurrency Deep Dive</div>
       <h2 class="slide-title">The ACID Registration Transaction Algorithm</h2>
       <p class="slide-subtitle">Step-by-step execution lifecycle of registerElectives() under extreme concurrent load.</p>
@@ -876,8 +876,8 @@
           <div class="flow-step">
             <div class="flow-num" style="background: var(--emerald);">4</div>
             <div>
-              <strong style="color: #6EE7B7; font-size: 0.95rem;">Atomic Seat Decrement &amp; Waitlist Check</strong>
-              <div class="card-desc">Decrements global capacity &amp; section quota. If 0 seats left and waitlist enabled, increments waitlist counter without failure.</div>
+              <strong style="color: #6EE7B7; font-size: 0.95rem;">Atomic Seat Decrement &amp; Capacity Check</strong>
+              <div class="card-desc">Decrements global capacity &amp; section quota. If either is at 0, the whole submission rolls back with a clear &ldquo;seat just taken&rdquo; message. Counts can never go negative.</div>
             </div>
           </div>
 
@@ -979,7 +979,7 @@
     </section>
 
     <!-- SLIDE 9: SPECIAL INNOVATIONS & REPLAY ENGINE -->
-    <section class="slide" data-slide="9" data-notes="One of Electify's hallmark features is the Time-Travel Replay Engine. When a registration window closes, coordinators can drag a slider to watch seat capacity changes, waitlist arrivals, and registrations second by second. This completely eliminates dispute ambiguity.">
+    <section class="slide" data-slide="9" data-notes="One of Electify's hallmark features is the Time-Travel Replay Engine. When a registration window closes, coordinators can drag a slider to watch seat capacity changes, cancellations, and registrations second by second. This completely eliminates dispute ambiguity.">
       <div class="slide-badge">Exclusive Feature</div>
       <h2 class="slide-title">The Time-Travel Replay Engine</h2>
       <p class="slide-subtitle">Forensic event sourcing allowing administrators to replay any registration surge with millisecond accuracy.</p>
@@ -993,7 +993,7 @@
           <ul style="font-size: 0.85rem; color: var(--text-muted); line-height: 1.7; padding-left: 1.25rem; margin-bottom: 1.5rem;">
             <li><strong>Timeline Scrubber:</strong> Drag slider from 09:00:00 to 09:15:00 to see seat counts at that exact second.</li>
             <li><strong>Live Activity Stream:</strong> Displays student register number, timestamp, subject picked, and seats before vs. after.</li>
-            <li><strong>Waitlist Trajectory:</strong> Visually proves exact position numbers assigned during the surge.</li>
+            <li><strong>Last-Seat Proof:</strong> Shows exactly who took the final seat and when, and that later attempts were refused.</li>
           </ul>
           <div class="card-desc" style="font-size: 0.8rem; color: #10B981;">
             ✓ Results in 100% grievance resolution rate with zero manual database querying.
@@ -1031,7 +1031,7 @@
               </div>
               <div style="padding: 0.4rem 0.6rem; background: var(--surface-elevated); border-radius: 0.35rem; display: flex; justify-content: space-between;">
                 <span>09:04:12.312 • RA2411003010204</span>
-                <span style="color: #FDA4AF;">Deep Learning (Waitlisted #1)</span>
+                <span style="color: #FDA4AF;">Deep Learning (Refused: full)</span>
               </div>
             </div>
           </div>

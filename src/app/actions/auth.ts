@@ -528,7 +528,7 @@ export const getPublicHierarchy = unstable_cache(
     };
   },
   ["public-hierarchy"],
-  { tags: ["hierarchy"], revalidate: 3600 }
+  { tags: ["hierarchy"], revalidate: 60 }
 );
 
 // ────────────────────────────────────────────────────────────────────

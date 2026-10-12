@@ -1,9 +1,10 @@
 "use client";
 
 import * as React from "react";
+import Link from "next/link";
 import { Dialog as DialogPrimitive } from "@base-ui/react/dialog";
 import { motion } from "framer-motion";
-import { AlertTriangle, Check, ShieldCheck, X } from "lucide-react";
+import { AlertTriangle, ArrowRight, Check, ShieldCheck, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { spring } from "@/lib/motion";
 import { Button } from "@/components/ui/button";
@@ -84,6 +85,12 @@ export function ElectiveDetail({
                     <p className="text-sm text-fg-muted">Your department hasn&apos;t added a description for this course yet.</p>
                   )}
                 </DialogPrimitive.Description>
+                <Link
+                  href={`/dashboard/subjects/${elective.id}`}
+                  className="mt-4 inline-flex min-h-10 items-center gap-1.5 text-sm font-medium text-fg underline-offset-4 hover:underline"
+                >
+                  Read the full subject guide <ArrowRight className="size-4" />
+                </Link>
               </div>
               <div className="flex gap-2 border-t border-border bg-surface-2/50 p-4">
                 <Button variant="secondary" className="flex-1 sm:flex-none" onClick={onClose}>
@@ -205,7 +212,6 @@ export function ReviewDialog({
   selections,
   electives,
   submitting,
-  waitlistEnabled,
   onConfirm,
 }: {
   open: boolean;
@@ -214,7 +220,6 @@ export function ReviewDialog({
   selections: Selections;
   electives: Elective[];
   submitting: boolean;
-  waitlistEnabled?: boolean;
   onConfirm: () => void;
 }) {
   const picked = groups.flatMap((g) => (selections[g.id] ?? []).map((id) => electives.find((e) => e.id === id)).filter(Boolean)) as Elective[];
@@ -247,15 +252,9 @@ export function ReviewDialog({
                         {e.name}
                       </p>
                       {full ? (
-                        waitlistEnabled ? (
-                          <p className="mt-1 flex items-center gap-1.5 text-xs font-medium text-warning-text">
-                            <AlertTriangle className="size-3.5" /> This subject is full. You will be registered on the waitlist.
-                          </p>
-                        ) : (
-                          <p className="mt-1 flex items-center gap-1.5 text-xs font-medium text-danger-text">
-                            <AlertTriangle className="size-3.5" /> This just filled up. Go back and pick another.
-                          </p>
-                        )
+                        <p className="mt-1 flex items-center gap-1.5 text-xs font-medium text-danger-text">
+                          <AlertTriangle className="size-3.5" /> This just filled up. Go back and pick another.
+                        </p>
                       ) : null}
                     </div>
                     {typeof e.credits === "number" ? <span className="shrink-0 text-xs text-fg-muted">{e.credits} cr</span> : null}

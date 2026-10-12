@@ -14,7 +14,6 @@ const STATUS: Record<string, { tone: BadgeTone; label: string; dot?: boolean }> 
   ARCHIVED: { tone: "outline", label: "Archived" },
   // Student registrations
   CONFIRMED: { tone: "success", label: "Confirmed" },
-  WAITLISTED: { tone: "warning", label: "Waitlisted" },
   NOT_REGISTERED: { tone: "warning", label: "Pending" },
   RESET_BY_COORDINATOR: { tone: "outline", label: "Reset" },
   CANCELLED: { tone: "outline", label: "Cancelled" },

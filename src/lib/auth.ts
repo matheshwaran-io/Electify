@@ -47,6 +47,35 @@ export async function verifyJWT(token: string): Promise<UserSession | null> {
   }
 }
 
+/**
+ * Short-lived ticket that lets a student who just proved an old credential
+ * (a legacy 6-digit PIN or a default password) set a proper password.
+ * Signed with a key derived for this purpose only, so it can never pass as a
+ * session token, and bound to the current password hash, so it stops working
+ * as soon as the password changes.
+ */
+const UPGRADE_SECRET = new TextEncoder().encode(
+  `${process.env.JWT_SECRET || "fallback-secret-key-at-least-32-chars-long-for-jwt-signing"}:password-upgrade`
+);
+
+export async function signPasswordUpgradeTicket(userId: string, hashFingerprint: string): Promise<string> {
+  return await new SignJWT({ sub: userId, fp: hashFingerprint })
+    .setProtectedHeader({ alg: "HS256" })
+    .setIssuedAt()
+    .setExpirationTime("10m")
+    .sign(UPGRADE_SECRET);
+}
+
+export async function verifyPasswordUpgradeTicket(ticket: string): Promise<{ userId: string; fingerprint: string } | null> {
+  try {
+    const { payload } = await jwtVerify(ticket, UPGRADE_SECRET);
+    if (typeof payload.sub !== "string" || typeof payload.fp !== "string") return null;
+    return { userId: payload.sub, fingerprint: payload.fp };
+  } catch {
+    return null;
+  }
+}
+
 let testSessionOverride: UserSession | null | undefined = undefined;
 
 export function setTestSession(session: UserSession | null | undefined) {

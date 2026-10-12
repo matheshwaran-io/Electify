@@ -63,9 +63,7 @@ describe("Event Management: Delete Event & Reset Registrations", () => {
     const [batch] = await db
       .insert(academicBatches)
       .values({
-        name: `Batch_${Date.now().toString().slice(-6)}`,
-        year: 2026,
-        semester: 1,
+        year: `T${Date.now().toString().slice(-6)}`,
         programmeId,
       })
       .returning();
@@ -111,10 +109,8 @@ describe("Event Management: Delete Event & Reset Registrations", () => {
     studentUser = { id: uStudent.id, email: uStudent.email };
   });
 
-  after(async () => {
-    setTestSession(null);
-    setTimeout(() => process.exit(0), 100);
-  });
+  // Every event a test creates, so cleanup can remove whatever a test left behind.
+  const createdEventIds: string[] = [];
 
   async function createTestEventWithRegistrations(suffix: string) {
     const [ev] = await db
@@ -127,9 +123,9 @@ describe("Event Management: Delete Event & Reset Registrations", () => {
         closeDate: new Date(Date.now() + 86400000),
         status: "OPEN",
         allowEditing: true,
-        enableWaitlist: true,
       })
       .returning();
+    createdEventIds.push(ev.id);
 
     const [grp] = await db
       .insert(electiveGroups)
@@ -297,5 +293,30 @@ describe("Event Management: Delete Event & Reset Registrations", () => {
       .where(eq(auditLogs.action, "DELETE_REGISTRATION_EVENT"))
       .orderBy(auditLogs.createdAt);
     assert.ok(audit, "Audit log must contain DELETE_REGISTRATION_EVENT action");
+  });
+
+  after(async () => {
+    setTestSession(null);
+    // Events deleted by a test are already gone; these deletes are then no-ops.
+    for (const eventId of createdEventIds) {
+      await db.delete(studentRegistrations).where(eq(studentRegistrations.eventId, eventId));
+      await db.delete(registrations).where(eq(registrations.eventId, eventId));
+      await db.delete(replayEvents).where(eq(replayEvents.registrationEventId, eventId));
+      const groups = await db.select({ id: electiveGroups.id }).from(electiveGroups).where(eq(electiveGroups.eventId, eventId));
+      if (groups.length > 0) {
+        await db.delete(electives).where(inArray(electives.groupId, groups.map((g) => g.id)));
+      }
+      await db.delete(electiveGroups).where(eq(electiveGroups.eventId, eventId));
+      await db.delete(registrationEvents).where(eq(registrationEvents.id, eventId));
+    }
+    const testUserIds = [adminUser?.id, coordinatorUser?.id, studentUser?.id].filter(Boolean);
+    if (testUserIds.length > 0) {
+      await db.delete(auditLogs).where(inArray(auditLogs.userId, testUserIds));
+      await db.delete(users).where(inArray(users.id, testUserIds));
+    }
+    if (batchId) await db.delete(academicBatches).where(eq(academicBatches.id, batchId));
+    if (programmeId) await db.delete(programmes).where(eq(programmes.id, programmeId));
+    if (departmentId) await db.delete(departments).where(eq(departments.id, departmentId));
+    if (facultyId) await db.delete(faculties).where(eq(faculties.id, facultyId));
   });
 });

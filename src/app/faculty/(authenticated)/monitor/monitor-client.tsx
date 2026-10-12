@@ -170,14 +170,10 @@ export function MonitorClient({ initialData, userRole }: MonitorClientProps) {
             freshKpis.registeredStudents !== undefined
               ? freshKpis.registeredStudents
               : prev.kpis.registeredStudents;
-          const waitlisted =
-            freshKpis.waitlistedStudents !== undefined
-              ? freshKpis.waitlistedStudents
-              : prev.kpis.waitlistedStudents;
           const totalEligible = prev.kpis.totalEligibleStudents;
           const completionRate =
             totalEligible > 0 ? Math.round((registered / totalEligible) * 100) : 0;
-          const unregistered = Math.max(0, totalEligible - registered - waitlisted);
+          const unregistered = Math.max(0, totalEligible - registered);
 
           return {
             ...prev,
@@ -187,7 +183,6 @@ export function MonitorClient({ initialData, userRole }: MonitorClientProps) {
             kpis: {
               ...prev.kpis,
               registeredStudents: registered,
-              waitlistedStudents: waitlisted,
               unregisteredStudents: unregistered,
               completionRate,
             },
@@ -345,10 +340,6 @@ export function MonitorClient({ initialData, userRole }: MonitorClientProps) {
       list = list.filter((a) => a.eventType === "STUDENT_REGISTERED");
     } else if (activityFilter === "SWAPS") {
       list = list.filter((a) => a.eventType === "STUDENT_CHANGED_CHOICE");
-    } else if (activityFilter === "WAITLIST") {
-      list = list.filter(
-        (a) => a.eventType.includes("WAITLIST") || a.eventType === "WAITLIST_PROMOTED"
-      );
     } else if (activityFilter === "CANCELLATIONS") {
       list = list.filter((a) => a.eventType.includes("CANCELLED"));
     }
@@ -686,22 +677,17 @@ export function MonitorClient({ initialData, userRole }: MonitorClientProps) {
           </div>
         </div>
 
-        {/* KPI 4: Full Courses & Waitlist */}
+        {/* KPI 4: Full Courses */}
         <div className="bg-surface border border-border rounded-card p-5 relative overflow-hidden hover:border-border-strong transition-all">
           <div className="flex items-center justify-between text-xs text-fg-muted">
-            <span className="font-medium">Full Courses & Waitlist</span>
+            <span className="font-medium">Full Courses</span>
             <Sparkles className="w-4 h-4 text-purple-400" />
           </div>
           <div className="mt-3 flex items-baseline gap-2">
             <span className="text-3xl font-light font-mono text-fg">{kpis.fullCoursesCount}</span>
             <span className="text-xs text-fg-muted">/ {kpis.totalCoursesCount} maxed</span>
           </div>
-          <div className="mt-3 text-[11px] text-fg-muted flex items-center justify-between pt-1">
-            <span>Waitlist entries:</span>
-            <span className={`font-mono font-medium ${kpis.waitlistedStudents > 0 ? "text-amber-400" : "text-fg"}`}>
-              {kpis.waitlistedStudents} student{kpis.waitlistedStudents !== 1 ? "s" : ""} waiting
-            </span>
-          </div>
+          <p className="mt-3 pt-1 text-[11px] text-fg-muted">Full courses accept no new registrations.</p>
         </div>
       </div>
 
@@ -726,7 +712,6 @@ export function MonitorClient({ initialData, userRole }: MonitorClientProps) {
                   { key: "ALL", label: "All" },
                   { key: "SUBMISSIONS", label: "Confirmed" },
                   { key: "SWAPS", label: "Swaps" },
-                  { key: "WAITLIST", label: "Waitlist" },
                   { key: "CANCELLATIONS", label: "Cancelled" },
                 ].map((tab) => (
                   <button
@@ -777,8 +762,6 @@ export function MonitorClient({ initialData, userRole }: MonitorClientProps) {
                 filteredActivity.map((item) => {
                   const isNewSubmission = item.eventType === "STUDENT_REGISTERED";
                   const isSwap = item.eventType === "STUDENT_CHANGED_CHOICE";
-                  const isWaitlist = item.eventType.includes("WAITLIST") && item.eventType !== "WAITLIST_PROMOTED";
-                  const isPromotion = item.eventType === "WAITLIST_PROMOTED";
                   const isCancellation = item.eventType.includes("CANCELLED");
 
                   return (
@@ -796,16 +779,6 @@ export function MonitorClient({ initialData, userRole }: MonitorClientProps) {
                         {isSwap && (
                           <div className="w-7 h-7 rounded-full bg-blue-500/10 text-blue-400 flex items-center justify-center border border-blue-500/20">
                             <RefreshCw className="w-3.5 h-3.5" />
-                          </div>
-                        )}
-                        {isWaitlist && (
-                          <div className="w-7 h-7 rounded-full bg-amber-500/10 text-amber-400 flex items-center justify-center border border-amber-500/20">
-                            <Clock className="w-3.5 h-3.5" />
-                          </div>
-                        )}
-                        {isPromotion && (
-                          <div className="w-7 h-7 rounded-full bg-purple-500/10 text-purple-400 flex items-center justify-center border border-purple-500/20">
-                            <Sparkles className="w-3.5 h-3.5" />
                           </div>
                         )}
                         {isCancellation && (
@@ -859,24 +832,6 @@ export function MonitorClient({ initialData, userRole }: MonitorClientProps) {
                               <ArrowRight className="w-3 h-3 text-blue-400 shrink-0" />
                               <strong className="text-fg font-normal truncate max-w-44 text-blue-400">
                                 {item.newSubject || item.subjectName}
-                              </strong>
-                            </div>
-                          )}
-
-                          {isWaitlist && (
-                            <div className="flex items-center gap-1.5 text-amber-400">
-                              <span>Joined Waitlist for</span>
-                              <strong className="text-fg font-normal truncate">
-                                {item.subjectName || "Elective"}
-                              </strong>
-                            </div>
-                          )}
-
-                          {isPromotion && (
-                            <div className="flex items-center gap-1.5 text-purple-400">
-                              <span>Promoted from waitlist into</span>
-                              <strong className="text-fg font-normal truncate">
-                                {item.subjectName || "Elective"}
                               </strong>
                             </div>
                           )}
@@ -1043,8 +998,6 @@ export function MonitorClient({ initialData, userRole }: MonitorClientProps) {
                           <span>
                             {c.availableSeats > 0 ? (
                               <strong className="text-emerald-400 font-normal">{c.availableSeats} open</strong>
-                            ) : c.waitlistCount > 0 ? (
-                              <span className="text-amber-400">{c.waitlistCount} waitlisted</span>
                             ) : (
                               <span className="text-rose-400">0 open</span>
                             )}

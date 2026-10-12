@@ -183,7 +183,6 @@ function TutorView({ m }: { m: any }) {
   const event = m.activeEvent;
   const total = Number(m.totalStudents) || 0;
   const registered = Number(m.registeredCount) || 0;
-  const waitlisted = Number(m.waitlistedCount) || 0;
   const pending = m.pendingStudents ?? [];
   const recent = m.recentRegistrations ?? [];
 
@@ -228,9 +227,6 @@ function TutorView({ m }: { m: any }) {
               <div className="flex flex-wrap items-center gap-2">
                 <StatusBadge status={event.status} />
                 <WindowCountdown event={event} />
-                {event.enableWaitlist ? (
-                  <Badge tone="warning">Waitlist active</Badge>
-                ) : null}
                 {event.allowEditing ? (
                   <Badge tone="neutral">Edits allowed</Badge>
                 ) : null}
@@ -269,15 +265,7 @@ function TutorView({ m }: { m: any }) {
           value={registered}
           suffix={`/ ${total}`}
           hint={
-            <div className="space-y-1">
-              <Meter value={registered} max={total} label="Students registered" tone="success" />
-              {waitlisted > 0 ? (
-                <p className="flex items-center justify-between text-xs font-medium text-warning-text">
-                  <span>Waitlist queue</span>
-                  <span className="font-mono tabular-nums">{waitlisted}</span>
-                </p>
-              ) : null}
-            </div>
+            <Meter value={registered} max={total} label="Students registered" tone="success" />
           }
         />
         <Stat 
@@ -327,11 +315,6 @@ function TutorView({ m }: { m: any }) {
                       <p className="truncate text-sm font-medium text-fg">{reg.studentName}</p>
                       {reg.studentRegNo ? (
                         <span className="font-mono text-2xs text-fg-subtle">{reg.studentRegNo}</span>
-                      ) : null}
-                      {reg.isWaitlisted ? (
-                        <Badge tone="warning" size="sm">
-                          Waitlist #{reg.waitlistPosition ?? 1}
-                        </Badge>
                       ) : null}
                     </div>
                     <p className="truncate text-xs text-fg-muted mt-0.5">

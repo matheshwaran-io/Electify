@@ -32,7 +32,6 @@ interface Event {
   status: string;
   openDate: Date | null;
   closeDate: Date | null;
-  enableWaitlist?: boolean;
 }
 
 interface RegistrationFormProps {
@@ -178,18 +177,14 @@ export function RegistrationForm({ event, student, groups, electives, initialReg
       if (before === undefined || before === e.availableSeats || !picked.has(e.id)) continue;
       const group = groups.find((g) => g.id === e.groupId);
       if (e.availableSeats <= 0 && !initiallySelected.has(e.id)) {
-        if (!event.enableWaitlist) {
-          setSelections((prev) => ({ ...prev, [e.groupId]: (prev[e.groupId] ?? []).filter((id) => id !== e.id) }));
-          setConflicts((c) => ({ ...c, [e.id]: "This filled up while you were choosing. Your other picks are safe." }));
-          setAnnouncement(`${e.name} just filled up and was removed from your picks. Choose another in ${group?.name ?? "this group"}.`);
-        } else {
-          setAnnouncement(`${e.name} has filled up. You will be registered on the waitlist upon submission.`);
-        }
+        setSelections((prev) => ({ ...prev, [e.groupId]: (prev[e.groupId] ?? []).filter((id) => id !== e.id) }));
+        setConflicts((c) => ({ ...c, [e.id]: "This filled up while you were choosing. Your other picks are safe." }));
+        setAnnouncement(`${e.name} just filled up and was removed from your picks. Choose another in ${group?.name ?? "this group"}.`);
       } else if (e.availableSeats < 10 && before >= 10) {
         setAnnouncement(`Only ${e.availableSeats} seats left in ${e.name}, one of your picks.`);
       }
     }
-  }, [localElectives, selections, groups, initiallySelected, event.enableWaitlist]);
+  }, [localElectives, selections, groups, initiallySelected]);
 
   const canSubmit = React.useMemo(() => {
     return groups.every((g) => groupComplete(g, selections[g.id]?.length || 0)) && student.isEligible;
@@ -264,7 +259,7 @@ export function RegistrationForm({ event, student, groups, electives, initialReg
         router.push("/dashboard/success");
         return; // keep the loading state while we navigate
       }
-      handleFailure(response.error);
+      handleFailure(response);
     } catch {
       setSubmitError({ kind: "network", message: "We couldn't reach the server, so nothing was submitted. Your picks are still here. Try again." });
       setIsConfirmOpen(false);
@@ -273,13 +268,10 @@ export function RegistrationForm({ event, student, groups, electives, initialReg
     setIsSubmitting(false);
   };
 
-  function handleFailure(error?: string) {
-    const msg = error || "Registration didn't go through. Please try again.";
-    const seat = msg.match(/^Seats are fully booked for elective: (.+)$/);
-    if (seat) {
-      const name = seat[1];
-      const picked = Object.values(selections).flat();
-      const hit = localElectives.find((e) => e.name === name && picked.includes(e.id)) ?? localElectives.find((e) => e.name === name);
+  function handleFailure(result: { error?: string; code?: string; electiveId?: string }) {
+    const msg = result.error || "Registration didn't go through. Please try again.";
+    if (result.code === "SEAT_TAKEN") {
+      const hit = result.electiveId ? localElectives.find((e) => e.id === result.electiveId) : undefined;
       if (hit) {
         setSelections((prev) => ({ ...prev, [hit.groupId]: (prev[hit.groupId] ?? []).filter((id) => id !== hit.id) }));
         setLocalElectives((prev) => prev.map((e) => (e.id === hit.id ? { ...e, availableSeats: 0, isFull: true } : e)));
@@ -290,12 +282,12 @@ export function RegistrationForm({ event, student, groups, electives, initialReg
         return;
       }
     }
-    if (msg === "Registration already completed.") {
+    if (result.code === "ALREADY_REGISTERED") {
       router.replace("/dashboard/success");
       return;
     }
     setIsConfirmOpen(false);
-    setSubmitError({ kind: msg === "Registration is currently closed." ? "closed" : "other", message: msg });
+    setSubmitError({ kind: result.code === "WINDOW_CLOSED" ? "closed" : "other", message: msg });
   }
 
   const suggestionsFor = React.useCallback(
@@ -407,7 +399,6 @@ export function RegistrationForm({ event, student, groups, electives, initialReg
             compare={compare}
             conflicts={conflicts}
             suggestionsFor={suggestionsFor}
-            waitlistEnabled={Boolean(event.enableWaitlist)}
             onSelect={handleSelect}
             onDetails={setDetailId}
             onCompare={toggleCompare}
@@ -504,7 +495,6 @@ export function RegistrationForm({ event, student, groups, electives, initialReg
         selections={selections}
         electives={localElectives}
         submitting={isSubmitting}
-        waitlistEnabled={Boolean(event.enableWaitlist)}
         onConfirm={handleRegister}
       />
     </div>
@@ -559,7 +549,6 @@ function GroupSection({
   compare,
   conflicts,
   suggestionsFor,
-  waitlistEnabled,
   onSelect,
   onDetails,
   onCompare,
@@ -572,7 +561,6 @@ function GroupSection({
   compare: string[];
   conflicts: Record<string, string>;
   suggestionsFor: (e: Elective) => Elective[];
-  waitlistEnabled?: boolean;
   onSelect: (groupId: string, electiveId: string) => void;
   onDetails: (id: string) => void;
   onCompare: (id: string) => void;
@@ -663,8 +651,7 @@ function GroupSection({
               groupId={group.id}
               multiple={group.maxChoices > 1}
               selected={isSelected}
-              disabled={(!waitlistEnabled && isFull && !initiallySelected.has(elective.id)) || !eligible || (!isSelected && group.maxChoices > 1 && selected.length >= group.maxChoices)}
-              waitlistEnabled={waitlistEnabled}
+              disabled={(isFull && !initiallySelected.has(elective.id)) || !eligible || (!isSelected && group.maxChoices > 1 && selected.length >= group.maxChoices)}
               compared={compare.includes(elective.id)}
               compareFull={compare.length >= MAX_COMPARE}
               conflict={conflicts[elective.id]}

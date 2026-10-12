@@ -173,7 +173,6 @@ export const registrationEvents = pgTable("registration_events", {
   // DRAFT | PUBLISHED | OPEN | CLOSED | VERIFICATION | FINALIZED | ARCHIVED
   allowEditing: boolean("allow_editing").default(true).notNull(),
   autoClose: boolean("auto_close").default(true).notNull(),
-  enableWaitlist: boolean("enable_waitlist").default(false).notNull(),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 },
@@ -223,6 +222,33 @@ export const electiveGroups = pgTable("elective_groups", {
   createdAt: timestamp("created_at").defaultNow().notNull(),
 },
   (table) => [index("electiveGroups_event_idx").on(table.eventId)]);
+
+// ────────────────────────────────────────────────────────────────────
+// SUBJECT PROFILES (student-facing subject information)
+// One profile describes a subject. Elective offerings (one row per event in
+// `electives`) are matched to a profile by course code or by name/alias,
+// optionally limited to one programme, so new events pick it up without
+// re-linking. Official facts (name, code, credits, seats, basket) always come
+// from `electives`; `content` holds supplementary guidance with per-section
+// provenance, validated by lib/subjects/content-schema.ts.
+// ────────────────────────────────────────────────────────────────────
+
+export const subjectProfiles = pgTable("subject_profiles", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  slug: text("slug").notNull().unique(),
+  title: text("title").notNull(),
+  courseCode: text("course_code"), // only when confirmed by the university
+  aliases: jsonb("aliases").$type<string[]>().notNull().default([]), // other names this subject is offered under
+  programmeId: uuid("programme_id").references(() => programmes.id, { onDelete: "set null" }), // null = any programme
+  summary: text("summary"),
+  content: jsonb("content").notNull().default({}),
+  status: text("status").default("DRAFT").notNull(), // DRAFT | PUBLISHED | ARCHIVED
+  createdById: uuid("created_by_id").references(() => users.id, { onDelete: "set null" }),
+  updatedById: uuid("updated_by_id").references(() => users.id, { onDelete: "set null" }),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+},
+  (table) => [index("subjectProfiles_status_idx").on(table.status)]);
 
 export const electives = pgTable("electives", {
   id: uuid("id").defaultRandom().primaryKey(),
@@ -294,8 +320,6 @@ export const studentRegistrations = pgTable(
       .references(() => electives.id),
     status: text("status").default("CONFIRMED").notNull(),
     isLocked: boolean("is_locked").default(true).notNull(),
-    isWaitlisted: boolean("is_waitlisted").default(false).notNull(),
-    waitlistPosition: integer("waitlist_position"),
     submittedAt: timestamp("submitted_at").defaultNow().notNull(),
     updatedAt: timestamp("updated_at").defaultNow().notNull(),
   },
@@ -395,7 +419,6 @@ export const systemSettings = pgTable("system_settings", {
 export const registrationStatusEnum = pgEnum("registration_status", [
   "NOT_REGISTERED",
   "CONFIRMED",
-  "WAITLISTED",
   "CANCELLED",
   "RESET_BY_COORDINATOR"
 ]);
@@ -557,6 +580,7 @@ export const electivesRelations = relations(electives, ({ one, many }) => ({
     fields: [electives.groupId],
     references: [electiveGroups.id],
   }),
+
   allocations: many(electiveSeatAllocations),
 }));
 
@@ -693,5 +717,12 @@ export const pinResetRequestsRelations = relations(pinResetRequests, ({ one }) =
   tutor: one(users, {
     fields: [pinResetRequests.tutorId],
     references: [users.id],
+  }),
+}));
+
+export const subjectProfilesRelations = relations(subjectProfiles, ({ one }) => ({
+  programme: one(programmes, {
+    fields: [subjectProfiles.programmeId],
+    references: [programmes.id],
   }),
 }));

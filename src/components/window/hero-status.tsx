@@ -35,11 +35,6 @@ export function HeroStatus({ event }: { event: WindowEvent }) {
             <Badge tone={meta.tone} dot={meta.dot}>
               {meta.label}
             </Badge>
-            {event.enableWaitlist ? (
-              <Badge tone="warning">
-                Waitlist active
-              </Badge>
-            ) : null}
             {event.allowEditing ? (
               <Badge tone="neutral">
                 Edits allowed

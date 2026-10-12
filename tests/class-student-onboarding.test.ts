@@ -497,4 +497,37 @@ describe("Class-Based Student Self-Onboarding and 6-Digit PIN Security", () => {
     assert.strictEqual(checkRes.valid, false);
     assert.ok(checkRes.error?.includes("revoked"));
   });
+
+  after(async () => {
+    setTestSession(null);
+    if (classCode) {
+      await db.delete(inviteCodes).where(eq(inviteCodes.code, classCode));
+    }
+    if (tutorUser?.id) {
+      await db.delete(inviteCodes).where(eq(inviteCodes.createdById, tutorUser.id));
+      await db.delete(tutorSections).where(eq(tutorSections.tutorId, tutorUser.id));
+    }
+    if (sectionId) {
+      await db.delete(inviteCodes).where(eq(inviteCodes.sectionId, sectionId));
+      await db.delete(pinResetRequests).where(eq(pinResetRequests.sectionId, sectionId));
+      await db.delete(users).where(eq(users.sectionId, sectionId));
+    }
+    if (testStudentReg) {
+      const studs = await db.select({ id: users.id }).from(users).where(eq(users.registerNumber, testStudentReg));
+      for (const s of studs) {
+        await db.delete(pinResetRequests).where(eq(pinResetRequests.studentId, s.id));
+        await db.delete(auditLogs).where(eq(auditLogs.userId, s.id));
+        await db.delete(users).where(eq(users.id, s.id));
+      }
+    }
+    if (tutorUser?.id) {
+      await db.delete(auditLogs).where(eq(auditLogs.userId, tutorUser.id));
+      await db.delete(users).where(eq(users.id, tutorUser.id));
+    }
+    if (sectionId) await db.delete(sections).where(eq(sections.id, sectionId));
+    if (batchId) await db.delete(academicBatches).where(eq(academicBatches.id, batchId));
+    if (programmeId) await db.delete(programmes).where(eq(programmes.id, programmeId));
+    if (departmentId) await db.delete(departments).where(eq(departments.id, departmentId));
+    if (facultyId) await db.delete(faculties).where(eq(faculties.id, facultyId));
+  });
 });
