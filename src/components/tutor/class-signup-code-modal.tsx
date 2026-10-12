@@ -225,7 +225,7 @@ export function ClassSignupCodeModal({
               <Users className="mx-auto size-10 text-fg-subtle mb-3" />
               <h4 className="font-medium text-base text-fg">No active class signup code</h4>
               <p className="mt-1 text-sm text-fg-muted max-w-sm mx-auto">
-                Generate an onboarding code for your section. Students will use this code to set up their individual 6-digit PINs.
+                Generate an onboarding code for your section. Students use this code to create their account and choose their own password.
               </p>
               <Button
                 variant="brand"

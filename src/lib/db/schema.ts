@@ -680,10 +680,12 @@ export const registrationsRelations = relations(registrations, ({ one }) => ({
 }));
 
 // ────────────────────────────────────────────────────────────────────
-// STUDENT PIN RESET REQUESTS (Tutor-Authorized Reset Flow)
+// STUDENT PASSWORD RESET REQUESTS (Tutor-Authorized Reset Flow)
+// The table and index names predate the move from 6-digit PINs to passwords
+// and are kept so existing data and scripts keep working.
 // ────────────────────────────────────────────────────────────────────
 
-export const pinResetRequests = pgTable("pin_reset_requests", {
+export const passwordResetRequests = pgTable("pin_reset_requests", {
   id: uuid("id").defaultRandom().primaryKey(),
   studentId: uuid("student_id")
     .notNull()
@@ -705,17 +707,17 @@ export const pinResetRequests = pgTable("pin_reset_requests", {
   index("pinResetRequests_status_idx").on(table.status),
 ]);
 
-export const pinResetRequestsRelations = relations(pinResetRequests, ({ one }) => ({
+export const passwordResetRequestsRelations = relations(passwordResetRequests, ({ one }) => ({
   student: one(users, {
-    fields: [pinResetRequests.studentId],
+    fields: [passwordResetRequests.studentId],
     references: [users.id],
   }),
   section: one(sections, {
-    fields: [pinResetRequests.sectionId],
+    fields: [passwordResetRequests.sectionId],
     references: [sections.id],
   }),
   tutor: one(users, {
-    fields: [pinResetRequests.tutorId],
+    fields: [passwordResetRequests.tutorId],
     references: [users.id],
   }),
 }));

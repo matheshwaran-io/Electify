@@ -6,20 +6,27 @@ import { Controller, useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
 import { AnimatePresence, motion } from "framer-motion";
-import { AlertCircle, ArrowLeft, ArrowRight, Check, Eye, EyeOff, GraduationCap, KeyRound, Lock, Mail, Sparkles, UserCog } from "lucide-react";
-import { login, registerStaff, studentPinLogin } from "@/app/actions/auth";
+import { AlertCircle, ArrowLeft, ArrowRight, Check, Eye, EyeOff, GraduationCap, KeyRound, Mail, UserCog } from "lucide-react";
+import { login, registerStaff, studentLogin, upgradeStudentPassword } from "@/app/actions/auth";
+import { normalizeRegisterNumber, passwordProblem, REGISTER_NUMBER_PATTERN } from "@/lib/password-policy";
 import { transition, variants } from "@/lib/motion";
 import { Button } from "@/components/ui/button";
 import { Field, Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { StudentJoinClassCard } from "./student-join-class-card";
-import { StudentPinResetModal } from "./student-pin-reset-modal";
+import { StudentPasswordResetModal } from "./student-password-reset-modal";
+import { PasswordChecklist, PasswordInput } from "./password-input";
 
 // --- Schemas ---
 const studentLoginSchema = z.object({
-  identifier: z.string().min(1, "Email or register number is required"),
-  pin: z.string().regex(/^\d{6}$/, "PIN must be exactly 6 digits"),
+  registerNumber: z
+    .string()
+    .trim()
+    .min(1, "Enter your register number")
+    .refine((v) => !v.includes("@"), "Use your register number, not your email")
+    .refine((v) => REGISTER_NUMBER_PATTERN.test(normalizeRegisterNumber(v)), "Enter a valid register number, e.g. RA2532241010001"),
+  password: z.string().min(1, "Enter your password"),
 });
 
 const staffLoginSchema = z.object({
@@ -55,7 +62,8 @@ type DeptData = { id: string; name: string; code: string; programmes: ProgData[]
 type FacultyData = { id: string; name: string; code: string; departments: DeptData[] };
 
 type Status = "idle" | "submitting" | "success";
-type Result = { success: boolean; error?: string; role?: string };
+type Result = { success: boolean; error?: string; role?: string; requiresPasswordUpgrade?: boolean; upgradeTicket?: string };
+type Upgrade = { ticket: string; registerNumber: string };
 
 /** Server messages stay authoritative; a few get friendlier wording. */
 function friendly(error?: string) {
@@ -72,6 +80,7 @@ export function AuthContainer() {
   const [status, setStatus] = React.useState<Status>("idle");
   const [formError, setFormError] = React.useState<string | null>(null);
   const [resetModalOpen, setResetModalOpen] = React.useState(false);
+  const [upgrade, setUpgrade] = React.useState<Upgrade | null>(null);
 
   // Runs the real server action; the button reflects its true progress.
   const submit = async (call: () => Promise<Result>) => {
@@ -79,6 +88,11 @@ export function AuthContainer() {
     setFormError(null);
     try {
       const result = await call();
+      if (!result.success && result.requiresPasswordUpgrade) {
+        // Not signed in yet: the student chooses a new password first.
+        setStatus("idle");
+        return;
+      }
       if (!result.success) {
         setFormError(friendly(result.error));
         setStatus("idle");
@@ -102,6 +116,7 @@ export function AuthContainer() {
   const switchType = (type: "STUDENT" | "STAFF") => {
     setAccountType(type);
     setAuthMode("LOGIN");
+    setUpgrade(null);
     setFormError(null);
   };
 
@@ -109,7 +124,9 @@ export function AuthContainer() {
     accountType === "STUDENT"
       ? authMode === "JOIN_CLASS"
         ? "join_class"
-        : "student"
+        : upgrade
+          ? "upgrade"
+          : "student"
       : authMode === "LOGIN"
         ? "staff"
         : "register";
@@ -121,14 +138,16 @@ export function AuthContainer() {
       {view !== "join_class" && (
         <div className="mb-8 space-y-2">
           <h2 className="text-3xl font-light tracking-display text-fg">
-            {view === "register" ? "Create a staff account" : "Sign in"}
+            {view === "register" ? "Create a staff account" : view === "upgrade" ? "Choose a new password" : "Sign in"}
           </h2>
           <p className="text-sm text-fg-muted">
             {view === "student"
-              ? "Use your SRM email or register number and personal 6-digit PIN."
-              : view === "staff"
-                ? "For class tutors, course coordinators and administrators."
-                : "You'll need the invite code your administrator sent you."}
+              ? "Use your register number and password."
+              : view === "upgrade"
+                ? "Student sign-in now uses a password instead of a PIN or the temporary password you were given. Choose your own to continue."
+                : view === "staff"
+                  ? "For class tutors, course coordinators and administrators."
+                  : "You'll need the invite code your administrator sent you."}
           </p>
         </div>
       )}
@@ -149,6 +168,7 @@ export function AuthContainer() {
           type="button"
           onClick={() => {
             setAuthMode("LOGIN");
+            setUpgrade(null);
             setFormError(null);
           }}
           disabled={busy}
@@ -186,9 +206,14 @@ export function AuthContainer() {
                 setAuthMode("JOIN_CLASS");
                 setFormError(null);
               }}
-              onForgotPin={() => setResetModalOpen(true)}
+              onForgotPassword={() => setResetModalOpen(true)}
+              onUpgradeRequired={(u) => {
+                setFormError(null);
+                setUpgrade(u);
+              }}
             />
           )}
+          {view === "upgrade" && upgrade && <UpgradePasswordForm upgrade={upgrade} status={status} onSubmit={submit} />}
           {view === "join_class" && (
             <StudentJoinClassCard
               onSwitchToLogin={() => {
@@ -211,8 +236,8 @@ export function AuthContainer() {
         </motion.div>
       </AnimatePresence>
 
-      {/* Tutor-Authorized PIN Reset Modal */}
-      <StudentPinResetModal open={resetModalOpen} onOpenChange={setResetModalOpen} />
+      {/* Tutor-authorized password reset */}
+      <StudentPasswordResetModal open={resetModalOpen} onOpenChange={setResetModalOpen} />
     </div>
   );
 }
@@ -253,12 +278,13 @@ function StudentForm({
   status,
   onSubmit,
   onJoinClass,
-  onForgotPin,
+  onForgotPassword,
+  onUpgradeRequired,
 }: FormProps & {
   onJoinClass: () => void;
-  onForgotPin: () => void;
+  onForgotPassword: () => void;
+  onUpgradeRequired: (upgrade: Upgrade) => void;
 }) {
-  const [shown, setShown] = React.useState(false);
   const { register, handleSubmit, formState: { errors } } = useForm<StudentLoginData>({ resolver: zodResolver(studentLoginSchema) });
   const busy = status !== "idle";
 
@@ -266,51 +292,44 @@ function StudentForm({
     <form
       noValidate
       onSubmit={handleSubmit((data) =>
-        onSubmit(() =>
-          studentPinLogin({
-            identifier: data.identifier.trim(),
-            pin: data.pin.trim(),
-          })
-        )
+        onSubmit(async () => {
+          const registerNumber = normalizeRegisterNumber(data.registerNumber);
+          const result = await studentLogin({ registerNumber, password: data.password });
+          if (result.requiresPasswordUpgrade && result.upgradeTicket) {
+            onUpgradeRequired({ ticket: result.upgradeTicket, registerNumber });
+          }
+          return result;
+        })
       )}
       className="space-y-4"
     >
-      <Field label="SRM email or register number" error={errors.identifier?.message}>
+      <Field label="Register number" error={errors.registerNumber?.message}>
         <Input
           type="text"
           autoComplete="username"
-          placeholder="e.g. RA2532241010001 or jd1234@srmist.edu.in"
-          leading={<Mail />}
+          autoCapitalize="characters"
+          spellCheck={false}
+          placeholder="e.g. RA2532241010001"
+          leading={<GraduationCap />}
+          className="font-mono tracking-wide"
           disabled={busy}
           inputSize="lg"
-          {...register("identifier")}
+          {...register("registerNumber")}
         />
       </Field>
 
-      <Field label="Personal 6-digit PIN" error={errors.pin?.message}>
-        <Input
-          type={shown ? "text" : "password"}
-          inputMode="numeric"
-          maxLength={6}
-          autoComplete="current-password"
-          placeholder="••••••"
-          leading={<Lock />}
-          trailing={<RevealToggle shown={shown} onToggle={() => setShown((s) => !s)} label="PIN" />}
-          className="font-mono tracking-widest"
-          disabled={busy}
-          inputSize="lg"
-          {...register("pin")}
-        />
+      <Field label="Password" error={errors.password?.message}>
+        <PasswordInput autoComplete="current-password" placeholder="Your password" disabled={busy} inputSize="lg" {...register("password")} />
       </Field>
 
       <div className="flex items-center justify-end">
         <button
           type="button"
-          onClick={onForgotPin}
+          onClick={onForgotPassword}
           disabled={busy}
-          className="text-xs text-fg-subtle hover:text-fg hover:underline underline-offset-2 transition-colors"
+          className="inline-flex min-h-10 items-center text-xs text-fg-subtle underline-offset-2 transition-colors hover:text-fg hover:underline"
         >
-          Forgot PIN? Request tutor authorization
+          Forgot password? Ask your class tutor
         </button>
       </div>
 
@@ -327,6 +346,51 @@ function StudentForm({
           Join your class with code
         </button>
       </div>
+    </form>
+  );
+}
+
+const upgradeSchema = z
+  .object({ registerNumber: z.string(), newPassword: z.string(), confirmPassword: z.string() })
+  .superRefine((data, ctx) => {
+    const problem = passwordProblem(data.newPassword, { registerNumber: data.registerNumber });
+    if (problem) ctx.addIssue({ code: "custom", message: problem, path: ["newPassword"] });
+    else if (data.newPassword !== data.confirmPassword) ctx.addIssue({ code: "custom", message: "Passwords do not match", path: ["confirmPassword"] });
+  });
+type UpgradeData = z.infer<typeof upgradeSchema>;
+
+/** Shown after a student signs in with a legacy PIN or temporary password. */
+function UpgradePasswordForm({ upgrade, status, onSubmit }: FormProps & { upgrade: Upgrade }) {
+  const { register, handleSubmit, watch, formState: { errors } } = useForm<UpgradeData>({
+    resolver: zodResolver(upgradeSchema),
+    defaultValues: { registerNumber: upgrade.registerNumber, newPassword: "", confirmPassword: "" },
+  });
+  const busy = status !== "idle";
+  const newPassword = watch("newPassword");
+
+  return (
+    <form
+      noValidate
+      onSubmit={handleSubmit((data) =>
+        onSubmit(() => upgradeStudentPassword({ ticket: upgrade.ticket, newPassword: data.newPassword, confirmPassword: data.confirmPassword }))
+      )}
+      className="space-y-4"
+    >
+      <p className="rounded-control border border-border bg-surface px-3.5 py-2.5 text-sm text-fg-muted">
+        Signing in as <span className="font-mono font-medium text-fg">{upgrade.registerNumber}</span>
+      </p>
+      {/* Lets password managers pair the new password with the account. */}
+      <input type="text" autoComplete="username" value={upgrade.registerNumber} readOnly hidden />
+
+      <Field label="New password" error={errors.newPassword?.message}>
+        <PasswordInput autoComplete="new-password" revealLabel="new password" disabled={busy} inputSize="lg" autoFocus {...register("newPassword")} />
+      </Field>
+      <PasswordChecklist password={newPassword} registerNumber={upgrade.registerNumber} />
+      <Field label="Confirm new password" error={errors.confirmPassword?.message}>
+        <PasswordInput autoComplete="new-password" revealLabel="confirmation" disabled={busy} inputSize="lg" {...register("confirmPassword")} />
+      </Field>
+
+      <SubmitButton status={status} label="Save password and continue" />
     </form>
   );
 }
@@ -356,7 +420,7 @@ function StaffLoginForm({ status, onSubmit, onRegister }: FormProps & { onRegist
         <Input
           type={shown ? "text" : "password"}
           autoComplete="current-password"
-          placeholder="Welcome@123"
+          placeholder="Your password"
           leading={<KeyRound />}
           trailing={<RevealToggle shown={shown} onToggle={() => setShown((s) => !s)} label="password" />}
           className="placeholder:text-fg-muted/70"

@@ -1,12 +1,22 @@
 "use server";
 
 import { db } from "@/lib/db";
-import { users, loginAttempts, inviteCodes, auditLogs, sections, faculties, departments, programmes, academicBatches, tutorSections, pinResetRequests } from "@/lib/db/schema";
+import { users, loginAttempts, inviteCodes, auditLogs, sections, faculties, departments, programmes, academicBatches, tutorSections, passwordResetRequests } from "@/lib/db/schema";
 import * as bcrypt from "bcryptjs";
-import { signJWT, setSessionCookie, clearSessionCookie, getSession, type UserSession } from "@/lib/auth";
-import { eq, and, asc, desc, or } from "drizzle-orm";
+import { createHash } from "node:crypto";
+import {
+  signJWT,
+  setSessionCookie,
+  clearSessionCookie,
+  getSession,
+  signPasswordUpgradeTicket,
+  verifyPasswordUpgradeTicket,
+  type UserSession,
+} from "@/lib/auth";
+import { eq, and, asc, desc } from "drizzle-orm";
 import { z } from "zod";
 import { cleanDisplayName } from "@/lib/format";
+import { isAcceptablePassword, normalizeRegisterNumber, passwordProblem, REGISTER_NUMBER_PATTERN } from "@/lib/password-policy";
 
 const MAX_ATTEMPTS = 5;
 const LOCKOUT_DURATION_MS = 15 * 60 * 1000; // 15 minutes
@@ -15,12 +25,18 @@ interface LoginResult {
   success: boolean;
   error?: string;
   role?: string;
+  /** Set when a student signed in with a legacy PIN or default password and must choose a new one first. */
+  requiresPasswordUpgrade?: boolean;
+  upgradeTicket?: string;
 }
 
 const loginSchema = z.object({
-  identifier: z.string().min(1, "Email or register number is required"),
+  identifier: z.string().min(1, "Email is required"),
   password: z.string().min(1, "Password is required"),
 });
+
+/** bcrypt cost for every password this module sets. */
+const HASH_ROUNDS = 12;
 
 // ────────────────────────────────────────────────────────────────────
 // Rate Limiting
@@ -93,7 +109,173 @@ async function resetAttempts(identifier: string) {
 }
 
 // ────────────────────────────────────────────────────────────────────
-// Unified Login (all roles use single `users` table)
+// Shared session helpers
+// ────────────────────────────────────────────────────────────────────
+
+// Specific known columns, so login keeps working if non-critical columns are missing.
+const authUserColumns = {
+  id: users.id,
+  name: users.name,
+  email: users.email,
+  passwordHash: users.passwordHash,
+  role: users.role,
+  isActive: users.isActive,
+  isEligible: users.isEligible,
+  employeeId: users.employeeId,
+  registerNumber: users.registerNumber,
+  facultyId: users.facultyId,
+  departmentId: users.departmentId,
+  programmeId: users.programmeId,
+  academicBatchId: users.academicBatchId,
+  sectionId: users.sectionId,
+};
+
+type AuthUser = {
+  id: string;
+  name: string;
+  email: string;
+  passwordHash: string;
+  role: string;
+  isActive: boolean;
+  employeeId: string | null;
+  registerNumber: string | null;
+  facultyId: string | null;
+  departmentId: string | null;
+  programmeId: string | null;
+  sectionId: string | null;
+};
+
+const LOGIN_IP = "client-ip"; // In production, get from request headers
+
+/** Starts a fresh session for an authenticated user (single active session per user). */
+async function startSession(user: AuthUser) {
+  // For Class Tutors and Coordinators, fetch their mapped sections and default to the first one
+  let activeSectionId = user.sectionId;
+  if (user.role === "CLASS_TUTOR" || user.role === "COURSE_COORDINATOR") {
+    try {
+      const assignedSections = await db
+        .select({ sectionId: tutorSections.sectionId })
+        .from(tutorSections)
+        .where(eq(tutorSections.tutorId, user.id))
+        .limit(1);
+
+      if (assignedSections.length > 0) {
+        activeSectionId = assignedSections[0].sectionId;
+      } else {
+        activeSectionId = null; // No sections assigned yet
+      }
+    } catch (tutorSecErr) {
+      console.warn("Tutor sections lookup warning:", tutorSecErr);
+    }
+  }
+
+  // Enforce 1 session per login: Generate new unique session ID
+  const sessionId = crypto.randomUUID();
+  try {
+    await db
+      .update(users)
+      .set({ currentSessionId: sessionId, updatedAt: new Date() })
+      .where(eq(users.id, user.id));
+  } catch (sessionErr) {
+    console.warn("Could not save currentSessionId (column may be pending):", sessionErr);
+    try {
+      await db
+        .update(users)
+        .set({ updatedAt: new Date() })
+        .where(eq(users.id, user.id));
+    } catch {}
+  }
+
+  // Create JWT session
+  const token = await signJWT({
+    userId: user.id,
+    name: cleanDisplayName(user.name),
+    email: user.email,
+    role: user.role as UserSession["role"],
+    sessionId,
+    ...(user.employeeId && { employeeId: user.employeeId }),
+    ...(user.registerNumber && { registerNumber: user.registerNumber }),
+    ...(user.facultyId && { facultyId: user.facultyId }),
+    ...(user.departmentId && { departmentId: user.departmentId }),
+    ...(user.programmeId && { programmeId: user.programmeId }),
+    ...(activeSectionId && { sectionId: activeSectionId }),
+  });
+
+  await setSessionCookie(token);
+
+  // Sync active section cookie
+  try {
+    const { cookies } = await import("next/headers");
+    const cookieStore = await cookies();
+    if (activeSectionId) {
+      cookieStore.set("electify_active_section", activeSectionId, {
+        httpOnly: true,
+        secure: process.env.NODE_ENV === "production",
+        sameSite: "lax",
+        path: "/",
+        maxAge: 7200,
+      });
+    } else {
+      cookieStore.delete("electify_active_section");
+    }
+  } catch {
+    // Handled in test or script execution
+  }
+
+  // Audit log
+  try {
+    await db.insert(auditLogs).values({
+      action: "USER_LOGIN",
+      userId: user.id,
+      userEmail: user.email,
+      userRole: user.role,
+      ipAddress: LOGIN_IP,
+    });
+  } catch (auditErr) {
+    console.warn("Audit log insert warning:", auditErr);
+  }
+}
+
+/** Database problems get a specific message; everything else stays generic. */
+function authErrorMessage(error: unknown) {
+  const msg = (error as Error)?.message || String(error);
+  if (msg.includes("SSL") || msg.includes("self-signed") || msg.includes("certificate")) {
+    return "Database SSL error. Please verify database SSL settings.";
+  }
+  if (msg.includes("ECONNREFUSED") || msg.includes("ETIMEDOUT") || msg.includes("timeout") || msg.includes("connect")) {
+    return "Cannot reach database. Please check DATABASE_URL.";
+  }
+  if (msg.includes("password authentication failed")) {
+    return "Database password authentication failed. Check DATABASE_URL.";
+  }
+  return "An unexpected error occurred. Please try again.";
+}
+
+/** Short fingerprint of the stored hash: an upgrade ticket is void once the password changes. */
+function hashFingerprint(passwordHash: string) {
+  return createHash("sha256").update(passwordHash).digest("hex").slice(0, 24);
+}
+
+async function lockoutMessage(key: string): Promise<string | null> {
+  let lockoutTime: Date | null = null;
+  try {
+    lockoutTime = await handleRateLimit(key, LOGIN_IP);
+  } catch (rlErr) {
+    console.warn("Rate limit check warning:", rlErr);
+  }
+  if (!lockoutTime) return null;
+  const minutesRemaining = Math.ceil((lockoutTime.getTime() - Date.now()) / 60000);
+  return `Too many failed attempts. Account locked for ${minutesRemaining} minute(s).`;
+}
+
+async function recordFailure(key: string) {
+  try {
+    await registerFailedAttempt(key, LOGIN_IP);
+  } catch {}
+}
+
+// ────────────────────────────────────────────────────────────────────
+// Staff Login (email + password). Students use studentLogin below.
 // ────────────────────────────────────────────────────────────────────
 
 export async function login(formData: {
@@ -105,8 +287,7 @@ export async function login(formData: {
     return { success: false, error: "Invalid credentials format." };
   }
   const { identifier, password } = parsed.data;
-  const normalizedIdentifier = identifier.trim();
-  const ip = "client-ip"; // In production, get from request headers
+  const normalizedEmail = identifier.trim().toLowerCase();
 
   try {
     // Ensure any newly added schema columns exist in the database
@@ -114,53 +295,15 @@ export async function login(formData: {
     await ensureDatabaseReady();
 
     // Check lockout (gracefully handled if table is initializing)
-    let lockoutTime: Date | null = null;
-    try {
-      lockoutTime = await handleRateLimit(normalizedIdentifier.toLowerCase(), ip);
-    } catch (rlErr) {
-      console.warn("Rate limit check warning:", rlErr);
-    }
+    const locked = await lockoutMessage(normalizedEmail);
+    if (locked) return { success: false, error: locked };
 
-    if (lockoutTime) {
-      const minutesRemaining = Math.ceil((lockoutTime.getTime() - Date.now()) / 60000);
-      return {
-        success: false,
-        error: `Too many failed attempts. Account locked for ${minutesRemaining} minute(s).`,
-      };
-    }
+    const [foundUser] = await db.select(authUserColumns).from(users).where(eq(users.email, normalizedEmail)).limit(1);
 
-    // Find user by email (staff) OR register number (students)
-    // Select specific known columns to prevent failures if non-critical columns are missing
-    const [foundUser] = await db
-      .select({
-        id: users.id,
-        name: users.name,
-        email: users.email,
-        passwordHash: users.passwordHash,
-        role: users.role,
-        isActive: users.isActive,
-        isEligible: users.isEligible,
-        employeeId: users.employeeId,
-        registerNumber: users.registerNumber,
-        facultyId: users.facultyId,
-        departmentId: users.departmentId,
-        programmeId: users.programmeId,
-        academicBatchId: users.academicBatchId,
-        sectionId: users.sectionId,
-      })
-      .from(users)
-      .where(
-        or(
-          eq(users.email, normalizedIdentifier.toLowerCase()),
-          eq(users.registerNumber, normalizedIdentifier.toUpperCase())
-        )
-      )
-      .limit(1);
-
-    let user = foundUser;
+    let user: AuthUser | undefined = foundUser;
 
     // Self-healing: if logging in with default master admin and no record exists, auto-provision it
-    if (!user && normalizedIdentifier.toLowerCase() === "admin@electify.edu" && password === "Admin@12345") {
+    if (!user && normalizedEmail === "admin@electify.edu" && password === "Admin@12345") {
       try {
         const adminHash = await bcrypt.hash("Admin@12345", 12);
         const [seededAdmin] = await db
@@ -180,26 +323,7 @@ export async function login(formData: {
         if (seededAdmin) {
           user = seededAdmin;
         } else {
-          const [existingAdmin] = await db
-            .select({
-              id: users.id,
-              name: users.name,
-              email: users.email,
-              passwordHash: users.passwordHash,
-              role: users.role,
-              isActive: users.isActive,
-              isEligible: users.isEligible,
-              employeeId: users.employeeId,
-              registerNumber: users.registerNumber,
-              facultyId: users.facultyId,
-              departmentId: users.departmentId,
-              programmeId: users.programmeId,
-              academicBatchId: users.academicBatchId,
-              sectionId: users.sectionId,
-            })
-            .from(users)
-            .where(eq(users.email, "admin@electify.edu"))
-            .limit(1);
+          const [existingAdmin] = await db.select(authUserColumns).from(users).where(eq(users.email, "admin@electify.edu")).limit(1);
           user = existingAdmin;
         }
       } catch (provisionErr) {
@@ -208,9 +332,7 @@ export async function login(formData: {
     }
 
     if (!user) {
-      try {
-        await registerFailedAttempt(normalizedIdentifier.toLowerCase(), ip);
-      } catch {}
+      await recordFailure(normalizedEmail);
       return { success: false, error: "Invalid credentials." };
     }
 
@@ -224,119 +346,28 @@ export async function login(formData: {
     // Compare passwords
     const isPasswordValid = await bcrypt.compare(password, user.passwordHash);
     if (!isPasswordValid) {
-      try {
-        await registerFailedAttempt(normalizedIdentifier.toLowerCase(), ip);
-      } catch {}
+      await recordFailure(normalizedEmail);
       return { success: false, error: "Invalid credentials." };
+    }
+
+    // Students sign in with their register number only. Said only after a
+    // correct password, so it reveals nothing to someone guessing.
+    if (user.role === "STUDENT") {
+      return { success: false, error: "Students sign in on the Student tab with their register number and password." };
     }
 
     // Reset lockout counter
     try {
-      await resetAttempts(normalizedIdentifier.toLowerCase());
+      await resetAttempts(normalizedEmail);
     } catch (resetErr) {
       console.warn("Reset attempts warning:", resetErr);
     }
 
-    // For Class Tutors and Coordinators, fetch their mapped sections and default to the first one
-    let activeSectionId = user.sectionId;
-    if (user.role === "CLASS_TUTOR" || user.role === "COURSE_COORDINATOR") {
-      try {
-        const assignedSections = await db
-          .select({ sectionId: tutorSections.sectionId })
-          .from(tutorSections)
-          .where(eq(tutorSections.tutorId, user.id))
-          .limit(1);
-        
-        if (assignedSections.length > 0) {
-          activeSectionId = assignedSections[0].sectionId;
-        } else {
-          activeSectionId = null; // No sections assigned yet
-        }
-      } catch (tutorSecErr) {
-        console.warn("Tutor sections lookup warning:", tutorSecErr);
-      }
-    }
-
-    // Enforce 1 session per login: Generate new unique session ID
-    const sessionId = crypto.randomUUID();
-    try {
-      await db
-        .update(users)
-        .set({ currentSessionId: sessionId, updatedAt: new Date() })
-        .where(eq(users.id, user.id));
-    } catch (sessionErr) {
-      console.warn("Could not save currentSessionId (column may be pending):", sessionErr);
-      try {
-        await db
-          .update(users)
-          .set({ updatedAt: new Date() })
-          .where(eq(users.id, user.id));
-      } catch {}
-    }
-
-    // Create JWT session
-    const token = await signJWT({
-      userId: user.id,
-      name: cleanDisplayName(user.name),
-      email: user.email,
-      role: user.role as UserSession["role"],
-      sessionId,
-      ...(user.employeeId && { employeeId: user.employeeId }),
-      ...(user.registerNumber && { registerNumber: user.registerNumber }),
-      ...(user.facultyId && { facultyId: user.facultyId }),
-      ...(user.departmentId && { departmentId: user.departmentId }),
-      ...(user.programmeId && { programmeId: user.programmeId }),
-      ...(activeSectionId && { sectionId: activeSectionId }),
-    });
-
-    await setSessionCookie(token);
-
-    // Sync active section cookie
-    try {
-      const { cookies } = await import("next/headers");
-      const cookieStore = await cookies();
-      if (activeSectionId) {
-        cookieStore.set("electify_active_section", activeSectionId, {
-          httpOnly: true,
-          secure: process.env.NODE_ENV === "production",
-          sameSite: "lax",
-          path: "/",
-          maxAge: 7200,
-        });
-      } else {
-        cookieStore.delete("electify_active_section");
-      }
-    } catch {
-      // Handled in test or script execution
-    }
-
-    // Audit log
-    try {
-      await db.insert(auditLogs).values({
-        action: "USER_LOGIN",
-        userId: user.id,
-        userEmail: user.email,
-        userRole: user.role,
-        ipAddress: ip,
-      });
-    } catch (auditErr) {
-      console.warn("Audit log insert warning:", auditErr);
-    }
-
+    await startSession(user);
     return { success: true, role: user.role };
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error("Login error:", error);
-    const msg = error?.message || String(error);
-    if (msg.includes("SSL") || msg.includes("self-signed") || msg.includes("certificate")) {
-      return { success: false, error: "Database SSL error. Please verify database SSL settings." };
-    }
-    if (msg.includes("ECONNREFUSED") || msg.includes("ETIMEDOUT") || msg.includes("timeout") || msg.includes("connect")) {
-      return { success: false, error: "Cannot reach database. Please check DATABASE_URL." };
-    }
-    if (msg.includes("password authentication failed")) {
-      return { success: false, error: "Database password authentication failed. Check DATABASE_URL." };
-    }
-    return { success: false, error: "An unexpected error occurred. Please try again." };
+    return { success: false, error: authErrorMessage(error) };
   }
 }
 
@@ -589,7 +620,8 @@ export async function setWorkspacePortal(workspace: "COORDINATOR" | "TUTOR") {
 }
 
 // ────────────────────────────────────────────────────────────────────
-// STUDENT CLASS CODE SELF-ONBOARDING & 6-DIGIT PIN AUTH
+// STUDENT CLASS CODE SELF-ONBOARDING & PASSWORD AUTH
+// Students sign in with their register number and a password.
 // ────────────────────────────────────────────────────────────────────
 
 /**
@@ -693,6 +725,13 @@ export async function validateClassSignupCode(rawCode: string) {
   };
 }
 
+/** Register number: trimmed, upper-cased, letters and digits only. */
+const registerNumberField = z
+  .string()
+  .min(1, "Register number is required")
+  .transform(normalizeRegisterNumber)
+  .refine((v) => REGISTER_NUMBER_PATTERN.test(v), "Register number must be 5–20 letters and digits, e.g. RA2532241010001");
+
 const studentClassSignupSchema = z
   .object({
     code: z.string().min(1, "Class signup code is required"),
@@ -704,26 +743,27 @@ const studentClassSignupSchema = z
         (val) => val.toLowerCase().trim().endsWith("@srmist.edu.in"),
         "Only official @srmist.edu.in student emails are permitted"
       ),
-    registerNumber: z.string().min(5, "Register number must be at least 5 characters"),
-    pin: z.string().regex(/^\d{6}$/, "PIN must be exactly 6 digits"),
-    confirmPin: z.string().min(1, "Please confirm your 6-digit PIN"),
+    registerNumber: registerNumberField,
+    password: z.string().min(1, "Password is required"),
+    confirmPassword: z.string().min(1, "Please confirm your password"),
     name: z.string().optional(),
   })
-  .refine((data) => data.pin === data.confirmPin, {
-    message: "PIN and Confirm PIN do not match",
-    path: ["confirmPin"],
+  .superRefine((data, ctx) => {
+    const problem = passwordProblem(data.password, { registerNumber: data.registerNumber });
+    if (problem) ctx.addIssue({ code: "custom", message: problem, path: ["password"] });
+    else if (data.password !== data.confirmPassword) ctx.addIssue({ code: "custom", message: "Passwords do not match", path: ["confirmPassword"] });
   });
 
 /**
- * Registers a student with their class code, establishing their personal 6-digit PIN.
+ * Registers a student with their class code and a personal password.
  * Faculty, department, programme, and section are derived exclusively from the server-side code record.
  */
 export async function registerStudentWithClassCode(formData: {
   code: string;
   email: string;
   registerNumber: string;
-  pin: string;
-  confirmPin: string;
+  password: string;
+  confirmPassword: string;
   name?: string;
 }): Promise<LoginResult> {
   const parsed = studentClassSignupSchema.safeParse(formData);
@@ -731,10 +771,9 @@ export async function registerStudentWithClassCode(formData: {
     return { success: false, error: parsed.error.issues[0].message };
   }
 
-  const { code, email, registerNumber, pin, name } = parsed.data;
+  const { code, email, registerNumber, password, name } = parsed.data;
   const normalizedCode = code.trim().toUpperCase();
   const normalizedEmail = email.toLowerCase().trim();
-  const normalizedRegNo = registerNumber.toUpperCase().trim();
 
   try {
     const { ensureDatabaseReady } = await import("@/lib/db");
@@ -772,13 +811,13 @@ export async function registerStudentWithClassCode(formData: {
     const [existingReg] = await db
       .select({ id: users.id })
       .from(users)
-      .where(eq(users.registerNumber, normalizedRegNo))
+      .where(eq(users.registerNumber, registerNumber))
       .limit(1);
 
     if (existingReg) {
       return {
         success: false,
-        error: "A student account with this registration number already exists. Please sign in with your PIN.",
+        error: "A student account with this registration number already exists. Please sign in with your register number and password.",
       };
     }
 
@@ -791,12 +830,12 @@ export async function registerStudentWithClassCode(formData: {
     if (existingEmail) {
       return {
         success: false,
-        error: "An account with this student email already exists. Please sign in with your PIN.",
+        error: "An account with this student email already exists. Please sign in with your register number and password.",
       };
     }
 
-    // 3. Hash 6-digit PIN with bcrypt
-    const pinHash = await bcrypt.hash(pin, 10);
+    // 3. Hash the password with bcrypt
+    const passwordHash = await bcrypt.hash(password, HASH_ROUNDS);
     const displayName = cleanDisplayName(name?.trim() || normalizedEmail.split("@")[0].toUpperCase());
 
     // 4. Create student strictly bound to code's server record
@@ -805,9 +844,9 @@ export async function registerStudentWithClassCode(formData: {
       .values({
         name: displayName,
         email: normalizedEmail,
-        passwordHash: pinHash,
+        passwordHash,
         role: "STUDENT",
-        registerNumber: normalizedRegNo,
+        registerNumber,
         facultyId: invite.facultyId,
         departmentId: invite.departmentId,
         programmeId: invite.programmeId,
@@ -842,66 +881,164 @@ export async function registerStudentWithClassCode(formData: {
       },
     });
 
-    // 7. Establish JWT session
-    const sessionId = crypto.randomUUID();
-    await db.update(users).set({ currentSessionId: sessionId }).where(eq(users.id, newUser.id));
-
-    const token = await signJWT({
-      userId: newUser.id,
-      name: newUser.name,
-      email: newUser.email,
-      role: "STUDENT",
-      sessionId,
-      registerNumber: newUser.registerNumber || undefined,
-      facultyId: newUser.facultyId || undefined,
-      departmentId: newUser.departmentId || undefined,
-      programmeId: newUser.programmeId || undefined,
-      sectionId: newUser.sectionId || undefined,
-    });
-
-    await setSessionCookie(token);
+    // 7. Establish session
+    await startSession(newUser);
 
     return { success: true, role: "STUDENT" };
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error("Student class registration error:", error);
     return { success: false, error: "An unexpected error occurred while creating your account. Please try again." };
   }
 }
 
 /**
- * Authenticates a student via register number or SRM email and their personal 6-digit PIN.
+ * Signs a student in with their register number and password. Email
+ * addresses are not accepted here.
+ *
+ * Accounts that still have an old credential (a 6-digit PIN, the register
+ * number as a default password, or a handed-out default) are not given a
+ * session: the student gets a 10-minute ticket to choose a proper password
+ * first (upgradeStudentPassword).
  */
-export async function studentPinLogin(formData: {
-  identifier: string;
-  pin: string;
-}): Promise<LoginResult> {
-  const normalizedIdentifier = (formData.identifier || "").trim();
-  const pin = (formData.pin || "").trim();
+export async function studentLogin(formData: { registerNumber: string; password: string }): Promise<LoginResult> {
+  const raw = (formData.registerNumber || "").trim();
+  const password = formData.password || "";
 
-  if (!normalizedIdentifier || !pin) {
-    return { success: false, error: "Please enter your register number or SRM email and 6-digit PIN." };
+  if (!raw || !password) {
+    return { success: false, error: "Enter your register number and password." };
+  }
+  if (raw.includes("@")) {
+    return { success: false, error: "Students sign in with their register number, not an email address." };
   }
 
-  if (!/^\d{6}$/.test(pin)) {
-    return { success: false, error: "Your PIN must be a 6-digit numeric combination." };
+  const registerNumber = normalizeRegisterNumber(raw);
+  if (!REGISTER_NUMBER_PATTERN.test(registerNumber)) {
+    return { success: false, error: "Enter a valid register number, e.g. RA2532241010001." };
   }
+  const rateKey = registerNumber.toLowerCase();
 
-  return login({
-    identifier: normalizedIdentifier,
-    password: pin,
-  });
+  try {
+    const { ensureDatabaseReady } = await import("@/lib/db");
+    await ensureDatabaseReady();
+
+    const locked = await lockoutMessage(rateKey);
+    if (locked) return { success: false, error: locked };
+
+    const [user] = await db
+      .select(authUserColumns)
+      .from(users)
+      .where(and(eq(users.registerNumber, registerNumber), eq(users.role, "STUDENT")))
+      .limit(1);
+
+    if (!user) {
+      await recordFailure(rateKey);
+      return { success: false, error: "Invalid credentials." };
+    }
+
+    if (!user.isActive) {
+      return { success: false, error: "Your account has been suspended. Please contact the administrator." };
+    }
+
+    if (!(await bcrypt.compare(password, user.passwordHash))) {
+      await recordFailure(rateKey);
+      return { success: false, error: "Invalid credentials." };
+    }
+
+    try {
+      await resetAttempts(rateKey);
+    } catch (resetErr) {
+      console.warn("Reset attempts warning:", resetErr);
+    }
+
+    if (!isAcceptablePassword(password, { registerNumber })) {
+      return {
+        success: false,
+        requiresPasswordUpgrade: true,
+        upgradeTicket: await signPasswordUpgradeTicket(user.id, hashFingerprint(user.passwordHash)),
+        error: "Choose a new password to continue.",
+      };
+    }
+
+    await startSession(user);
+    return { success: true, role: "STUDENT" };
+  } catch (error: unknown) {
+    console.error("Student login error:", error);
+    return { success: false, error: authErrorMessage(error) };
+  }
 }
 
 /**
- * Initiates a student PIN reset request requiring class tutor authorization.
+ * Second step of studentLogin for accounts with an old credential: sets a
+ * password that meets the policy and starts the session.
  */
-export async function requestStudentPinReset(
-  rawIdentifier: string
-): Promise<{ success: boolean; message: string; error?: string }> {
-  const identifier = (rawIdentifier || "").trim();
-  if (!identifier) {
-    return { success: false, message: "Please provide your university registration number or SRM email." };
+export async function upgradeStudentPassword(formData: {
+  ticket: string;
+  newPassword: string;
+  confirmPassword: string;
+}): Promise<LoginResult> {
+  const expired = { success: false, error: "This step timed out. Sign in again to continue." };
+  const claims = await verifyPasswordUpgradeTicket(formData.ticket || "");
+  if (!claims) return expired;
+
+  const newPassword = formData.newPassword || "";
+  if (newPassword !== (formData.confirmPassword || "")) {
+    return { success: false, error: "Passwords do not match." };
   }
+
+  try {
+    const [user] = await db
+      .select(authUserColumns)
+      .from(users)
+      .where(and(eq(users.id, claims.userId), eq(users.role, "STUDENT")))
+      .limit(1);
+
+    // The ticket is tied to the hash it was issued for, so it is single-use.
+    if (!user || hashFingerprint(user.passwordHash) !== claims.fingerprint) return expired;
+    if (!user.isActive) {
+      return { success: false, error: "Your account has been suspended. Please contact the administrator." };
+    }
+
+    const problem = passwordProblem(newPassword, { registerNumber: user.registerNumber ?? undefined });
+    if (problem) return { success: false, error: problem };
+    if (await bcrypt.compare(newPassword, user.passwordHash)) {
+      return { success: false, error: "Choose a password that is different from your old one." };
+    }
+
+    const passwordHash = await bcrypt.hash(newPassword, HASH_ROUNDS);
+    await db.update(users).set({ passwordHash, updatedAt: new Date() }).where(eq(users.id, user.id));
+
+    await db.insert(auditLogs).values({
+      action: "PASSWORD_UPGRADED",
+      userId: user.id,
+      userEmail: user.email,
+      userRole: "STUDENT",
+      metadata: { registerNumber: user.registerNumber, reason: "legacy or default credential" },
+    });
+
+    await startSession({ ...user, passwordHash });
+    return { success: true, role: "STUDENT" };
+  } catch (error: unknown) {
+    console.error("Password upgrade error:", error);
+    return { success: false, error: authErrorMessage(error) };
+  }
+}
+
+/**
+ * Initiates a student password reset request requiring class tutor authorization.
+ */
+export async function requestStudentPasswordReset(
+  rawRegisterNumber: string
+): Promise<{ success: boolean; message: string; error?: string }> {
+  const registerNumber = normalizeRegisterNumber(rawRegisterNumber || "");
+  if (!REGISTER_NUMBER_PATTERN.test(registerNumber)) {
+    return { success: false, message: "Enter your university register number, e.g. RA2532241010001." };
+  }
+
+  // Same reply whether or not the account exists, to prevent account enumeration.
+  const routed = {
+    success: true,
+    message: "If an active student account matches that register number, your class tutor has been asked to authorize a password reset.",
+  };
 
   try {
     const { ensureDatabaseReady } = await import("@/lib/db");
@@ -911,54 +1048,29 @@ export async function requestStudentPinReset(
     const [student] = await db
       .select({
         id: users.id,
-        name: users.name,
         email: users.email,
         registerNumber: users.registerNumber,
         sectionId: users.sectionId,
         isActive: users.isActive,
       })
       .from(users)
-      .where(
-        and(
-          eq(users.role, "STUDENT"),
-          or(
-            eq(users.email, identifier.toLowerCase()),
-            eq(users.registerNumber, identifier.toUpperCase())
-          )
-        )
-      )
+      .where(and(eq(users.role, "STUDENT"), eq(users.registerNumber, registerNumber)))
       .limit(1);
 
-    if (!student || !student.isActive) {
-      // Prevents account enumeration
-      return {
-        success: true,
-        message: "If an active student record matches that detail, a PIN reset authorization request has been routed to your class tutor.",
-      };
-    }
+    if (!student || !student.isActive) return routed;
 
     // Check if an existing PENDING request already exists
     const [existingPending] = await db
-      .select({ id: pinResetRequests.id, createdAt: pinResetRequests.createdAt })
-      .from(pinResetRequests)
-      .where(
-        and(
-          eq(pinResetRequests.studentId, student.id),
-          eq(pinResetRequests.status, "PENDING")
-        )
-      )
-      .orderBy(desc(pinResetRequests.createdAt))
+      .select({ id: passwordResetRequests.id })
+      .from(passwordResetRequests)
+      .where(and(eq(passwordResetRequests.studentId, student.id), eq(passwordResetRequests.status, "PENDING")))
+      .orderBy(desc(passwordResetRequests.createdAt))
       .limit(1);
 
-    if (existingPending) {
-      return {
-        success: true,
-        message: "A pending PIN reset request is already waiting for authorization from your class tutor.",
-      };
-    }
+    if (existingPending) return routed;
 
     // Insert pending request
-    await db.insert(pinResetRequests).values({
+    await db.insert(passwordResetRequests).values({
       studentId: student.id,
       sectionId: student.sectionId,
       status: "PENDING",
@@ -966,7 +1078,7 @@ export async function requestStudentPinReset(
 
     // Audit log
     await db.insert(auditLogs).values({
-      action: "PIN_RESET_REQUESTED",
+      action: "PASSWORD_RESET_REQUESTED",
       userId: student.id,
       userEmail: student.email,
       userRole: "STUDENT",
@@ -976,108 +1088,111 @@ export async function requestStudentPinReset(
       },
     });
 
-    return {
-      success: true,
-      message: "Reset request sent to your class tutor. Contact your tutor to verify your identity and get your authorization code.",
-    };
-  } catch (error: any) {
-    console.error("PIN reset request error:", error);
+    return routed;
+  } catch (error: unknown) {
+    console.error("Password reset request error:", error);
     return { success: false, message: "Could not submit reset request. Please try again." };
   }
 }
 
-const completePinResetSchema = z
+const completePasswordResetSchema = z
   .object({
-    registerNumber: z.string().min(1, "Register number is required"),
-    resetToken: z.string().min(1, "Authorization code is required"),
-    newPin: z.string().regex(/^\d{6}$/, "New PIN must be exactly 6 digits"),
-    confirmPin: z.string().min(1, "Please confirm your new PIN"),
+    registerNumber: registerNumberField,
+    resetToken: z.string().trim().min(1, "Authorization code is required"),
+    newPassword: z.string().min(1, "New password is required"),
+    confirmPassword: z.string().min(1, "Please confirm your new password"),
   })
-  .refine((data) => data.newPin === data.confirmPin, {
-    message: "New PIN and Confirm PIN do not match",
-    path: ["confirmPin"],
+  .superRefine((data, ctx) => {
+    const problem = passwordProblem(data.newPassword, { registerNumber: data.registerNumber });
+    if (problem) ctx.addIssue({ code: "custom", message: problem, path: ["newPassword"] });
+    else if (data.newPassword !== data.confirmPassword) ctx.addIssue({ code: "custom", message: "Passwords do not match", path: ["confirmPassword"] });
   });
 
 /**
- * Completes a student PIN reset using the tutor-authorized expiring token.
+ * Completes a student password reset using the tutor-authorized expiring code.
+ * Wrong codes count towards a lockout, so codes cannot be guessed.
  */
-export async function completeStudentPinReset(formData: {
+export async function completeStudentPasswordReset(formData: {
   registerNumber: string;
   resetToken: string;
-  newPin: string;
-  confirmPin: string;
+  newPassword: string;
+  confirmPassword: string;
 }): Promise<{ success: boolean; error?: string; message?: string }> {
-  const parsed = completePinResetSchema.safeParse(formData);
+  const parsed = completePasswordResetSchema.safeParse(formData);
   if (!parsed.success) {
     return { success: false, error: parsed.error.issues[0].message };
   }
 
-  const { registerNumber, resetToken, newPin } = parsed.data;
-  const normalizedReg = registerNumber.trim().toUpperCase();
-  const normalizedToken = resetToken.trim().toUpperCase();
+  const { registerNumber, resetToken, newPassword } = parsed.data;
+  const normalizedToken = resetToken.toUpperCase();
+  const rateKey = `reset:${registerNumber.toLowerCase()}`;
+  const invalid = { success: false, error: "Invalid register number or authorization code. Please check with your class tutor." };
 
   try {
     const { ensureDatabaseReady } = await import("@/lib/db");
     await ensureDatabaseReady();
 
+    const locked = await lockoutMessage(rateKey);
+    if (locked) return { success: false, error: locked };
+
     const [student] = await db
       .select({ id: users.id, email: users.email, registerNumber: users.registerNumber })
       .from(users)
-      .where(and(eq(users.role, "STUDENT"), eq(users.registerNumber, normalizedReg)))
+      .where(and(eq(users.role, "STUDENT"), eq(users.registerNumber, registerNumber)))
       .limit(1);
 
     if (!student) {
-      return { success: false, error: "Invalid registration number or authorization code." };
+      await recordFailure(rateKey);
+      return invalid;
     }
 
     const [request] = await db
       .select()
-      .from(pinResetRequests)
+      .from(passwordResetRequests)
       .where(
         and(
-          eq(pinResetRequests.studentId, student.id),
-          eq(pinResetRequests.resetToken, normalizedToken),
-          eq(pinResetRequests.status, "AUTHORIZED")
+          eq(passwordResetRequests.studentId, student.id),
+          eq(passwordResetRequests.resetToken, normalizedToken),
+          eq(passwordResetRequests.status, "AUTHORIZED")
         )
       )
       .limit(1);
 
     if (!request) {
-      return { success: false, error: "Invalid or unauthorized reset code. Please check with your class tutor." };
+      await recordFailure(rateKey);
+      return invalid;
     }
 
     if (request.tokenExpiresAt && request.tokenExpiresAt < new Date()) {
-      await db.update(pinResetRequests).set({ status: "EXPIRED" }).where(eq(pinResetRequests.id, request.id));
+      await db.update(passwordResetRequests).set({ status: "EXPIRED" }).where(eq(passwordResetRequests.id, request.id));
       return { success: false, error: "This authorization code has expired. Please ask your class tutor for a new one." };
     }
 
-    // Hash new 6-digit PIN with bcrypt
-    const hashedPin = await bcrypt.hash(newPin, 10);
+    const passwordHash = await bcrypt.hash(newPassword, HASH_ROUNDS);
 
-    // Update student's PIN
-    await db.update(users).set({ passwordHash: hashedPin, updatedAt: new Date() }).where(eq(users.id, student.id));
-
-    // Mark request as COMPLETED
+    // New password, and every existing session for this account is signed out.
     await db
-      .update(pinResetRequests)
+      .update(users)
+      .set({ passwordHash, currentSessionId: crypto.randomUUID(), updatedAt: new Date() })
+      .where(eq(users.id, student.id));
+
+    await db
+      .update(passwordResetRequests)
       .set({
         status: "COMPLETED",
         completedAt: new Date(),
         updatedAt: new Date(),
       })
-      .where(eq(pinResetRequests.id, request.id));
+      .where(eq(passwordResetRequests.id, request.id));
 
-    // Reset rate-limiting lockout counter
+    // Clear lockouts on both sign-in and reset
     try {
-      await resetAttempts(student.email.toLowerCase());
-      if (student.registerNumber) {
-        await resetAttempts(student.registerNumber.toUpperCase());
-      }
+      await resetAttempts(registerNumber.toLowerCase());
+      await resetAttempts(rateKey);
     } catch {}
 
-    // Audit log
     await db.insert(auditLogs).values({
-      action: "PIN_RESET_COMPLETED",
+      action: "PASSWORD_RESET_COMPLETED",
       userId: student.id,
       userEmail: student.email,
       userRole: "STUDENT",
@@ -1089,10 +1204,10 @@ export async function completeStudentPinReset(formData: {
 
     return {
       success: true,
-      message: "PIN updated successfully! You can now sign in with your new 6-digit PIN.",
+      message: "Password updated. Sign in with your register number and new password.",
     };
-  } catch (error: any) {
-    console.error("Complete PIN reset error:", error);
-    return { success: false, error: "An unexpected error occurred while resetting your PIN." };
+  } catch (error: unknown) {
+    console.error("Complete password reset error:", error);
+    return { success: false, error: "An unexpected error occurred while resetting your password." };
   }
 }

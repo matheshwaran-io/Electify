@@ -91,7 +91,7 @@ export async function ensureDatabaseReady(): Promise<void> {
             CREATE INDEX IF NOT EXISTS "studentRegistrations_status_idx" ON "student_registrations" ("status");
           END IF;
 
-          -- Ensure pin_reset_requests table exists for tutor-authorized student PIN reset flow
+          -- Ensure pin_reset_requests table exists for the tutor-authorized student password reset flow
           IF to_regclass('public.pin_reset_requests') IS NULL THEN
             CREATE TABLE IF NOT EXISTS "pin_reset_requests" (
               "id" uuid PRIMARY KEY DEFAULT gen_random_uuid(),

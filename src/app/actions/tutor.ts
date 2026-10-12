@@ -4,8 +4,9 @@ import { db } from "@/lib/db";
 import {
   users, electives, electiveGroups, registrationEvents, tutorSections,
   studentRegistrations, eventSections, sections, programmes, academicBatches, auditLogs, registrations, departments,
-  replayEvents, inviteCodes, faculties, pinResetRequests
+  replayEvents, inviteCodes, faculties, passwordResetRequests
 } from "@/lib/db/schema";
+import { randomInt } from "node:crypto";
 import { getSession } from "@/lib/auth";
 import { generateClassSignupCode } from "@/lib/invites";
 import { eq, and, or, asc, desc, count, inArray, notInArray, sql } from "drizzle-orm";
@@ -908,14 +909,14 @@ export async function createStudent(formData: { name: string; registerNumber: st
 
   if (existing) throw new Error("A user with this email already exists.");
 
-  // Default password is their register number, securely hashed.
-  // Note: System architecture enforces server-side validation.
+  // Temporary password is their register number, securely hashed. It does not
+  // meet the password policy, so the student must choose their own at first sign-in.
   const hashed = await bcrypt.hash(data.registerNumber.toUpperCase().trim(), 12);
 
   await db.insert(users).values({
     name: data.name.trim(),
     email: data.email.toLowerCase().trim(),
-    registerNumber: data.registerNumber.trim(),
+    registerNumber: data.registerNumber.trim().toUpperCase(), // students sign in with it; matched upper-case
     passwordHash: hashed,
     role: "STUDENT",
     sectionId: session.sectionId,
@@ -1013,7 +1014,7 @@ export async function importStudentsCSV(studentsData: { name: string; registerNu
     return {
       name: s.name.trim(),
       email: s.email.toLowerCase().trim(),
-      registerNumber: s.registerNumber.trim(),
+      registerNumber: s.registerNumber.trim().toUpperCase(),
       passwordHash: hashed,
       role: "STUDENT" as const,
       sectionId: session.sectionId,
@@ -1132,7 +1133,7 @@ export async function updateStudent(id: string, data: { name: string; registerNu
 
   await db.update(users).set({
     name: data.name.trim(),
-    registerNumber: data.registerNumber.trim(),
+    registerNumber: data.registerNumber.trim().toUpperCase(), // students sign in with it; matched upper-case
     email: data.email.toLowerCase().trim(),
     updatedAt: new Date(),
   }).where(eq(users.id, id));
@@ -1643,7 +1644,7 @@ export async function manualRegisterStudentByTutor(studentId: string, eventId: s
 }
 
 // ────────────────────────────────────────────────────────────────────
-// CLASS SIGNUP CODE MANAGEMENT & PIN RESET AUTHORIZATIONS
+// CLASS SIGNUP CODE MANAGEMENT & PASSWORD RESET AUTHORIZATIONS
 // ────────────────────────────────────────────────────────────────────
 
 /**
@@ -1890,113 +1891,133 @@ export async function revokeClassSignupCode(codeId: string) {
   return { success: true };
 }
 
+/** Sections whose students this staff member may manage password resets for. */
+async function resetSectionScope(session: Awaited<ReturnType<typeof assertTutor>>) {
+  if (session.role === "SYSTEM_ADMIN") return { all: true, sectionIds: [] as string[] };
+  const assigned = await db
+    .select({ sectionId: tutorSections.sectionId })
+    .from(tutorSections)
+    .where(eq(tutorSections.tutorId, session.userId));
+  const sectionIds = assigned.map((s) => s.sectionId);
+  if (session.sectionId && !sectionIds.includes(session.sectionId)) sectionIds.push(session.sectionId);
+  return { all: false, sectionIds };
+}
+
+/** Loads a reset request and checks it belongs to a section this staff member manages. */
+async function loadAuthorizedResetRequest(session: Awaited<ReturnType<typeof assertTutor>>, requestId: string) {
+  const [req] = await db
+    .select()
+    .from(passwordResetRequests)
+    .where(eq(passwordResetRequests.id, requestId))
+    .limit(1);
+
+  if (!req) throw new Error("Password reset request not found.");
+
+  const scope = await resetSectionScope(session);
+  if (!scope.all && (!req.sectionId || !scope.sectionIds.includes(req.sectionId))) {
+    // Same message as a missing request, so ids from other sections reveal nothing.
+    throw new Error("Password reset request not found.");
+  }
+  return req;
+}
+
 /**
- * Retrieves pending PIN reset requests for the tutor's section.
+ * Retrieves password reset requests for the tutor's sections.
  */
-export async function getPendingPinResetsForTutor(sectionId?: string) {
+export async function getPendingPasswordResetsForTutor(sectionId?: string) {
   const session = await assertTutor();
   const targetSectionId = sectionId || session.sectionId;
-
-  let authorizedSectionIds: string[] = [];
-  if (session.role === "SYSTEM_ADMIN") {
-    if (targetSectionId) authorizedSectionIds = [targetSectionId];
-  } else {
-    const tutorAssigned = await db
-      .select({ sectionId: tutorSections.sectionId })
-      .from(tutorSections)
-      .where(eq(tutorSections.tutorId, session.userId));
-    authorizedSectionIds = tutorAssigned.map((s) => s.sectionId);
-    if (session.sectionId && !authorizedSectionIds.includes(session.sectionId)) {
-      authorizedSectionIds.push(session.sectionId);
-    }
-  }
 
   const { ensureDatabaseReady } = await import("@/lib/db");
   await ensureDatabaseReady();
 
+  // Tutors see every section they manage; admins see the section they are looking at.
+  const scope = await resetSectionScope(session);
+  const sectionIds = scope.all ? (targetSectionId ? [targetSectionId] : []) : scope.sectionIds;
+  if (sectionIds.length === 0) return [];
+
   const requests = await db
     .select({
-      id: pinResetRequests.id,
-      studentId: pinResetRequests.studentId,
-      sectionId: pinResetRequests.sectionId,
-      tutorId: pinResetRequests.tutorId,
-      status: pinResetRequests.status,
-      resetToken: pinResetRequests.resetToken,
-      tokenExpiresAt: pinResetRequests.tokenExpiresAt,
-      authorizedAt: pinResetRequests.authorizedAt,
-      completedAt: pinResetRequests.completedAt,
-      createdAt: pinResetRequests.createdAt,
+      id: passwordResetRequests.id,
+      studentId: passwordResetRequests.studentId,
+      sectionId: passwordResetRequests.sectionId,
+      tutorId: passwordResetRequests.tutorId,
+      status: passwordResetRequests.status,
+      resetToken: passwordResetRequests.resetToken,
+      tokenExpiresAt: passwordResetRequests.tokenExpiresAt,
+      authorizedAt: passwordResetRequests.authorizedAt,
+      completedAt: passwordResetRequests.completedAt,
+      createdAt: passwordResetRequests.createdAt,
       studentName: users.name,
       studentEmail: users.email,
       registerNumber: users.registerNumber,
       sectionLabel: sections.label,
     })
-    .from(pinResetRequests)
-    .innerJoin(users, eq(pinResetRequests.studentId, users.id))
-    .leftJoin(sections, eq(pinResetRequests.sectionId, sections.id))
-    .where(
-      authorizedSectionIds.length > 0
-        ? inArray(pinResetRequests.sectionId, authorizedSectionIds)
-        : eq(users.sectionId, targetSectionId || "")
-    )
-    .orderBy(desc(pinResetRequests.createdAt));
+    .from(passwordResetRequests)
+    .innerJoin(users, eq(passwordResetRequests.studentId, users.id))
+    .leftJoin(sections, eq(passwordResetRequests.sectionId, sections.id))
+    .where(inArray(passwordResetRequests.sectionId, sectionIds))
+    .orderBy(desc(passwordResetRequests.createdAt));
 
   return requests;
 }
 
+/** RST- plus 6 characters from an unambiguous alphabet, from a cryptographic source. */
+function generateResetCode() {
+  const chars = "23456789ABCDEFGHJKLMNPQRSTUVWXYZ";
+  let code = "";
+  for (let i = 0; i < 6; i++) code += chars[randomInt(chars.length)];
+  return `RST-${code}`;
+}
+
 /**
- * Authorizes a student's PIN reset request and generates an expiring authorization token.
+ * Authorizes a student's password reset request and generates an expiring authorization code.
+ * Only for requests from a section the caller manages (any section for admins).
  */
-export async function authorizeStudentPinReset(requestId: string) {
+export async function authorizeStudentPasswordReset(requestId: string) {
   const session = await assertTutor();
 
   const { ensureDatabaseReady } = await import("@/lib/db");
   await ensureDatabaseReady();
 
-  const [req] = await db
-    .select()
-    .from(pinResetRequests)
-    .where(eq(pinResetRequests.id, requestId))
-    .limit(1);
-
-  if (!req) {
-    throw new Error("PIN reset request not found.");
-  }
+  const req = await loadAuthorizedResetRequest(session, requestId);
 
   if (req.status !== "PENDING" && req.status !== "AUTHORIZED") {
     throw new Error(`Cannot authorize request in status: ${req.status}`);
   }
 
-  // Generate an unambiguous 6-character authorization code, e.g. RST-7X9K
-  const chars = "23456789ABCDEFGHJKLMNPQRSTUVWXYZ";
-  let tokenRand = "";
-  for (let i = 0; i < 4; i++) {
-    tokenRand += chars.charAt(Math.floor(Math.random() * chars.length));
-  }
-  const resetToken = `RST-${tokenRand}`;
   const tokenExpiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000); // 24 hours
-
-  await db
-    .update(pinResetRequests)
-    .set({
-      status: "AUTHORIZED",
-      tutorId: session.userId,
-      resetToken,
-      tokenExpiresAt,
-      authorizedAt: new Date(),
-      updatedAt: new Date(),
-    })
-    .where(eq(pinResetRequests.id, requestId));
+  let resetToken = "";
+  for (let attempt = 0; ; attempt++) {
+    resetToken = generateResetCode();
+    try {
+      await db
+        .update(passwordResetRequests)
+        .set({
+          status: "AUTHORIZED",
+          tutorId: session.userId,
+          resetToken,
+          tokenExpiresAt,
+          authorizedAt: new Date(),
+          updatedAt: new Date(),
+        })
+        .where(eq(passwordResetRequests.id, requestId));
+      break;
+    } catch (err) {
+      // reset_token is unique; try a fresh code on the rare collision
+      if (attempt >= 2) throw err;
+    }
+  }
 
   await db.insert(auditLogs).values({
-    action: "PIN_RESET_AUTHORIZED",
+    action: "PASSWORD_RESET_AUTHORIZED",
     userId: session.userId,
     userEmail: session.email,
     userRole: session.role,
+    // The code itself is a credential and is not logged.
     metadata: {
       requestId,
       studentId: req.studentId,
-      resetToken,
       tokenExpiresAt: tokenExpiresAt.toISOString(),
     },
   });
@@ -2005,35 +2026,27 @@ export async function authorizeStudentPinReset(requestId: string) {
 }
 
 /**
- * Rejects an unauthorized or unverified student PIN reset request.
+ * Rejects an unverified student password reset request.
  */
-export async function rejectStudentPinReset(requestId: string, reason?: string) {
+export async function rejectStudentPasswordReset(requestId: string, reason?: string) {
   const session = await assertTutor();
 
   const { ensureDatabaseReady } = await import("@/lib/db");
   await ensureDatabaseReady();
 
-  const [req] = await db
-    .select()
-    .from(pinResetRequests)
-    .where(eq(pinResetRequests.id, requestId))
-    .limit(1);
-
-  if (!req) {
-    throw new Error("PIN reset request not found.");
-  }
+  const req = await loadAuthorizedResetRequest(session, requestId);
 
   await db
-    .update(pinResetRequests)
+    .update(passwordResetRequests)
     .set({
       status: "REJECTED",
       tutorId: session.userId,
       updatedAt: new Date(),
     })
-    .where(eq(pinResetRequests.id, requestId));
+    .where(eq(passwordResetRequests.id, requestId));
 
   await db.insert(auditLogs).values({
-    action: "PIN_RESET_REJECTED",
+    action: "PASSWORD_RESET_REJECTED",
     userId: session.userId,
     userEmail: session.email,
     userRole: session.role,
