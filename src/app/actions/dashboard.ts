@@ -98,7 +98,7 @@ export async function getClassTutorMetrics() {
 
   if (!activeSectionId) {
     return { 
-      totalStudents: 0, registeredCount: 0, waitlistedCount: 0,
+      totalStudents: 0, registeredCount: 0,
       courseOptionsCount: 0, groupsCount: 0, allocationRate: 0,
       activeEvent: null, recentRegistrations: [], pendingStudents: []
     };
@@ -131,7 +131,6 @@ export async function getClassTutorMetrics() {
   let activeEvent = null;
   let recentRegistrations: any[] = [];
   let registeredCount = 0;
-  let waitlistedCount = 0;
   let uniqueStudents = new Set<string>();
 
   if (eventLink) {
@@ -143,7 +142,6 @@ export async function getClassTutorMetrics() {
         status: registrationEvents.status,
         openDate: registrationEvents.openDate,
         closeDate: registrationEvents.closeDate,
-        enableWaitlist: registrationEvents.enableWaitlist,
         allowEditing: registrationEvents.allowEditing,
         autoClose: registrationEvents.autoClose,
       })
@@ -155,13 +153,14 @@ export async function getClassTutorMetrics() {
       .from(electiveGroups)
       .where(eq(electiveGroups.eventId, eventLink.eventId)),
 
-      db.select({ 
-        studentId: studentRegistrations.studentId,
-        isWaitlisted: studentRegistrations.isWaitlisted,
-      })
+      db.select({ studentId: studentRegistrations.studentId })
       .from(studentRegistrations)
       .innerJoin(users, eq(studentRegistrations.studentId, users.id))
-      .where(and(eq(studentRegistrations.eventId, eventLink.eventId), eq(users.sectionId, activeSectionId))),
+      .where(and(
+        eq(studentRegistrations.eventId, eventLink.eventId),
+        eq(users.sectionId, activeSectionId),
+        eq(studentRegistrations.status, "CONFIRMED")
+      )),
 
       db.select({
         id: studentRegistrations.id,
@@ -171,14 +170,16 @@ export async function getClassTutorMetrics() {
         electiveName: electives.name,
         courseCode: electives.courseCode,
         groupName: electiveGroups.name,
-        isWaitlisted: studentRegistrations.isWaitlisted,
-        waitlistPosition: studentRegistrations.waitlistPosition,
       })
       .from(studentRegistrations)
       .innerJoin(users, eq(studentRegistrations.studentId, users.id))
       .innerJoin(electives, eq(studentRegistrations.electiveId, electives.id))
       .innerJoin(electiveGroups, eq(studentRegistrations.groupId, electiveGroups.id))
-      .where(and(eq(studentRegistrations.eventId, eventLink.eventId), eq(users.sectionId, activeSectionId)))
+      .where(and(
+        eq(studentRegistrations.eventId, eventLink.eventId),
+        eq(users.sectionId, activeSectionId),
+        eq(studentRegistrations.status, "CONFIRMED")
+      ))
       .orderBy(desc(studentRegistrations.submittedAt))
       .limit(8)
     ]);
@@ -191,11 +192,6 @@ export async function getClassTutorMetrics() {
     uniqueStudents = new Set(registeredStudents.map(r => r.studentId));
     registeredCount = uniqueStudents.size;
 
-    // Unique students on waitlist
-    const waitlistedStudents = new Set(
-      registeredStudents.filter(r => r.isWaitlisted).map(r => r.studentId)
-    );
-    waitlistedCount = waitlistedStudents.size;
 
     if (groups.length > 0) {
       const groupIds = groups.map(g => g.id);
@@ -237,7 +233,6 @@ export async function getClassTutorMetrics() {
   return {
     totalStudents, 
     registeredCount, 
-    waitlistedCount,
     courseOptionsCount,
     groupsCount,
     allocationRate, 

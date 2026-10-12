@@ -70,14 +70,7 @@ const columns: Column<StudentAllotment>[] = [
     id: "receipt",
     header: "Receipt",
     cell: (s) => (
-      <span className="flex flex-col items-start gap-1">
-        <span className="font-mono text-xs text-fg-muted">{s.receiptNumber || "—"}</span>
-        {s.status === "WAITLISTED" ? (
-          <Badge size="sm" tone="warning">
-            Waitlisted
-          </Badge>
-        ) : null}
-      </span>
+      <span className="font-mono text-xs text-fg-muted">{s.receiptNumber || "—"}</span>
     ),
   },
 ];

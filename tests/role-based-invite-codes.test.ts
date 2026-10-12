@@ -25,6 +25,11 @@ describe("Role-Based Unique Invite Codes", () => {
 
   after(async () => {
     setTestSession(null);
+    if (adminUser?.id) {
+      await db.delete(auditLogs).where(eq(auditLogs.userId, adminUser.id));
+      await db.delete(inviteCodes).where(eq(inviteCodes.createdById, adminUser.id));
+      await db.delete(users).where(eq(users.id, adminUser.id));
+    }
   });
 
   test("1. generateRoleBasedCode produces role-specific prefixes", () => {

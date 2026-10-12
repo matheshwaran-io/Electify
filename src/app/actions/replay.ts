@@ -243,9 +243,7 @@ export interface ReplayEventSummary {
   closeDate: string | null;
   createdAt: string;
   allowEditing: boolean;
-  enableWaitlist: boolean;
   confirmedCount: number;
-  waitlistedCount: number;
   cancelledCount: number;
   totalSubmissions: number;
   manualCount: number;
@@ -357,7 +355,6 @@ export async function getReplayHubData(): Promise<{ success: boolean; data?: Rep
       .select({
         eventId: registrations.eventId,
         confirmedCount: sql<number>`count(*) filter (where ${registrations.status} = 'CONFIRMED')::int`,
-        waitlistedCount: sql<number>`count(*) filter (where ${registrations.status} = 'WAITLISTED')::int`,
         cancelledCount: sql<number>`count(*) filter (where ${registrations.status} = 'CANCELLED')::int`,
         manualCount: sql<number>`count(*) filter (where (${registrations.receiptSnapshot}->>'registeredByTutor')::boolean = true or ${registrations.receiptNumber} like '%-MAN-%')::int`,
         firstSubmittedAt: sql<string | null>`min(${registrations.submittedAt})::text`,
@@ -451,11 +448,10 @@ export async function getReplayHubData(): Promise<{ success: boolean; data?: Rep
       const latest = latestReplayMap.get(evt.id);
 
       const confirmedCount = reg?.confirmedCount || 0;
-      const waitlistedCount = reg?.waitlistedCount || 0;
       const cancelledCount = reg?.cancelledCount || 0;
       const manualCount = reg?.manualCount || 0;
       const selfCount = Math.max(0, confirmedCount - manualCount);
-      const totalSubmissions = confirmedCount + waitlistedCount + cancelledCount;
+      const totalSubmissions = confirmedCount + cancelledCount;
 
       const electiveCount = el?.electiveCount || 0;
       const groupCount = el?.groupCount || 0;
@@ -484,9 +480,7 @@ export async function getReplayHubData(): Promise<{ success: boolean; data?: Rep
         closeDate: evt.closeDate ? evt.closeDate.toISOString() : null,
         createdAt: evt.createdAt.toISOString(),
         allowEditing: evt.allowEditing,
-        enableWaitlist: evt.enableWaitlist,
         confirmedCount,
-        waitlistedCount,
         cancelledCount,
         totalSubmissions,
         manualCount,

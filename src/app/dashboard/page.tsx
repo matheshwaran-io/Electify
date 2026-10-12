@@ -4,9 +4,11 @@ import { getSession } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { users, systemSettings, registrationEvents, registrations } from "@/lib/db/schema";
 import { eq, and, inArray, desc } from "drizzle-orm";
-import { CalendarX2, Clock3, UserX, Users } from "lucide-react";
+import Link from "next/link";
+import { CalendarX2, Clock3, PauseCircle, UserX, Users } from "lucide-react";
 import { StudentStatus } from "@/components/student/student-chrome";
 import { formatDateTime } from "@/lib/format";
+import { getRegistrationWindow, STUDENT_VISIBLE_EVENT_STATUSES } from "@/lib/registration-window";
 
 export const dynamic = "force-dynamic";
 export const metadata = { title: "Registration" };
@@ -51,7 +53,7 @@ export default async function StudentDashboardRouterPage() {
     .where(
       and(
         eq(registrationEvents.academicBatchId, student.academicBatchId),
-        inArray(registrationEvents.status, ["PUBLISHED", "OPEN", "ACTIVE", "CLOSED", "VERIFICATION", "FINALIZED"])
+        inArray(registrationEvents.status, [...STUDENT_VISIBLE_EVENT_STATUSES])
       )
     ).orderBy(desc(registrationEvents.createdAt)).limit(1);
 
@@ -67,37 +69,42 @@ export default async function StudentDashboardRouterPage() {
   const [userRegistration] = await db.select().from(registrations)
     .where(and(eq(registrations.studentId, student.id), eq(registrations.eventId, event.id))).limit(1);
 
-  const hasSubmitted = userRegistration?.status === "CONFIRMED" || userRegistration?.status === "WAITLISTED";
+  const hasSubmitted = userRegistration?.status === "CONFIRMED";
 
   if (hasSubmitted) {
     redirect("/dashboard/my-registration");
   }
 
-  // ── Time-based checks (openDate/closeDate are the source of truth) ──
-  const now = new Date();
+  // Same rule the register action enforces, evaluated on the server clock.
+  const regWindow = getRegistrationWindow(event, new Date());
 
-  // Registration has started if:
-  // 1. openDate exists and current time is past it, OR
-  // 2. status is explicitly OPEN or ACTIVE (manual override by coordinator)
-  const isRegistrationStarted =
-    (event.openDate && now >= event.openDate) ||
-    event.status === "OPEN" ||
-    event.status === "ACTIVE";
-
-  // Registration has ended if:
-  // 1. closeDate exists and current time is past it, OR
-  // 2. status is explicitly CLOSED/VERIFICATION/FINALIZED (manual override)
-  const isRegistrationEnded =
-    (event.closeDate && now > event.closeDate) ||
-    event.status === "CLOSED" ||
-    event.status === "VERIFICATION" ||
-    event.status === "FINALIZED";
-
-  if (!isRegistrationStarted) {
+  if (regWindow.state === "UPCOMING" || regWindow.state === "UNSCHEDULED") {
     redirect("/countdown");
   }
 
-  if (isRegistrationEnded && !hasSubmitted) {
+  if (regWindow.state === "PAUSED") {
+    return (
+      <StudentStatus
+        icon={<PauseCircle />}
+        tone="warning"
+        title="Registration is paused"
+        next={
+          <>
+            Your coordinators paused <span className="font-medium text-fg">{event.name}</span>. Nothing you submitted is lost. Come back when it
+            resumes, or{" "}
+            <Link href="/dashboard/subjects" className="font-medium text-fg underline underline-offset-4">
+              read about the subjects
+            </Link>{" "}
+            in the meantime.
+          </>
+        }
+      >
+        <p>Choosing electives is switched off for now.</p>
+      </StudentStatus>
+    );
+  }
+
+  if (regWindow.state === "CLOSED") {
     return (
       <StudentStatus
         icon={<CalendarX2 />}

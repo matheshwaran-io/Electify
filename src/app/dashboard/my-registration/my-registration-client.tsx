@@ -1,6 +1,7 @@
 "use client";
 
 import * as React from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import {
@@ -62,9 +63,7 @@ export interface RegistrationChoice {
   electiveName: string;
   courseCode: string | null;
   credits: number;
-  status: string; // "CONFIRMED" | "WAITLISTED" | "CANCELLED"
-  isWaitlisted: boolean;
-  waitlistPosition: number | null;
+  status: string; // "CONFIRMED" | "CANCELLED"
   submittedAt: Date | string;
   availableSeats: number;
   maxSeats: number;
@@ -82,14 +81,13 @@ export interface MyRegistrationProps {
     closeDate: Date | string | null;
     status: string;
     allowEditing: boolean;
-    enableWaitlist: boolean;
     autoClose?: boolean;
     isOpen: boolean;
     reason?: string;
   };
   registration: {
     id: string;
-    status: string; // "CONFIRMED" | "WAITLISTED" | "CANCELLED"
+    status: string; // "CONFIRMED" | "CANCELLED" | "RESET_BY_COORDINATOR"
     receiptNumber: string | null;
     submittedAt: Date | string | null;
     receiptSnapshot: any;
@@ -123,7 +121,6 @@ export function MyRegistrationClient({
   // Modal states
   const [changeModalChoice, setChangeModalChoice] = React.useState<RegistrationChoice | null>(null);
   const [selectedReplacementId, setSelectedReplacementId] = React.useState<string | null>(null);
-  const [waitlistAcknowledged, setWaitlistAcknowledged] = React.useState(false);
   const [changePending, setChangePending] = React.useState(false);
 
   const [cancelModalChoice, setCancelModalChoice] = React.useState<RegistrationChoice | null>(null);
@@ -178,7 +175,6 @@ export function MyRegistrationClient({
   const openChangeModal = (choice: RegistrationChoice) => {
     setChangeModalChoice(choice);
     setSelectedReplacementId(null);
-    setWaitlistAcknowledged(false);
   };
 
   const handleConfirmChange = async () => {
@@ -187,9 +183,8 @@ export function MyRegistrationClient({
     const replacement = changeModalChoice.alternatives.find((a) => a.id === selectedReplacementId);
     if (!replacement) return;
 
-    const isReplacementFull = replacement.availableSeats <= 0;
-    if (isReplacementFull && !waitlistAcknowledged) {
-      toast.error("Please acknowledge the waitlist consequence before proceeding.");
+    if (replacement.availableSeats <= 0) {
+      toast.error(`${replacement.name} is full. Choose another elective.`);
       return;
     }
 
@@ -199,27 +194,16 @@ export function MyRegistrationClient({
         event.id,
         changeModalChoice.groupId,
         changeModalChoice.electiveId,
-        selectedReplacementId,
-        waitlistAcknowledged
+        selectedReplacementId
       );
 
       if (!res.success) {
-        if (res.requiresConfirmation) {
-          toast.warning(res.message || "Confirmation required.");
-          setWaitlistAcknowledged(false);
-        } else {
-          toast.error(res.error || "Failed to change elective.");
-        }
+        toast.error(res.error || "Failed to change elective.");
+        router.refresh(); // seat counts may have changed under us
         return;
       }
 
-      if (res.isWaitlisted) {
-        toast.warning(
-          `Changed to ${replacement.courseCode || replacement.name}. You have been placed on the waitlist at position #${res.waitlistPosition}.`
-        );
-      } else {
-        toast.success(`Successfully switched to ${replacement.courseCode || replacement.name}! Seat confirmed.`);
-      }
+      toast.success(`Switched to ${replacement.courseCode || replacement.name}. Seat confirmed.`);
 
       setChangeModalChoice(null);
       router.refresh();
@@ -282,6 +266,12 @@ export function MyRegistrationClient({
   return (
     <div className="flex min-h-dvh flex-col print:block print:min-h-0 bg-canvas">
       <StudentHeader className="print:hidden">
+        <Link
+          href="/dashboard/subjects"
+          className="inline-flex h-8 items-center rounded-control px-2.5 text-xs font-medium text-fg-muted transition-colors hover:bg-surface-2 hover:text-fg"
+        >
+          Subjects
+        </Link>
         <Button
           variant="outline"
           size="sm"
@@ -405,8 +395,7 @@ export function MyRegistrationClient({
           <div className="grid grid-cols-1 gap-4">
             {choices.map((choice) => {
               const isChoiceCancelled = choice.status === "CANCELLED";
-              const isChoiceWaitlisted = choice.status === "WAITLISTED" || choice.isWaitlisted;
-              const isChoiceConfirmed = choice.status === "CONFIRMED" && !choice.isWaitlisted;
+              const isChoiceConfirmed = choice.status === "CONFIRMED";
 
               return (
                 <div
@@ -429,11 +418,6 @@ export function MyRegistrationClient({
                       {isChoiceConfirmed && (
                         <Badge tone="success" size="sm" dot>Confirmed</Badge>
                       )}
-                      {isChoiceWaitlisted && (
-                        <Badge tone="warning" size="sm">
-                          Waitlisted #{choice.waitlistPosition ?? "Queue"}
-                        </Badge>
-                      )}
                       {isChoiceCancelled && (
                         <Badge tone="outline" size="sm">Cancelled</Badge>
                       )}
@@ -447,11 +431,6 @@ export function MyRegistrationClient({
                       {isChoiceConfirmed && (
                         <span className="text-success-text font-medium flex items-center gap-1">
                           <Check className="size-3.5" /> Confirmed Seat Reserved
-                        </span>
-                      )}
-                      {isChoiceWaitlisted && (
-                        <span className="text-warning-text font-medium flex items-center gap-1">
-                          <Clock className="size-3.5" /> In FIFO Queue (Position #{choice.waitlistPosition})
                         </span>
                       )}
                       {isChoiceCancelled && (
@@ -632,10 +611,13 @@ export function MyRegistrationClient({
                       const ringState = seatState(alt.availableSeats, alt.maxSeats);
 
                       return (
-                        <div
+                        <button
+                          type="button"
                           key={alt.id}
                           onClick={() => setSelectedReplacementId(alt.id)}
-                          className={`cursor-pointer rounded-control border p-3 transition-colors flex items-center justify-between gap-3 ${
+                          disabled={isFull}
+                          aria-pressed={isSelected}
+                          className={`w-full text-left rounded-control border p-3 transition-colors flex items-center justify-between gap-3 disabled:cursor-not-allowed disabled:opacity-60 ${
                             isSelected
                               ? "border-primary bg-primary/[0.04] ring-1 ring-primary"
                               : "border-border bg-surface hover:border-border-strong"
@@ -652,11 +634,7 @@ export function MyRegistrationClient({
                                 {alt.credits} cr
                               </span>
                               {isFull ? (
-                                event.enableWaitlist ? (
-                                  <Badge tone="warning" size="sm">Waitlist Open</Badge>
-                                ) : (
-                                  <Badge tone="neutral" size="sm">Full</Badge>
-                                )
+                                <Badge tone="neutral" size="sm">Full</Badge>
                               ) : (
                                 <Badge tone="success" size="sm">{alt.availableSeats} seats left</Badge>
                               )}
@@ -671,7 +649,7 @@ export function MyRegistrationClient({
                             size={32}
                             stroke={3}
                           />
-                        </div>
+                        </button>
                       );
                     })}
                   </div>
@@ -690,31 +668,13 @@ export function MyRegistrationClient({
                         A confirmed seat will be reserved in {selectedAlternative.courseCode || selectedAlternative.name}.
                       </p>
                       <p>
-                        Your seat in {changeModalChoice.electiveName} will be released immediately. If any student is waitlisted for it, they will receive your former seat.
+                        Your seat in {changeModalChoice.electiveName} is released only after the new seat is secured, in the same step.
                       </p>
-                    </div>
-                  ) : event.enableWaitlist ? (
-                    <div className="text-xs text-warning-text space-y-2">
-                      <p className="font-medium flex items-center gap-1.5">
-                        <AlertTriangle className="size-4 shrink-0" />
-                        {selectedAlternative.name} has no available seats. You will be added to the waitlist queue.
-                      </p>
-                      <p className="text-fg-muted">
-                        Your currently confirmed seat in {changeModalChoice.electiveName} will be released and given to another student.
-                      </p>
-                      <label className="flex items-center gap-2 cursor-pointer pt-1 text-xs text-fg font-medium">
-                        <input
-                          type="checkbox"
-                          checked={waitlistAcknowledged}
-                          onChange={(e) => setWaitlistAcknowledged(e.target.checked)}
-                          className="rounded border-border"
-                        />
-                        <span>I understand that I am relinquishing my confirmed seat to join the waitlist.</span>
-                      </label>
                     </div>
                   ) : (
-                    <p className="text-xs text-danger-text">
-                      This elective is full and waitlisting is disabled for this event. You cannot select this course.
+                    <p className="flex items-center gap-1.5 text-xs text-danger-text">
+                      <AlertTriangle className="size-4 shrink-0" />
+                      {selectedAlternative.name} is full. Choose another elective; your current seat is kept.
                     </p>
                   )}
                 </div>
@@ -734,8 +694,7 @@ export function MyRegistrationClient({
                 onClick={handleConfirmChange}
                 disabled={
                   !selectedReplacementId ||
-                  (selectedIsFull && !event.enableWaitlist) ||
-                  (selectedIsFull && !waitlistAcknowledged) ||
+                  selectedIsFull ||
                   changePending
                 }
                 loading={changePending}
@@ -764,25 +723,16 @@ export function MyRegistrationClient({
               value: cancelModalChoice.electiveName,
             },
             {
-              label: "Status consequence",
-              value:
-                cancelModalChoice.status === "CONFIRMED"
-                  ? "Seat released & allocated to waitlist"
-                  : "Removed from waitlist queue",
-              tone: cancelModalChoice.status === "CONFIRMED" ? "danger" : "warning",
+              label: "Seat",
+              value: "Released to other students",
+              tone: "danger",
             },
           ]}
         >
           <div className="text-xs text-fg-muted space-y-2 pt-2">
-            {cancelModalChoice.status === "CONFIRMED" ? (
-              <p>
-                Your seat in <span className="font-medium text-fg">{cancelModalChoice.electiveName}</span> will be immediately released. The next student in the queue will be promoted.
-              </p>
-            ) : (
-              <p>
-                You will be removed from the waitlist for <span className="font-medium text-fg">{cancelModalChoice.electiveName}</span>. No seats will be released.
-              </p>
-            )}
+            <p>
+              Your seat in <span className="font-medium text-fg">{cancelModalChoice.electiveName}</span> is released immediately and any student can take it.
+            </p>
           </div>
         </ConfirmDialog>
       )}
@@ -812,7 +762,7 @@ export function MyRegistrationClient({
         ]}
       >
         <p className="text-xs text-fg-muted">
-          All your confirmed seats will be released back to the general pool and offered to students on the waitlist. If the registration window is still open, you may submit a new registration.
+          All your confirmed seats are released back to the general pool. If the registration window is still open, you may submit a new registration.
         </p>
       </ConfirmDialog>
     </div>

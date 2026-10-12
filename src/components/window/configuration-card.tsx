@@ -78,7 +78,6 @@ export function ConfigurationCard({ event }: { event: WindowEvent }) {
   const [closeDate, setCloseDate] = useState(() => toLocalInput(event.closeDate));
   const [allowEditing, setAllowEditing] = useState(event.allowEditing ?? true);
   const [autoClose, setAutoClose] = useState(event.autoClose ?? true);
-  const [enableWaitlist, setEnableWaitlist] = useState(event.enableWaitlist ?? false);
 
   // Sync state when event props update after a refresh or navigation
   useEffect(() => {
@@ -86,8 +85,7 @@ export function ConfigurationCard({ event }: { event: WindowEvent }) {
     setCloseDate(toLocalInput(event.closeDate));
     setAllowEditing(event.allowEditing ?? true);
     setAutoClose(event.autoClose ?? true);
-    setEnableWaitlist(event.enableWaitlist ?? false);
-  }, [event.openDate, event.closeDate, event.allowEditing, event.autoClose, event.enableWaitlist]);
+  }, [event.openDate, event.closeDate, event.allowEditing, event.autoClose]);
 
   const invalidRange = Boolean(openDate && closeDate && new Date(closeDate) <= new Date(openDate));
 
@@ -105,7 +103,6 @@ export function ConfigurationCard({ event }: { event: WindowEvent }) {
         {
           allowEditing,
           autoClose,
-          enableWaitlist,
         }
       );
       toast.success("Settings saved successfully!");
@@ -244,13 +241,6 @@ export function ConfigurationCard({ event }: { event: WindowEvent }) {
             description="The portal closes itself at the closing time."
             checked={autoClose}
             onChange={setAutoClose}
-          />
-          <ToggleRow
-            label="Waitlist"
-            description="Students can join a waitlist for full electives."
-            hint="When enabled, students can join the waitlist if an elective's seats are full."
-            checked={enableWaitlist}
-            onChange={setEnableWaitlist}
           />
         </div>
       </div>

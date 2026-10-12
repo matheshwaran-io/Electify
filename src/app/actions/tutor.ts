@@ -385,7 +385,7 @@ export async function getTutorReports() {
   return {
     students: enriched,
     totalStudents: students.length,
-    registeredCount: enriched.filter((s) => s.registrationStatus === "CONFIRMED" || s.registrationStatus === "WAITLISTED").length,
+    registeredCount: enriched.filter((s) => s.registrationStatus === "CONFIRMED").length,
     sectionLabel: sectionMeta?.sectionLabel || "",
     programmeName: sectionMeta?.programmeName || "",
     departmentName: sectionMeta?.departmentName || "",
@@ -423,7 +423,6 @@ export async function getPortalWindow() {
       description: registrationEvents.description,
       allowEditing: registrationEvents.allowEditing,
       autoClose: registrationEvents.autoClose,
-      enableWaitlist: registrationEvents.enableWaitlist,
       programmeId: academicBatches.programmeId,
     })
     .from(registrationEvents)
@@ -439,7 +438,6 @@ export async function getPortalWindow() {
     description: string | null;
     allowEditing: boolean;
     autoClose: boolean;
-    enableWaitlist: boolean;
     programmeId: string | null;
   }[] = [];
 
@@ -567,24 +565,11 @@ export async function getRegistrationMetrics(eventId: string) {
     .where(
       and(
         eq(registrations.eventId, eventId),
-        inArray(registrations.status, ["CONFIRMED", "WAITLISTED"]),
+        eq(registrations.status, "CONFIRMED"),
         session.sectionId ? eq(users.sectionId, session.sectionId) : undefined
       )
     );
   const registeredStudents = registeredStudentsRes?.count ?? 0;
-
-  const [waitlistedStudentsRes] = await db
-    .select({ count: count() })
-    .from(registrations)
-    .innerJoin(users, eq(registrations.studentId, users.id))
-    .where(
-      and(
-        eq(registrations.eventId, eventId),
-        eq(registrations.status, "WAITLISTED"),
-        session.sectionId ? eq(users.sectionId, session.sectionId) : undefined
-      )
-    );
-  const waitlistedStudents = waitlistedStudentsRes?.count ?? 0;
 
   // 2. Seats filled vs total
   const electivesList = await db
@@ -620,7 +605,7 @@ export async function getRegistrationMetrics(eventId: string) {
     .where(
       and(
         eq(registrations.eventId, eventId),
-        inArray(registrations.status, ["CONFIRMED", "WAITLISTED"])
+        eq(registrations.status, "CONFIRMED")
       )
     );
 
@@ -637,8 +622,8 @@ export async function getRegistrationMetrics(eventId: string) {
       const snap = reg.receiptSnapshot as any;
       if (snap.electives && Array.isArray(snap.electives)) {
         for (const el of snap.electives) {
-          const rawName = String(el.electiveName || "");
-          const cleanName = rawName.replace(/\s*\[Waitlisted\s*#\d+\]$/i, "").trim();
+          if (el.status === "CANCELLED") continue;
+          const cleanName = String(el.electiveName || "").trim();
           if (cleanName) {
             subjectCounts[cleanName] = (subjectCounts[cleanName] || 0) + 1;
           }
@@ -680,7 +665,6 @@ export async function getRegistrationMetrics(eventId: string) {
   return {
     totalStudents,
     registeredStudents,
-    waitlistedStudents,
     totalSeats,
     filledSeats,
     fullSubjects,
@@ -740,7 +724,6 @@ export async function updateWindowTimers(
   config?: {
     allowEditing?: boolean;
     autoClose?: boolean;
-    enableWaitlist?: boolean;
     status?: string;
   }
 ) {
@@ -803,9 +786,6 @@ export async function updateWindowTimers(
   if (config?.autoClose !== undefined) {
     updateData.autoClose = config.autoClose;
   }
-  if (config?.enableWaitlist !== undefined) {
-    updateData.enableWaitlist = config.enableWaitlist;
-  }
 
   await db
     .update(registrationEvents)
@@ -826,7 +806,6 @@ export async function updateWindowTimers(
       status,
       allowEditing: updateData.allowEditing,
       autoClose: updateData.autoClose,
-      enableWaitlist: updateData.enableWaitlist,
     },
   });
 

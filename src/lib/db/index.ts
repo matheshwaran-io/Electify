@@ -55,46 +55,81 @@ export async function ensureDatabaseReady(): Promise<void> {
 
   globalForDb.isDbReadyPromise = (async () => {
     try {
+      // Every statement is guarded by a catalog check first: ALTER TABLE ... IF NOT
+      // EXISTS still takes an ACCESS EXCLUSIVE lock even when there is nothing to
+      // do, which can block or deadlock live registrations on a cold start.
       await pool.query(`
         DO $$
         BEGIN
           -- Ensure users table has current_session_id
-          IF EXISTS (SELECT FROM pg_tables WHERE schemaname = 'public' AND tablename = 'users') THEN
+          IF to_regclass('public.users') IS NOT NULL AND NOT EXISTS (
+            SELECT 1 FROM information_schema.columns WHERE table_schema = 'public' AND table_name = 'users' AND column_name = 'current_session_id'
+          ) THEN
             ALTER TABLE "users" ADD COLUMN IF NOT EXISTS "current_session_id" text;
           END IF;
 
           -- Ensure registration_events has new control columns
-          IF EXISTS (SELECT FROM pg_tables WHERE schemaname = 'public' AND tablename = 'registration_events') THEN
+          IF to_regclass('public.registration_events') IS NOT NULL AND NOT EXISTS (
+            SELECT 1 FROM information_schema.columns WHERE table_schema = 'public' AND table_name = 'registration_events' AND column_name = 'allow_editing'
+          ) THEN
             ALTER TABLE "registration_events" ADD COLUMN IF NOT EXISTS "allow_editing" boolean DEFAULT true NOT NULL;
+          END IF;
+          IF to_regclass('public.registration_events') IS NOT NULL AND NOT EXISTS (
+            SELECT 1 FROM information_schema.columns WHERE table_schema = 'public' AND table_name = 'registration_events' AND column_name = 'auto_close'
+          ) THEN
             ALTER TABLE "registration_events" ADD COLUMN IF NOT EXISTS "auto_close" boolean DEFAULT true NOT NULL;
-            ALTER TABLE "registration_events" ADD COLUMN IF NOT EXISTS "enable_waitlist" boolean DEFAULT false NOT NULL;
           END IF;
 
-          -- Ensure student_registrations has waitlist and status columns
-          IF EXISTS (SELECT FROM pg_tables WHERE schemaname = 'public' AND tablename = 'student_registrations') THEN
-            ALTER TABLE "student_registrations" ADD COLUMN IF NOT EXISTS "is_waitlisted" boolean DEFAULT false NOT NULL;
-            ALTER TABLE "student_registrations" ADD COLUMN IF NOT EXISTS "waitlist_position" integer;
+          -- Ensure student_registrations has its status column
+          -- (waitlist columns are intentionally not created: see drizzle/0004_remove_waitlist.sql)
+          IF to_regclass('public.student_registrations') IS NOT NULL AND NOT EXISTS (
+            SELECT 1 FROM information_schema.columns WHERE table_schema = 'public' AND table_name = 'student_registrations' AND column_name = 'status'
+          ) THEN
             ALTER TABLE "student_registrations" ADD COLUMN IF NOT EXISTS "status" text DEFAULT 'CONFIRMED' NOT NULL;
+          END IF;
+          IF to_regclass('public.student_registrations') IS NOT NULL AND to_regclass('public."studentRegistrations_status_idx"') IS NULL THEN
             CREATE INDEX IF NOT EXISTS "studentRegistrations_status_idx" ON "student_registrations" ("status");
           END IF;
 
           -- Ensure pin_reset_requests table exists for tutor-authorized student PIN reset flow
-          CREATE TABLE IF NOT EXISTS "pin_reset_requests" (
-            "id" uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-            "student_id" uuid NOT NULL REFERENCES "users"("id") ON DELETE CASCADE,
-            "section_id" uuid REFERENCES "sections"("id") ON DELETE CASCADE,
-            "tutor_id" uuid REFERENCES "users"("id") ON DELETE SET NULL,
-            "status" text DEFAULT 'PENDING' NOT NULL,
-            "reset_token" text UNIQUE,
-            "token_expires_at" timestamp,
-            "authorized_at" timestamp,
-            "completed_at" timestamp,
-            "created_at" timestamp DEFAULT now() NOT NULL,
-            "updated_at" timestamp DEFAULT now() NOT NULL
-          );
-          CREATE INDEX IF NOT EXISTS "pinResetRequests_student_idx" ON "pin_reset_requests" ("student_id");
-          CREATE INDEX IF NOT EXISTS "pinResetRequests_section_idx" ON "pin_reset_requests" ("section_id");
-          CREATE INDEX IF NOT EXISTS "pinResetRequests_status_idx" ON "pin_reset_requests" ("status");
+          IF to_regclass('public.pin_reset_requests') IS NULL THEN
+            CREATE TABLE IF NOT EXISTS "pin_reset_requests" (
+              "id" uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+              "student_id" uuid NOT NULL REFERENCES "users"("id") ON DELETE CASCADE,
+              "section_id" uuid REFERENCES "sections"("id") ON DELETE CASCADE,
+              "tutor_id" uuid REFERENCES "users"("id") ON DELETE SET NULL,
+              "status" text DEFAULT 'PENDING' NOT NULL,
+              "reset_token" text UNIQUE,
+              "token_expires_at" timestamp,
+              "authorized_at" timestamp,
+              "completed_at" timestamp,
+              "created_at" timestamp DEFAULT now() NOT NULL,
+              "updated_at" timestamp DEFAULT now() NOT NULL
+            );
+            CREATE INDEX IF NOT EXISTS "pinResetRequests_student_idx" ON "pin_reset_requests" ("student_id");
+            CREATE INDEX IF NOT EXISTS "pinResetRequests_section_idx" ON "pin_reset_requests" ("section_id");
+            CREATE INDEX IF NOT EXISTS "pinResetRequests_status_idx" ON "pin_reset_requests" ("status");
+          END IF;
+
+          -- Subject profiles for the student subject explorer (additive; see drizzle/0005_subject_profiles.sql)
+          IF to_regclass('public.subject_profiles') IS NULL THEN
+            CREATE TABLE IF NOT EXISTS "subject_profiles" (
+              "id" uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+              "slug" text NOT NULL UNIQUE,
+              "title" text NOT NULL,
+              "course_code" text,
+              "aliases" jsonb DEFAULT '[]'::jsonb NOT NULL,
+              "programme_id" uuid REFERENCES "programmes"("id") ON DELETE SET NULL,
+              "summary" text,
+              "content" jsonb DEFAULT '{}'::jsonb NOT NULL,
+              "status" text DEFAULT 'DRAFT' NOT NULL,
+              "created_by_id" uuid REFERENCES "users"("id") ON DELETE SET NULL,
+              "updated_by_id" uuid REFERENCES "users"("id") ON DELETE SET NULL,
+              "created_at" timestamp DEFAULT now() NOT NULL,
+              "updated_at" timestamp DEFAULT now() NOT NULL
+            );
+            CREATE INDEX IF NOT EXISTS "subjectProfiles_status_idx" ON "subject_profiles" ("status");
+          END IF;
         END $$;
       `);
     } catch (err) {

@@ -9,7 +9,6 @@ import {
   programmes,
   users,
   registrations,
-  studentRegistrations,
   electiveGroups,
   electives,
   replayEvents,
@@ -30,6 +29,11 @@ function safeRevalidatePath(...paths: string[]) {
   }
 }
 
+/** Monitoring data names students, so it is for staff roles only. */
+function isStaff(session: { role: string } | null): session is { role: string } {
+  return Boolean(session && (session.role === "SYSTEM_ADMIN" || session.role === "COURSE_COORDINATOR" || session.role === "CLASS_TUTOR"));
+}
+
 export interface MonitorEventOption {
   id: string;
   name: string;
@@ -47,7 +51,6 @@ export interface MonitorEventOption {
 export interface MonitorKPIs {
   totalEligibleStudents: number;
   registeredStudents: number;
-  waitlistedStudents: number;
   unregisteredStudents: number;
   completionRate: number; // percentage
   totalCapacity: number;
@@ -73,7 +76,6 @@ export interface MonitorCourseStat {
   filledSeats: number;
   fillPercentage: number;
   isFull: boolean;
-  waitlistCount: number;
 }
 
 export interface MonitorSectionStat {
@@ -81,7 +83,6 @@ export interface MonitorSectionStat {
   sectionName: string;
   totalStudents: number;
   registeredCount: number;
-  waitlistedCount: number;
   unregisteredCount: number;
   completionRate: number;
 }
@@ -110,7 +111,6 @@ export interface LiveMonitoringData {
     openDate: string | null;
     closeDate: string | null;
     autoClose: boolean;
-    enableWaitlist: boolean;
     allowEditing: boolean;
     academicYear: string | null;
     batchYear: string | null;
@@ -312,7 +312,6 @@ export async function getLiveMonitoringData(
           kpis: {
             totalEligibleStudents: 0,
             registeredStudents: 0,
-            waitlistedStudents: 0,
             unregisteredStudents: 0,
             completionRate: 0,
             totalCapacity: 0,
@@ -350,7 +349,6 @@ export async function getLiveMonitoringData(
         openDate: registrationEvents.openDate,
         closeDate: registrationEvents.closeDate,
         autoClose: registrationEvents.autoClose,
-        enableWaitlist: registrationEvents.enableWaitlist,
         allowEditing: registrationEvents.allowEditing,
         academicYear: registrationEvents.academicYear,
         academicBatchId: registrationEvents.academicBatchId,
@@ -418,14 +416,9 @@ export async function getLiveMonitoringData(
       .where(eq(registrations.eventId, eventId));
 
     const confirmedRegs = eventRegistrations.filter((r) => r.status === "CONFIRMED");
-    const waitlistedRegs = eventRegistrations.filter((r) => r.status === "WAITLISTED");
 
     const registeredStudents = confirmedRegs.length;
-    const waitlistedStudents = waitlistedRegs.length;
-    const unregisteredStudents = Math.max(
-      0,
-      totalEligibleStudents - registeredStudents - waitlistedStudents
-    );
+    const unregisteredStudents = Math.max(0, totalEligibleStudents - registeredStudents);
     const completionRate =
       totalEligibleStudents > 0
         ? Math.round((registeredStudents / totalEligibleStudents) * 100)
@@ -482,23 +475,6 @@ export async function getLiveMonitoringData(
             .orderBy(asc(electives.courseCode), asc(electives.name))
         : [];
 
-    // Query waitlist counts per elective
-    const waitlistedChoices = await db
-      .select({
-        electiveId: studentRegistrations.electiveId,
-        count: count(),
-      })
-      .from(studentRegistrations)
-      .where(
-        and(
-          eq(studentRegistrations.eventId, eventId),
-          eq(studentRegistrations.isWaitlisted, true)
-        )
-      )
-      .groupBy(studentRegistrations.electiveId);
-
-    const waitlistCountMap = new Map(waitlistedChoices.map((w) => [w.electiveId, w.count]));
-
     let totalCapacity = 0;
     let filledSeats = 0;
     let availableSeatsTotal = 0;
@@ -527,7 +503,6 @@ export async function getLiveMonitoringData(
         filledSeats: elFilled,
         fillPercentage,
         isFull: isActuallyFull,
-        waitlistCount: waitlistCountMap.get(el.id) || 0,
       };
     });
 
@@ -541,8 +516,7 @@ export async function getLiveMonitoringData(
 
       const secRegs = eventRegistrations.filter((r) => r.userSectionId === sec.id);
       const secConfirmed = secRegs.filter((r) => r.status === "CONFIRMED").length;
-      const secWaitlisted = secRegs.filter((r) => r.status === "WAITLISTED").length;
-      const secUnregistered = Math.max(0, totalSec - secConfirmed - secWaitlisted);
+      const secUnregistered = Math.max(0, totalSec - secConfirmed);
       const secRate = totalSec > 0 ? Math.round((secConfirmed / totalSec) * 100) : 0;
 
       return {
@@ -550,7 +524,6 @@ export async function getLiveMonitoringData(
         sectionName: sec.name,
         totalStudents: totalSec,
         registeredCount: secConfirmed,
-        waitlistedCount: secWaitlisted,
         unregisteredCount: secUnregistered,
         completionRate: secRate,
       };
@@ -619,7 +592,6 @@ export async function getLiveMonitoringData(
           openDate: rawEvent.openDate ? rawEvent.openDate.toISOString() : null,
           closeDate: rawEvent.closeDate ? rawEvent.closeDate.toISOString() : null,
           autoClose: rawEvent.autoClose,
-          enableWaitlist: rawEvent.enableWaitlist,
           allowEditing: rawEvent.allowEditing,
           academicYear: rawEvent.academicYear,
           batchYear: rawEvent.batchYear,
@@ -630,7 +602,6 @@ export async function getLiveMonitoringData(
         kpis: {
           totalEligibleStudents,
           registeredStudents,
-          waitlistedStudents,
           unregisteredStudents,
           completionRate,
           totalCapacity,
@@ -665,14 +636,14 @@ export async function getLiveFeedUpdates(
   data?: {
     newEvents: MonitorActivityItem[];
     kpis: Partial<MonitorKPIs>;
-    latestCourseSeats: Array<{ id: string; availableSeats: number; isFull: boolean; waitlistCount: number }>;
+    latestCourseSeats: Array<{ id: string; availableSeats: number; isFull: boolean }>;
     status: string;
   };
   error?: string;
 }> {
   try {
     const session = await getSession();
-    if (!session) return { success: false, error: "Unauthorized" };
+    if (!isStaff(session)) return { success: false, error: "Unauthorized" };
 
     const [eventRow] = await db
       .select({ status: registrationEvents.status })
@@ -728,11 +699,6 @@ export async function getLiveFeedUpdates(
       .from(registrations)
       .where(and(eq(registrations.eventId, eventId), eq(registrations.status, "CONFIRMED")));
 
-    const [waitlistedRes] = await db
-      .select({ count: count() })
-      .from(registrations)
-      .where(and(eq(registrations.eventId, eventId), eq(registrations.status, "WAITLISTED")));
-
     return {
       success: true,
       data: {
@@ -744,13 +710,11 @@ export async function getLiveFeedUpdates(
         })),
         kpis: {
           registeredStudents: confirmedRes?.count || 0,
-          waitlistedStudents: waitlistedRes?.count || 0,
         },
         latestCourseSeats: freshCourses.map((c) => ({
           id: c.id,
           availableSeats: c.availableSeats,
           isFull: c.isFull || c.availableSeats <= 0,
-          waitlistCount: 0,
         })),
         status: eventRow.status,
       },
@@ -781,7 +745,7 @@ export async function getUnregisteredStudentsList(
 }> {
   try {
     const session = await getSession();
-    if (!session) return { success: false, error: "Unauthorized" };
+    if (!isStaff(session)) return { success: false, error: "Unauthorized" };
 
     // Get event sections
     const evSecs = await db
@@ -833,7 +797,7 @@ export async function getUnregisteredStudentsList(
       .where(
         and(
           eq(registrations.eventId, eventId),
-          inArray(registrations.status, ["CONFIRMED", "WAITLISTED"])
+          eq(registrations.status, "CONFIRMED")
         )
       );
 

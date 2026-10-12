@@ -73,7 +73,7 @@ export function ReplayHubClient({ initialData, userRole }: ReplayHubClientProps)
   const [activityTargetEvent, setActivityTargetEvent] = React.useState<ReplayEventSummary | null>(null);
   const [activityStream, setActivityStream] = React.useState<any[]>([]);
   const [activityLoading, setActivityLoading] = React.useState(false);
-  const [activityFilter, setActivityFilter] = React.useState<"all" | "registered" | "waitlist" | "changes">("all");
+  const [activityFilter, setActivityFilter] = React.useState<"all" | "registered" | "changes">("all");
   const [autoPollActivity, setAutoPollActivity] = React.useState(true);
 
   // Export State
@@ -205,9 +205,6 @@ export function ReplayHubClient({ initialData, userRole }: ReplayHubClientProps)
     if (activityFilter === "registered") {
       return activityStream.filter((a) => a.eventType === "STUDENT_REGISTERED");
     }
-    if (activityFilter === "waitlist") {
-      return activityStream.filter((a) => a.eventType === "WAITLIST_PROMOTED");
-    }
     if (activityFilter === "changes") {
       return activityStream.filter(
         (a) =>
@@ -236,7 +233,7 @@ export function ReplayHubClient({ initialData, userRole }: ReplayHubClientProps)
             </Badge>
           </div>
           <p className="text-fg-muted mt-2 max-w-2xl">
-            Select any registration event to step through timeline submissions, analyze peak rush velocity, review waitlist promotions, and export accredited audit logs.
+            Select any registration event to step through timeline submissions, analyze peak rush velocity, review seat changes, and export accredited audit logs.
           </p>
         </div>
 
@@ -599,7 +596,7 @@ export function ReplayHubClient({ initialData, userRole }: ReplayHubClientProps)
                         </span>
                       ) : (
                         <span className="text-fg-muted text-[11px]">
-                          {event.waitlistedCount > 0 ? `${event.waitlistedCount} waitlisted` : "Direct pick"}
+                          Direct pick
                         </span>
                       )}
                     </div>
@@ -776,11 +773,6 @@ export function ReplayHubClient({ initialData, userRole }: ReplayHubClientProps)
                       <td className="py-4 px-4">
                         <span className="font-mono text-fg font-medium">{event.confirmedCount}</span>
                         <span className="text-xs text-fg-muted ml-1">students</span>
-                        {event.waitlistedCount > 0 && (
-                          <div className="text-xs text-warning-text font-medium mt-0.5">
-                            +{event.waitlistedCount} waitlisted
-                          </div>
-                        )}
                       </td>
 
                       <td className="py-4 px-4 min-w-44">
@@ -893,7 +885,6 @@ export function ReplayHubClient({ initialData, userRole }: ReplayHubClientProps)
                   [
                     { id: "all", label: "All" },
                     { id: "registered", label: "Enroll" },
-                    { id: "waitlist", label: "Waitlist" },
                     { id: "changes", label: "Changes" },
                   ] as const
                 ).map((f) => (
@@ -941,7 +932,6 @@ export function ReplayHubClient({ initialData, userRole }: ReplayHubClientProps)
             ) : (
               filteredActivityStream.map((item) => {
                 const isReg = item.eventType === "STUDENT_REGISTERED";
-                const isWait = item.eventType === "WAITLIST_PROMOTED";
                 const isChange = item.eventType === "STUDENT_CHANGED_CHOICE";
                 const isRelease = item.eventType === "SEAT_RELEASED";
 
@@ -955,8 +945,6 @@ export function ReplayHubClient({ initialData, userRole }: ReplayHubClientProps)
                         className={`px-2 py-0.5 rounded-full font-mono text-[10px] font-medium uppercase ${
                           isReg
                             ? "bg-success/15 text-success-text"
-                            : isWait
-                            ? "bg-purple-500/15 text-purple-400"
                             : isChange
                             ? "bg-primary/15 text-primary-text"
                             : isRelease
