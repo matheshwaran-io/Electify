@@ -12,9 +12,9 @@ import {
   Users,
 } from "lucide-react";
 import {
-  getPendingPinResetsForTutor,
-  authorizeStudentPinReset,
-  rejectStudentPinReset,
+  getPendingPasswordResetsForTutor,
+  authorizeStudentPasswordReset,
+  rejectStudentPasswordReset,
 } from "@/app/actions/tutor";
 import { Dialog, DialogBody, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
@@ -22,7 +22,7 @@ import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
 import { formatDateTime } from "@/lib/format";
 
-type PinResetItem = {
+type PasswordResetItem = {
   id: string;
   studentId: string;
   sectionId: string | null;
@@ -39,7 +39,7 @@ type PinResetItem = {
   sectionLabel: string | null;
 };
 
-export function PinResetQueueModal({
+export function PasswordResetQueueModal({
   open,
   onOpenChange,
   sectionId,
@@ -48,7 +48,7 @@ export function PinResetQueueModal({
   onOpenChange: (open: boolean) => void;
   sectionId?: string;
 }) {
-  const [requests, setRequests] = React.useState<PinResetItem[]>([]);
+  const [requests, setRequests] = React.useState<PasswordResetItem[]>([]);
   const [loading, setLoading] = React.useState(false);
   const [processingId, setProcessingId] = React.useState<string | null>(null);
   const [copiedToken, setCopiedToken] = React.useState<string | null>(null);
@@ -56,10 +56,10 @@ export function PinResetQueueModal({
   const fetchRequests = React.useCallback(async () => {
     setLoading(true);
     try {
-      const data = await getPendingPinResetsForTutor(sectionId);
+      const data = await getPendingPasswordResetsForTutor(sectionId);
       setRequests(data as any);
     } catch (err: any) {
-      toast.error(err.message || "Failed to load PIN reset queue.");
+      toast.error(err.message || "Failed to load password reset queue.");
     } finally {
       setLoading(false);
     }
@@ -74,13 +74,13 @@ export function PinResetQueueModal({
   const handleAuthorize = async (requestId: string) => {
     setProcessingId(requestId);
     try {
-      const res = await authorizeStudentPinReset(requestId);
+      const res = await authorizeStudentPasswordReset(requestId);
       if (res.success) {
         toast.success(`Authorization code generated: ${res.resetToken}`);
         await fetchRequests();
       }
     } catch (err: any) {
-      toast.error(err.message || "Could not authorize PIN reset.");
+      toast.error(err.message || "Could not authorize password reset.");
     } finally {
       setProcessingId(null);
     }
@@ -89,8 +89,8 @@ export function PinResetQueueModal({
   const handleReject = async (requestId: string) => {
     setProcessingId(requestId);
     try {
-      await rejectStudentPinReset(requestId);
-      toast.success("PIN reset request rejected.");
+      await rejectStudentPasswordReset(requestId);
+      toast.success("Password reset request rejected.");
       await fetchRequests();
     } catch (err: any) {
       toast.error(err.message || "Could not reject request.");
@@ -118,9 +118,9 @@ export function PinResetQueueModal({
               <KeyRound className="size-5" />
             </div>
             <div>
-              <DialogTitle>Student PIN Reset Authorization</DialogTitle>
+              <DialogTitle>Student password resets</DialogTitle>
               <DialogDescription>
-                Verify student identity in person or via university communication before authorizing a PIN reset code.
+                Verify student identity in person or via university communication before giving them a password reset code.
               </DialogDescription>
             </div>
           </div>
@@ -134,9 +134,9 @@ export function PinResetQueueModal({
           ) : pendingRequests.length === 0 && authorizedRequests.length === 0 ? (
             <div className="rounded-card border border-border bg-surface-2 p-8 text-center">
               <ShieldCheck className="mx-auto size-10 text-emerald-500 mb-2" />
-              <h4 className="font-medium text-base text-fg">All clear — no pending PIN resets</h4>
+              <h4 className="font-medium text-base text-fg">All clear — no pending password resets</h4>
               <p className="mt-1 text-sm text-fg-muted max-w-sm mx-auto">
-                When students from your section request a PIN reset, they will appear here for verification and authorization.
+                When students from your section request a password reset, they will appear here for verification and authorization.
               </p>
             </div>
           ) : (

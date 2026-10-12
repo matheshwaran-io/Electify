@@ -839,6 +839,7 @@ export function UsersClient({
                     <code className="rounded bg-surface-3 px-1.5 py-0.5 font-mono text-xs font-semibold text-fg">
                       {createType === "STAFF" ? "Welcome@123" : createRegisterNumber.trim() || "<Register Number>"}
                     </code>
+                    {createType === "STAFF" ? null : " Students must choose their own password the first time they sign in."}
                   </span>
                 </div>
               </div>

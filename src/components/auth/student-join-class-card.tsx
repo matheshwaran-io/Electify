@@ -6,24 +6,10 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
 import { AnimatePresence, motion } from "framer-motion";
-import {
-  AlertCircle,
-  ArrowRight,
-  Check,
-  CheckCircle2,
-  Copy,
-  Eye,
-  EyeOff,
-  GraduationCap,
-  KeyRound,
-  Lock,
-  Mail,
-  ShieldAlert,
-  Sparkles,
-  User,
-  Users,
-} from "lucide-react";
+import { AlertCircle, ArrowRight, CheckCircle2, GraduationCap, KeyRound, Mail, ShieldAlert, Sparkles, User } from "lucide-react";
 import { registerStudentWithClassCode, validateClassSignupCode } from "@/app/actions/auth";
+import { normalizeRegisterNumber, passwordProblem, REGISTER_NUMBER_PATTERN } from "@/lib/password-policy";
+import { PasswordChecklist, PasswordInput } from "./password-input";
 import { transition } from "@/lib/motion";
 import { Button } from "@/components/ui/button";
 import { Field, Input } from "@/components/ui/input";
@@ -44,15 +30,16 @@ const studentSignupSchema = z
       ),
     registerNumber: z
       .string()
-      .min(5, "Register number must be at least 5 characters")
-      .regex(/^[A-Za-z0-9]+$/, "Register number must be alphanumeric"),
+      .min(1, "Register number is required")
+      .refine((v) => REGISTER_NUMBER_PATTERN.test(normalizeRegisterNumber(v)), "Register number must be 5–20 letters and digits, e.g. RA2532241010001"),
     name: z.string().min(2, "Full name is required"),
-    pin: z.string().regex(/^\d{6}$/, "PIN must be exactly 6 digits"),
-    confirmPin: z.string().min(1, "Please confirm your 6-digit PIN"),
+    password: z.string().min(1, "Choose a password"),
+    confirmPassword: z.string().min(1, "Please confirm your password"),
   })
-  .refine((data) => data.pin === data.confirmPin, {
-    message: "6-digit PINs do not match",
-    path: ["confirmPin"],
+  .superRefine((data, ctx) => {
+    const problem = passwordProblem(data.password, { registerNumber: data.registerNumber });
+    if (problem) ctx.addIssue({ code: "custom", message: problem, path: ["password"] });
+    else if (data.password !== data.confirmPassword) ctx.addIssue({ code: "custom", message: "Passwords do not match", path: ["confirmPassword"] });
   });
 
 type StudentSignupFormData = z.infer<typeof studentSignupSchema>;
@@ -87,8 +74,6 @@ export function StudentJoinClassCard({
   const [classInfo, setClassInfo] = React.useState<ClassInfo | null>(null);
   const [codeError, setCodeError] = React.useState<string | null>(null);
 
-  const [shownPin, setShownPin] = React.useState(false);
-  const [shownConfirm, setShownConfirm] = React.useState(false);
   const [isSubmitting, setIsSubmitting] = React.useState(false);
   const [formError, setFormError] = React.useState<string | null>(null);
 
@@ -96,6 +81,7 @@ export function StudentJoinClassCard({
     register,
     handleSubmit,
     setValue,
+    watch,
     formState: { errors },
   } = useForm<StudentSignupFormData>({
     resolver: zodResolver(studentSignupSchema),
@@ -103,6 +89,9 @@ export function StudentJoinClassCard({
       code: urlCode,
     },
   });
+
+  const password = watch("password") ?? "";
+  const registerNumber = watch("registerNumber") ?? "";
 
   // Debounced class code verification
   React.useEffect(() => {
@@ -143,10 +132,10 @@ export function StudentJoinClassCard({
       const result = await registerStudentWithClassCode({
         code: data.code,
         email: data.email,
-        registerNumber: data.registerNumber,
+        registerNumber: normalizeRegisterNumber(data.registerNumber),
         name: data.name,
-        pin: data.pin,
-        confirmPin: data.confirmPin,
+        password: data.password,
+        confirmPassword: data.confirmPassword,
       });
 
       if (!result.success) {
@@ -268,7 +257,7 @@ export function StudentJoinClassCard({
           <Input
             type="email"
             inputMode="email"
-            autoComplete="username"
+            autoComplete="email"
             placeholder="jd1234@srmist.edu.in"
             leading={<Mail />}
             disabled={isSubmitting}
@@ -281,6 +270,7 @@ export function StudentJoinClassCard({
         <Field label="University registration number" error={errors.registerNumber?.message}>
           <Input
             type="text"
+            autoComplete="username"
             autoCapitalize="characters"
             spellCheck={false}
             placeholder="e.g. RA2532241010001"
@@ -305,63 +295,25 @@ export function StudentJoinClassCard({
           />
         </Field>
 
-        {/* 6-Digit PIN Fields */}
-        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-          <Field label="Create 6-digit PIN" error={errors.pin?.message}>
-            <Input
-              type={shownPin ? "text" : "password"}
-              inputMode="numeric"
-              maxLength={6}
-              placeholder="••••••"
-              leading={<Lock />}
-              trailing={
-                <button
-                  type="button"
-                  onClick={() => setShownPin((s) => !s)}
-                  className="inline-flex size-9 items-center justify-center text-fg-subtle hover:text-fg"
-                  aria-label={shownPin ? "Hide PIN" : "Show PIN"}
-                >
-                  {shownPin ? <EyeOff className="size-4" /> : <Eye className="size-4" />}
-                </button>
-              }
-              className="font-mono tracking-widest text-center"
-              disabled={isSubmitting}
-              inputSize="lg"
-              {...register("pin")}
-            />
-          </Field>
-
-          <Field label="Confirm 6-digit PIN" error={errors.confirmPin?.message}>
-            <Input
-              type={shownConfirm ? "text" : "password"}
-              inputMode="numeric"
-              maxLength={6}
-              placeholder="••••••"
-              leading={<KeyRound />}
-              trailing={
-                <button
-                  type="button"
-                  onClick={() => setShownConfirm((s) => !s)}
-                  className="inline-flex size-9 items-center justify-center text-fg-subtle hover:text-fg"
-                  aria-label={shownConfirm ? "Hide Confirm PIN" : "Show Confirm PIN"}
-                >
-                  {shownConfirm ? <EyeOff className="size-4" /> : <Eye className="size-4" />}
-                </button>
-              }
-              className="font-mono tracking-widest text-center"
-              disabled={isSubmitting}
-              inputSize="lg"
-              {...register("confirmPin")}
-            />
-          </Field>
+        {/* Password */}
+        <div className="space-y-3">
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+            <Field label="Create password" error={errors.password?.message}>
+              <PasswordInput autoComplete="new-password" disabled={isSubmitting} inputSize="lg" {...register("password")} />
+            </Field>
+            <Field label="Confirm password" error={errors.confirmPassword?.message}>
+              <PasswordInput autoComplete="new-password" revealLabel="confirmation" leading={<KeyRound />} disabled={isSubmitting} inputSize="lg" {...register("confirmPassword")} />
+            </Field>
+          </div>
+          <PasswordChecklist password={password} registerNumber={registerNumber} />
         </div>
 
-        {/* Security Warning Callout */}
+        {/* Security notice */}
         <div className="flex items-start gap-2.5 rounded-control border border-border bg-surface-3/40 p-3 text-xs text-fg-muted">
           <ShieldAlert className="mt-0.5 size-4 shrink-0 text-amber-500" />
           <p>
-            <strong className="font-semibold text-fg">Security notice:</strong> Never share your personal
-            6-digit PIN with your class tutor or another student.
+            <strong className="font-semibold text-fg">Security notice:</strong> You&apos;ll sign in with your register number and this
+            password. Never share it with your class tutor or another student.
           </p>
         </div>
 
@@ -387,14 +339,14 @@ export function StudentJoinClassCard({
               onClick={onSwitchToLogin}
               className="font-medium text-fg underline decoration-border-strong underline-offset-4 hover:decoration-fg"
             >
-              Sign in with your PIN
+              Sign in
             </button>
           ) : (
             <Link
               href="/login"
               className="font-medium text-fg underline decoration-border-strong underline-offset-4 hover:decoration-fg"
             >
-              Sign in with your PIN
+              Sign in
             </Link>
           )}
         </p>

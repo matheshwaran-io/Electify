@@ -3,11 +3,11 @@
 import { useState, useRef, useEffect, useCallback } from "react";
 import { supabase } from "@/lib/supabase";
 import { Download, KeyRound, MoreHorizontal, Pencil, Plus, ShieldCheck, Sparkles, Trash2, Upload, Users } from "lucide-react";
-import { createStudent, importStudentsCSV, updateStudent, deleteStudent, unlockStudentRegistration, deleteMultipleStudentsTutor, deleteAllSectionStudents, getPendingPinResetsForTutor } from "@/app/actions/tutor";
+import { createStudent, importStudentsCSV, updateStudent, deleteStudent, unlockStudentRegistration, deleteMultipleStudentsTutor, deleteAllSectionStudents, getPendingPasswordResetsForTutor } from "@/app/actions/tutor";
 import { useRouter } from "next/navigation";
 import { TutorSectionOnboarding } from "@/components/tutor-section-onboarding";
 import { ClassSignupCodeModal } from "@/components/tutor/class-signup-code-modal";
-import { PinResetQueueModal } from "@/components/tutor/pin-reset-queue-modal";
+import { PasswordResetQueueModal } from "@/components/tutor/password-reset-queue-modal";
 import { toast } from "sonner";
 import { PageHeader } from "@/components/ui/layout";
 import { Badge } from "@/components/ui/badge";
@@ -74,7 +74,7 @@ export function SectionClient({ reportData, session }: { reportData: ReportData;
 
   const refreshPendingResets = useCallback(() => {
     if (session.sectionId) {
-      getPendingPinResetsForTutor(session.sectionId)
+      getPendingPasswordResetsForTutor(session.sectionId)
         .then((reqs) => {
           setPendingResetCount(reqs.filter((r) => r.status === "PENDING").length);
         })
@@ -397,7 +397,7 @@ export function SectionClient({ reportData, session }: { reportData: ReportData;
               onClick={() => setResetModalOpen(true)}
               className="relative"
             >
-              <KeyRound className="size-4" /> PIN Resets
+              <KeyRound className="size-4" /> Password resets
               {pendingResetCount > 0 && (
                 <span className="ml-1.5 inline-flex size-5 items-center justify-center rounded-full bg-danger text-[11px] font-bold text-white animate-pulse">
                   {pendingResetCount}
@@ -488,7 +488,7 @@ export function SectionClient({ reportData, session }: { reportData: ReportData;
             <DialogHeader>
               <DialogTitle>{formMode === "edit" ? "Edit student" : "Add a student"}</DialogTitle>
               <DialogDescription>
-                {formMode === "edit" ? "Update their name, register number or email." : "Their first password is their register number."}
+                {formMode === "edit" ? "Update their name, register number or email." : "They first sign in with their register number as the password, then must choose their own."}
               </DialogDescription>
             </DialogHeader>
             <DialogBody className="space-y-4">
@@ -539,7 +539,7 @@ export function SectionClient({ reportData, session }: { reportData: ReportData;
         sectionId={session.sectionId}
       />
 
-      <PinResetQueueModal
+      <PasswordResetQueueModal
         open={resetModalOpen}
         onOpenChange={(o) => {
           setResetModalOpen(o);

@@ -4,70 +4,66 @@ import * as React from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
-import {
-  AlertCircle,
-  ArrowRight,
-  CheckCircle2,
-  Eye,
-  EyeOff,
-  GraduationCap,
-  KeyRound,
-  Lock,
-  Mail,
-  ShieldCheck,
-} from "lucide-react";
-import { requestStudentPinReset, completeStudentPinReset } from "@/app/actions/auth";
+import { AlertCircle, ArrowRight, CheckCircle2, GraduationCap, KeyRound, ShieldCheck } from "lucide-react";
+import { requestStudentPasswordReset, completeStudentPasswordReset } from "@/app/actions/auth";
+import { normalizeRegisterNumber, passwordProblem, REGISTER_NUMBER_PATTERN } from "@/lib/password-policy";
 import { Button } from "@/components/ui/button";
 import { Field, Input } from "@/components/ui/input";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Dialog, DialogBody, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { toast } from "sonner";
+import { PasswordChecklist, PasswordInput } from "./password-input";
+
+const registerNumberField = z
+  .string()
+  .min(1, "Register number is required")
+  .refine((v) => REGISTER_NUMBER_PATTERN.test(normalizeRegisterNumber(v)), "Enter a valid register number, e.g. RA2532241010001");
 
 const completeSchema = z
   .object({
-    registerNumber: z.string().min(1, "Register number is required"),
-    resetToken: z.string().min(4, "Authorization code is required"),
-    newPin: z.string().regex(/^\d{6}$/, "New PIN must be exactly 6 digits"),
-    confirmPin: z.string().min(1, "Please confirm your new PIN"),
+    registerNumber: registerNumberField,
+    resetToken: z.string().trim().min(4, "Authorization code is required"),
+    newPassword: z.string().min(1, "Choose a new password"),
+    confirmPassword: z.string().min(1, "Please confirm your new password"),
   })
-  .refine((data) => data.newPin === data.confirmPin, {
-    message: "PINs do not match",
-    path: ["confirmPin"],
+  .superRefine((data, ctx) => {
+    const problem = passwordProblem(data.newPassword, { registerNumber: data.registerNumber });
+    if (problem) ctx.addIssue({ code: "custom", message: problem, path: ["newPassword"] });
+    else if (data.newPassword !== data.confirmPassword) ctx.addIssue({ code: "custom", message: "Passwords do not match", path: ["confirmPassword"] });
   });
 
 type CompleteFormData = z.infer<typeof completeSchema>;
 
-export function StudentPinResetModal({
-  open,
-  onOpenChange,
-}: {
-  open: boolean;
-  onOpenChange: (open: boolean) => void;
-}) {
+/** Tutor-authorized password reset: request a code, then use it to set a new password. */
+export function StudentPasswordResetModal({ open, onOpenChange }: { open: boolean; onOpenChange: (open: boolean) => void }) {
   const [tab, setTab] = React.useState<"request" | "complete">("request");
-  const [requestIdentifier, setRequestIdentifier] = React.useState("");
+  const [requestRegisterNumber, setRequestRegisterNumber] = React.useState("");
   const [isRequesting, setIsRequesting] = React.useState(false);
   const [requestSuccessMessage, setRequestSuccessMessage] = React.useState<string | null>(null);
   const [requestError, setRequestError] = React.useState<string | null>(null);
 
   const [isCompleting, setIsCompleting] = React.useState(false);
   const [completeError, setCompleteError] = React.useState<string | null>(null);
-  const [shownPin, setShownPin] = React.useState(false);
-  const [shownConfirm, setShownConfirm] = React.useState(false);
 
   const {
     register,
     handleSubmit,
+    watch,
+    setValue,
     reset: resetCompleteForm,
     formState: { errors: completeErrors },
   } = useForm<CompleteFormData>({
     resolver: zodResolver(completeSchema),
+    defaultValues: { registerNumber: "", resetToken: "", newPassword: "", confirmPassword: "" },
   });
+  const newPassword = watch("newPassword");
+  const completeRegisterNumber = watch("registerNumber");
 
   const handleRequestSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!requestIdentifier.trim()) {
-      setRequestError("Please enter your SRM email or register number.");
+    const registerNumber = normalizeRegisterNumber(requestRegisterNumber);
+    if (!REGISTER_NUMBER_PATTERN.test(registerNumber)) {
+      setRequestError("Enter your register number, e.g. RA2532241010001.");
       return;
     }
 
@@ -76,9 +72,10 @@ export function StudentPinResetModal({
     setRequestSuccessMessage(null);
 
     try {
-      const res = await requestStudentPinReset(requestIdentifier.trim());
+      const res = await requestStudentPasswordReset(registerNumber);
       if (res.success) {
         setRequestSuccessMessage(res.message);
+        setValue("registerNumber", registerNumber);
       } else {
         setRequestError(res.message || "Could not submit reset request.");
       }
@@ -94,19 +91,19 @@ export function StudentPinResetModal({
     setCompleteError(null);
 
     try {
-      const res = await completeStudentPinReset({
-        registerNumber: data.registerNumber.trim().toUpperCase(),
+      const res = await completeStudentPasswordReset({
+        registerNumber: normalizeRegisterNumber(data.registerNumber),
         resetToken: data.resetToken.trim().toUpperCase(),
-        newPin: data.newPin.trim(),
-        confirmPin: data.confirmPin.trim(),
+        newPassword: data.newPassword,
+        confirmPassword: data.confirmPassword,
       });
 
       if (res.success) {
-        toast.success(res.message || "PIN updated successfully! You can now sign in.");
+        toast.success(res.message || "Password updated. You can now sign in.");
         onOpenChange(false);
         resetCompleteForm();
       } else {
-        setCompleteError(res.error || "Failed to complete PIN reset.");
+        setCompleteError(res.error || "Failed to reset your password.");
       }
     } catch {
       setCompleteError("Server connection error. Please try again.");
@@ -124,26 +121,24 @@ export function StudentPinResetModal({
               <ShieldCheck className="size-5" />
             </div>
             <div>
-              <DialogTitle>Reset your 6-digit PIN</DialogTitle>
-              <DialogDescription>
-                University security policy requires class tutor authorization to reset student credentials.
-              </DialogDescription>
+              <DialogTitle>Reset your password</DialogTitle>
+              <DialogDescription>Your class tutor confirms it&apos;s you before you can choose a new password.</DialogDescription>
             </div>
           </div>
         </DialogHeader>
 
         <DialogBody className="space-y-5 pt-2">
-          <Tabs value={tab} onValueChange={(v) => setTab(v as any)} className="w-full">
+          <Tabs value={tab} onValueChange={(v) => setTab(v as "request" | "complete")} className="w-full">
             <TabsList variant="pill" className="grid w-full grid-cols-2">
-              <TabsTrigger value="request">1. Request authorization</TabsTrigger>
-              <TabsTrigger value="complete">2. Enter code & new PIN</TabsTrigger>
+              <TabsTrigger value="request">1. Ask your tutor</TabsTrigger>
+              <TabsTrigger value="complete">2. Set new password</TabsTrigger>
             </TabsList>
           </Tabs>
 
           {tab === "request" ? (
-            <form onSubmit={handleRequestSubmit} className="space-y-4">
+            <form onSubmit={handleRequestSubmit} className="space-y-4" noValidate>
               <p className="text-sm text-fg-muted">
-                Submit a reset request to your assigned class tutor. Your tutor will verify your identity and give you an authorization code.
+                Send a reset request to your class tutor. They&apos;ll check it&apos;s you and give you an authorization code.
               </p>
 
               {requestError && (
@@ -154,53 +149,42 @@ export function StudentPinResetModal({
               )}
 
               {requestSuccessMessage ? (
-                <div className="space-y-3 rounded-control border border-brand/20 bg-brand/5 p-4 text-sm text-fg">
-                  <div className="flex items-center gap-2 text-brand font-semibold">
-                    <CheckCircle2 className="size-4" /> Request Submitted
+                <div role="status" className="space-y-3 rounded-control border border-brand/20 bg-brand/5 p-4 text-sm text-fg">
+                  <div className="flex items-center gap-2 font-semibold text-brand">
+                    <CheckCircle2 className="size-4" /> Request sent
                   </div>
-                  <p className="text-fg-muted text-xs leading-relaxed">{requestSuccessMessage}</p>
-                  <Button
-                    type="button"
-                    variant="brand"
-                    size="sm"
-                    className="w-full mt-2"
-                    onClick={() => setTab("complete")}
-                  >
+                  <p className="text-xs leading-relaxed text-fg-muted">{requestSuccessMessage}</p>
+                  <Button type="button" variant="brand" size="sm" className="mt-2 w-full" onClick={() => setTab("complete")}>
                     I have my authorization code <ArrowRight className="size-3.5" />
                   </Button>
                 </div>
               ) : (
                 <>
-                  <Field label="SRM email or register number">
+                  <Field label="Register number">
                     <Input
                       type="text"
-                      value={requestIdentifier}
-                      onChange={(e) => setRequestIdentifier(e.target.value)}
-                      placeholder="e.g. RA2532241010001 or jd1234@srmist.edu.in"
-                      leading={<Mail />}
+                      value={requestRegisterNumber}
+                      onChange={(e) => setRequestRegisterNumber(e.target.value)}
+                      placeholder="e.g. RA2532241010001"
+                      autoComplete="username"
+                      autoCapitalize="characters"
+                      spellCheck={false}
+                      className="font-mono tracking-wide"
+                      leading={<GraduationCap />}
                       disabled={isRequesting}
                       inputSize="lg"
                     />
                   </Field>
 
-                  <Button
-                    type="submit"
-                    variant="brand"
-                    size="lg"
-                    className="w-full"
-                    loading={isRequesting}
-                    loadingText="Sending request..."
-                  >
+                  <Button type="submit" variant="brand" size="lg" className="w-full" loading={isRequesting} loadingText="Sending request">
                     Notify class tutor
                   </Button>
                 </>
               )}
             </form>
           ) : (
-            <form onSubmit={handleSubmit(handleCompleteSubmit)} className="space-y-4">
-              <p className="text-sm text-fg-muted">
-                Enter your university register number, the 6-character code provided by your tutor, and choose a new personal PIN.
-              </p>
+            <form onSubmit={handleSubmit(handleCompleteSubmit)} className="space-y-4" noValidate>
+              <p className="text-sm text-fg-muted">Enter your register number, the code from your tutor, and a new password.</p>
 
               {completeError && (
                 <div role="alert" className="flex items-start gap-2 rounded-control border border-danger/25 bg-danger/8 p-3 text-sm text-danger-text">
@@ -209,11 +193,13 @@ export function StudentPinResetModal({
                 </div>
               )}
 
-              <Field label="University register number" error={completeErrors.registerNumber?.message}>
+              <Field label="Register number" error={completeErrors.registerNumber?.message}>
                 <Input
                   type="text"
                   placeholder="e.g. RA2532241010001"
+                  autoComplete="username"
                   autoCapitalize="characters"
+                  spellCheck={false}
                   className="font-mono tracking-wide uppercase"
                   leading={<GraduationCap />}
                   disabled={isCompleting}
@@ -225,9 +211,11 @@ export function StudentPinResetModal({
               <Field label="Tutor authorization code" error={completeErrors.resetToken?.message}>
                 <Input
                   type="text"
-                  placeholder="e.g. RST-7X9K"
+                  placeholder="e.g. RST-7X9K2M"
+                  autoComplete="one-time-code"
                   autoCapitalize="characters"
-                  className="font-mono tracking-widest text-center uppercase"
+                  spellCheck={false}
+                  className="font-mono uppercase tracking-widest"
                   leading={<KeyRound />}
                   disabled={isCompleting}
                   inputSize="lg"
@@ -235,63 +223,20 @@ export function StudentPinResetModal({
                 />
               </Field>
 
-              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-                <Field label="New 6-digit PIN" error={completeErrors.newPin?.message}>
-                  <Input
-                    type={shownPin ? "text" : "password"}
-                    inputMode="numeric"
-                    maxLength={6}
-                    placeholder="••••••"
-                    leading={<Lock />}
-                    trailing={
-                      <button
-                        type="button"
-                        onClick={() => setShownPin((s) => !s)}
-                        className="inline-flex size-9 items-center justify-center text-fg-subtle hover:text-fg"
-                      >
-                        {shownPin ? <EyeOff className="size-4" /> : <Eye className="size-4" />}
-                      </button>
-                    }
-                    className="font-mono tracking-widest text-center"
-                    disabled={isCompleting}
-                    inputSize="lg"
-                    {...register("newPin")}
-                  />
-                </Field>
-
-                <Field label="Confirm new PIN" error={completeErrors.confirmPin?.message}>
-                  <Input
-                    type={shownConfirm ? "text" : "password"}
-                    inputMode="numeric"
-                    maxLength={6}
-                    placeholder="••••••"
-                    leading={<KeyRound />}
-                    trailing={
-                      <button
-                        type="button"
-                        onClick={() => setShownConfirm((s) => !s)}
-                        className="inline-flex size-9 items-center justify-center text-fg-subtle hover:text-fg"
-                      >
-                        {shownConfirm ? <EyeOff className="size-4" /> : <Eye className="size-4" />}
-                      </button>
-                    }
-                    className="font-mono tracking-widest text-center"
-                    disabled={isCompleting}
-                    inputSize="lg"
-                    {...register("confirmPin")}
-                  />
-                </Field>
+              <div className="space-y-3">
+                <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                  <Field label="New password" error={completeErrors.newPassword?.message}>
+                    <PasswordInput autoComplete="new-password" revealLabel="new password" disabled={isCompleting} inputSize="lg" {...register("newPassword")} />
+                  </Field>
+                  <Field label="Confirm new password" error={completeErrors.confirmPassword?.message}>
+                    <PasswordInput autoComplete="new-password" revealLabel="confirmation" disabled={isCompleting} inputSize="lg" {...register("confirmPassword")} />
+                  </Field>
+                </div>
+                <PasswordChecklist password={newPassword} registerNumber={completeRegisterNumber} />
               </div>
 
-              <Button
-                type="submit"
-                variant="brand"
-                size="lg"
-                className="w-full mt-2"
-                loading={isCompleting}
-                loadingText="Updating PIN..."
-              >
-                Update PIN & sign in
+              <Button type="submit" variant="brand" size="lg" className="mt-2 w-full" loading={isCompleting} loadingText="Updating password">
+                Update password
               </Button>
             </form>
           )}
