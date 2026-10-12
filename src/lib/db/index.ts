@@ -70,11 +70,31 @@ export async function ensureDatabaseReady(): Promise<void> {
             ALTER TABLE "registration_events" ADD COLUMN IF NOT EXISTS "enable_waitlist" boolean DEFAULT false NOT NULL;
           END IF;
 
-          -- Ensure student_registrations has waitlist columns
+          -- Ensure student_registrations has waitlist and status columns
           IF EXISTS (SELECT FROM pg_tables WHERE schemaname = 'public' AND tablename = 'student_registrations') THEN
             ALTER TABLE "student_registrations" ADD COLUMN IF NOT EXISTS "is_waitlisted" boolean DEFAULT false NOT NULL;
             ALTER TABLE "student_registrations" ADD COLUMN IF NOT EXISTS "waitlist_position" integer;
+            ALTER TABLE "student_registrations" ADD COLUMN IF NOT EXISTS "status" text DEFAULT 'CONFIRMED' NOT NULL;
+            CREATE INDEX IF NOT EXISTS "studentRegistrations_status_idx" ON "student_registrations" ("status");
           END IF;
+
+          -- Ensure pin_reset_requests table exists for tutor-authorized student PIN reset flow
+          CREATE TABLE IF NOT EXISTS "pin_reset_requests" (
+            "id" uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+            "student_id" uuid NOT NULL REFERENCES "users"("id") ON DELETE CASCADE,
+            "section_id" uuid REFERENCES "sections"("id") ON DELETE CASCADE,
+            "tutor_id" uuid REFERENCES "users"("id") ON DELETE SET NULL,
+            "status" text DEFAULT 'PENDING' NOT NULL,
+            "reset_token" text UNIQUE,
+            "token_expires_at" timestamp,
+            "authorized_at" timestamp,
+            "completed_at" timestamp,
+            "created_at" timestamp DEFAULT now() NOT NULL,
+            "updated_at" timestamp DEFAULT now() NOT NULL
+          );
+          CREATE INDEX IF NOT EXISTS "pinResetRequests_student_idx" ON "pin_reset_requests" ("student_id");
+          CREATE INDEX IF NOT EXISTS "pinResetRequests_section_idx" ON "pin_reset_requests" ("section_id");
+          CREATE INDEX IF NOT EXISTS "pinResetRequests_status_idx" ON "pin_reset_requests" ("status");
         END $$;
       `);
     } catch (err) {

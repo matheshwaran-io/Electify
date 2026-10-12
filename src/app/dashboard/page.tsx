@@ -70,7 +70,7 @@ export default async function StudentDashboardRouterPage() {
   const hasSubmitted = userRegistration?.status === "CONFIRMED" || userRegistration?.status === "WAITLISTED";
 
   if (hasSubmitted) {
-    redirect("/dashboard/success");
+    redirect("/dashboard/my-registration");
   }
 
   // ── Time-based checks (openDate/closeDate are the source of truth) ──

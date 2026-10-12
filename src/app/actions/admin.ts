@@ -10,6 +10,7 @@ import {
 import { getSession } from "@/lib/auth";
 import { eq, desc, count, asc, or, inArray, sql, and } from "drizzle-orm";
 import * as bcrypt from "bcryptjs";
+import { generateRoleBasedCode, type InviteRole } from "@/lib/invites";
 
 async function assertAdmin() {
   const session = await getSession();
@@ -257,10 +258,11 @@ export async function toggleMaintenanceMode(enabled: boolean) {
     .where(eq(systemSettings.id, "system"));
 }
 
-// ── Invite Codes (Create / Revoke) ───────────────────────────────────────────
+// ── Invite Codes (Create / Revoke / Delete) ───────────────────────────────────────────
 
 export async function createInviteCode(formData: {
-  role: "COURSE_COORDINATOR" | "CLASS_TUTOR";
+  role: InviteRole;
+  customCode?: string;
   facultyId?: string;
   departmentId?: string;
   programmeId?: string;
@@ -270,8 +272,47 @@ export async function createInviteCode(formData: {
 }) {
   const session = await assertAdmin();
 
-  // Generate a random 8-char alphanumeric code
-  const code = Math.random().toString(36).substring(2, 10).toUpperCase();
+  let code = formData.customCode?.trim().toUpperCase();
+
+  if (code) {
+    // Sanitize custom code: ensure alphanumeric and hyphens only
+    code = code.replace(/[^A-Z0-9-]/g, "");
+    if (code.length < 4) {
+      throw new Error("Custom invite code must be at least 4 characters long.");
+    }
+
+    const [existing] = await db
+      .select({ id: inviteCodes.id })
+      .from(inviteCodes)
+      .where(eq(inviteCodes.code, code))
+      .limit(1);
+
+    if (existing) {
+      throw new Error(`Invite code "${code}" already exists.`);
+    }
+  } else {
+    // Generate unique role-based code: e.g. FAC-2026-XXXX, COORD-2026-XXXX, ADM-2026-XXXX
+    let uniqueFound = false;
+    let attempts = 0;
+    while (!uniqueFound && attempts < 15) {
+      attempts++;
+      const candidate = generateRoleBasedCode(formData.role);
+      const [existing] = await db
+        .select({ id: inviteCodes.id })
+        .from(inviteCodes)
+        .where(eq(inviteCodes.code, candidate))
+        .limit(1);
+
+      if (!existing) {
+        code = candidate;
+        uniqueFound = true;
+      }
+    }
+
+    if (!code) {
+      throw new Error("Failed to generate unique invite code. Please try again.");
+    }
+  }
 
   const expiresAt = new Date();
   expiresAt.setDate(expiresAt.getDate() + formData.expiresInDays);
@@ -297,6 +338,13 @@ export async function createInviteCode(formData: {
     newValue: { code, role: formData.role },
   });
 
+  try {
+    const { revalidatePath } = await import("next/cache");
+    revalidatePath("/faculty/invites");
+  } catch {
+    // Non-HTTP / test context safe
+  }
+
   return { code };
 }
 
@@ -315,6 +363,44 @@ export async function revokeInviteCode(id: string) {
     userRole: session.role,
     metadata: { inviteCodeId: id },
   });
+
+  try {
+    const { revalidatePath } = await import("next/cache");
+    revalidatePath("/faculty/invites");
+  } catch {
+    // Non-HTTP / test context safe
+  }
+}
+
+export async function deleteInviteCode(id: string) {
+  const session = await assertAdmin();
+
+  const [invite] = await db
+    .select()
+    .from(inviteCodes)
+    .where(eq(inviteCodes.id, id))
+    .limit(1);
+
+  if (!invite) throw new Error("Invite code not found.");
+
+  await db.delete(inviteCodes).where(eq(inviteCodes.id, id));
+
+  await db.insert(auditLogs).values({
+    action: "INVITE_CODE_DELETED",
+    userId: session.userId,
+    userEmail: session.email,
+    userRole: session.role,
+    metadata: { inviteCodeId: id, code: invite.code, role: invite.role },
+  });
+
+  try {
+    const { revalidatePath } = await import("next/cache");
+    revalidatePath("/faculty/invites");
+  } catch {
+    // Non-HTTP / test context safe
+  }
+
+  return { success: true };
 }
 
 // ── Tutor Section Management ────────────────────────────────────────────────

@@ -1,4 +1,3 @@
-import type { LucideIcon } from "lucide-react"
 import {
   Activity,
   BookOpen,
@@ -12,9 +11,11 @@ import {
   LayoutDashboard,
   Layers,
   Mail,
+  Radio,
   Settings,
   ShieldCheck,
   Users,
+  type LucideIcon,
 } from "lucide-react"
 
 export type Role = "SYSTEM_ADMIN" | "COURSE_COORDINATOR" | "CLASS_TUTOR" | "STUDENT"
@@ -37,12 +38,13 @@ export type NavGroup = { label: string; items: NavItem[] }
  */
 export function buildNav(role: Role, workspace: string): NavGroup[] {
   const dashboard: NavItem = { label: "Dashboard", href: "/faculty/dashboard", icon: LayoutDashboard, key: "d", primary: true }
+  const liveMonitor: NavItem = { label: "Live monitor", href: "/faculty/monitor", icon: Radio, key: "l", primary: true }
   const replay: NavItem = { label: "Replay", href: "/faculty/replay", icon: History, key: "p" }
   const database: NavItem = { label: "Database", href: "/faculty/database", icon: Database, key: "b" }
 
   if (role === "SYSTEM_ADMIN") {
     return [
-      { label: "Session control", items: [dashboard, replay] },
+      { label: "Session control", items: [dashboard, liveMonitor, replay] },
       {
         label: "Academic registry",
         items: [
@@ -67,7 +69,12 @@ export function buildNav(role: Role, workspace: string): NavGroup[] {
   const tutorGroups: NavGroup[] = [
     {
       label: "Session control",
-      items: [dashboard, { label: "Live window", href: "/faculty/window", icon: Activity, key: "w", primary: true }, replay],
+      items: [
+        dashboard,
+        liveMonitor,
+        { label: "Live window", href: "/faculty/window", icon: Activity, key: "w" },
+        replay,
+      ],
     },
     {
       label: "Academic registry",
@@ -89,6 +96,7 @@ export function buildNav(role: Role, workspace: string): NavGroup[] {
         label: "Session control",
         items: [
           dashboard,
+          liveMonitor,
           { label: "Live window", href: "/faculty/window", icon: Activity, key: "w" },
           replay,
         ],
@@ -110,7 +118,7 @@ export function buildNav(role: Role, workspace: string): NavGroup[] {
     ]
   }
 
-  return [{ label: "Session control", items: [dashboard] }]
+  return [{ label: "Session control", items: [dashboard, liveMonitor] }]
 }
 
 export function isActive(pathname: string, href: string) {

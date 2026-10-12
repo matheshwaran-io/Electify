@@ -1,11 +1,13 @@
 "use client";
 
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, useCallback } from "react";
 import { supabase } from "@/lib/supabase";
-import { Download, MoreHorizontal, Pencil, Plus, ShieldCheck, Trash2, Upload, Users } from "lucide-react";
-import { createStudent, importStudentsCSV, updateStudent, deleteStudent, unlockStudentRegistration, deleteMultipleStudentsTutor, deleteAllSectionStudents } from "@/app/actions/tutor";
+import { Download, KeyRound, MoreHorizontal, Pencil, Plus, ShieldCheck, Sparkles, Trash2, Upload, Users } from "lucide-react";
+import { createStudent, importStudentsCSV, updateStudent, deleteStudent, unlockStudentRegistration, deleteMultipleStudentsTutor, deleteAllSectionStudents, getPendingPinResetsForTutor } from "@/app/actions/tutor";
 import { useRouter } from "next/navigation";
 import { TutorSectionOnboarding } from "@/components/tutor-section-onboarding";
+import { ClassSignupCodeModal } from "@/components/tutor/class-signup-code-modal";
+import { PinResetQueueModal } from "@/components/tutor/pin-reset-queue-modal";
 import { toast } from "sonner";
 import { PageHeader } from "@/components/ui/layout";
 import { Badge } from "@/components/ui/badge";
@@ -66,6 +68,23 @@ export function SectionClient({ reportData, session }: { reportData: ReportData;
   const [pending, setPending] = useState<Pending | null>(null);
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [onlineUserIds, setOnlineUserIds] = useState<Set<string>>(new Set());
+  const [codeModalOpen, setCodeModalOpen] = useState(false);
+  const [resetModalOpen, setResetModalOpen] = useState(false);
+  const [pendingResetCount, setPendingResetCount] = useState(0);
+
+  const refreshPendingResets = useCallback(() => {
+    if (session.sectionId) {
+      getPendingPinResetsForTutor(session.sectionId)
+        .then((reqs) => {
+          setPendingResetCount(reqs.filter((r) => r.status === "PENDING").length);
+        })
+        .catch(() => {});
+    }
+  }, [session.sectionId]);
+
+  useEffect(() => {
+    refreshPendingResets();
+  }, [refreshPendingResets]);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
   const router = useRouter();
@@ -370,6 +389,21 @@ export function SectionClient({ reportData, session }: { reportData: ReportData;
         description="Students, their submissions and who is online right now."
         actions={
           <>
+            <Button variant="brand" onClick={() => setCodeModalOpen(true)}>
+              <Sparkles className="size-4" /> Class Signup Code
+            </Button>
+            <Button
+              variant="secondary"
+              onClick={() => setResetModalOpen(true)}
+              className="relative"
+            >
+              <KeyRound className="size-4" /> PIN Resets
+              {pendingResetCount > 0 && (
+                <span className="ml-1.5 inline-flex size-5 items-center justify-center rounded-full bg-danger text-[11px] font-bold text-white animate-pulse">
+                  {pendingResetCount}
+                </span>
+              )}
+            </Button>
             <Button onClick={openAddModal}>
               <Plus /> Add student
             </Button>
@@ -497,6 +531,21 @@ export function SectionClient({ reportData, session }: { reportData: ReportData;
         requireText={confirmCopy.requireText}
         confirmLabel={confirmCopy.label}
         onConfirm={runPending}
+      />
+
+      <ClassSignupCodeModal
+        open={codeModalOpen}
+        onOpenChange={setCodeModalOpen}
+        sectionId={session.sectionId}
+      />
+
+      <PinResetQueueModal
+        open={resetModalOpen}
+        onOpenChange={(o) => {
+          setResetModalOpen(o);
+          if (!o) refreshPendingResets();
+        }}
+        sectionId={session.sectionId}
       />
     </div>
   );

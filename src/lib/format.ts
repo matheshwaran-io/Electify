@@ -66,3 +66,18 @@ export function humanizeEnum(value: string) {
   const s = value.replace(/_/g, " ").toLowerCase()
   return s.charAt(0).toUpperCase() + s.slice(1)
 }
+
+/** Formats a timestamp into relative time: "just now", "12s ago", "4m ago", etc. */
+export function formatTimeAgo(d: DateInput): string {
+  const date = toDate(d)
+  if (!date) return ""
+  const diffSec = Math.max(0, Math.floor((Date.now() - date.getTime()) / 1000))
+  if (diffSec < 5) return "just now"
+  if (diffSec < 60) return `${diffSec}s ago`
+  const diffMin = Math.floor(diffSec / 60)
+  if (diffMin < 60) return `${diffMin}m ago`
+  const diffHour = Math.floor(diffMin / 60)
+  if (diffHour < 24) return `${diffHour}h ago`
+  const diffDays = Math.floor(diffHour / 24)
+  return `${diffDays}d ago`
+}

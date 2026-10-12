@@ -1,8 +1,9 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { Info, Save, Pause, Play, RotateCcw } from "lucide-react";
+import { Info, Save, Pause, Play, RotateCcw, Trash2 } from "lucide-react";
 import { updateWindowTimers, toggleWindowStatus } from "@/app/actions/tutor";
+import { deleteRegistrationEvent, resetRegistrationEvent } from "@/app/actions/coordinator";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -10,6 +11,7 @@ import { Field, Input } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
 import { Tooltip } from "@/components/ui/tooltip";
 import { Badge } from "@/components/ui/badge";
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import type { WindowEvent } from "./types";
 
 /**
@@ -134,7 +136,42 @@ export function ConfigurationCard({ event }: { event: WindowEvent }) {
     }
   }
 
-  const isBusy = isSaving || isUpdatingStatus;
+  const [resetConfirmOpen, setResetConfirmOpen] = useState(false);
+  const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
+  const [isResetting, setIsResetting] = useState(false);
+
+  async function handleResetEvent() {
+    setIsResetting(true);
+    try {
+      await resetRegistrationEvent(event.id);
+      toast.success(`Reset registrations for "${event.name}". All student choices cleared.`);
+      router.refresh();
+    } catch (err: any) {
+      const msg = err?.message || "Failed to reset event";
+      toast.error(msg);
+      throw err;
+    } finally {
+      setIsResetting(false);
+    }
+  }
+
+  async function handleDeleteEvent() {
+    setIsDeleting(true);
+    try {
+      await deleteRegistrationEvent(event.id);
+      toast.success(`Deleted event "${event.name}" successfully.`);
+      router.push("/faculty/events");
+    } catch (err: any) {
+      const msg = err?.message || "Failed to delete event";
+      toast.error(msg);
+      throw err;
+    } finally {
+      setIsDeleting(false);
+    }
+  }
+
+  const isBusy = isSaving || isUpdatingStatus || isResetting || isDeleting;
 
   return (
     <section
@@ -164,6 +201,17 @@ export function ConfigurationCard({ event }: { event: WindowEvent }) {
       </div>
 
       <div className="flex-1 space-y-4 px-4 py-4 sm:px-5">
+        {event.groupCount === 0 && (
+          <div className="rounded-control bg-warning/10 border border-warning/25 p-3 text-xs text-warning-text flex items-start gap-2">
+            <Info className="size-4 shrink-0 mt-0.5" />
+            <div>
+              <span className="font-medium">No elective baskets configured.</span>
+              <p className="mt-0.5 text-fg-muted">
+                Use an <a href="/faculty/templates" className="text-primary-text underline font-medium">Event Template</a> or visit <a href="/faculty/electives" className="text-primary-text underline font-medium">Electives</a> to populate course baskets before opening the window.
+              </p>
+            </div>
+          </div>
+        )}
         <Field label="Portal opens">
           <Input
             type="datetime-local"
@@ -247,12 +295,77 @@ export function ConfigurationCard({ event }: { event: WindowEvent }) {
           onClick={handleSave}
           loading={isSaving}
           loadingText="Saving"
-          disabled={invalidRange || isUpdatingStatus}
+          disabled={invalidRange || isUpdatingStatus || isResetting || isDeleting}
           className="w-full"
         >
           <Save /> Save settings
         </Button>
+
+        {/* Danger Zone: Reset Data & Delete Event */}
+        <div className="pt-2.5 mt-1 border-t border-border">
+          <p className="text-[11px] font-semibold uppercase tracking-wider text-fg-subtle mb-2">
+            Event Controls
+          </p>
+          <div className="grid grid-cols-2 gap-2">
+            <Button
+              type="button"
+              variant="destructive-soft"
+              size="sm"
+              onClick={() => setResetConfirmOpen(true)}
+              disabled={isBusy}
+              loading={isResetting}
+              className="w-full text-xs"
+            >
+              <RotateCcw className="size-3.5" /> Reset data
+            </Button>
+            <Button
+              type="button"
+              variant="destructive-soft"
+              size="sm"
+              onClick={() => setDeleteConfirmOpen(true)}
+              disabled={isBusy}
+              loading={isDeleting}
+              className="w-full text-xs text-danger-text hover:bg-danger/10 hover:border-danger/25"
+            >
+              <Trash2 className="size-3.5" /> Delete event
+            </Button>
+          </div>
+        </div>
       </div>
+
+      {/* Reset Confirmation Dialog */}
+      <ConfirmDialog
+        open={resetConfirmOpen}
+        onOpenChange={setResetConfirmOpen}
+        tone="danger"
+        title="Reset event registrations?"
+        description="Every registration for this window will be deleted and seat quotas restored to maximum. Students must select their electives again. This action cannot be reversed."
+        impact={[
+          { label: "Event", value: event.name },
+          { label: "Status", value: event.status },
+          { label: "Registrations", value: "All student choices cleared", tone: "danger" },
+        ]}
+        requireText="RESET"
+        confirmLabel="Reset registrations"
+        onConfirm={handleResetEvent}
+      />
+
+      {/* Delete Confirmation Dialog */}
+      <ConfirmDialog
+        open={deleteConfirmOpen}
+        onOpenChange={setDeleteConfirmOpen}
+        tone="danger"
+        title="Permanently delete this event?"
+        description="This will permanently delete this registration event along with all configured elective baskets, subject quotas, student choices, and audit replay history."
+        impact={[
+          { label: "Event", value: event.name },
+          { label: "Status", value: event.status },
+          { label: "Allocations & Logs", value: "Permanently purged", tone: "danger" },
+        ]}
+        requireText="DELETE"
+        confirmLabel="Delete event permanently"
+        onConfirm={handleDeleteEvent}
+      />
     </section>
   );
 }
