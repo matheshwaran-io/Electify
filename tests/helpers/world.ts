@@ -56,13 +56,14 @@ export type World = {
 
 const HOUR = 3600_000;
 
-/** Test academic sessions use years no real deployment will have. */
-export const TEST_SESSION_START = 2091;
+/** Test academic sessions default to the active session year (2026). */
+export const TEST_SESSION_START = 2026;
 
-/** Gets or creates an academic session; shared between test files, never deleted while in use. */
+/** Gets or creates an academic session; reuses the existing session if present. */
 export async function testAcademicSession(startYear = TEST_SESSION_START) {
-  await db.insert(academicSessions).values({ startYear, endYear: startYear + 1, status: "ACTIVE" }).onConflictDoNothing();
-  const [row] = await db.select().from(academicSessions).where(eq(academicSessions.startYear, startYear));
+  const [existing] = await db.select().from(academicSessions).where(eq(academicSessions.startYear, startYear));
+  if (existing) return existing;
+  const [row] = await db.insert(academicSessions).values({ startYear, endYear: startYear + 1, status: "ACTIVE" }).returning();
   return row;
 }
 

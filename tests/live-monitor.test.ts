@@ -205,7 +205,7 @@ describe("Live Event Registration Monitor & Surveillance Module", () => {
         name: "Live Monitor Test Registration 2026",
         academicBatchId: batchId,
         academicSessionId: academicSession.id,
-        academicYear: "2091–2092",
+        academicYear: "2026–2027",
         status: "OPEN",
         createdById: coordinatorUser.id,
       })

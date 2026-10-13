@@ -219,6 +219,8 @@ async function startSession(user: AuthUser) {
     } else {
       cookieStore.delete("electify_active_section");
     }
+    // Clear previously chosen academic session cookie so staff select fresh
+    cookieStore.delete("electify_academic_session");
   } catch {
     // Handled in test or script execution
   }

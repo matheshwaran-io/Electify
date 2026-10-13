@@ -1202,8 +1202,11 @@ export async function getAllAvailableSections() {
     .where(
       and(
         assignedIds.length > 0 ? notInArray(sections.id, assignedIds) : undefined,
-        session.programmeId ? eq(programmes.id, session.programmeId) : undefined,
-        session.departmentId && !session.programmeId ? eq(programmes.departmentId, session.departmentId) : undefined
+        session.departmentId
+          ? eq(programmes.departmentId, session.departmentId)
+          : session.programmeId
+            ? eq(programmes.id, session.programmeId)
+            : undefined
       )
     )
     .orderBy(programmes.name, academicBatches.year, sections.label);
