@@ -1,0 +1,12 @@
+name|max_seats|available_seats|confirmed
+Cloud Computing|30|15|15
+Cyber Security|16|8|8
+Data Science and Analytics|30|15|15
+Digital Marketing|40|21|19
+Entrepreneurship Development|40|23|17
+Full Stack Web Development|24|14|10
+Organisational Behaviour|20|9|11
+Python for Data Analysis|35|35|0
+UI/UX Fundamentals|35|35|0
+(9 rows)
+2026-10-13 11:48:59 IST

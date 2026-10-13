@@ -114,7 +114,7 @@ export function SectionSwitcher({
       ) : (
         trigger
       )}
-      <PopoverContent side={collapsed ? "right" : "bottom"} className="w-72 p-0">
+      <PopoverContent side={collapsed ? "right" : "bottom"} className="w-84 sm:w-96 p-0 shadow-lg">
         {sections.length > 4 ? (
           <div className="flex items-center gap-2 border-b border-border px-3">
             <Search className="size-4 text-fg-subtle" />
@@ -122,20 +122,20 @@ export function SectionSwitcher({
               autoFocus
               value={query}
               onChange={(e) => setQuery(e.target.value)}
-              placeholder="Find a class"
+              placeholder="Find a class by programme, year or section..."
               aria-label="Find a class"
               className="h-10 flex-1 bg-transparent text-sm outline-none placeholder:text-fg-subtle"
             />
           </div>
         ) : null}
-        <div role="listbox" aria-label="Your classes in this academic session" className="max-h-72 overflow-y-auto p-1">
+        <div role="listbox" aria-label="Your classes in this academic session" className="max-h-72 overflow-y-auto p-1.5 space-y-0.5">
           {filtered.length === 0 ? <p className="px-3 py-6 text-center text-sm text-fg-muted">No classes match</p> : null}
           {filtered.map((s) => {
             const isActive = s.id === active.id
             return (
               <div
                 key={s.id}
-                className="group/item flex w-full items-center gap-2 rounded-control px-2.5 py-1.5 hover:bg-surface-2"
+                className="group/item flex w-full items-center gap-2 rounded-control px-2.5 py-2 hover:bg-surface-2 transition-colors"
               >
                 <button
                   type="button"
@@ -148,12 +148,12 @@ export function SectionSwitcher({
                   }}
                   className="flex min-w-0 flex-1 items-center gap-3 text-left disabled:opacity-60"
                 >
-                  <span className="inline-flex size-7 shrink-0 items-center justify-center rounded-badge border border-border font-mono text-xs font-medium">
+                  <span className="inline-flex size-8 shrink-0 items-center justify-center rounded-badge border border-border bg-surface-2 font-mono text-xs font-semibold text-fg">
                     {target === s.id ? <Spinner className="size-3.5" /> : s.label}
                   </span>
                   <span className="min-w-0 flex-1">
-                    <span className="block truncate text-sm font-medium text-fg">{sectionName(s)}</span>
-                    <span className="block truncate text-xs text-fg-muted">{sectionDetail(s)}</span>
+                    <span className="block truncate text-sm font-medium text-fg" title={sectionName(s)}>{sectionName(s)}</span>
+                    <span className="block truncate text-xs text-fg-muted" title={sectionDetail(s)}>{sectionDetail(s)}</span>
                   </span>
                   {isActive ? <Check className="size-4 text-primary-text shrink-0" /> : null}
                 </button>

@@ -4,16 +4,16 @@ import { db } from "@/lib/db";
 import {
   users, electives, electiveGroups, registrationEvents, tutorSections,
   studentRegistrations, eventSections, sections, programmes, academicBatches, auditLogs, registrations, departments,
-  replayEvents, inviteCodes, passwordResetRequests, eventStudents
+  replayEvents, inviteCodes, passwordResetRequests, eventStudents, systemSettings, academicSessions, cohortSessionTerms
 } from "@/lib/db/schema";
 import { randomInt } from "node:crypto";
 import { getSession, type UserSession } from "@/lib/auth";
 import { generateClassSignupCode } from "@/lib/invites";
-import { eq, and, asc, desc, count, inArray, notInArray, ne, sql } from "drizzle-orm";
+import { eq, and, asc, desc, count, inArray, ne, or, sql } from "drizzle-orm";
 import { assertClass, assertEventInWorkspace, requireStaffWorkspace, workspaceEventIds, type Workspace } from "@/lib/workspace";
 import { isStudentEligibleForEvent } from "@/lib/student-events";
 import { releaseSeat, SeatTakenError, takeSeat } from "@/lib/seat-ops";
-import { cohortLabel } from "@/lib/academic";
+import { cohortLabel, cohortYears } from "@/lib/academic";
 
 type TutorContext = UserSession & { workspace: Workspace };
 
@@ -1181,97 +1181,420 @@ export async function resetSectionRegistrationEvent(eventIdParam?: string) {
 
 // ── Self Onboarding ──────────────────────────────────────────────────────
 
-export async function getAllAvailableSections() {
-  const session = await getSession();
-  if (!session || (session.role !== "CLASS_TUTOR" && session.role !== "COURSE_COORDINATOR")) throw new Error("Unauthorized");
+// ── Self Onboarding & Multi-Programme Class Management ─────────────────────
 
-  // Get all assigned sections across the institution
-  const assigned = await db.select({ sectionId: tutorSections.sectionId }).from(tutorSections);
-  const assignedIds = assigned.map(a => a.sectionId);
+export type AssignedSectionCard = {
+  id: string;
+  label: string;
+  batch: string; // for compatibility: e.g. "2026"
+  batchId: string;
+  batchYear: string;
+  admissionYear: number | null;
+  expectedEndYear: number | null;
+  cohortYears: string; // e.g. "2026–2028"
+  programme: string; // for compatibility: e.g. "MCA GenAI"
+  programmeId: string;
+  programmeName: string;
+  programmeCode: string;
+  department: string; // for compatibility: e.g. "Department of Computer Applications"
+  departmentId: string;
+  departmentName: string;
+  studentCount: number;
+  classLabel: string; // e.g. "MCA GenAI F · 2026–2028"
+  activeSessions: { id: string; label: string; studyYear: number | null; semester: number | null }[];
+};
 
-  const results = await db
+export type AvailableSectionCard = {
+  id: string;
+  label: string;
+  batch: string;
+  batchId: string;
+  batchYear: string;
+  admissionYear: number | null;
+  expectedEndYear: number | null;
+  cohortYears: string;
+  programme: string;
+  programmeId: string;
+  programmeName: string;
+  programmeCode: string;
+  department: string;
+  departmentId: string;
+  departmentName: string;
+  studentCount: number;
+  classLabel: string;
+  status: "ASSIGNED_TO_ME" | "AVAILABLE" | "CLAIMED_BY_OTHER";
+  claimedByTutorName?: string;
+  activeSessions: { id: string; label: string; studyYear: number | null; semester: number | null }[];
+};
+
+export type AvailableSectionsResult = {
+  sections: AvailableSectionCard[];
+  maxAllowed: number;
+  currentCount: number;
+};
+
+export async function getMaxTutorSectionsLimit(): Promise<number> {
+  try {
+    const [setting] = await db
+      .select({ maxTutorSections: systemSettings.maxTutorSections })
+      .from(systemSettings)
+      .where(eq(systemSettings.id, "system"))
+      .limit(1);
+    return setting?.maxTutorSections ?? 10;
+  } catch {
+    return 10;
+  }
+}
+
+export async function getAllAvailableSections(): Promise<AvailableSectionsResult> {
+  const session = await assertStaffBase();
+  const maxAllowed = await getMaxTutorSectionsLimit();
+
+  const isAdmin = session.role === "SYSTEM_ADMIN";
+  let targetDepartmentId = session.departmentId;
+
+  if (!isAdmin && !targetDepartmentId) {
+    const [userRow] = await db
+      .select({ departmentId: users.departmentId, programmeId: users.programmeId })
+      .from(users)
+      .where(eq(users.id, session.userId));
+    if (userRow?.departmentId) {
+      targetDepartmentId = userRow.departmentId;
+    } else if (userRow?.programmeId) {
+      const [progRow] = await db
+        .select({ departmentId: programmes.departmentId })
+        .from(programmes)
+        .where(eq(programmes.id, userRow.programmeId));
+      targetDepartmentId = progRow?.departmentId;
+    }
+  }
+
+  // Get current assignments of this tutor
+  const myAssigned = await db
+    .select({ sectionId: tutorSections.sectionId })
+    .from(tutorSections)
+    .where(eq(tutorSections.tutorId, session.userId));
+  const mySectionIds = myAssigned.map((a) => a.sectionId);
+
+  // Department scoping: tutors see classes across all programmes within their authorized department.
+  // Also include any section explicitly assigned to this tutor even if outside department.
+  const deptCondition = isAdmin
+    ? undefined
+    : targetDepartmentId
+      ? mySectionIds.length > 0
+        ? or(eq(programmes.departmentId, targetDepartmentId), inArray(sections.id, mySectionIds))
+        : eq(programmes.departmentId, targetDepartmentId)
+      : undefined;
+
+  const allSections = await db
     .select({
       id: sections.id,
       label: sections.label,
-      batch: academicBatches.year,
-      programme: programmes.name,
+      batchId: academicBatches.id,
+      batchYear: academicBatches.year,
+      admissionYear: academicBatches.admissionYear,
+      expectedEndYear: academicBatches.expectedEndYear,
+      programmeId: programmes.id,
+      programmeName: programmes.name,
+      programmeCode: programmes.code,
+      departmentId: departments.id,
+      departmentName: departments.name,
     })
     .from(sections)
     .innerJoin(academicBatches, eq(sections.academicBatchId, academicBatches.id))
     .innerJoin(programmes, eq(academicBatches.programmeId, programmes.id))
+    .innerJoin(departments, eq(programmes.departmentId, departments.id))
+    .where(and(eq(sections.isActive, true), deptCondition))
+    .orderBy(programmes.name, desc(academicBatches.admissionYear), sections.label);
+
+  if (allSections.length === 0) {
+    return { sections: [], maxAllowed, currentCount: mySectionIds.length };
+  }
+
+  const sectionIds = allSections.map((s) => s.id);
+  const batchIds = Array.from(new Set(allSections.map((s) => s.batchId)));
+
+  // Tutor assignments for these sections
+  const assignments = await db
+    .select({
+      sectionId: tutorSections.sectionId,
+      tutorId: tutorSections.tutorId,
+      tutorName: users.name,
+    })
+    .from(tutorSections)
+    .innerJoin(users, eq(tutorSections.tutorId, users.id))
+    .where(inArray(tutorSections.sectionId, sectionIds));
+
+  const assignedMap = new Map<string, { tutorId: string; tutorName: string }>();
+  for (const a of assignments) {
+    assignedMap.set(a.sectionId, { tutorId: a.tutorId, tutorName: a.tutorName });
+  }
+
+  // Student counts
+  const studentCountRows = await db
+    .select({
+      sectionId: users.sectionId,
+      count: count(),
+    })
+    .from(users)
     .where(
       and(
-        assignedIds.length > 0 ? notInArray(sections.id, assignedIds) : undefined,
-        session.departmentId
-          ? eq(programmes.departmentId, session.departmentId)
-          : session.programmeId
-            ? eq(programmes.id, session.programmeId)
-            : undefined
+        eq(users.role, "STUDENT"),
+        eq(users.isActive, true),
+        inArray(users.sectionId, sectionIds)
       )
     )
-    .orderBy(programmes.name, academicBatches.year, sections.label);
+    .groupBy(users.sectionId);
 
-  return results;
+  const studentCountMap = new Map(
+    studentCountRows
+      .filter((r): r is { sectionId: string; count: number } => Boolean(r.sectionId))
+      .map((r) => [r.sectionId, r.count])
+  );
+
+  // Active sessions / Year Servers for these cohorts
+  const sessionTermRows = await db
+    .select({
+      batchId: cohortSessionTerms.academicBatchId,
+      sessionId: academicSessions.id,
+      startYear: academicSessions.startYear,
+      endYear: academicSessions.endYear,
+      status: academicSessions.status,
+      studyYear: cohortSessionTerms.studyYear,
+      semester: cohortSessionTerms.currentSemester,
+    })
+    .from(cohortSessionTerms)
+    .innerJoin(academicSessions, eq(cohortSessionTerms.academicSessionId, academicSessions.id))
+    .where(
+      and(
+        inArray(cohortSessionTerms.academicBatchId, batchIds),
+        ne(academicSessions.status, "ARCHIVED")
+      )
+    );
+
+  const sessionTermsByBatch = new Map<string, typeof sessionTermRows>();
+  for (const row of sessionTermRows) {
+    const list = sessionTermsByBatch.get(row.batchId) || [];
+    list.push(row);
+    sessionTermsByBatch.set(row.batchId, list);
+  }
+
+  const resultCards: AvailableSectionCard[] = allSections.map((s) => {
+    const activeTerms = sessionTermsByBatch.get(s.batchId) || [];
+    const activeSessions = activeTerms.map((t) => ({
+      id: t.sessionId,
+      label: `${t.startYear} Year Server`,
+      studyYear: t.studyYear,
+      semester: t.semester,
+    }));
+
+    const years = cohortYears({
+      admissionYear: s.admissionYear,
+      expectedEndYear: s.expectedEndYear,
+      legacyYear: s.batchYear,
+    });
+
+    const label = cohortLabel({
+      programmeName: s.programmeName,
+      programmeCode: s.programmeCode,
+      sectionLabel: s.label,
+      admissionYear: s.admissionYear,
+      expectedEndYear: s.expectedEndYear,
+      legacyYear: s.batchYear,
+    });
+
+    const assignment = assignedMap.get(s.id);
+    let status: "ASSIGNED_TO_ME" | "AVAILABLE" | "CLAIMED_BY_OTHER" = "AVAILABLE";
+    if (assignment) {
+      if (assignment.tutorId === session.userId) {
+        status = "ASSIGNED_TO_ME";
+      } else {
+        status = "CLAIMED_BY_OTHER";
+      }
+    }
+
+    return {
+      id: s.id,
+      label: s.label,
+      batch: s.batchYear,
+      batchId: s.batchId,
+      batchYear: s.batchYear,
+      admissionYear: s.admissionYear,
+      expectedEndYear: s.expectedEndYear,
+      cohortYears: years,
+      programme: s.programmeName,
+      programmeId: s.programmeId,
+      programmeName: s.programmeName,
+      programmeCode: s.programmeCode,
+      department: s.departmentName,
+      departmentId: s.departmentId,
+      departmentName: s.departmentName,
+      studentCount: studentCountMap.get(s.id) ?? 0,
+      classLabel: label,
+      status,
+      claimedByTutorName: assignment && assignment.tutorId !== session.userId ? assignment.tutorName : undefined,
+      activeSessions,
+    };
+  });
+
+  return {
+    sections: resultCards,
+    maxAllowed,
+    currentCount: mySectionIds.length,
+  };
 }
 
 export async function claimTutorSection(sectionIds: string[]) {
-  const session = await getSession();
-  if (!session || (session.role !== "CLASS_TUTOR" && session.role !== "COURSE_COORDINATOR")) throw new Error("Unauthorized");
+  const session = await assertStaffBase();
 
   if (!sectionIds || sectionIds.length === 0) {
     throw new Error("No sections selected");
   }
 
+  const uniqueIds = Array.from(new Set(sectionIds));
+
   // Check how many sections the tutor already has
   const existing = await db
-    .select()
+    .select({ sectionId: tutorSections.sectionId })
     .from(tutorSections)
     .where(eq(tutorSections.tutorId, session.userId));
 
-  if (existing.length + sectionIds.length > 5) {
-    throw new Error(`You can only manage up to 5 sections. You currently have ${existing.length}.`);
+  const existingIds = new Set(existing.map((e) => e.sectionId));
+  const newIds = uniqueIds.filter((id) => !existingIds.has(id));
+
+  if (newIds.length === 0) {
+    return; // Already assigned to all requested
   }
 
-  // Check if any of these sections are already assigned to someone else
+  const maxAllowed = await getMaxTutorSectionsLimit();
+  if (existing.length + newIds.length > maxAllowed) {
+    throw new Error(
+      `You can manage up to ${maxAllowed} classes total. You currently have ${existing.length} assigned and cannot add ${newIds.length} more.`
+    );
+  }
+
+  // Verify that the sections exist
+  const targetSections = await db
+    .select({
+      id: sections.id,
+      label: sections.label,
+      departmentId: programmes.departmentId,
+      programmeName: programmes.name,
+    })
+    .from(sections)
+    .innerJoin(academicBatches, eq(sections.academicBatchId, academicBatches.id))
+    .innerJoin(programmes, eq(academicBatches.programmeId, programmes.id))
+    .where(inArray(sections.id, newIds));
+
+  if (targetSections.length !== newIds.length) {
+    throw new Error("One or more selected sections were not found.");
+  }
+
+  // Department check for non-administrators
+  if (session.role !== "SYSTEM_ADMIN") {
+    let tutorDeptId = session.departmentId;
+    if (!tutorDeptId) {
+      const [userRow] = await db
+        .select({ departmentId: users.departmentId, programmeId: users.programmeId })
+        .from(users)
+        .where(eq(users.id, session.userId));
+      tutorDeptId = userRow?.departmentId ?? undefined;
+      if (!tutorDeptId && userRow?.programmeId) {
+        const [progRow] = await db
+          .select({ departmentId: programmes.departmentId })
+          .from(programmes)
+          .where(eq(programmes.id, userRow.programmeId));
+        tutorDeptId = progRow?.departmentId ?? undefined;
+      }
+    }
+
+    if (tutorDeptId) {
+      const foreign = targetSections.filter((s) => s.departmentId !== tutorDeptId);
+      if (foreign.length > 0) {
+        throw new Error(
+          `You are only authorized to manage classes within your department. ${foreign[0].programmeName} is outside your authorized scope.`
+        );
+      }
+    }
+  }
+
+  // Check if any of these sections are already assigned to another tutor
   const alreadyAssigned = await db
-    .select()
+    .select({
+      sectionId: tutorSections.sectionId,
+      tutorName: users.name,
+    })
     .from(tutorSections)
-    .where(inArray(tutorSections.sectionId, sectionIds));
+    .innerJoin(users, eq(tutorSections.tutorId, users.id))
+    .where(and(inArray(tutorSections.sectionId, newIds), ne(tutorSections.tutorId, session.userId)));
 
   if (alreadyAssigned.length > 0) {
-    throw new Error("One or more selected sections have already been claimed by another tutor.");
+    throw new Error(
+      `One or more selected sections have already been claimed by another tutor (${alreadyAssigned[0].tutorName}).`
+    );
   }
 
-  const valuesToInsert = sectionIds.map(id => ({
+  const valuesToInsert = newIds.map((id) => ({
     tutorId: session.userId,
     sectionId: id,
   }));
 
   await db.insert(tutorSections).values(valuesToInsert);
 
-  // Set the first assigned section as the active one
-  const { cookies } = await import("next/headers");
-  const cookieStore = await cookies();
-  cookieStore.set("electify_active_section", sectionIds[0], {
-    httpOnly: true,
-    secure: process.env.NODE_ENV === "production",
-    sameSite: "lax",
-    path: "/",
-    maxAge: 7200,
+  await db.insert(auditLogs).values({
+    action: "CLAIM_TUTOR_SECTIONS",
+    userId: session.userId,
+    userEmail: session.email,
+    userRole: session.role,
+    metadata: {
+      sectionIds: newIds,
+      totalCount: existing.length + newIds.length,
+      maxAllowed,
+    },
   });
+
+  // Set the first assigned section as active if no active section is currently selected
+  try {
+    const { cookies } = await import("next/headers");
+    const cookieStore = await cookies();
+    const currentActive = cookieStore.get("electify_active_section")?.value;
+    if (!currentActive || !existingIds.has(currentActive)) {
+      cookieStore.set("electify_active_section", newIds[0], {
+        httpOnly: true,
+        secure: process.env.NODE_ENV === "production",
+        sameSite: "lax",
+        path: "/",
+        maxAge: 7200,
+      });
+    }
+  } catch {}
+
+  try {
+    const cache = (await import("next/cache")) as any;
+    if (typeof cache.revalidatePath === "function") {
+      cache.revalidatePath("/faculty/assign-sections");
+      cache.revalidatePath("/faculty/dashboard");
+      cache.revalidatePath("/faculty", "layout");
+    }
+  } catch {}
 }
 
-export async function getMyAssignedSections() {
-  const session = await getSession();
-  if (!session || (session.role !== "CLASS_TUTOR" && session.role !== "COURSE_COORDINATOR")) throw new Error("Unauthorized");
+export async function getMyAssignedSections(): Promise<AssignedSectionCard[]> {
+  const session = await assertStaffBase();
 
-  const mySections = await db
+  const assignments = await db
     .select({
       id: sections.id,
       label: sections.label,
-      batch: academicBatches.year,
-      programme: programmes.name,
-      department: departments.name,
+      batchId: academicBatches.id,
+      batchYear: academicBatches.year,
+      admissionYear: academicBatches.admissionYear,
+      expectedEndYear: academicBatches.expectedEndYear,
+      programmeId: programmes.id,
+      programmeName: programmes.name,
+      programmeCode: programmes.code,
+      departmentId: departments.id,
+      departmentName: departments.name,
     })
     .from(tutorSections)
     .innerJoin(sections, eq(tutorSections.sectionId, sections.id))
@@ -1279,14 +1602,111 @@ export async function getMyAssignedSections() {
     .innerJoin(programmes, eq(academicBatches.programmeId, programmes.id))
     .innerJoin(departments, eq(programmes.departmentId, departments.id))
     .where(eq(tutorSections.tutorId, session.userId))
-    .orderBy(programmes.name, academicBatches.year, sections.label);
+    .orderBy(programmes.name, desc(academicBatches.admissionYear), sections.label);
 
-  return mySections;
+  if (assignments.length === 0) return [];
+
+  const sectionIds = assignments.map((a) => a.id);
+  const batchIds = Array.from(new Set(assignments.map((a) => a.batchId)));
+
+  // Student counts
+  const studentCountRows = await db
+    .select({
+      sectionId: users.sectionId,
+      count: count(),
+    })
+    .from(users)
+    .where(
+      and(
+        eq(users.role, "STUDENT"),
+        eq(users.isActive, true),
+        inArray(users.sectionId, sectionIds)
+      )
+    )
+    .groupBy(users.sectionId);
+
+  const studentCountMap = new Map(
+    studentCountRows
+      .filter((r): r is { sectionId: string; count: number } => Boolean(r.sectionId))
+      .map((r) => [r.sectionId, r.count])
+  );
+
+  // Active sessions / Year Servers for these cohorts
+  const sessionTermRows = await db
+    .select({
+      batchId: cohortSessionTerms.academicBatchId,
+      sessionId: academicSessions.id,
+      startYear: academicSessions.startYear,
+      endYear: academicSessions.endYear,
+      status: academicSessions.status,
+      studyYear: cohortSessionTerms.studyYear,
+      semester: cohortSessionTerms.currentSemester,
+    })
+    .from(cohortSessionTerms)
+    .innerJoin(academicSessions, eq(cohortSessionTerms.academicSessionId, academicSessions.id))
+    .where(
+      and(
+        inArray(cohortSessionTerms.academicBatchId, batchIds),
+        ne(academicSessions.status, "ARCHIVED")
+      )
+    );
+
+  const sessionTermsByBatch = new Map<string, typeof sessionTermRows>();
+  for (const row of sessionTermRows) {
+    const list = sessionTermsByBatch.get(row.batchId) || [];
+    list.push(row);
+    sessionTermsByBatch.set(row.batchId, list);
+  }
+
+  return assignments.map((a) => {
+    const activeTerms = sessionTermsByBatch.get(a.batchId) || [];
+    const activeSessions = activeTerms.map((t) => ({
+      id: t.sessionId,
+      label: `${t.startYear} Year Server`,
+      studyYear: t.studyYear,
+      semester: t.semester,
+    }));
+
+    const years = cohortYears({
+      admissionYear: a.admissionYear,
+      expectedEndYear: a.expectedEndYear,
+      legacyYear: a.batchYear,
+    });
+
+    const label = cohortLabel({
+      programmeName: a.programmeName,
+      programmeCode: a.programmeCode,
+      sectionLabel: a.label,
+      admissionYear: a.admissionYear,
+      expectedEndYear: a.expectedEndYear,
+      legacyYear: a.batchYear,
+    });
+
+    return {
+      id: a.id,
+      label: a.label,
+      batch: a.batchYear,
+      batchId: a.batchId,
+      batchYear: a.batchYear,
+      admissionYear: a.admissionYear,
+      expectedEndYear: a.expectedEndYear,
+      cohortYears: years,
+      programme: a.programmeName,
+      programmeId: a.programmeId,
+      programmeName: a.programmeName,
+      programmeCode: a.programmeCode,
+      department: a.departmentName,
+      departmentId: a.departmentId,
+      departmentName: a.departmentName,
+      studentCount: studentCountMap.get(a.id) ?? 0,
+      classLabel: label,
+      activeSessions,
+    };
+  });
 }
 
 export async function exitTutorSection(sectionId: string) {
-  const session = await getSession();
-  if (!session || (session.role !== "CLASS_TUTOR" && session.role !== "COURSE_COORDINATOR")) throw new Error("Unauthorized");
+  const session = await assertStaffBase();
 
   // Verify that the tutor actually manages this section
   const [existing] = await db
@@ -1329,29 +1749,31 @@ export async function exitTutorSection(sectionId: string) {
   }
 
   // Handle active cookie
-  const { cookies } = await import("next/headers");
-  const cookieStore = await cookies();
-  const activeSectionCookie = cookieStore.get("electify_active_section")?.value;
+  try {
+    const { cookies } = await import("next/headers");
+    const cookieStore = await cookies();
+    const activeSectionCookie = cookieStore.get("electify_active_section")?.value;
 
-  if (activeSectionCookie === sectionId) {
-    const remaining = await db
-      .select({ sectionId: tutorSections.sectionId })
-      .from(tutorSections)
-      .where(eq(tutorSections.tutorId, session.userId))
-      .limit(1);
+    if (activeSectionCookie === sectionId) {
+      const remaining = await db
+        .select({ sectionId: tutorSections.sectionId })
+        .from(tutorSections)
+        .where(eq(tutorSections.tutorId, session.userId))
+        .limit(1);
 
-    if (remaining.length > 0) {
-      cookieStore.set("electify_active_section", remaining[0].sectionId, {
-        httpOnly: true,
-        secure: process.env.NODE_ENV === "production",
-        sameSite: "lax",
-        path: "/",
-        maxAge: 7200,
-      });
-    } else {
-      cookieStore.delete("electify_active_section");
+      if (remaining.length > 0) {
+        cookieStore.set("electify_active_section", remaining[0].sectionId, {
+          httpOnly: true,
+          secure: process.env.NODE_ENV === "production",
+          sameSite: "lax",
+          path: "/",
+          maxAge: 7200,
+        });
+      } else {
+        cookieStore.delete("electify_active_section");
+      }
     }
-  }
+  } catch {}
 
   // Audit log
   await db.insert(auditLogs).values({
@@ -1364,7 +1786,40 @@ export async function exitTutorSection(sectionId: string) {
     },
   });
 
+  try {
+    const cache = (await import("next/cache")) as any;
+    if (typeof cache.revalidatePath === "function") {
+      cache.revalidatePath("/faculty/assign-sections");
+      cache.revalidatePath("/faculty/dashboard");
+      cache.revalidatePath("/faculty", "layout");
+    }
+  } catch {}
+
   return { success: true };
+}
+
+export async function updateMaxTutorSectionsLimit(newLimit: number) {
+  const session = await getSession();
+  if (!session || session.role !== "SYSTEM_ADMIN") {
+    throw new Error("Unauthorized. Only administrators can configure tutor section limits.");
+  }
+  if (!Number.isInteger(newLimit) || newLimit < 1 || newLimit > 50) {
+    throw new Error("Limit must be an integer between 1 and 50.");
+  }
+  await db
+    .update(systemSettings)
+    .set({ maxTutorSections: newLimit, updatedAt: new Date() })
+    .where(eq(systemSettings.id, "system"));
+
+  await db.insert(auditLogs).values({
+    action: "UPDATE_SYSTEM_SETTINGS",
+    userId: session.userId,
+    userEmail: session.email,
+    userRole: session.role,
+    metadata: { maxTutorSections: newLimit },
+  });
+
+  return { success: true, maxTutorSections: newLimit };
 }
 
 export async function manualRegisterStudentByTutor(studentId: string, eventId: string, selections: { groupId: string; electiveId: string }[]) {

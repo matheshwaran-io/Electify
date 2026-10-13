@@ -545,6 +545,7 @@ export const loginAttempts = pgTable("login_attempts", {
 export const systemSettings = pgTable("system_settings", {
   id: text("id").primaryKey().default("system"),
   maintenanceMode: boolean("maintenance_mode").default(false).notNull(),
+  maxTutorSections: integer("max_tutor_sections").default(10).notNull(),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
