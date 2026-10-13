@@ -13,9 +13,11 @@ interface CountdownTimerProps {
   registrationEnabled: boolean;
   /** Server time at render, so the countdown follows the server clock. */
   serverNow: number;
+  /** Where to go when registration opens (keeps the student on this event). */
+  targetHref?: string;
 }
 
-export function CountdownTimer({ startDateStr, registrationEnabled, serverNow }: CountdownTimerProps) {
+export function CountdownTimer({ startDateStr, registrationEnabled, serverNow, targetHref = "/dashboard" }: CountdownTimerProps) {
   const router = useRouter();
   const now = useServerClock(serverNow);
   const target = React.useMemo(() => new Date(startDateStr).getTime(), [startDateStr]);
@@ -30,14 +32,14 @@ export function CountdownTimer({ startDateStr, registrationEnabled, serverNow }:
   React.useEffect(() => {
     if (!isOver) return;
     if (registrationEnabled) {
-      router.push("/dashboard");
+      router.push(targetHref);
       return;
     }
     router.refresh();
     if (!overAtMount.current) return;
     const poll = setInterval(() => router.refresh(), 5000);
     return () => clearInterval(poll);
-  }, [isOver, registrationEnabled, router]);
+  }, [isOver, registrationEnabled, router, targetHref]);
 
   const { days, hours, minutes, seconds } = splitDuration(remaining);
 

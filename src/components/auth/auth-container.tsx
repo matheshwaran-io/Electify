@@ -101,10 +101,9 @@ export function AuthContainer() {
       setStatus("success");
       if (result.role === "STUDENT") {
         router.push("/dashboard");
-      } else if (result.role === "COURSE_COORDINATOR") {
-        router.push("/faculty/portal-select");
       } else {
-        router.push("/faculty/dashboard");
+        // Staff pick the academic session first (skipped when there is only one).
+        router.push("/faculty/session-select");
       }
       router.refresh();
     } catch {

@@ -91,8 +91,8 @@ async function main() {
   // 6. Update event_sections for this event to link Section A & Section B
   await db.delete(eventSections).where(eq(eventSections.eventId, mcaEvent.id));
   await db.insert(eventSections).values([
-    { eventId: mcaEvent.id, sectionId: secA.id },
-    { eventId: mcaEvent.id, sectionId: secB.id }
+    { eventId: mcaEvent.id, sectionId: secA.id, academicBatchId: mcaEvent.academicBatchId },
+    { eventId: mcaEvent.id, sectionId: secB.id, academicBatchId: mcaEvent.academicBatchId }
   ]);
   console.log("✓ Linked MCA GenAI Section A and Section B to registration event");
 

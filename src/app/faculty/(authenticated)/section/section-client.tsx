@@ -32,7 +32,7 @@ type Student = {
   registrations: Registration[];
 };
 type ReportData = { students: Student[]; totalStudents: number; registeredCount: number };
-type Session = { name: string; sectionId?: string; role?: string };
+type Session = { name: string; sectionId?: string; role?: string; classLabel?: string; academicSession?: string };
 
 type Pending =
   | { kind: "delete"; student: Student }
@@ -385,8 +385,8 @@ export function SectionClient({ reportData, session }: { reportData: ReportData;
   return (
     <div>
       <PageHeader
-        title="Your section"
-        description="Students, their submissions and who is online right now."
+        title={session.classLabel ?? "Your section"}
+        description={`${session.academicSession ? `Academic session ${session.academicSession} · ` : ""}Students, their submissions and who is online right now.`}
         actions={
           <>
             <Button variant="brand" onClick={() => setCodeModalOpen(true)}>

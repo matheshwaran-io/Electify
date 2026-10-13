@@ -17,18 +17,25 @@ import { ConfigurationCard } from "@/components/window/configuration-card";
 import { AnalyticsWidget } from "@/components/window/analytics-widget";
 import type { WindowEvent, WindowMetrics } from "@/components/window/types";
 
-export function WindowClient({ events, initialMetrics }: { events: WindowEvent[]; initialMetrics?: WindowMetrics | null }) {
+export type WindowContext = {
+  /** Active class, e.g. "MCA F · 2025–2027"; null when the user has no class in this session. */
+  classLabel: string | null;
+  sessionLabel: string;
+  semester: number | null;
+};
+
+export function WindowClient({ events, initialMetrics, context }: { events: WindowEvent[]; initialMetrics?: WindowMetrics | null; context: WindowContext }) {
   const router = useRouter();
   const [isCreating, setIsCreating] = useState(false);
   const [newName, setNewName] = useState("");
-  const [newYear, setNewYear] = useState(new Date().getFullYear() + "-" + (new Date().getFullYear() + 1));
+  const [newSemester, setNewSemester] = useState(context.semester ? String(context.semester) : "");
   const [isSaving, setIsSaving] = useState(false);
 
   async function handleCreateWindow() {
     if (!newName) return;
     setIsSaving(true);
     try {
-      await createRegistrationWindow({ name: newName, academicYear: newYear });
+      await createRegistrationWindow({ name: newName, semester: newSemester ? Number(newSemester) : null });
       setIsCreating(false);
       router.refresh();
       toast.success("Registration window created successfully!");
@@ -42,18 +49,27 @@ export function WindowClient({ events, initialMetrics }: { events: WindowEvent[]
   if (events.length === 0) {
     return (
       <div>
-        <PageHeader title="Live window" description="The registration window for your section." />
+        <PageHeader
+          title="Live window"
+          description={context.classLabel ? `${context.classLabel} · Academic session ${context.sessionLabel}` : `Academic session ${context.sessionLabel}`}
+        />
 
         {!isCreating ? (
           <EmptyState
             icon={<Clock />}
             title="No registration window yet"
-            description="Create one, then set when it opens and closes."
+            description={
+              context.classLabel
+                ? `Create one for ${context.classLabel}, then set when it opens and closes.`
+                : "You don't have a class in this academic session yet."
+            }
             className="rounded-panel bg-surface-2"
             action={
-              <Button onClick={() => setIsCreating(true)}>
-                <Plus /> Create window
-              </Button>
+              context.classLabel ? (
+                <Button onClick={() => setIsCreating(true)}>
+                  <Plus /> Create window
+                </Button>
+              ) : null
             }
           />
         ) : (
@@ -69,16 +85,38 @@ export function WindowClient({ events, initialMetrics }: { events: WindowEvent[]
               <Field label="Window name">
                 <Input value={newName} onChange={(e) => setNewName(e.target.value)} placeholder="e.g. Fall 2026 Registration" autoFocus />
               </Field>
-              <Field label="Academic year">
-                <Input value={newYear} onChange={(e) => setNewYear(e.target.value)} className="font-mono" />
+              <Field label="Semester">
+                <select
+                  value={newSemester}
+                  onChange={(e) => setNewSemester(e.target.value)}
+                  className="h-11 w-full rounded-control border border-border-strong bg-surface px-3 text-sm text-fg sm:h-10"
+                >
+                  <option value="">Not set</option>
+                  {Array.from({ length: 12 }, (_, i) => (
+                    <option key={i + 1} value={String(i + 1)}>
+                      Semester {i + 1}
+                    </option>
+                  ))}
+                </select>
               </Field>
+              <dl className="rounded-control border border-border bg-surface p-3 text-sm">
+                <div className="flex justify-between gap-3">
+                  <dt className="text-fg-muted">Class</dt>
+                  <dd className="text-right font-medium text-fg">{context.classLabel}</dd>
+                </div>
+                <div className="mt-1 flex justify-between gap-3">
+                  <dt className="text-fg-muted">Academic session</dt>
+                  <dd className="font-medium tabular-nums text-fg">{context.sessionLabel}</dd>
+                </div>
+                <p className="mt-2 text-xs text-fg-muted">Only students of this class and cohort will see the window.</p>
+              </dl>
             </div>
             <div className="mt-6 flex flex-col-reverse gap-2 sm:flex-row">
               <Button type="button" variant="ghost" onClick={() => setIsCreating(false)} disabled={isSaving}>
                 Cancel
               </Button>
               <Button type="submit" loading={isSaving} loadingText="Creating" disabled={!newName}>
-                Create window
+                Create window for {context.classLabel}
               </Button>
             </div>
           </form>

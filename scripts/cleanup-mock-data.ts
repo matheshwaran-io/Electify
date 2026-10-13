@@ -40,6 +40,8 @@ async function cleanup() {
       WHERE name LIKE 'Event Test%' 
          OR name LIKE 'Live Monitor Test%' 
          OR name LIKE 'Ev_%'
+         OR name LIKE 'Historical Audit Event%'
+         OR name LIKE 'Temporary Event%'
     `);
     const testEventIds = testEventsQuery.rows.map((r) => r.id);
 

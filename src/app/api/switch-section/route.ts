@@ -3,6 +3,7 @@ import { getSession } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { tutorSections } from "@/lib/db/schema";
 import { and, eq } from "drizzle-orm";
+import { resolveStaffWorkspace } from "@/lib/workspace";
 
 export async function POST(request: NextRequest) {
   try {
@@ -25,6 +26,16 @@ export async function POST(request: NextRequest) {
 
     if (!assignment) {
       return NextResponse.json({ error: "You are not assigned to this section." }, { status: 403 });
+    }
+
+    // The class must belong to the academic session being worked in, so the
+    // selected session and the selected class can never disagree.
+    const workspace = await resolveStaffWorkspace();
+    if (workspace.status === "OK" && !workspace.workspace.classes.some((c) => c.sectionId === sectionId)) {
+      return NextResponse.json(
+        { error: `That class isn't part of Academic Session ${workspace.workspace.session.label}. Switch sessions first.` },
+        { status: 409 }
+      );
     }
 
     const response = NextResponse.json({ success: true, newSectionId: sectionId });

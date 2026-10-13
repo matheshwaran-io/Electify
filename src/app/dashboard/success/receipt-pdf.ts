@@ -19,6 +19,8 @@ export type ReceiptData = {
   eventName: string
   submittedAt: Date
   student: { name: string; registerNumber: string; email: string; department?: string; degree?: string; section?: string }
+  /** Full class identity and academic session, e.g. "MCA F · 2025–2027" and "2026–2027". */
+  academic?: { classLabel?: string | null; academicSession?: string | null; semester?: number | null }
   electives: { groupName: string; electiveName: string }[]
 }
 
@@ -80,7 +82,10 @@ export async function downloadReceiptPdf(data: ReceiptData) {
   ]
   if (data.student.degree) details.push(["Programme", data.student.degree])
   if (data.student.department) details.push(["Department", data.student.department])
-  if (data.student.section) details.push(["Section", data.student.section])
+  if (data.academic?.classLabel) details.push(["Class", data.academic.classLabel])
+  else if (data.student.section) details.push(["Section", data.student.section])
+  if (data.academic?.academicSession) details.push(["Academic session", data.academic.academicSession])
+  if (data.academic?.semester) details.push(["Semester", String(data.academic.semester)])
 
   doc.setFillColor(...C.surface2)
   const boxH = Math.ceil(details.length / 2) * 13 + 6

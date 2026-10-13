@@ -46,7 +46,7 @@ const columns: Column<StudentAllotment>[] = [
     cell: (s) => <span className="font-mono text-xs text-fg">{s.registerNumber || "—"}</span>,
     searchValue: (s) => s.registerNumber,
   },
-  { id: "section", header: "Section", cell: (s) => <Badge size="sm">Section {s.sectionLabel}</Badge> },
+  { id: "section", header: "Class", cell: (s) => <Badge size="sm">{s.classLabel || `Section ${s.sectionLabel}`}</Badge> },
   {
     id: "subjects",
     header: "Allotted subjects",
@@ -91,30 +91,31 @@ export function ReportsClient({ data }: { data: CoordinatorReportsPayload }) {
   const sorted = useMemo(() => sortAscendingByRegNo(allotments), [allotments]);
 
   // Unique sections list from data
-  const availableSectionLabels = useMemo(() => {
-    const set = new Set<string>();
-    sections.forEach((s) => set.add(s.sectionLabel));
+  // Classes are told apart by full identity: two "F" classes of different cohorts are different classes.
+  const availableClasses = useMemo(() => {
+    const map = new Map<string, string>();
+    sections.forEach((s) => map.set(s.sectionId, s.classLabel || `Section ${s.sectionLabel}`));
     allotments.forEach((a) => {
-      if (a.sectionLabel) set.add(a.sectionLabel);
+      if (a.sectionId && !map.has(a.sectionId)) map.set(a.sectionId, a.classLabel || `Section ${a.sectionLabel}`);
     });
-    return Array.from(set).sort();
+    return Array.from(map.entries()).sort((a, b) => a[1].localeCompare(b[1]));
   }, [sections, allotments]);
 
   const filters = useMemo<FilterDef<StudentAllotment>[]>(() => {
     const out: FilterDef<StudentAllotment>[] = [];
-    if (availableSectionLabels.length > 1) {
+    if (availableClasses.length > 1) {
       out.push({
         id: "section",
-        label: "Section",
-        options: availableSectionLabels.map((l) => ({ value: l, label: `Section ${l}` })),
-        predicate: (a, v) => a.sectionLabel === v || a.sectionId === v,
+        label: "Class",
+        options: availableClasses.map(([id, label]) => ({ value: id, label })),
+        predicate: (a, v) => a.sectionId === v,
       });
     }
     if (events.length > 1) {
       out.push({ id: "event", label: "Event", options: events.map((ev) => ({ value: ev.id, label: ev.name })), predicate: (a, v) => a.eventId === v });
     }
     return out;
-  }, [availableSectionLabels, events]);
+  }, [availableClasses, events]);
 
   // ── Download 1: CSV Spreadsheet in Ascending Order ────────────────────────
   const exportCSV = (rows: StudentAllotment[]) => {
@@ -132,8 +133,11 @@ export function ReportsClient({ data }: { data: CoordinatorReportsPayload }) {
       "S.No",
       "Register Number",
       "Student Name",
+      "Class",
       "Section",
       "Programme",
+      "Academic Session",
+      "Registration Event",
       "Chosen Subjects (All)",
       ...subjectHeaders,
       "Total Chosen Subjects",
@@ -154,8 +158,11 @@ export function ReportsClient({ data }: { data: CoordinatorReportsPayload }) {
         idx + 1,
         s.registerNumber || "—",
         s.name,
+        s.classLabel,
         s.sectionLabel,
         s.programmeName,
+        s.academicSession,
+        s.eventName,
         allSubjects || "None",
         ...subjectCols,
         s.subjects.length,
@@ -193,8 +200,9 @@ export function ReportsClient({ data }: { data: CoordinatorReportsPayload }) {
       import("@/lib/brand-pdf"),
     ]);
 
-    const sectionLabels = new Set(list.map((s) => s.sectionLabel));
-    const sectionText = sectionLabels.size === 1 ? `Section ${[...sectionLabels][0]}` : "All Sections";
+    const classLabels = new Set(list.map((s) => s.classLabel || `Section ${s.sectionLabel}`));
+    const sectionText = classLabels.size === 1 ? [...classLabels][0] : "All classes";
+    const sessionText = list[0]?.academicSession ? `Academic session ${list[0].academicSession}` : "";
 
     const doc = new jsPDF({ orientation: "landscape" });
     const pageWidth = doc.internal.pageSize.getWidth();
@@ -209,7 +217,7 @@ export function ReportsClient({ data }: { data: CoordinatorReportsPayload }) {
     doc.text("STUDENT ELECTIVE ALLOTMENTS REPORT", 14 + logo.width + 6, 12.05);
     doc.setFontSize(9);
     doc.setFont("helvetica", "normal");
-    doc.text(`Sorted: Ascending by Register Number • Section: ${sectionText}`, 14, 21);
+    doc.text(`${sessionText ? `${sessionText} • ` : ""}Class: ${sectionText} • Sorted by register number`, 14, 21);
     doc.text(`Total Records: ${list.length} Students`, pageWidth - 14, 13, { align: "right" });
     doc.text(`Generated: ${new Date().toLocaleString("en-IN")}`, pageWidth - 14, 21, { align: "right" });
 
@@ -218,11 +226,11 @@ export function ReportsClient({ data }: { data: CoordinatorReportsPayload }) {
         s.subjects.length > 0
           ? s.subjects.map((sub, i) => `${i + 1}. ${sub.courseCode ? sub.courseCode + ": " : ""}${sub.name}`).join("\n")
           : "No electives chosen";
-      return [idx + 1, s.registerNumber || "—", s.name, `Sec ${s.sectionLabel}`, subjectsStr, s.status || "CONFIRMED", s.receiptNumber || "—"];
+      return [idx + 1, s.registerNumber || "—", s.name, s.classLabel || `Sec ${s.sectionLabel}`, subjectsStr, s.status || "CONFIRMED", s.receiptNumber || "—"];
     });
 
     autoTable(doc, {
-      head: [["S.No", "Register Number", "Student Name", "Section", "Chosen Subjects", "Status", "Receipt No."]],
+      head: [["S.No", "Register Number", "Student Name", "Class", "Chosen Subjects", "Status", "Receipt No."]],
       body: tableData,
       startY: 34,
       styles: { fontSize: 8, cellPadding: 3.5, valign: "middle" },
@@ -254,7 +262,7 @@ export function ReportsClient({ data }: { data: CoordinatorReportsPayload }) {
     <div>
       <PageHeader
         title="Reports"
-        description="Who picked what, section by section. Exports follow your search and filters."
+        description={`Academic session ${data.academicSession}: who picked what, class by class. Exports follow your search and filters.`}
         meta={
           <Badge tone="outline">
             <ArrowUpDown /> Sorted by register number
@@ -335,7 +343,7 @@ export function ReportsClient({ data }: { data: CoordinatorReportsPayload }) {
                         {sec.sectionLabel}
                       </span>
                       <div className="min-w-0 flex-1">
-                        <p className="font-medium text-fg">Section {sec.sectionLabel}</p>
+                        <p className="font-medium text-fg">{sec.classLabel || `Section ${sec.sectionLabel}`}</p>
                         <p className="text-xs text-fg-muted">
                           <span className="font-mono tabular-nums text-fg">{sec.registeredCount}</span> of{" "}
                           <span className="font-mono tabular-nums">{sec.totalStudents}</span> registered
@@ -349,7 +357,7 @@ export function ReportsClient({ data }: { data: CoordinatorReportsPayload }) {
                         <span className="tabular-nums">{pct}</span>%
                       </span>
                     </div>
-                    <Meter value={sec.registeredCount} max={sec.totalStudents} tone={tone} label={`Section ${sec.sectionLabel} completion`} className="mt-4" />
+                    <Meter value={sec.registeredCount} max={sec.totalStudents} tone={tone} label={`${sec.classLabel || `Section ${sec.sectionLabel}`} completion`} className="mt-4" />
                   </li>
                 );
               })}

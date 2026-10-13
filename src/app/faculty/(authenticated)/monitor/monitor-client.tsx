@@ -422,9 +422,11 @@ export function MonitorClient({ initialData, userRole }: MonitorClientProps) {
           <p className="text-fg-muted text-sm mt-1.5 flex items-center gap-2">
             <span>Monitoring cohort for</span>
             <span className="font-medium text-fg">{event.name}</span>
-            {event.programmeName && (
+            {event.classLabels?.length ? (
+              <span className="text-xs text-primary-text">({event.classLabels.join(", ")})</span>
+            ) : event.programmeName ? (
               <span className="text-xs text-primary-text font-mono">({event.programmeCode || event.programmeName})</span>
-            )}
+            ) : null}
           </p>
         </div>
 

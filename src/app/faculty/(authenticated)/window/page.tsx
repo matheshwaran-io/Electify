@@ -1,6 +1,7 @@
 import { getSession } from "@/lib/auth";
 import { getPortalWindow, getRegistrationMetrics } from "@/app/actions/tutor";
 import { redirect } from "next/navigation";
+import { requireStaffWorkspace } from "@/lib/workspace";
 import { WindowClient } from "./window-client";
 
 export default async function WindowPage() {
@@ -13,10 +14,17 @@ export default async function WindowPage() {
   ) {
     redirect("/faculty/dashboard");
   }
+  const ws = await requireStaffWorkspace();
   const events = await getPortalWindow();
   let metrics = null;
   if (events.length > 0) {
     metrics = await getRegistrationMetrics(events[0].id);
   }
-  return <WindowClient events={events} initialMetrics={metrics} />;
+  return (
+    <WindowClient
+      events={events}
+      initialMetrics={metrics}
+      context={{ classLabel: ws.activeClass?.label ?? null, sessionLabel: ws.session.label, semester: ws.activeClass?.semester ?? null }}
+    />
+  );
 }

@@ -33,7 +33,16 @@ type EventData = { event: EventInfo; groups: Group[] };
 
 type Pending = { kind: "subject"; elective: Elective } | { kind: "group"; group: Group } | { kind: "reset"; eventId: string };
 
-export function TutorElectivesClient({ electivesData, hasActiveSection = true }: { electivesData: EventData[]; hasActiveSection?: boolean }) {
+export function TutorElectivesClient({
+  electivesData,
+  hasActiveSection = true,
+  classContext = null,
+}: {
+  electivesData: EventData[];
+  hasActiveSection?: boolean;
+  /** Active class and session, shown when creating a window. */
+  classContext?: { classLabel: string; sessionLabel: string; semester: number | null } | null;
+}) {
   const router = useRouter();
   const allGroups = electivesData.flatMap((e) => e.groups);
   const allElectives = allGroups.flatMap((g) => g.electives);
@@ -71,7 +80,7 @@ export function TutorElectivesClient({ electivesData, hasActiveSection = true }:
   // States for creating a window directly from empty state
   const [isWindowCreating, setIsWindowCreating] = useState(false);
   const [newWindowName, setNewWindowName] = useState("");
-  const [newWindowYear, setNewWindowYear] = useState(new Date().getFullYear() + "-" + (new Date().getFullYear() + 1));
+  const [newWindowSemester, setNewWindowSemester] = useState(classContext?.semester ? String(classContext.semester) : "");
 
   const firstEventId = electivesData[0]?.event.id;
 
@@ -79,7 +88,7 @@ export function TutorElectivesClient({ electivesData, hasActiveSection = true }:
     if (!newWindowName) return;
     setIsWindowCreating(true);
     try {
-      await createRegistrationWindow({ name: newWindowName, academicYear: newWindowYear });
+      await createRegistrationWindow({ name: newWindowName, semester: newWindowSemester ? Number(newWindowSemester) : null });
       router.refresh();
       toast.success("Window created successfully.");
     } catch (err: any) {
@@ -243,9 +252,26 @@ export function TutorElectivesClient({ electivesData, hasActiveSection = true }:
             <Field label="Event name">
               <Input value={newWindowName} onChange={(e) => setNewWindowName(e.target.value)} placeholder="e.g. B.TECH EVEN SEM AI F..." />
             </Field>
-            <Field label="Academic year">
-              <Input value={newWindowYear} onChange={(e) => setNewWindowYear(e.target.value)} placeholder="e.g. 2026-2027" className="font-mono" />
+            <Field label="Semester">
+              <select
+                  value={newWindowSemester}
+                  onChange={(e) => setNewWindowSemester(e.target.value)}
+                  className="h-11 w-full rounded-control border border-border-strong bg-surface px-3 text-sm text-fg sm:h-10"
+                >
+                  <option value="">Not set</option>
+                  {Array.from({ length: 12 }, (_, i) => (
+                    <option key={i + 1} value={String(i + 1)}>
+                      Semester {i + 1}
+                    </option>
+                  ))}
+                </select>
             </Field>
+            {classContext ? (
+              <p className="rounded-control border border-border bg-surface p-3 text-sm text-fg-muted">
+                For <span className="font-medium text-fg">{classContext.classLabel}</span> in Academic Session{" "}
+                <span className="font-medium tabular-nums text-fg">{classContext.sessionLabel}</span>. Only this class&apos;s students will see it.
+              </p>
+            ) : null}
             <Button type="submit" size="lg" className="w-full" disabled={!newWindowName} loading={isWindowCreating} loadingText="Creating">
               <Plus /> Create registration window
             </Button>

@@ -86,7 +86,11 @@ export async function middleware(request: NextRequest) {
     }
   }
 
-  return NextResponse.next();
+  // Tell server layouts which page is being rendered (used by the faculty
+  // layout to require an academic session on session-specific pages).
+  const requestHeaders = new Headers(request.headers);
+  requestHeaders.set("x-electify-pathname", pathname);
+  return NextResponse.next({ request: { headers: requestHeaders } });
 }
 
 export const config = {

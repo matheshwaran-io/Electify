@@ -13,10 +13,11 @@ import {
   verifyPasswordUpgradeTicket,
   type UserSession,
 } from "@/lib/auth";
-import { eq, and, asc, desc } from "drizzle-orm";
+import { eq, and, asc, desc, sql } from "drizzle-orm";
 import { z } from "zod";
 import { cleanDisplayName } from "@/lib/format";
 import { isAcceptablePassword, normalizeRegisterNumber, passwordProblem, REGISTER_NUMBER_PATTERN } from "@/lib/password-policy";
+import { cohortLabel, cohortYears } from "@/lib/academic";
 
 const MAX_ATTEMPTS = 5;
 const LOCKOUT_DURATION_MS = 15 * 60 * 1000; // 15 minutes
@@ -675,33 +676,12 @@ export async function validateClassSignupCode(rawCode: string) {
     return { valid: false, error: `This class code has reached its maximum activation limit of ${invite.maxUses} students.` };
   }
 
-  // Fetch contextual class details strictly from server-side records
-  let sectionLabel = "";
-  let batchYear = "";
-  let programmeName = "";
-  let programmeCode = "";
-  let departmentName = "";
+  // Class details strictly from server-side records: the code names one class.
+  const cls = await resolveCodeClass(invite);
+  if (!cls) {
+    return { valid: false, error: "This class signup code is not linked to a class. Please ask your class tutor for a new code." };
+  }
   let tutorName = "";
-
-  if (invite.sectionId) {
-    const [sec] = await db.select({ label: sections.label }).from(sections).where(eq(sections.id, invite.sectionId)).limit(1);
-    if (sec) sectionLabel = sec.label;
-  }
-  if (invite.academicBatchId) {
-    const [batch] = await db.select({ year: academicBatches.year }).from(academicBatches).where(eq(academicBatches.id, invite.academicBatchId)).limit(1);
-    if (batch) batchYear = batch.year;
-  }
-  if (invite.programmeId) {
-    const [prog] = await db.select({ name: programmes.name, code: programmes.code }).from(programmes).where(eq(programmes.id, invite.programmeId)).limit(1);
-    if (prog) {
-      programmeName = prog.name;
-      programmeCode = prog.code;
-    }
-  }
-  if (invite.departmentId) {
-    const [dept] = await db.select({ name: departments.name }).from(departments).where(eq(departments.id, invite.departmentId)).limit(1);
-    if (dept) departmentName = dept.name;
-  }
   if (invite.createdById) {
     const [tutor] = await db.select({ name: users.name }).from(users).where(eq(users.id, invite.createdById)).limit(1);
     if (tutor) tutorName = tutor.name;
@@ -711,19 +691,57 @@ export async function validateClassSignupCode(rawCode: string) {
     valid: true,
     data: {
       code: invite.code,
-      sectionLabel: sectionLabel || "Default",
-      className: `${programmeCode || "Class"} ${sectionLabel || ""}`.trim(),
-      batchYear: batchYear || "2026",
-      programmeName: programmeName || "Academic Programme",
-      programmeCode: programmeCode || "PROG",
-      departmentName: departmentName || "Academic Department",
-      tutorName: tutorName || "Assigned Class Tutor",
+      sectionLabel: cls.sectionLabel,
+      // Full class identity, e.g. "MCA F · 2025–2027"
+      className: cls.label,
+      batchYear: cls.years,
+      programmeName: cls.programmeName,
+      programmeCode: cls.programmeCode,
+      departmentName: cls.departmentName,
+      tutorName: tutorName || "Class tutor",
       maxUses: invite.maxUses,
       usedCount: invite.usedCount,
       spotsRemaining: Math.max(0, invite.maxUses - invite.usedCount),
     },
   };
 }
+
+/**
+ * The class a student code is for, resolved from the section (the source of
+ * truth for cohort, programme, department and faculty). Null when the code has
+ * no class or its stored cohort disagrees with the class.
+ */
+async function resolveCodeClass(invite: { sectionId: string | null; academicBatchId: string | null }) {
+  if (!invite.sectionId) return null;
+  const [row] = await db
+    .select({
+      sectionId: sections.id,
+      sectionLabel: sections.label,
+      sectionActive: sections.isActive,
+      batchId: academicBatches.id,
+      admissionYear: academicBatches.admissionYear,
+      expectedEndYear: academicBatches.expectedEndYear,
+      legacyYear: academicBatches.year,
+      programmeId: programmes.id,
+      programmeName: programmes.name,
+      programmeCode: programmes.code,
+      departmentId: departments.id,
+      departmentName: departments.name,
+      facultyId: departments.facultyId,
+    })
+    .from(sections)
+    .innerJoin(academicBatches, eq(academicBatches.id, sections.academicBatchId))
+    .innerJoin(programmes, eq(programmes.id, academicBatches.programmeId))
+    .innerJoin(departments, eq(departments.id, programmes.departmentId))
+    .where(eq(sections.id, invite.sectionId))
+    .limit(1);
+  if (!row || !row.sectionActive) return null;
+  if (invite.academicBatchId && invite.academicBatchId !== row.batchId) return null;
+  return { ...row, label: cohortLabel(row), years: cohortYears(row) };
+}
+
+/** Raised inside the signup transaction when a concurrent signup took the same register number or email. */
+class SignupConflict extends Error {}
 
 /** Register number: trimmed, upper-cased, letters and digits only. */
 const registerNumberField = z
@@ -799,7 +817,7 @@ export async function registerStudentWithClassCode(formData: {
       return { success: false, error: "This class signup code has expired." };
     }
 
-    // Server-side hard activation limit check
+    // Server-side hard activation limit check (re-checked atomically below)
     if (invite.usedCount >= invite.maxUses) {
       return {
         success: false,
@@ -807,7 +825,14 @@ export async function registerStudentWithClassCode(formData: {
       };
     }
 
-    // 2. Strict deduplication check
+    // The class (and therefore cohort, programme, department) comes from the code's class.
+    const cls = await resolveCodeClass(invite);
+    if (!cls) {
+      return { success: false, error: "This class signup code is not linked to a class. Please ask your class tutor for a new code." };
+    }
+
+    // 2. Never create a second account, and never move an existing student:
+    //    a code cannot change anyone's class or cohort.
     const [existingReg] = await db
       .select({ id: users.id })
       .from(users)
@@ -838,48 +863,73 @@ export async function registerStudentWithClassCode(formData: {
     const passwordHash = await bcrypt.hash(password, HASH_ROUNDS);
     const displayName = cleanDisplayName(name?.trim() || normalizedEmail.split("@")[0].toUpperCase());
 
-    // 4. Create student strictly bound to code's server record
-    const [newUser] = await db
-      .insert(users)
-      .values({
-        name: displayName,
-        email: normalizedEmail,
-        passwordHash,
-        role: "STUDENT",
-        registerNumber,
-        facultyId: invite.facultyId,
-        departmentId: invite.departmentId,
-        programmeId: invite.programmeId,
-        academicBatchId: invite.academicBatchId,
-        sectionId: invite.sectionId,
-        isActive: true,
-        isEligible: true,
-      })
-      .returning();
+    // 4. Claim one activation atomically and create the student in the same
+    //    transaction: two simultaneous signups can never exceed the limit.
+    const created = await db.transaction(async (tx) => {
+      const [claimed] = await tx
+        .update(inviteCodes)
+        .set({
+          usedCount: sql`${inviteCodes.usedCount} + 1`,
+          status: sql`CASE WHEN ${inviteCodes.usedCount} + 1 >= ${inviteCodes.maxUses} THEN 'USED' ELSE 'ACTIVE' END`,
+        })
+        .where(
+          and(
+            eq(inviteCodes.id, invite.id),
+            eq(inviteCodes.status, "ACTIVE"),
+            sql`${inviteCodes.usedCount} < ${inviteCodes.maxUses}`,
+            sql`${inviteCodes.expiresAt} > now()`
+          )
+        )
+        .returning({ usedCount: inviteCodes.usedCount });
+      if (!claimed) return null;
 
-    // 5. Update activation counter
-    const nextCount = invite.usedCount + 1;
-    await db
-      .update(inviteCodes)
-      .set({
-        usedCount: nextCount,
-        status: nextCount >= invite.maxUses ? "USED" : "ACTIVE",
-      })
-      .where(eq(inviteCodes.id, invite.id));
+      const [newUser] = await tx
+        .insert(users)
+        .values({
+          name: displayName,
+          email: normalizedEmail,
+          passwordHash,
+          role: "STUDENT",
+          registerNumber,
+          facultyId: cls.facultyId,
+          departmentId: cls.departmentId,
+          programmeId: cls.programmeId,
+          academicBatchId: cls.batchId,
+          sectionId: cls.sectionId,
+          isActive: true,
+          isEligible: true,
+        })
+        .onConflictDoNothing()
+        .returning();
+      if (!newUser) throw new SignupConflict();
 
-    // 6. Audit log
-    await db.insert(auditLogs).values({
-      action: "STUDENT_CLASS_SIGNUP",
-      userId: newUser.id,
-      userEmail: newUser.email,
-      userRole: "STUDENT",
-      metadata: {
-        registerNumber: newUser.registerNumber,
-        code: invite.code,
-        sectionId: invite.sectionId,
-        activationNumber: nextCount,
-      },
+      await tx.insert(auditLogs).values({
+        action: "STUDENT_CLASS_SIGNUP",
+        userId: newUser.id,
+        userEmail: newUser.email,
+        userRole: "STUDENT",
+        metadata: {
+          registerNumber: newUser.registerNumber,
+          code: invite.code,
+          sectionId: cls.sectionId,
+          academicBatchId: cls.batchId,
+          classLabel: cls.label,
+          activationNumber: claimed.usedCount,
+        },
+      });
+      return newUser;
+    }).catch((err) => {
+      if (err instanceof SignupConflict) return "CONFLICT" as const;
+      throw err;
     });
+
+    if (created === null) {
+      return { success: false, error: "This class code is no longer accepting students (limit reached, expired or revoked)." };
+    }
+    if (created === "CONFLICT") {
+      return { success: false, error: "An account with this register number or email already exists. Please sign in instead." };
+    }
+    const newUser = created;
 
     // 7. Establish session
     await startSession(newUser);

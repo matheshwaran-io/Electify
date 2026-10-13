@@ -19,6 +19,8 @@ export type WindowBannerProps = {
   eligible: boolean;
   /** Where "Choose electives" goes; on a subject page this targets that subject's card. */
   chooseHref?: string;
+  /** The event shown, so links stay on it when a class has several. */
+  eventId?: string;
   className?: string;
 };
 
@@ -44,10 +46,13 @@ export function RegistrationWindowBanner({
   serverNow,
   registrationStatus,
   eligible,
-  chooseHref = "/dashboard/electives",
+  chooseHref,
+  eventId,
   className,
 }: WindowBannerProps) {
   const router = useRouter();
+  const q = eventId ? `?event=${encodeURIComponent(eventId)}` : "";
+  const choose = chooseHref ?? `/dashboard/electives${q}`;
   const now = useServerClock(serverNow);
   const target = state === "UPCOMING" ? opensAt : state === "OPEN" ? closesAt : null;
   useTicker(Boolean(target));
@@ -88,13 +93,13 @@ export function RegistrationWindowBanner({
     ) : null;
     if (registered) {
       action = (
-        <Link href="/dashboard/my-registration" className={buttonVariants({ variant: "secondary", size: "sm" })}>
+        <Link href={`/dashboard/my-registration${q}`} className={buttonVariants({ variant: "secondary", size: "sm" })}>
           View my registration
         </Link>
       );
     } else if (eligible) {
       action = (
-        <Link href={chooseHref} className={buttonVariants({ size: "sm" })}>
+        <Link href={choose} className={buttonVariants({ size: "sm" })}>
           Choose electives
         </Link>
       );
@@ -113,7 +118,7 @@ export function RegistrationWindowBanner({
       : "New choices can't be submitted. Contact your class tutor if you missed the window.";
     if (registered) {
       action = (
-        <Link href="/dashboard/my-registration" className={buttonVariants({ variant: "secondary", size: "sm" })}>
+        <Link href={`/dashboard/my-registration${q}`} className={buttonVariants({ variant: "secondary", size: "sm" })}>
           View my registration
         </Link>
       );

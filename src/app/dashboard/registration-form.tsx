@@ -256,7 +256,7 @@ export function RegistrationForm({ event, student, groups, electives, initialReg
         try {
           sessionStorage.removeItem(draftKey);
         } catch {}
-        router.push("/dashboard/success");
+        router.push(`/dashboard/success?event=${encodeURIComponent(event.id)}`);
         return; // keep the loading state while we navigate
       }
       handleFailure(response);
@@ -283,7 +283,7 @@ export function RegistrationForm({ event, student, groups, electives, initialReg
       }
     }
     if (result.code === "ALREADY_REGISTERED") {
-      router.replace("/dashboard/success");
+      router.replace(`/dashboard/success?event=${encodeURIComponent(event.id)}`);
       return;
     }
     setIsConfirmOpen(false);

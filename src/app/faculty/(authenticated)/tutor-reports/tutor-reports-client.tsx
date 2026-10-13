@@ -71,7 +71,11 @@ type ReportData = {
   departmentName: string;
   groups: GroupSummary[];
   eventId?: string | null;
+  eventName?: string | null;
   eventStatus?: string;
+  /** Full class identity, e.g. "MCA F · 2025–2027" */
+  classLabel?: string;
+  academicSession?: string;
   availableElectives?: ElectiveOption[];
 };
 
@@ -184,7 +188,14 @@ export function TutorReportsClient({ reportData, hasActiveSection = true }: { re
     departmentName,
   };
 
-  const subtitle = [sectionLabel ? `Section ${sectionLabel}` : "Your section", programmeName, departmentName].filter(Boolean).join(" · ");
+  const subtitle = [
+    reportData.classLabel || (sectionLabel ? `Section ${sectionLabel}` : "Your section"),
+    reportData.academicSession ? `Academic session ${reportData.academicSession}` : null,
+    reportData.eventName,
+    departmentName,
+  ]
+    .filter(Boolean)
+    .join(" · ");
 
   const columns: Column<Student>[] = [
     {
@@ -413,7 +424,8 @@ export function TutorReportsClient({ reportData, hasActiveSection = true }: { re
         title="Reset this section's registrations?"
         description="Every registration in your section is cleared and students have to register again. This cannot be undone."
         impact={[
-          { label: "Section", value: sectionLabel || "—" },
+          { label: "Class", value: reportData.classLabel || sectionLabel || "—" },
+          { label: "Academic session", value: reportData.academicSession || "—" },
           { label: "Confirmed registrations", value: registeredCount, tone: "danger" },
         ]}
         requireText="CONFIRM"

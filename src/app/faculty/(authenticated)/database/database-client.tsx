@@ -71,8 +71,8 @@ export function DatabaseClient({ events, role }: { events: any[]; role: string }
     },
     {
       key: "delete_students",
-      title: "Delete all students",
-      desc: "Hard deletes all student accounts. Cascades to their registrations.",
+      title: "Delete all students in my classes",
+      desc: "Hard deletes the student accounts of the classes you manage in this academic session, with their registrations. Seats they held are returned.",
       icon: Users,
       tone: "danger",
       actionFn: async () => await deleteAllStudents(),

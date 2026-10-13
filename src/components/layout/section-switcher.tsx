@@ -10,10 +10,23 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { Spinner } from "@/components/ui/spinner"
 import { Tooltip } from "@/components/ui/tooltip"
 
-export type AssignedSection = { id: string; label: string; batch: string; programme: string }
+export type AssignedSection = {
+  id: string
+  label: string
+  batch: string
+  programme: string
+  /** Full class identity, e.g. "MCA F · 2025–2027". Distinguishes same-named classes. */
+  classLabel?: string
+  /** e.g. "Year 2 · Semester 3" in the selected academic session */
+  stage?: string
+}
 
 export function sectionName(s: AssignedSection) {
-  return `Section ${s.label}`
+  return s.classLabel ?? `Section ${s.label}`
+}
+
+function sectionDetail(s: AssignedSection) {
+  return s.classLabel ? s.stage ?? s.programme : `${s.programme} · ${s.batch}`
 }
 
 /** Switches the active section through the existing API, then refreshes server data in place. */
@@ -36,7 +49,7 @@ export function useSwitchSection() {
           throw new Error(data.error || "Couldn't switch section")
         }
         startTransition(() => router.refresh())
-        toast.success(`Now viewing ${sectionName(section)}`, { description: `${section.programme} · ${section.batch}` })
+        toast.success(`Now viewing ${sectionName(section)}`, { description: sectionDetail(section) })
       } catch (err) {
         toast.error(err instanceof Error ? err.message : "Couldn't switch section")
       } finally {
@@ -64,14 +77,14 @@ export function SectionSwitcher({
   const active = sections.find((s) => s.id === activeId) ?? sections[0]
 
   const filtered = sections.filter((s) =>
-    `${s.programme} ${s.batch} ${s.label}`.toLowerCase().includes(query.trim().toLowerCase())
+    `${s.classLabel ?? ""} ${s.programme} ${s.batch} ${s.label}`.toLowerCase().includes(query.trim().toLowerCase())
   )
 
   if (!active) return null
 
   const trigger = (
     <PopoverTrigger
-      aria-label={`Active section: ${sectionName(active)}, ${active.programme} ${active.batch}. Change section`}
+      aria-label={`Active class: ${sectionName(active)}, ${sectionDetail(active)}. Change class`}
       className={cn(
         "group flex w-full items-center gap-2.5 rounded-control border border-border bg-surface text-left shadow-1 transition-colors hover:border-border-strong",
         collapsed ? "size-10 justify-center p-0" : "px-2.5 py-2"
@@ -84,9 +97,7 @@ export function SectionSwitcher({
         <>
           <span className="min-w-0 flex-1">
             <span className="block truncate text-sm font-medium text-fg">{sectionName(active)}</span>
-            <span className="block truncate text-xs text-fg-muted">
-              {active.programme} · {active.batch}
-            </span>
+            <span className="block truncate text-xs text-fg-muted">{sectionDetail(active)}</span>
           </span>
           <ChevronsUpDown className="size-4 shrink-0 text-fg-subtle" />
         </>
@@ -97,7 +108,7 @@ export function SectionSwitcher({
   return (
     <Popover open={open} onOpenChange={setOpen}>
       {collapsed ? (
-        <Tooltip content={`${sectionName(active)} · ${active.programme}`} side="right">
+        <Tooltip content={`${sectionName(active)} · ${sectionDetail(active)}`} side="right">
           {trigger}
         </Tooltip>
       ) : (
@@ -111,14 +122,14 @@ export function SectionSwitcher({
               autoFocus
               value={query}
               onChange={(e) => setQuery(e.target.value)}
-              placeholder="Find a section"
-              aria-label="Find a section"
+              placeholder="Find a class"
+              aria-label="Find a class"
               className="h-10 flex-1 bg-transparent text-sm outline-none placeholder:text-fg-subtle"
             />
           </div>
         ) : null}
-        <div role="listbox" aria-label="Your sections" className="max-h-72 overflow-y-auto p-1">
-          {filtered.length === 0 ? <p className="px-3 py-6 text-center text-sm text-fg-muted">No sections match</p> : null}
+        <div role="listbox" aria-label="Your classes in this academic session" className="max-h-72 overflow-y-auto p-1">
+          {filtered.length === 0 ? <p className="px-3 py-6 text-center text-sm text-fg-muted">No classes match</p> : null}
           {filtered.map((s) => {
             const isActive = s.id === active.id
             return (
@@ -142,9 +153,7 @@ export function SectionSwitcher({
                   </span>
                   <span className="min-w-0 flex-1">
                     <span className="block truncate text-sm font-medium text-fg">{sectionName(s)}</span>
-                    <span className="block truncate text-xs text-fg-muted">
-                      {s.programme} · {s.batch}
-                    </span>
+                    <span className="block truncate text-xs text-fg-muted">{sectionDetail(s)}</span>
                   </span>
                   {isActive ? <Check className="size-4 text-primary-text shrink-0" /> : null}
                 </button>

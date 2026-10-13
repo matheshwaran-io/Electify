@@ -2,8 +2,8 @@ import * as React from "react";
 import { redirect } from "next/navigation";
 import { getSession } from "@/lib/auth";
 import { db } from "@/lib/db";
-import { users, systemSettings, registrationEvents, registrations } from "@/lib/db/schema";
-import { eq, and, inArray, desc } from "drizzle-orm";
+import { systemSettings, registrationEvents } from "@/lib/db/schema";
+import { eq } from "drizzle-orm";
 import Link from "next/link";
 import { ArrowRight, CalendarClock, CalendarX2, Clock3, Lock, PauseCircle, RadioTower, UserX, Users } from "lucide-react";
 import { CountdownTimer } from "./countdown-timer";
@@ -11,12 +11,13 @@ import { StudentHeader, StudentStatus } from "@/components/student/student-chrom
 import { formatDateTime, formatOpening } from "@/lib/format";
 import { SeatMark } from "@/components/auth/seat-mark";
 import { buttonVariants } from "@/components/ui/button";
-import { getRegistrationWindow, STUDENT_VISIBLE_EVENT_STATUSES } from "@/lib/registration-window";
+import { getRegistrationWindow } from "@/lib/registration-window";
+import { resolveStudentEvent, withEvent } from "@/lib/student-events";
 
 export const dynamic = "force-dynamic";
 export const metadata = { title: "Registration opens soon" };
 
-export default async function CountdownPage() {
+export default async function CountdownPage({ searchParams }: { searchParams: Promise<{ event?: string }> }) {
   const session = await getSession();
 
   if (!session) {
@@ -33,9 +34,11 @@ export default async function CountdownPage() {
     redirect("/maintenance");
   }
 
-  const [student] = await db.select().from(users).where(eq(users.id, session.userId)).limit(1);
+  // Only an event that targets this student's class (lib/student-events).
+  const { event: requested } = await searchParams;
+  const resolved = await resolveStudentEvent(session.userId, requested ?? null);
 
-  if (!student) {
+  if (resolved.status === "NO_STUDENT" || resolved.status === "NOT_STUDENT") {
     return (
       <StudentStatus icon={<UserX />} tone="danger" title="We couldn't find your student record" next="Ask your class tutor to check that your account exists, then sign in again.">
         <p>You&apos;re signed in, but there&apos;s no student profile attached to this account.</p>
@@ -43,47 +46,46 @@ export default async function CountdownPage() {
     );
   }
 
-  if (!student.academicBatchId) {
+  if (resolved.status === "NO_CLASS") {
     return (
-      <StudentStatus icon={<Users />} tone="warning" title="You're not in a batch yet" next="Ask your class tutor to add you to your section. Once they do, sign in again and the countdown will appear here.">
-        <p>Electives are offered per batch, so we can&apos;t show you any until your account is linked to one.</p>
+      <StudentStatus icon={<Users />} tone="warning" title="You're not in a class yet" next="Ask your class tutor to add you to your class. Once they do, sign in again and the countdown will appear here.">
+        <p>Electives are offered per class, so we can&apos;t show you any until your account is linked to one.</p>
       </StudentStatus>
     );
   }
 
-  const [event] = await db.select().from(registrationEvents)
-    .where(
-      and(
-        eq(registrationEvents.academicBatchId, student.academicBatchId),
-        inArray(registrationEvents.status, [...STUDENT_VISIBLE_EVENT_STATUSES])
-      )
-    ).orderBy(desc(registrationEvents.createdAt)).limit(1);
+  if (resolved.status === "NOT_ELIGIBLE") {
+    redirect("/dashboard");
+  }
 
-  if (!event) {
+  if (resolved.status === "NO_EVENT") {
     return (
       <StudentStatus icon={<Clock3 />} title="No registration scheduled yet" next="Your class tutor will share the opening time. This page shows a countdown as soon as a window is scheduled.">
-        <p>There isn&apos;t an elective registration window for your batch right now.</p>
+        <p>
+          There isn&apos;t an elective registration window for <span className="font-medium text-fg">{resolved.studentClass.label}</span> right now.
+        </p>
       </StudentStatus>
     );
   }
 
-  // Check confirmed registration status from registrations table
-  const [userRegistration] = await db.select().from(registrations)
-    .where(and(eq(registrations.studentId, student.id), eq(registrations.eventId, event.id))).limit(1);
+  const student = resolved.student;
+  const studentEvent = resolved.event;
+  const [event] = await db.select().from(registrationEvents).where(eq(registrationEvents.id, studentEvent.id)).limit(1);
+  if (!event) redirect("/dashboard");
 
-  const hasSubmitted = userRegistration?.status === "CONFIRMED";
+  const hasSubmitted = studentEvent.registrationStatus === "CONFIRMED";
 
   const now = new Date();
   // Same rule the register action enforces, evaluated on the server clock.
   const regWindow = getRegistrationWindow(event, now);
 
   if (regWindow.isOpen) {
-    redirect("/dashboard");
+    redirect(withEvent("/dashboard", event.id));
   }
 
-  // If already confirmed, go to success
+  // If already confirmed, go to the receipt
   if (hasSubmitted) {
-    redirect("/dashboard/success");
+    redirect(withEvent("/dashboard/my-registration", event.id));
   }
 
   if (regWindow.state === "PAUSED") {
@@ -95,7 +97,7 @@ export default async function CountdownPage() {
         next={
           <>
             You can still{" "}
-            <Link href="/dashboard/subjects" className="font-medium text-fg underline underline-offset-4">
+            <Link href={withEvent("/dashboard/subjects", event.id)} className="font-medium text-fg underline underline-offset-4">
               read about the subjects
             </Link>{" "}
             while you wait.
@@ -144,6 +146,11 @@ export default async function CountdownPage() {
           <h1 className="mt-5 max-w-2xl text-4xl font-light tracking-display text-fg animate-enter [animation-delay:100ms]">
             {event.name}
           </h1>
+          <p className="mt-2 text-fg-muted animate-enter [animation-delay:120ms]">
+            {resolved.studentClass.label}
+            {studentEvent.sessionLabel ? ` · Academic session ${studentEvent.sessionLabel}` : ""}
+            {event.semester ? ` · Semester ${event.semester}` : ""}
+          </p>
 
           <div className="mt-10 animate-enter [animation-delay:160ms]">
             {event.openDate ? (
@@ -151,6 +158,7 @@ export default async function CountdownPage() {
                 startDateStr={event.openDate.toISOString()}
                 registrationEnabled={event.status === "PUBLISHED" || event.status === "OPEN"}
                 serverNow={now.getTime()}
+                targetHref={withEvent("/dashboard", event.id)}
               />
             ) : (
               <p className="text-fg-muted">Your class tutor hasn&apos;t set an opening time. Check back soon.</p>
@@ -162,7 +170,7 @@ export default async function CountdownPage() {
           </p>
 
           <Link
-            href="/dashboard/subjects"
+            href={withEvent("/dashboard/subjects", event.id)}
             className={buttonVariants({ variant: "secondary", size: "lg", className: "mt-6 animate-enter [animation-delay:240ms]" })}
           >
             Explore subjects while you wait <ArrowRight />

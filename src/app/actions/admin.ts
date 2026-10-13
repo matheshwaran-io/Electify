@@ -5,12 +5,13 @@ import {
   users, registrationEvents, faculties, departments,
   programmes, academicBatches, sections, auditLogs, eventTemplates,
   templateGroups, inviteCodes, systemSettings, tutorSections,
-  studentRegistrations, registrations, electives, electiveSeatAllocations, eventStudents
+  studentRegistrations, registrations, electives, electiveSeatAllocations, eventStudents, eventSections
 } from "@/lib/db/schema";
 import { getSession } from "@/lib/auth";
 import { eq, desc, count, asc, or, inArray, sql, and } from "drizzle-orm";
 import * as bcrypt from "bcryptjs";
 import { generateRoleBasedCode, type InviteRole } from "@/lib/invites";
+import { requireStaffWorkspace, workspaceEventIds } from "@/lib/workspace";
 
 async function assertAdmin() {
   const session = await getSession();
@@ -28,8 +29,17 @@ async function assertAdminOrCoordinator() {
 
 // ── Events ──────────────────────────────────────────────────────────────────
 
+/**
+ * Registration events of the selected academic session that target classes the
+ * user manages (coordinators: their programme; admins: every class in the
+ * session), with the full identity of each targeted class.
+ */
 export async function getEvents() {
   await assertAdminOrCoordinator();
+  const ws = await requireStaffWorkspace();
+  const eventIds = await workspaceEventIds(ws);
+  if (eventIds.length === 0) return [];
+
   const events = await db
     .select({
       id: registrationEvents.id,
@@ -37,6 +47,7 @@ export async function getEvents() {
       description: registrationEvents.description,
       academicYear: registrationEvents.academicYear,
       academicBatchId: registrationEvents.academicBatchId,
+      semester: registrationEvents.semester,
       status: registrationEvents.status,
       openDate: registrationEvents.openDate,
       closeDate: registrationEvents.closeDate,
@@ -47,8 +58,22 @@ export async function getEvents() {
     .from(registrationEvents)
     .leftJoin(academicBatches, eq(registrationEvents.academicBatchId, academicBatches.id))
     .leftJoin(programmes, eq(academicBatches.programmeId, programmes.id))
+    .where(inArray(registrationEvents.id, eventIds))
     .orderBy(desc(registrationEvents.createdAt));
-  return events;
+
+  const targets = await db
+    .select({ eventId: eventSections.eventId, sectionId: eventSections.sectionId })
+    .from(eventSections)
+    .where(inArray(eventSections.eventId, eventIds));
+  const labelOf = new Map(ws.classes.map((c) => [c.sectionId, c.label]));
+
+  return events.map((e) => ({
+    ...e,
+    classLabels: targets
+      .filter((t) => t.eventId === e.id)
+      .map((t) => labelOf.get(t.sectionId))
+      .filter((l): l is string => Boolean(l)),
+  }));
 }
 
 export async function getBatchesForEvents() {

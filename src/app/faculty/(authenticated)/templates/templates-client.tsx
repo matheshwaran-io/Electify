@@ -25,7 +25,6 @@ import {
 
 import {
   DetailedTemplate,
-  TemplateBatchOption,
   createEventFromTemplate,
   createTemplate,
   duplicateTemplate,
@@ -48,7 +47,9 @@ import { formatDate } from "@/lib/format";
 
 interface TemplatesClientProps {
   initialTemplates: DetailedTemplate[];
-  batches: TemplateBatchOption[];
+  /** Classes the user manages in the selected academic session (empty when none is selected). */
+  classes: { sectionId: string; label: string; stage: string; programmeId: string; semester: number | null }[];
+  sessionLabel: string | null;
   programmes: { id: string; name: string; code: string }[];
   userRole?: string;
   currentUserId?: string;
@@ -57,7 +58,8 @@ interface TemplatesClientProps {
 
 export function TemplatesClient({
   initialTemplates,
-  batches,
+  classes,
+  sessionLabel,
   programmes,
   userRole,
   currentUserId,
@@ -78,14 +80,14 @@ export function TemplatesClient({
   // ── "Use This Template" Modal State ──
   const [useModalTemplate, setUseModalTemplate] = React.useState<DetailedTemplate | null>(null);
   const [eventName, setEventName] = React.useState("");
-  const [batchId, setBatchId] = React.useState("");
-  const [academicYear, setAcademicYear] = React.useState("");
+  const [targetSectionId, setTargetSectionId] = React.useState("");
+  const [semester, setSemester] = React.useState("");
   const [openDate, setOpenDate] = React.useState("");
   const [closeDate, setCloseDate] = React.useState("");
   const [eventStatus, setEventStatus] = React.useState("DRAFT");
   const [eventDescription, setEventDescription] = React.useState("");
   const [isSubmittingEvent, setIsSubmittingEvent] = React.useState(false);
-  const [eventErrors, setEventErrors] = React.useState<{ name?: string; batchId?: string }>({});
+  const [eventErrors, setEventErrors] = React.useState<{ name?: string; sectionId?: string }>({});
 
   // ── Template Structure Preview Modal State ──
   const [previewTemplate, setPreviewTemplate] = React.useState<DetailedTemplate | null>(null);
@@ -181,14 +183,13 @@ export function TemplatesClient({
   // ── Open "Use This Template" Modal ──
   const handleOpenUseModal = (template: DetailedTemplate) => {
     setUseModalTemplate(template);
-    // Find matching batch for template's programme
-    const matchingBatches = batches.filter((b) => b.programmeId === template.programmeId);
-    const defaultBatch = matchingBatches[0] || batches[0];
+    // Preselect only when exactly one class of the template's programme exists
+    const matching = classes.filter((c) => c.programmeId === template.programmeId);
+    const only = matching.length === 1 ? matching[0] : null;
 
-    const currentYear = new Date().getFullYear();
-    setEventName(`${template.name.replace(" Template", "")} — ${currentYear} Registration`);
-    setBatchId(defaultBatch ? defaultBatch.id : "");
-    setAcademicYear(defaultBatch ? defaultBatch.year : `${currentYear}-${currentYear + 2}`);
+    setEventName(`${template.name.replace(" Template", "")} — ${sessionLabel ?? ""} Registration`.replace("—  ", "— "));
+    setTargetSectionId(only ? only.sectionId : "");
+    setSemester(only?.semester ? String(only.semester) : "");
     setOpenDate("");
     setCloseDate("");
     setEventStatus("DRAFT");
@@ -200,9 +201,9 @@ export function TemplatesClient({
   const handleCreateEventFromTemplate = async () => {
     if (!useModalTemplate) return;
 
-    const errors: { name?: string; batchId?: string } = {};
+    const errors: { name?: string; sectionId?: string } = {};
     if (!eventName.trim()) errors.name = "Event title is required.";
-    if (!batchId) errors.batchId = "Please select a target academic batch.";
+    if (!targetSectionId) errors.sectionId = "Choose the class this event is for.";
 
     if (Object.keys(errors).length > 0) {
       setEventErrors(errors);
@@ -216,11 +217,11 @@ export function TemplatesClient({
       const res = await createEventFromTemplate({
         templateId: useModalTemplate.id,
         name: eventName.trim(),
-        academicBatchId: batchId,
-        academicYear: academicYear.trim(),
+        targetSectionId,
+        semester: semester ? Number(semester) : null,
         description: eventDescription.trim(),
-        openDate: openDate || null,
-        closeDate: closeDate || null,
+        openDate: openDate ? new Date(openDate).toISOString() : null,
+        closeDate: closeDate ? new Date(closeDate).toISOString() : null,
         status: eventStatus,
       });
 
@@ -333,12 +334,13 @@ export function TemplatesClient({
     }
   };
 
-  // Available batches for selected template in modal
-  const modalBatchOptions = React.useMemo(() => {
+  // Classes for the selected template: its own programme's first
+  const modalClassOptions = React.useMemo(() => {
     if (!useModalTemplate) return [];
-    const filtered = batches.filter((b) => b.programmeId === useModalTemplate.programmeId);
-    return filtered.length > 0 ? filtered : batches;
-  }, [useModalTemplate, batches]);
+    const same = classes.filter((c) => c.programmeId === useModalTemplate.programmeId);
+    const other = classes.filter((c) => c.programmeId !== useModalTemplate.programmeId);
+    return [...same, ...other];
+  }, [useModalTemplate, classes]);
 
   return (
     <div className="space-y-8 pb-12">
@@ -724,47 +726,55 @@ export function TemplatesClient({
                 />
               </Field>
 
-              {/* Target Batch Selector */}
+              {/* Target class (one event per class) */}
               <Field
-                label="Target Academic Batch"
-                description={`Recommended: Batches under ${useModalTemplate.programmeName || "this programme"}`}
-                error={eventErrors.batchId}
+                label="Class"
+                description={
+                  sessionLabel
+                    ? `Academic session ${sessionLabel}. Only students of this class and cohort will see the event.`
+                    : "Choose an academic session first."
+                }
+                error={eventErrors.sectionId}
               >
                 <select
-                  value={batchId}
+                  value={targetSectionId}
                   onChange={(e) => {
-                    setBatchId(e.target.value);
-                    const selected = batches.find((b) => b.id === e.target.value);
-                    if (selected) {
-                      setAcademicYear(`${selected.year}-${parseInt(selected.year, 10) + 2}`);
-                    }
-                    if (eventErrors.batchId) {
-                      setEventErrors((prev) => ({ ...prev, batchId: undefined }));
+                    setTargetSectionId(e.target.value);
+                    const chosen = classes.find((c) => c.sectionId === e.target.value);
+                    if (chosen?.semester && !semester) setSemester(String(chosen.semester));
+                    if (eventErrors.sectionId) {
+                      setEventErrors((prev) => ({ ...prev, sectionId: undefined }));
                     }
                   }}
-                  disabled={isSubmittingEvent}
+                  disabled={isSubmittingEvent || classes.length === 0}
                   className="w-full px-3 py-2 bg-surface-2 border border-border-strong rounded-control text-sm text-fg focus:outline-none focus:ring-2 focus:ring-primary/40 cursor-pointer"
                 >
                   <option value="" disabled>
-                    Select an academic batch...
+                    {classes.length ? "Select a class..." : "No classes in this session"}
                   </option>
-                  {modalBatchOptions.map((b) => (
-                    <option key={b.id} value={b.id}>
-                      {b.programmeName ? `${b.programmeName} — ` : ""}
-                      {b.year} Batch ({b.sectionCount} Section{b.sectionCount !== 1 ? "s" : ""})
+                  {modalClassOptions.map((c) => (
+                    <option key={c.sectionId} value={c.sectionId}>
+                      {c.label} · {c.stage}
                     </option>
                   ))}
                 </select>
               </Field>
 
               <div className="grid grid-cols-2 gap-4">
-                <Field label="Academic Year" description="e.g. 2026-2028">
-                  <Input
-                    value={academicYear}
-                    onChange={(e) => setAcademicYear(e.target.value)}
-                    placeholder="2026-2028"
+                <Field label="Semester">
+                  <select
+                    value={semester}
+                    onChange={(e) => setSemester(e.target.value)}
                     disabled={isSubmittingEvent}
-                  />
+                    className="w-full px-3 py-2 bg-surface-2 border border-border-strong rounded-control text-sm text-fg focus:outline-none cursor-pointer"
+                  >
+                    <option value="">Not set</option>
+                    {Array.from({ length: 12 }, (_, i) => (
+                      <option key={i + 1} value={String(i + 1)}>
+                        Semester {i + 1}
+                      </option>
+                    ))}
+                  </select>
                 </Field>
 
                 <Field label="Initial Status">
@@ -774,8 +784,8 @@ export function TemplatesClient({
                     disabled={isSubmittingEvent}
                     className="w-full px-3 py-2 bg-surface-2 border border-border-strong rounded-control text-sm text-fg focus:outline-none cursor-pointer"
                   >
-                    <option value="DRAFT">DRAFT (Review before launch)</option>
-                    <option value="OPEN">OPEN (Immediately active)</option>
+                    <option value="DRAFT">Draft (review before launch)</option>
+                    <option value="PUBLISHED">Published (opens at the scheduled time)</option>
                   </select>
                 </Field>
               </div>
