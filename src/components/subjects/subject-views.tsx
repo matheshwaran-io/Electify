@@ -17,11 +17,32 @@ type Banner = Omit<WindowBannerProps, "className" | "chooseHref">;
  * pass authorised server data; the dev preview passes sample data. `live`
  * turns on realtime seat refresh (off in the preview, which has no real rows).
  */
-export function SubjectCatalogView({ eventName, subjects, banner, live = true }: { eventName: string; subjects: SubjectSummary[]; banner: Banner; live?: boolean }) {
+export function SubjectCatalogView({
+  eventName,
+  classLabel,
+  subjects,
+  banner,
+  live = true,
+}: {
+  eventName: string;
+  /** "MCA F · 2025–2027 · Academic session 2026–2027" */
+  classLabel?: string;
+  subjects: SubjectSummary[];
+  banner: Banner;
+  live?: boolean;
+}) {
   return (
     <main className="mx-auto w-full max-w-6xl flex-1 px-4 pb-16 pt-6 sm:px-6 sm:pt-10">
       <header className="flex flex-col gap-2 animate-enter">
-        <p className="text-sm text-fg-muted">{eventName}</p>
+        <p className="text-sm text-fg-muted">
+          {eventName}
+          {classLabel ? (
+            <>
+              <span aria-hidden className="mx-2 text-border-strong">/</span>
+              {classLabel}
+            </>
+          ) : null}
+        </p>
         <h1 className="text-4xl font-light tracking-display text-fg">Explore subjects</h1>
         <p className="max-w-2xl text-fg-muted">
           Read what each elective covers, how demanding it is and where it can lead, then pick with confidence when registration opens.
@@ -85,7 +106,11 @@ export function SubjectDetailView({ subject, banner, live = true }: { subject: S
         <SubjectIllustration slug={subject.profile?.slug} className="hidden w-full lg:block" />
       </header>
 
-      <RegistrationWindowBanner className="mt-8" {...banner} chooseHref={`/dashboard/electives#elective-${subject.electiveId}`} />
+      <RegistrationWindowBanner
+        className="mt-8"
+        {...banner}
+        chooseHref={`/dashboard/electives${banner.eventId ? `?event=${encodeURIComponent(banner.eventId)}` : ""}#elective-${subject.electiveId}`}
+      />
 
       <div className="mt-8 grid gap-8 lg:grid-cols-[minmax(0,1fr)_20rem] lg:items-start">
         <div className="order-2 min-w-0 lg:order-1">

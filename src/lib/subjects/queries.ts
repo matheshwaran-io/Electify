@@ -10,21 +10,11 @@
  *
  * Callers authenticate first and pass the session's userId.
  */
-import { and, desc, eq, inArray } from "drizzle-orm";
+import { and, eq, inArray } from "drizzle-orm";
 import { db } from "@/lib/db";
-import {
-  academicBatches,
-  departments,
-  electiveGroups,
-  electiveSeatAllocations,
-  electives,
-  programmes,
-  registrationEvents,
-  registrations,
-  subjectProfiles,
-  users,
-} from "@/lib/db/schema";
-import { getRegistrationWindow, STUDENT_VISIBLE_EVENT_STATUSES, type RegistrationWindow } from "@/lib/registration-window";
+import { electiveGroups, electiveSeatAllocations, electives, subjectProfiles } from "@/lib/db/schema";
+import { type RegistrationWindow } from "@/lib/registration-window";
+import { resolveStudentEvent } from "@/lib/student-events";
 import { studentSeatAvailability, type StudentSeatAvailability } from "@/lib/seats";
 import { normalizeSubjectName, readSubjectContent, type SubjectContent } from "@/lib/subjects/content-schema";
 
@@ -62,7 +52,16 @@ export type StudentContext =
   | {
       status: "OK";
       student: { id: string; name: string; isEligible: boolean; isActive: boolean; sectionId: string | null };
-      event: { id: string; name: string; status: string; openDate: Date | null; closeDate: Date | null };
+      event: {
+        id: string;
+        name: string;
+        status: string;
+        openDate: Date | null;
+        closeDate: Date | null;
+        sessionLabel: string | null;
+        /** "MCA F · 2025–2027" */
+        classLabel: string;
+      };
       window: RegistrationWindow;
       registrationStatus: string | null;
       programme: { id: string; name: string; code: string } | null;
@@ -72,53 +71,35 @@ export type StudentContext =
 
 type OkContext = Extract<StudentContext, { status: "OK" }>;
 
-export async function getStudentSubjectContext(studentId: string, now: Date = new Date()): Promise<StudentContext> {
-  const [student] = await db.select().from(users).where(eq(users.id, studentId)).limit(1);
-  if (!student) return { status: "NO_STUDENT" };
-  if (student.role !== "STUDENT") return { status: "NOT_STUDENT" };
-  if (!student.academicBatchId) return { status: "NO_BATCH" };
+/**
+ * The student's class and the registration event the explorer shows. Uses the
+ * shared eligibility rule (lib/student-events): only events that target the
+ * student's own class, never "the newest event for the batch".
+ */
+export async function getStudentSubjectContext(studentId: string, now: Date = new Date(), requestedEventId?: string | null): Promise<StudentContext> {
+  const res = await resolveStudentEvent(studentId, requestedEventId ?? null, now);
+  if (res.status === "NO_STUDENT") return { status: "NO_STUDENT" };
+  if (res.status === "NOT_STUDENT") return { status: "NOT_STUDENT" };
+  if (res.status === "NO_CLASS") return { status: "NO_BATCH" };
+  if (res.status !== "OK") return { status: "NO_EVENT" };
 
-  const [event] = await db
-    .select()
-    .from(registrationEvents)
-    .where(
-      and(
-        eq(registrationEvents.academicBatchId, student.academicBatchId),
-        inArray(registrationEvents.status, [...STUDENT_VISIBLE_EVENT_STATUSES])
-      )
-    )
-    .orderBy(desc(registrationEvents.createdAt))
-    .limit(1);
-  if (!event) return { status: "NO_EVENT" };
-
-  const [org] = await db
-    .select({
-      programmeId: programmes.id,
-      programmeName: programmes.name,
-      programmeCode: programmes.code,
-      departmentId: departments.id,
-      departmentName: departments.name,
-    })
-    .from(academicBatches)
-    .leftJoin(programmes, eq(academicBatches.programmeId, programmes.id))
-    .leftJoin(departments, eq(programmes.departmentId, departments.id))
-    .where(eq(academicBatches.id, event.academicBatchId))
-    .limit(1);
-
-  const [registration] = await db
-    .select({ status: registrations.status })
-    .from(registrations)
-    .where(and(eq(registrations.studentId, student.id), eq(registrations.eventId, event.id)))
-    .limit(1);
-
+  const { student, studentClass, event } = res;
   return {
     status: "OK",
     student: { id: student.id, name: student.name, isEligible: student.isEligible, isActive: student.isActive, sectionId: student.sectionId },
-    event: { id: event.id, name: event.name, status: event.status, openDate: event.openDate, closeDate: event.closeDate },
-    window: getRegistrationWindow(event, now),
-    registrationStatus: registration?.status ?? null,
-    programme: org?.programmeId ? { id: org.programmeId, name: org.programmeName ?? "", code: org.programmeCode ?? "" } : null,
-    department: org?.departmentId ? { id: org.departmentId, name: org.departmentName ?? "" } : null,
+    event: {
+      id: event.id,
+      name: event.name,
+      status: event.status,
+      openDate: event.openDate,
+      closeDate: event.closeDate,
+      sessionLabel: event.sessionLabel,
+      classLabel: studentClass.label,
+    },
+    window: event.window,
+    registrationStatus: event.registrationStatus,
+    programme: { id: studentClass.programmeId, name: studentClass.programmeName, code: "" },
+    department: { id: studentClass.departmentId, name: studentClass.departmentName },
     serverNow: now.getTime(),
   };
 }
@@ -208,8 +189,8 @@ function summarise(
   return { summary, content };
 }
 
-export async function loadSubjectCatalog(studentId: string, now: Date = new Date()) {
-  const ctx = await getStudentSubjectContext(studentId, now);
+export async function loadSubjectCatalog(studentId: string, now: Date = new Date(), requestedEventId?: string | null) {
+  const ctx = await getStudentSubjectContext(studentId, now, requestedEventId);
   if (ctx.status !== "OK") return { ctx, subjects: [] as SubjectSummary[] };
 
   const [{ groups, rows, quotas }, profiles] = await Promise.all([loadOfferings(ctx), publishedProfiles()]);
@@ -230,7 +211,14 @@ export async function loadSubjectCatalog(studentId: string, now: Date = new Date
 }
 
 export async function loadSubjectDetail(studentId: string, electiveId: string, now: Date = new Date()) {
-  const ctx = await getStudentSubjectContext(studentId, now);
+  // The elective decides the event; the student must be eligible for that event.
+  const [owner] = await db
+    .select({ eventId: electiveGroups.eventId })
+    .from(electives)
+    .innerJoin(electiveGroups, eq(electiveGroups.id, electives.groupId))
+    .where(eq(electives.id, electiveId))
+    .limit(1);
+  const ctx = await getStudentSubjectContext(studentId, now, owner?.eventId ?? "00000000-0000-0000-0000-000000000000");
   if (ctx.status !== "OK") return { ctx, subject: null as SubjectDetail | null };
 
   const { groups, rows, quotas } = await loadOfferings(ctx);

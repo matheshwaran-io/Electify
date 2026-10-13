@@ -11,11 +11,14 @@ import { eq, inArray } from "drizzle-orm";
 import { db } from "@/lib/db";
 import {
   academicBatches,
+  academicSessions,
   auditLogs,
+  cohortSessionTerms,
   departments,
   electiveGroups,
   electiveSeatAllocations,
   electives,
+  eventSections,
   faculties,
   programmes,
   registrationEvents,
@@ -27,6 +30,7 @@ import {
   users,
 } from "@/lib/db/schema";
 import { setTestSession } from "@/lib/auth";
+import { setTestWorkspaceSession } from "@/lib/workspace";
 
 export type ElectiveSpec = { key: string; name: string; seats: number; courseCode?: string; description?: string };
 export type GroupSpec = { key: string; name: string; electives: ElectiveSpec[]; maxChoices?: number };
@@ -39,6 +43,8 @@ export type World = {
   batchId: string;
   sectionId: string;
   adminId: string;
+  /** Academic session the world's cohort studies in (far-future years, never real data). */
+  sessionId: string;
   eventId: string;
   groups: Record<string, string>;
   electives: Record<string, string>;
@@ -49,6 +55,16 @@ export type World = {
 };
 
 const HOUR = 3600_000;
+
+/** Test academic sessions use years no real deployment will have. */
+export const TEST_SESSION_START = 2091;
+
+/** Gets or creates an academic session; shared between test files, never deleted while in use. */
+export async function testAcademicSession(startYear = TEST_SESSION_START) {
+  await db.insert(academicSessions).values({ startYear, endYear: startYear + 1, status: "ACTIVE" }).onConflictDoNothing();
+  const [row] = await db.select().from(academicSessions).where(eq(academicSessions.startYear, startYear));
+  return row;
+}
 
 export async function createWorld(opts: {
   groups: GroupSpec[];
@@ -66,8 +82,13 @@ export async function createWorld(opts: {
     .insert(programmes)
     .values({ name: `Test Programme ${tag}`, code: `TP_${tag}`, degreeType: "PG", departmentId: dept.id })
     .returning();
-  const [batch] = await db.insert(academicBatches).values({ year: `Y${tag}`, programmeId: prog.id }).returning();
+  const session = await testAcademicSession();
+  const [batch] = await db
+    .insert(academicBatches)
+    .values({ year: `Y${tag}`, programmeId: prog.id, admissionYear: TEST_SESSION_START - 1, expectedEndYear: TEST_SESSION_START + 1, datesConfirmed: true })
+    .returning();
   const [sec] = await db.insert(sections).values({ label: "A", academicBatchId: batch.id }).returning();
+  await db.insert(cohortSessionTerms).values({ academicBatchId: batch.id, academicSessionId: session.id, studyYear: 2, currentSemester: 3, confirmed: true });
 
   const [admin] = await db
     .insert(users)
@@ -79,6 +100,8 @@ export async function createWorld(opts: {
     .values({
       name: `Test Event ${tag}`,
       academicBatchId: batch.id,
+      academicSessionId: session.id,
+      semester: 3,
       createdById: admin.id,
       openDate: opts.openDate === undefined ? new Date(Date.now() - HOUR) : opts.openDate,
       closeDate: opts.closeDate === undefined ? new Date(Date.now() + 24 * HOUR) : opts.closeDate,
@@ -86,6 +109,9 @@ export async function createWorld(opts: {
       allowEditing: opts.allowEditing ?? true,
     })
     .returning();
+
+  // The event is for exactly this class (one event per class).
+  await db.insert(eventSections).values({ eventId: event.id, sectionId: sec.id, academicBatchId: batch.id });
 
   const groups: Record<string, string> = {};
   const electiveIds: Record<string, string> = {};
@@ -141,6 +167,7 @@ export async function createWorld(opts: {
     batchId: batch.id,
     sectionId: sec.id,
     adminId: admin.id,
+    sessionId: session.id,
     eventId: event.id,
     groups,
     electives: electiveIds,
@@ -157,6 +184,15 @@ export function asStudent(world: World, index: number) {
 
 export function asRole(role: "SYSTEM_ADMIN" | "COURSE_COORDINATOR" | "CLASS_TUTOR" | "STUDENT", userId: string) {
   setTestSession({ userId, name: role, email: `${role.toLowerCase()}@test.local`, role });
+}
+
+/** Acts as a staff user working in an academic session (the test stand-in for the session cookie). */
+export function asStaff(
+  user: { id: string; role: "SYSTEM_ADMIN" | "COURSE_COORDINATOR" | "CLASS_TUTOR"; programmeId?: string; sectionId?: string },
+  sessionId: string | null
+) {
+  setTestSession({ userId: user.id, name: user.role, email: `${user.role.toLowerCase()}@test.local`, role: user.role, programmeId: user.programmeId, sectionId: user.sectionId });
+  setTestWorkspaceSession(sessionId);
 }
 
 export async function seats(electiveId: string) {
@@ -181,6 +217,7 @@ export async function addSectionQuota(world: World, electiveKey: string, maxSeat
 
 export async function cleanup(world: World | undefined) {
   setTestSession(undefined);
+  setTestWorkspaceSession(undefined);
   if (!world) return;
   const eventIds = [world.eventId, ...world.extraEventIds];
   const groupRows = await db.select({ id: electiveGroups.id }).from(electiveGroups).where(inArray(electiveGroups.eventId, eventIds));

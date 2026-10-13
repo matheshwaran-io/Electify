@@ -13,10 +13,10 @@ import {
   electives,
   replayEvents,
   auditLogs,
-  tutorSections,
 } from "@/lib/db/schema";
 import { getSession } from "@/lib/auth";
-import { eq, and, or, inArray, desc, asc, count, gt } from "drizzle-orm";
+import { assertClass, assertEventInWorkspace, requireStaffWorkspace, workspaceEventIds } from "@/lib/workspace";
+import { eq, and, inArray, desc, asc, count, gt } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 
 function safeRevalidatePath(...paths: string[]) {
@@ -44,6 +44,8 @@ export interface MonitorEventOption {
   programmeName: string | null;
   programmeCode: string | null;
   batchYear: string | null;
+  /** Full identity of the classes the event is for, e.g. "MCA F · 2025–2027" */
+  classLabels: string[];
   sectionCount: number;
   totalStudents: number;
 }
@@ -116,6 +118,7 @@ export interface LiveMonitoringData {
     batchYear: string | null;
     programmeName: string | null;
     programmeCode: string | null;
+    classLabels: string[];
   } | null;
   eventsList: MonitorEventOption[];
   kpis: MonitorKPIs;
@@ -163,49 +166,14 @@ export async function getLiveMonitorEvents(): Promise<{
       .leftJoin(academicBatches, eq(registrationEvents.academicBatchId, academicBatches.id))
       .leftJoin(programmes, eq(academicBatches.programmeId, programmes.id));
 
-    let allowedEvents: any[] = [];
-
-    if (session.role === "SYSTEM_ADMIN") {
-      allowedEvents = await baseQuery.orderBy(desc(registrationEvents.createdAt));
-    } else if (session.role === "COURSE_COORDINATOR") {
-      const orConditions: any[] = [];
-      if (session.programmeId) {
-        orConditions.push(eq(academicBatches.programmeId, session.programmeId));
-      }
-      orConditions.push(eq(registrationEvents.createdById, session.userId));
-
-      allowedEvents = await baseQuery
-        .where(or(...orConditions))
-        .orderBy(desc(registrationEvents.createdAt));
-    } else {
-      // CLASS_TUTOR
-      const tutorSecs = await db
-        .select({ sectionId: tutorSections.sectionId })
-        .from(tutorSections)
-        .where(eq(tutorSections.tutorId, session.userId));
-      const secIds = tutorSecs.map((s) => s.sectionId);
-      if (session.sectionId && !secIds.includes(session.sectionId)) {
-        secIds.push(session.sectionId);
-      }
-
-      if (secIds.length === 0) {
-        return { success: true, data: [] };
-      }
-
-      const evLinks = await db
-        .select({ eventId: eventSections.eventId })
-        .from(eventSections)
-        .where(inArray(eventSections.sectionId, secIds));
-      const evIds = Array.from(new Set(evLinks.map((l) => l.eventId)));
-
-      if (evIds.length === 0) {
-        return { success: true, data: [] };
-      }
-
-      allowedEvents = await baseQuery
-        .where(inArray(registrationEvents.id, evIds))
-        .orderBy(desc(registrationEvents.createdAt));
-    }
+    // Only events of the selected academic session for classes this user manages.
+    const ws = await requireStaffWorkspace();
+    const scopedIds = await workspaceEventIds(ws);
+    const allowedEvents = scopedIds.length
+      ? await baseQuery.where(inArray(registrationEvents.id, scopedIds)).orderBy(desc(registrationEvents.createdAt))
+      : [];
+    const managedSections = new Set(ws.classes.map((c) => c.sectionId));
+    const labelOf = new Map(ws.classes.map((c) => [c.sectionId, c.label]));
 
     if (allowedEvents.length === 0) {
       return { success: true, data: [] };
@@ -243,7 +211,7 @@ export async function getLiveMonitorEvents(): Promise<{
     const studentCountMap = new Map(sectionStudents.map((s) => [s.sectionId, s.studentCount]));
 
     const formattedList: MonitorEventOption[] = allowedEvents.map((e) => {
-      const eSecs = eventSecRows.filter((r) => r.eventId === e.id).map((r) => r.sectionId);
+      const eSecs = eventSecRows.filter((r) => r.eventId === e.id && managedSections.has(r.sectionId)).map((r) => r.sectionId);
       const totalStudents = eSecs.reduce(
         (sum, secId) => sum + (studentCountMap.get(secId) || 0),
         0
@@ -259,6 +227,7 @@ export async function getLiveMonitorEvents(): Promise<{
         programmeName: e.programmeName,
         programmeCode: e.programmeCode,
         batchYear: e.batchYear,
+        classLabels: eSecs.map((id) => labelOf.get(id)).filter((l): l is string => Boolean(l)),
         sectionCount: eSecs.length,
         totalStudents,
       };
@@ -597,6 +566,7 @@ export async function getLiveMonitoringData(
           batchYear: rawEvent.batchYear,
           programmeName: rawEvent.programmeName,
           programmeCode: rawEvent.programmeCode,
+          classLabels: targetEventOption.classLabels,
         },
         eventsList,
         kpis: {
@@ -644,6 +614,7 @@ export async function getLiveFeedUpdates(
   try {
     const session = await getSession();
     if (!isStaff(session)) return { success: false, error: "Unauthorized" };
+    await assertEventInWorkspace(await requireStaffWorkspace(), eventId);
 
     const [eventRow] = await db
       .select({ status: registrationEvents.status })
@@ -746,6 +717,10 @@ export async function getUnregisteredStudentsList(
   try {
     const session = await getSession();
     if (!isStaff(session)) return { success: false, error: "Unauthorized" };
+    const ws = await requireStaffWorkspace();
+    const scopedEvent = await assertEventInWorkspace(ws, eventId);
+    if (filterSectionId) assertClass(ws, filterSectionId);
+    const managedSectionIds = scopedEvent.classes.map((c) => c.sectionId);
 
     // Get event sections
     const evSecs = await db
@@ -764,7 +739,8 @@ export async function getUnregisteredStudentsList(
           : eq(eventSections.eventId, eventId)
       );
 
-    const sectionIds = evSecs.map((s) => s.sectionId);
+    // Only classes of this event that the user manages
+    const sectionIds = evSecs.map((s) => s.sectionId).filter((id) => managedSectionIds.includes(id));
     const sectionNameMap = new Map(evSecs.map((s) => [s.sectionId, s.sectionName]));
 
     if (sectionIds.length === 0) {
@@ -838,14 +814,10 @@ export async function toggleEventStatusFromMonitor(
     ) {
       return { success: false, error: "Unauthorized" };
     }
+    if (!["OPEN", "PAUSED", "CLOSED"].includes(newStatus)) return { success: false, error: "Invalid status." };
 
-    const [event] = await db
-      .select()
-      .from(registrationEvents)
-      .where(eq(registrationEvents.id, eventId))
-      .limit(1);
-
-    if (!event) return { success: false, error: "Event not found" };
+    // The event must be in the selected session and for a class this user manages.
+    const event = await assertEventInWorkspace(await requireStaffWorkspace(), eventId);
 
     await db
       .update(registrationEvents)

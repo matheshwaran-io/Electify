@@ -9,6 +9,8 @@ import {
 } from "@/lib/db/schema";
 import { getSession } from "@/lib/auth";
 import { eq, and, count, asc, desc, inArray, sql } from "drizzle-orm";
+import { assertEventInWorkspace, requireStaffWorkspace, workspaceEventIds, type Workspace } from "@/lib/workspace";
+import { sessionLabel } from "@/lib/academic";
 
 async function assertCoordinator() {
   const session = await getSession();
@@ -18,10 +20,52 @@ async function assertCoordinator() {
   return session;
 }
 
+/**
+ * Coordinator/admin access to the selected academic session. Every read and
+ * write below is limited to the session and to the classes the user manages
+ * there (lib/workspace.ts); nothing relies on the client to hide other data.
+ */
+async function coordinatorWorkspace(): Promise<Workspace> {
+  const ws = await requireStaffWorkspace();
+  if (ws.scope.role !== "COURSE_COORDINATOR" && ws.scope.role !== "SYSTEM_ADMIN") throw new Error("Unauthorized");
+  return ws;
+}
+
+/** The event that owns an elective group, checked against the workspace. */
+async function assertGroupInWorkspace(ws: Workspace, groupId: string) {
+  const [group] = await db.select().from(electiveGroups).where(eq(electiveGroups.id, groupId)).limit(1);
+  if (!group) throw new Error("Elective basket not found.");
+  const event = await assertEventInWorkspace(ws, group.eventId);
+  return { group, event };
+}
+
+async function assertElectiveInWorkspace(ws: Workspace, electiveId: string) {
+  const [elective] = await db.select().from(electives).where(eq(electives.id, electiveId)).limit(1);
+  if (!elective) throw new Error("Subject not found.");
+  const { group, event } = await assertGroupInWorkspace(ws, elective.groupId);
+  return { elective, group, event };
+}
+
+/** Students (by id) that the workspace manages; throws if any is outside it. */
+async function assertStudentsInWorkspace(ws: Workspace, ids: string[]) {
+  const unique = Array.from(new Set(ids));
+  const rows = await db
+    .select({ id: users.id, sectionId: users.sectionId, role: users.role })
+    .from(users)
+    .where(inArray(users.id, unique));
+  const allowed = new Set(ws.classes.map((c) => c.sectionId));
+  if (rows.length !== unique.length || rows.some((r) => r.role !== "STUDENT" || !r.sectionId || !allowed.has(r.sectionId))) {
+    throw new Error(`Some of these students are not in a class you manage in Academic Session ${ws.session.label}.`);
+  }
+  return rows;
+}
+
 // ── Electives & Seat Allotments ──────────────────────────────────────────
 
 export async function getCoordinatorElectives() {
-  const session = await assertCoordinator();
+  const ws = await coordinatorWorkspace();
+  const eventIds = await workspaceEventIds(ws);
+  if (eventIds.length === 0) return [];
 
   const events = await db
     .select({
@@ -31,15 +75,17 @@ export async function getCoordinatorElectives() {
       academicBatchId: registrationEvents.academicBatchId,
     })
     .from(registrationEvents)
-    .leftJoin(academicBatches, eq(registrationEvents.academicBatchId, academicBatches.id))
-    .where(
-      session.programmeId
-        ? eq(academicBatches.programmeId, session.programmeId)
-        : undefined
-    )
+    .where(inArray(registrationEvents.id, eventIds))
     .orderBy(desc(registrationEvents.createdAt));
-
-  if (events.length === 0) return [];
+  const targets = await db
+    .select({ eventId: eventSections.eventId, sectionId: eventSections.sectionId })
+    .from(eventSections)
+    .where(inArray(eventSections.eventId, eventIds));
+  const classLabelsFor = (eventId: string) =>
+    targets
+      .filter((t) => t.eventId === eventId)
+      .map((t) => ws.classes.find((c) => c.sectionId === t.sectionId)?.label)
+      .filter((l): l is string => Boolean(l));
 
   const result = [];
   for (const event of events) {
@@ -115,6 +161,7 @@ export async function getCoordinatorElectives() {
         eventId: event.id,
         eventName: event.name,
         eventStatus: event.status,
+        eventClasses: classLabelsFor(event.id),
         groupId: group.id,
         groupName: group.name,
         minChoices: group.minChoices,
@@ -126,59 +173,42 @@ export async function getCoordinatorElectives() {
   return result;
 }
 
+/** Classes a seat quota can be set for: those the user manages in the selected session. */
 export async function getAcademicHierarchyForAllocations() {
-  await assertCoordinator();
-
-  const allDepts = await db.select().from(departments).where(eq(departments.isActive, true)).orderBy(asc(departments.name));
-  const allProgs = await db.select().from(programmes).where(eq(programmes.isActive, true)).orderBy(asc(programmes.name));
-  const allBatches = await db.select().from(academicBatches).where(eq(academicBatches.isActive, true)).orderBy(asc(academicBatches.year));
-  const allSections = await db.select().from(sections).where(eq(sections.isActive, true)).orderBy(asc(sections.label));
-
-  return allDepts.map((dept) => {
-    const deptProgs = allProgs.filter((p) => p.departmentId === dept.id);
-    const deptSections: {
-      id: string;
-      label: string;
-      programmeName: string;
-      batchYear: string;
-      departmentId: string;
-      displayName: string;
-    }[] = [];
-
-    for (const prog of deptProgs) {
-      const progBatches = allBatches.filter((b) => b.programmeId === prog.id);
-      for (const batch of progBatches) {
-        const batchSecs = allSections.filter((s) => s.academicBatchId === batch.id);
-        for (const sec of batchSecs) {
-          deptSections.push({
-            id: sec.id,
-            label: sec.label,
-            programmeName: prog.name,
-            batchYear: batch.year,
-            departmentId: dept.id,
-            displayName: `${prog.name} (${batch.year}) - Sec ${sec.label}`,
-          });
-        }
-      }
-    }
-
-    return {
-      id: dept.id,
-      name: dept.name,
-      code: dept.code,
-      sections: deptSections,
-    };
-  });
+  const ws = await coordinatorWorkspace();
+  const byDept = new Map<string, { id: string; name: string; code: string; sections: { id: string; label: string; programmeName: string; batchYear: string; departmentId: string; displayName: string }[] }>();
+  for (const c of ws.classes) {
+    const dept = byDept.get(c.departmentId) ?? { id: c.departmentId, name: c.departmentName, code: "", sections: [] };
+    dept.sections.push({
+      id: c.sectionId,
+      label: c.sectionLabel,
+      programmeName: c.programmeName,
+      batchYear: c.years,
+      departmentId: c.departmentId,
+      displayName: c.label,
+    });
+    byDept.set(c.departmentId, dept);
+  }
+  return Array.from(byDept.values());
 }
 
 export async function setElectiveSeatAllocations(
   electiveId: string,
   allotments: { departmentId: string; sectionId?: string | null; maxSeats: number }[]
 ) {
-  const session = await assertCoordinator();
+  const ws = await coordinatorWorkspace();
+  const session = ws.user;
+  const { elective, event } = await assertElectiveInWorkspace(ws, electiveId);
 
-  const [elective] = await db.select().from(electives).where(eq(electives.id, electiveId));
-  if (!elective) throw new Error("Subject not found.");
+  // A class quota only makes sense for a class this event is open to.
+  for (const allot of allotments) {
+    if (allot.sectionId && !event.targetSectionIds.includes(allot.sectionId)) {
+      throw new Error("Seat quotas can only be set for classes this registration event is open to.");
+    }
+    if (!Number.isInteger(allot.maxSeats) || allot.maxSeats < 0) {
+      throw new Error("Seat quotas must be whole numbers of zero or more.");
+    }
+  }
 
   const totalAllotted = allotments.reduce((sum, a) => sum + a.maxSeats, 0);
   if (totalAllotted > elective.maxSeats) {
@@ -188,18 +218,21 @@ export async function setElectiveSeatAllocations(
   }
 
   await db.transaction(async (tx) => {
+    // Serialise with registrations on this elective while quotas change.
+    await tx.select({ id: electives.id }).from(electives).where(eq(electives.id, electiveId)).for("update");
+
     // 1. Existing allocations for this elective
     const existingAllocations = await tx
       .select()
       .from(electiveSeatAllocations)
       .where(eq(electiveSeatAllocations.electiveId, electiveId));
 
-    // 2. Count current student registrations per section
+    // 2. Count seats currently held per section (cancelled choices hold no seat)
     const currentStudentRegs = await tx
       .select({ sectionId: users.sectionId, departmentId: users.departmentId })
       .from(studentRegistrations)
       .innerJoin(users, eq(studentRegistrations.studentId, users.id))
-      .where(eq(studentRegistrations.electiveId, electiveId));
+      .where(and(eq(studentRegistrations.electiveId, electiveId), eq(studentRegistrations.status, "CONFIRMED")));
 
     const bookedPerSection: Record<string, number> = {};
     for (const reg of currentStudentRegs) {
@@ -278,6 +311,8 @@ export async function setElectiveSeatAllocations(
       metadata: {
         electiveId,
         electiveName: elective.name,
+        eventId: event.id,
+        academicSessionId: ws.session.id,
         totalAllotted,
         allotmentsCount: allotments.length,
       },
@@ -291,10 +326,9 @@ export async function createCoordinatorElective(
   groupId: string,
   data: { name: string; courseCode?: string; credits: number; maxSeats: number; description?: string }
 ) {
-  await assertCoordinator();
-
-  const [group] = await db.select().from(electiveGroups).where(eq(electiveGroups.id, groupId));
-  if (!group) throw new Error("Elective basket not found.");
+  const ws = await coordinatorWorkspace();
+  await assertGroupInWorkspace(ws, groupId);
+  if (!Number.isInteger(data.maxSeats) || data.maxSeats < 1) throw new Error("Capacity must be at least 1 seat.");
 
   const [newElective] = await db
     .insert(electives)
@@ -318,10 +352,8 @@ export async function updateCoordinatorElective(
   id: string,
   data: { name: string; courseCode?: string; credits: number; maxSeats: number; description?: string; isActive?: boolean }
 ) {
-  await assertCoordinator();
-
-  const [elective] = await db.select().from(electives).where(eq(electives.id, id));
-  if (!elective) throw new Error("Subject not found.");
+  const ws = await coordinatorWorkspace();
+  const { elective } = await assertElectiveInWorkspace(ws, id);
 
   const bookedSeats = elective.maxSeats - elective.availableSeats;
   if (data.maxSeats < bookedSeats) {
@@ -349,10 +381,8 @@ export async function updateCoordinatorElective(
 }
 
 export async function deleteCoordinatorElective(id: string) {
-  await assertCoordinator();
-
-  const [elective] = await db.select().from(electives).where(eq(electives.id, id));
-  if (!elective) throw new Error("Subject not found.");
+  const ws = await coordinatorWorkspace();
+  await assertElectiveInWorkspace(ws, id);
 
   const regs = await db.select().from(studentRegistrations).where(eq(studentRegistrations.electiveId, id));
   if (regs.length > 0) {
@@ -367,7 +397,8 @@ export async function createCoordinatorElectiveGroup(
   eventId: string,
   data: { name: string; minChoices?: number; maxChoices?: number }
 ) {
-  await assertCoordinator();
+  const ws = await coordinatorWorkspace();
+  await assertEventInWorkspace(ws, eventId);
 
   const [group] = await db
     .insert(electiveGroups)
@@ -386,7 +417,8 @@ export async function updateCoordinatorElectiveGroup(
   id: string,
   data: { name: string; minChoices?: number; maxChoices?: number }
 ) {
-  await assertCoordinator();
+  const ws = await coordinatorWorkspace();
+  await assertGroupInWorkspace(ws, id);
 
   await db
     .update(electiveGroups)
@@ -401,7 +433,8 @@ export async function updateCoordinatorElectiveGroup(
 }
 
 export async function deleteCoordinatorElectiveGroup(id: string) {
-  await assertCoordinator();
+  const ws = await coordinatorWorkspace();
+  await assertGroupInWorkspace(ws, id);
 
   const existingElectives = await db.select().from(electives).where(eq(electives.groupId, id));
   if (existingElectives.length > 0) {
@@ -414,8 +447,11 @@ export async function deleteCoordinatorElectiveGroup(id: string) {
 
 // ── Students ──────────────────────────────────────────────────────────────
 
+/** Students of the classes this user manages in the selected academic session. */
 export async function getCoordinatorStudents() {
-  const session = await assertCoordinator();
+  const ws = await coordinatorWorkspace();
+  const sectionIds = ws.classes.map((c) => c.sectionId);
+  if (sectionIds.length === 0) return [];
 
   const students = await db
     .select({
@@ -426,75 +462,89 @@ export async function getCoordinatorStudents() {
       isActive: users.isActive,
       isEligible: users.isEligible,
       createdAt: users.createdAt,
+      sectionId: users.sectionId,
       sectionLabel: sections.label,
     })
     .from(users)
-    .leftJoin(sections, eq(users.sectionId, sections.id))
-    .leftJoin(academicBatches, eq(sections.academicBatchId, academicBatches.id))
-    .where(
-      and(
-        eq(users.role, "STUDENT"),
-        session.programmeId ? eq(academicBatches.programmeId, session.programmeId) : undefined
-      )
-    )
+    .innerJoin(sections, eq(users.sectionId, sections.id))
+    .where(and(eq(users.role, "STUDENT"), inArray(users.sectionId, sectionIds)))
     .orderBy(asc(users.name));
 
-  return students;
+  const labelOf = new Map(ws.classes.map((c) => [c.sectionId, c.label]));
+  return students.map((s) => ({ ...s, classLabel: (s.sectionId && labelOf.get(s.sectionId)) || s.sectionLabel }));
 }
 
+/**
+ * Deletes students of classes the user manages in the selected session. Seats
+ * are returned only for choices that actually hold one (CONFIRMED), capped at
+ * each subject's capacity.
+ */
 export async function deleteMultipleStudents(ids: string[]) {
-  await assertCoordinator();
+  const ws = await coordinatorWorkspace();
   if (!ids || ids.length === 0) return;
+  await assertStudentsInWorkspace(ws, ids);
 
   await db.transaction(async (tx) => {
-    // We should refund seats before deleting registrations
-    const existing = await tx.select().from(studentRegistrations).where(inArray(studentRegistrations.studentId, ids));
-    
-    for (const reg of existing) {
-      const [elective] = await tx.select({ availableSeats: electives.availableSeats }).from(electives).where(eq(electives.id, reg.electiveId));
-      if (elective) {
-        await tx.update(electives).set({ 
-          availableSeats: elective.availableSeats + 1,
-          isFull: false 
-        }).where(eq(electives.id, reg.electiveId));
-      }
+    const held = await tx
+      .select({ electiveId: studentRegistrations.electiveId, sectionId: users.sectionId })
+      .from(studentRegistrations)
+      .innerJoin(users, eq(studentRegistrations.studentId, users.id))
+      .where(and(inArray(studentRegistrations.studentId, ids), eq(studentRegistrations.status, "CONFIRMED")));
 
-      const [student] = await tx.select({ sectionId: users.sectionId }).from(users).where(eq(users.id, reg.studentId));
-      if (student?.sectionId) {
+    const electiveIds = Array.from(new Set(held.map((h) => h.electiveId))).sort();
+    if (electiveIds.length) {
+      await tx.select({ id: electives.id }).from(electives).where(inArray(electives.id, electiveIds)).orderBy(asc(electives.id)).for("update");
+    }
+    for (const h of held) {
+      await tx
+        .update(electives)
+        .set({ availableSeats: sql`LEAST(${electives.availableSeats} + 1, ${electives.maxSeats})`, isFull: false, updatedAt: new Date() })
+        .where(eq(electives.id, h.electiveId));
+      if (h.sectionId) {
         await tx
           .update(electiveSeatAllocations)
           .set({
-            availableSeats: sql`${electiveSeatAllocations.availableSeats} + 1`,
+            availableSeats: sql`LEAST(${electiveSeatAllocations.availableSeats} + 1, ${electiveSeatAllocations.maxSeats})`,
             isFull: false,
             updatedAt: new Date(),
           })
-          .where(
-            and(
-              eq(electiveSeatAllocations.electiveId, reg.electiveId),
-              eq(electiveSeatAllocations.sectionId, student.sectionId)
-            )
-          );
+          .where(and(eq(electiveSeatAllocations.electiveId, h.electiveId), eq(electiveSeatAllocations.sectionId, h.sectionId)));
       }
     }
 
     await tx.delete(studentRegistrations).where(inArray(studentRegistrations.studentId, ids));
     await tx.delete(registrations).where(inArray(registrations.studentId, ids));
+    await tx.delete(eventStudents).where(inArray(eventStudents.studentId, ids));
     await tx.delete(users).where(inArray(users.id, ids));
+
+    await tx.insert(auditLogs).values({
+      action: "DELETE_STUDENTS",
+      userId: ws.user.userId,
+      userEmail: ws.user.email,
+      userRole: ws.user.role,
+      metadata: { studentIds: ids, count: ids.length, seatsReturned: held.length, academicSessionId: ws.session.id },
+    });
   });
 }
 
 export async function updateMultipleStudentsStatus(ids: string[], updates: { isActive?: boolean; isEligible?: boolean }) {
-  await assertCoordinator();
+  const ws = await coordinatorWorkspace();
   if (!ids || ids.length === 0) return;
+  await assertStudentsInWorkspace(ws, ids);
 
   const updatePayload: Partial<{ isActive: boolean; isEligible: boolean }> = {};
   if (updates.isActive !== undefined) updatePayload.isActive = updates.isActive;
   if (updates.isEligible !== undefined) updatePayload.isEligible = updates.isEligible;
 
   if (Object.keys(updatePayload).length > 0) {
-    await db.update(users)
-      .set(updatePayload)
-      .where(inArray(users.id, ids));
+    await db.update(users).set(updatePayload).where(inArray(users.id, ids));
+    await db.insert(auditLogs).values({
+      action: "UPDATE_STUDENTS_STATUS",
+      userId: ws.user.userId,
+      userEmail: ws.user.email,
+      userRole: ws.user.role,
+      metadata: { studentIds: ids, updates: updatePayload, academicSessionId: ws.session.id },
+    });
   }
 }
 
@@ -514,6 +564,9 @@ export type StudentAllotment = {
   email: string;
   sectionId: string | null;
   sectionLabel: string;
+  /** Full class identity, e.g. "MCA F · 2025–2027" */
+  classLabel: string;
+  academicSession: string;
   programmeName: string;
   batchYear: string;
   eventId: string;
@@ -528,107 +581,120 @@ export type StudentAllotment = {
 export type SectionReport = {
   sectionId: string;
   sectionLabel: string;
+  /** Full class identity, e.g. "MCA F · 2025–2027" */
+  classLabel: string;
   totalStudents: number;
   registeredCount: number;
 };
 
 export type CoordinatorReportsPayload = {
+  academicSession: string;
   sections: SectionReport[];
   allotments: StudentAllotment[];
-  events: { id: string; name: string; status: string; academicYear: string | null }[];
+  events: { id: string; name: string; status: string; academicYear: string | null; classLabels: string[] }[];
 };
 
+/**
+ * Reports for the selected academic session only: its events, the classes the
+ * user manages in it, and confirmed (seat-holding) choices.
+ */
 export async function getCoordinatorReports(): Promise<CoordinatorReportsPayload> {
-  const session = await assertCoordinator();
+  const ws = await coordinatorWorkspace();
+  const academicSession = ws.session.label;
+  const eventIds = await workspaceEventIds(ws);
+  const classBySection = new Map(ws.classes.map((c) => [c.sectionId, c]));
 
-  const events = await db
-    .select({
-      id: registrationEvents.id,
-      name: registrationEvents.name,
-      status: registrationEvents.status,
-      academicYear: registrationEvents.academicYear,
-    })
-    .from(registrationEvents)
-    .leftJoin(academicBatches, eq(registrationEvents.academicBatchId, academicBatches.id))
-    .where(
-      session.programmeId ? eq(academicBatches.programmeId, session.programmeId) : undefined
-    )
-    .orderBy(desc(registrationEvents.createdAt));
+  const events = eventIds.length
+    ? await db
+        .select({
+          id: registrationEvents.id,
+          name: registrationEvents.name,
+          status: registrationEvents.status,
+          academicYear: registrationEvents.academicYear,
+        })
+        .from(registrationEvents)
+        .where(inArray(registrationEvents.id, eventIds))
+        .orderBy(desc(registrationEvents.createdAt))
+    : [];
+  const targets = eventIds.length
+    ? await db.select({ eventId: eventSections.eventId, sectionId: eventSections.sectionId }).from(eventSections).where(inArray(eventSections.eventId, eventIds))
+    : [];
 
-  const allSections = await db
-    .select({ id: sections.id, label: sections.label })
-    .from(sections)
-    .leftJoin(academicBatches, eq(sections.academicBatchId, academicBatches.id))
-    .where(
-      session.programmeId ? eq(academicBatches.programmeId, session.programmeId) : undefined
-    )
-    .orderBy(asc(sections.label));
+  const sectionIds = ws.classes.map((c) => c.sectionId);
+  const totals = sectionIds.length
+    ? await db
+        .select({ sectionId: users.sectionId, total: count() })
+        .from(users)
+        .where(and(eq(users.role, "STUDENT"), inArray(users.sectionId, sectionIds)))
+        .groupBy(users.sectionId)
+    : [];
+  const registeredRows = sectionIds.length && eventIds.length
+    ? await db
+        .selectDistinct({ studentId: registrations.studentId, sectionId: users.sectionId })
+        .from(registrations)
+        .innerJoin(users, eq(registrations.studentId, users.id))
+        .where(and(inArray(registrations.eventId, eventIds), eq(registrations.status, "CONFIRMED"), inArray(users.sectionId, sectionIds)))
+    : [];
 
-  const sectionReports: SectionReport[] = [];
-  for (const sec of allSections) {
-    const [{ total }] = await db
-      .select({ total: count() })
-      .from(users)
-      .where(and(eq(users.role, "STUDENT"), eq(users.sectionId, sec.id)));
+  const sectionReports: SectionReport[] = ws.classes.map((c) => ({
+    sectionId: c.sectionId,
+    sectionLabel: c.sectionLabel,
+    classLabel: c.label,
+    totalStudents: totals.find((t) => t.sectionId === c.sectionId)?.total ?? 0,
+    registeredCount: new Set(registeredRows.filter((r) => r.sectionId === c.sectionId).map((r) => r.studentId)).size,
+  }));
 
-    // Count distinct students who registered for at least one elective
-    const registered = await db
-      .selectDistinct({ studentId: studentRegistrations.studentId })
-      .from(studentRegistrations)
-      .innerJoin(users, eq(studentRegistrations.studentId, users.id))
-      .where(eq(users.sectionId, sec.id));
+  const studentRegs = eventIds.length && sectionIds.length
+    ? await db
+        .select({
+          studentId: users.id,
+          registerNumber: users.registerNumber,
+          name: users.name,
+          email: users.email,
+          sectionId: users.sectionId,
+          sectionLabel: sections.label,
+          programmeName: programmes.name,
+          batchYear: academicBatches.year,
+          eventId: registrationEvents.id,
+          eventName: registrationEvents.name,
+          eventStatus: registrationEvents.status,
+          electiveId: electives.id,
+          electiveName: electives.name,
+          courseCode: electives.courseCode,
+          groupName: electiveGroups.name,
+          credits: electives.credits,
+          submittedAt: studentRegistrations.submittedAt,
+        })
+        .from(studentRegistrations)
+        .innerJoin(users, eq(studentRegistrations.studentId, users.id))
+        .innerJoin(electives, eq(studentRegistrations.electiveId, electives.id))
+        .innerJoin(electiveGroups, eq(studentRegistrations.groupId, electiveGroups.id))
+        .innerJoin(registrationEvents, eq(studentRegistrations.eventId, registrationEvents.id))
+        .leftJoin(sections, eq(users.sectionId, sections.id))
+        .leftJoin(academicBatches, eq(sections.academicBatchId, academicBatches.id))
+        .leftJoin(programmes, eq(academicBatches.programmeId, programmes.id))
+        .where(
+          and(
+            inArray(studentRegistrations.eventId, eventIds),
+            eq(studentRegistrations.status, "CONFIRMED"),
+            inArray(users.sectionId, sectionIds)
+          )
+        )
+        .orderBy(asc(users.registerNumber), asc(electiveGroups.name))
+    : [];
 
-    sectionReports.push({
-      sectionId: sec.id,
-      sectionLabel: sec.label,
-      totalStudents: total,
-      registeredCount: registered.length,
-    });
-  }
-
-  // Fetch student registrations with subjects
-  const studentRegs = await db
-    .select({
-      studentId: users.id,
-      registerNumber: users.registerNumber,
-      name: users.name,
-      email: users.email,
-      sectionId: users.sectionId,
-      sectionLabel: sections.label,
-      programmeName: programmes.name,
-      batchYear: academicBatches.year,
-      eventId: registrationEvents.id,
-      eventName: registrationEvents.name,
-      eventStatus: registrationEvents.status,
-      electiveId: electives.id,
-      electiveName: electives.name,
-      courseCode: electives.courseCode,
-      groupName: electiveGroups.name,
-      credits: electives.credits,
-      submittedAt: studentRegistrations.submittedAt,
-    })
-    .from(studentRegistrations)
-    .innerJoin(users, eq(studentRegistrations.studentId, users.id))
-    .innerJoin(electives, eq(studentRegistrations.electiveId, electives.id))
-    .innerJoin(electiveGroups, eq(studentRegistrations.groupId, electiveGroups.id))
-    .innerJoin(registrationEvents, eq(studentRegistrations.eventId, registrationEvents.id))
-    .leftJoin(sections, eq(users.sectionId, sections.id))
-    .leftJoin(academicBatches, eq(sections.academicBatchId, academicBatches.id))
-    .leftJoin(programmes, eq(academicBatches.programmeId, programmes.id))
-    .where(
-      session.programmeId ? eq(academicBatches.programmeId, session.programmeId) : undefined
-    )
-    .orderBy(asc(users.registerNumber), asc(electiveGroups.name));
-
-  const confirmedRegs = await db
-    .select({
-      studentId: registrations.studentId,
-      eventId: registrations.eventId,
-      status: registrations.status,
-      receiptNumber: registrations.receiptNumber,
-      submittedAt: registrations.submittedAt,
-    })
-    .from(registrations);
+  const confirmedRegs = eventIds.length
+    ? await db
+        .select({
+          studentId: registrations.studentId,
+          eventId: registrations.eventId,
+          status: registrations.status,
+          receiptNumber: registrations.receiptNumber,
+          submittedAt: registrations.submittedAt,
+        })
+        .from(registrations)
+        .where(inArray(registrations.eventId, eventIds))
+    : [];
 
   const confirmedMap = new Map(confirmedRegs.map((r) => [`${r.studentId}:${r.eventId}`, r]));
   const studentMap = new Map<string, StudentAllotment>();
@@ -644,6 +710,8 @@ export async function getCoordinatorReports(): Promise<CoordinatorReportsPayload
         email: r.email,
         sectionId: r.sectionId,
         sectionLabel: r.sectionLabel || "Unassigned",
+        classLabel: (r.sectionId && classBySection.get(r.sectionId)?.label) || r.sectionLabel || "Unassigned",
+        academicSession,
         programmeName: r.programmeName || "",
         batchYear: r.batchYear || "",
         eventId: r.eventId,
@@ -677,9 +745,16 @@ export async function getCoordinatorReports(): Promise<CoordinatorReportsPayload
   });
 
   return {
+    academicSession,
     sections: sectionReports,
     allotments,
-    events,
+    events: events.map((e) => ({
+      ...e,
+      classLabels: targets
+        .filter((t) => t.eventId === e.id)
+        .map((t) => classBySection.get(t.sectionId)?.label)
+        .filter((l): l is string => Boolean(l)),
+    })),
   };
 }
 
@@ -709,36 +784,26 @@ export async function getCoordinatorTemplates() {
 }
 
 export async function resetRegistrationEvent(eventId: string) {
-  // Allow both System Admin and Course Coordinator to reset events
-  const session = await getSession();
-  if (!session || (session.role !== "COURSE_COORDINATOR" && session.role !== "SYSTEM_ADMIN")) {
-    throw new Error("Unauthorized");
-  }
-
-  // Make sure event exists
-  const [event] = await db.select().from(registrationEvents).where(eq(registrationEvents.id, eventId));
-  if (!event) throw new Error("Event not found.");
+  const ws = await coordinatorWorkspace();
+  const session = ws.user;
+  const event = await assertEventInWorkspace(ws, eventId);
 
   await db.transaction(async (tx) => {
     // 1. Fetch all registrations for this event to identify the electives affected
     const existingRegistrations = await tx.select().from(studentRegistrations).where(eq(studentRegistrations.eventId, eventId));
 
-    // 2. Refund all seats for these electives
-    // Group by elective to minimize updates
-    const counts: Record<string, number> = {};
-    for (const reg of existingRegistrations) {
-      counts[reg.electiveId] = (counts[reg.electiveId] || 0) + 1;
-    }
-
-    for (const [electiveId, countToRefund] of Object.entries(counts)) {
-      const [elective] = await tx.select({ availableSeats: electives.availableSeats }).from(electives).where(eq(electives.id, electiveId));
-      if (elective) {
-        await tx.update(electives).set({ 
-          availableSeats: elective.availableSeats + countToRefund,
-          isFull: false 
-        }).where(eq(electives.id, electiveId));
-      }
-    }
+    // 2. Every choice is removed, so every subject of the event is back to full
+    // capacity. Recomputing (instead of adding refunds) cannot overshoot, even
+    // if cancelled choices are among the rows.
+    await tx.execute(sql`
+      UPDATE electives e
+      SET available_seats = e.max_seats,
+          is_full = false,
+          updated_at = NOW()
+      FROM elective_groups eg
+      WHERE e.group_id = eg.id
+        AND eg.event_id = ${eventId}
+    `);
 
     // 2.5 Refund all section allocations for this event
     await tx.execute(sql`
@@ -774,6 +839,7 @@ export async function resetRegistrationEvent(eventId: string) {
       metadata: {
         eventId,
         eventName: event.name,
+        academicSessionId: ws.session.id,
         clearedRegistrationsCount: existingRegistrations.length,
       },
     });
@@ -797,13 +863,16 @@ export async function resetRegistrationEvent(eventId: string) {
 // ── Registration Event Management ───────────────────────────────────────────
 
 export async function deleteRegistrationEvent(eventId: string) {
-  const session = await getSession();
-  if (!session || (session.role !== "COURSE_COORDINATOR" && session.role !== "SYSTEM_ADMIN")) {
-    throw new Error("Unauthorized");
-  }
+  const ws = await coordinatorWorkspace();
+  const session = ws.user;
+  const event = await assertEventInWorkspace(ws, eventId);
 
-  const [event] = await db.select().from(registrationEvents).where(eq(registrationEvents.id, eventId));
-  if (!event) throw new Error("Event not found.");
+  // Deleting an event deletes its receipts. Only an administrator may do that;
+  // coordinators archive events that have registrations.
+  const [{ n: registrationCount }] = await db.select({ n: count() }).from(registrations).where(eq(registrations.eventId, eventId));
+  if (registrationCount > 0 && ws.scope.role !== "SYSTEM_ADMIN") {
+    throw new Error(`This event has ${registrationCount} registration record(s). Archive it instead, or ask an administrator.`);
+  }
 
   await db.transaction(async (tx) => {
     // 1. Delete student registrations (selections)
@@ -847,7 +916,14 @@ export async function deleteRegistrationEvent(eventId: string) {
       userId: session.userId,
       userEmail: session.email,
       userRole: session.role,
-      metadata: { eventId, eventName: event.name },
+      metadata: {
+        eventId,
+        eventName: event.name,
+        academicSessionId: event.academicSessionId,
+        academicBatchId: event.academicBatchId,
+        sectionIds: event.targetSectionIds,
+        deletedRegistrations: registrationCount,
+      },
     });
   });
 
@@ -867,18 +943,15 @@ export async function deleteRegistrationEvent(eventId: string) {
 }
 
 export async function updateRegistrationEventStatus(eventId: string, status: string) {
-  const session = await getSession();
-  if (!session || (session.role !== "COURSE_COORDINATOR" && session.role !== "SYSTEM_ADMIN")) {
-    throw new Error("Unauthorized");
-  }
+  const ws = await coordinatorWorkspace();
+  const session = ws.user;
 
   const validStatuses = ["DRAFT", "PUBLISHED", "CLOSED", "ARCHIVED"];
   if (!validStatuses.includes(status)) {
     throw new Error("Invalid status.");
   }
 
-  const [event] = await db.select().from(registrationEvents).where(eq(registrationEvents.id, eventId));
-  if (!event) throw new Error("Event not found.");
+  const event = await assertEventInWorkspace(ws, eventId);
 
   await db.transaction(async (tx) => {
     await tx
@@ -897,10 +970,14 @@ export async function updateRegistrationEventStatus(eventId: string, status: str
     });
   });
 
-  const { revalidatePath } = await import("next/cache");
-  revalidatePath("/faculty/events");
-  revalidatePath("/faculty/dashboard");
-  revalidatePath("/", "layout");
+  try {
+    const { revalidatePath } = await import("next/cache");
+    revalidatePath("/faculty/events");
+    revalidatePath("/faculty/dashboard");
+    revalidatePath("/", "layout");
+  } catch {
+    // Ignore outside a request (tests, scripts)
+  }
 
   return { success: true };
 }
@@ -910,22 +987,23 @@ export async function updateRegistrationEvent(
   data: {
     name: string;
     academicYear?: string | null;
+    semester?: number | null;
     openDate?: string | null;
     closeDate?: string | null;
     status?: string;
     description?: string | null;
   }
 ) {
-  const session = await getSession();
-  if (!session || (session.role !== "COURSE_COORDINATOR" && session.role !== "SYSTEM_ADMIN")) {
-    throw new Error("Unauthorized");
-  }
+  const ws = await coordinatorWorkspace();
+  const session = ws.user;
 
   const name = data.name?.trim();
   if (!name) throw new Error("Event name is required.");
 
-  const [event] = await db.select().from(registrationEvents).where(eq(registrationEvents.id, eventId));
-  if (!event) throw new Error("Event not found.");
+  const event = await assertEventInWorkspace(ws, eventId);
+  if (data.semester != null && !(Number.isInteger(data.semester) && data.semester >= 1 && data.semester <= 12)) {
+    throw new Error("Semester must be between 1 and 12.");
+  }
 
   const openDate = data.openDate ? new Date(data.openDate) : null;
   const closeDate = data.closeDate ? new Date(data.closeDate) : null;
@@ -939,7 +1017,9 @@ export async function updateRegistrationEvent(
       .update(registrationEvents)
       .set({
         name,
-        academicYear: data.academicYear?.trim() || null,
+        // The session is fixed by the workspace; the legacy label follows it.
+        academicYear: ws.session.label,
+        semester: data.semester === undefined ? event.semester : data.semester,
         description: data.description?.trim() || null,
         openDate,
         closeDate,
@@ -953,37 +1033,49 @@ export async function updateRegistrationEvent(
       userId: session.userId,
       userEmail: session.email,
       userRole: session.role,
-      oldValue: { name: event.name, status: event.status },
-      newValue: { name, status: data.status || event.status },
-      metadata: { eventId },
+      oldValue: { name: event.name, status: event.status, openDate: event.openDate, closeDate: event.closeDate, semester: event.semester },
+      newValue: { name, status: data.status || event.status, openDate, closeDate, semester: data.semester ?? event.semester },
+      metadata: { eventId, academicSessionId: ws.session.id, sectionIds: event.targetSectionIds },
     });
   });
 
-  const { revalidatePath } = await import("next/cache");
-  revalidatePath("/faculty/events");
-  revalidatePath("/faculty/dashboard");
-  revalidatePath("/", "layout");
+  try {
+    const { revalidatePath } = await import("next/cache");
+    revalidatePath("/faculty/events");
+    revalidatePath("/faculty/dashboard");
+    revalidatePath("/", "layout");
+  } catch {
+    // Ignore outside a request (tests, scripts)
+  }
 
   return { success: true };
 }
 
+/**
+ * Creates a registration event for exactly one class (cohort section) in the
+ * selected academic session. The class must be one the user manages in that
+ * session; the cohort, programme and session are derived on the server.
+ */
 export async function createRegistrationEvent(data: {
   name: string;
-  academicBatchId: string;
-  academicYear?: string;
+  targetSectionId: string;
+  semester?: number | null;
   openDate?: string | null;
   closeDate?: string | null;
   status?: string;
   description?: string;
 }) {
-  const session = await getSession();
-  if (!session || (session.role !== "COURSE_COORDINATOR" && session.role !== "SYSTEM_ADMIN")) {
-    throw new Error("Unauthorized");
-  }
+  const ws = await coordinatorWorkspace();
+  const session = ws.user;
 
   const name = data.name?.trim();
   if (!name) throw new Error("Event name is required.");
-  if (!data.academicBatchId) throw new Error("Academic batch / programme is required.");
+  const target = ws.classes.find((c) => c.sectionId === data.targetSectionId);
+  if (!target) throw new Error(`Choose a class you manage in Academic Session ${ws.session.label}.`);
+  if (data.semester != null && !(Number.isInteger(data.semester) && data.semester >= 1 && data.semester <= 12)) {
+    throw new Error("Semester must be between 1 and 12.");
+  }
+  const status = data.status && ["DRAFT", "PUBLISHED"].includes(data.status) ? data.status : "DRAFT";
 
   const openDate = data.openDate ? new Date(data.openDate) : null;
   const closeDate = data.closeDate ? new Date(data.closeDate) : null;
@@ -992,34 +1084,44 @@ export async function createRegistrationEvent(data: {
     throw new Error("Close date cannot be before open date.");
   }
 
-  const [newEvent] = await db
-    .insert(registrationEvents)
-    .values({
-      name,
-      academicBatchId: data.academicBatchId,
-      academicYear: data.academicYear?.trim() || null,
-      description: data.description?.trim() || null,
-      openDate,
-      closeDate,
-      status: data.status || "DRAFT",
-      createdById: session.userId,
-    })
-    .returning();
+  const newEvent = await db.transaction(async (tx) => {
+    const [created] = await tx
+      .insert(registrationEvents)
+      .values({
+        name,
+        academicBatchId: target.batchId,
+        academicSessionId: ws.session.id,
+        academicYear: sessionLabel(ws.session),
+        semester: data.semester ?? target.semester ?? null,
+        description: data.description?.trim() || null,
+        openDate,
+        closeDate,
+        status,
+        createdById: session.userId,
+      })
+      .returning();
 
-  await db.insert(auditLogs).values({
-    action: "CREATE_REGISTRATION_EVENT",
-    userId: session.userId,
-    userEmail: session.email,
-    userRole: session.role,
-    newValue: { id: newEvent.id, name: newEvent.name, status: newEvent.status },
+    await tx.insert(eventSections).values({ eventId: created.id, sectionId: target.sectionId, academicBatchId: target.batchId });
+
+    await tx.insert(auditLogs).values({
+      action: "CREATE_REGISTRATION_EVENT",
+      userId: session.userId,
+      userEmail: session.email,
+      userRole: session.role,
+      newValue: { id: created.id, name: created.name, status: created.status },
+      metadata: { academicSessionId: ws.session.id, sectionId: target.sectionId, academicBatchId: target.batchId, classLabel: target.label },
+    });
+    return created;
   });
 
-  const { revalidatePath } = await import("next/cache");
-  revalidatePath("/faculty/events");
-  revalidatePath("/faculty/dashboard");
-  revalidatePath("/", "layout");
+  try {
+    const { revalidatePath } = await import("next/cache");
+    revalidatePath("/faculty/events");
+    revalidatePath("/faculty/dashboard");
+    revalidatePath("/", "layout");
+  } catch {
+    // Ignore outside a request (tests, scripts)
+  }
 
   return { success: true, event: newEvent };
 }
-
-

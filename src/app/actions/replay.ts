@@ -9,10 +9,20 @@ import {
   electiveGroups,
   users,
   replayEvents,
-  eventSections,
 } from "@/lib/db/schema";
 import { eq, asc, desc, inArray, sql } from "drizzle-orm";
 import { getSession } from "@/lib/auth";
+import { assertEventInWorkspace, requireStaffWorkspace, workspaceEventIds } from "@/lib/workspace";
+
+/** Null when the event is in the selected session and for a class this user manages; otherwise the reason. */
+async function replayAccessError(eventId: string): Promise<string | null> {
+  try {
+    await assertEventInWorkspace(await requireStaffWorkspace(), eventId);
+    return null;
+  } catch (err) {
+    return err instanceof Error ? err.message : "Unauthorized";
+  }
+}
 
 export interface ReplayRegistration {
   id: string;
@@ -42,6 +52,8 @@ export async function getReplayEvents(registrationEventId: string) {
     ) {
       return { success: false, error: "Unauthorized access to replay events." };
     }
+    const denied = await replayAccessError(registrationEventId);
+    if (denied) return { success: false, error: denied };
 
     // 1. Get event details
     const eventDetails = await db
@@ -215,6 +227,8 @@ export async function getLiveActivityEvents(registrationEventId: string) {
     ) {
       return { success: false, error: "Unauthorized" };
     }
+    const denied = await replayAccessError(registrationEventId);
+    if (denied) return { success: false, error: denied };
 
     const events = await db
       .select()
@@ -306,28 +320,11 @@ export async function getReplayHubData(): Promise<{ success: boolean; data?: Rep
       return { success: false, error: "Unauthorized access to replay hub." };
     }
 
-    let eventsList: (typeof registrationEvents.$inferSelect)[] = [];
-    if (session.role === "CLASS_TUTOR") {
-      if (session.sectionId) {
-        const sectionEvents = await db
-          .select({ eventId: eventSections.eventId })
-          .from(eventSections)
-          .where(eq(eventSections.sectionId, session.sectionId));
-        const eventIds = sectionEvents.map((se) => se.eventId);
-        if (eventIds.length > 0) {
-          eventsList = await db
-            .select()
-            .from(registrationEvents)
-            .where(inArray(registrationEvents.id, eventIds))
-            .orderBy(desc(registrationEvents.createdAt));
-        }
-      }
-    } else {
-      eventsList = await db
-        .select()
-        .from(registrationEvents)
-        .orderBy(desc(registrationEvents.createdAt));
-    }
+    // Events of the selected academic session for classes this user manages.
+    const scopedIds = await workspaceEventIds(await requireStaffWorkspace());
+    const eventsList: (typeof registrationEvents.$inferSelect)[] = scopedIds.length
+      ? await db.select().from(registrationEvents).where(inArray(registrationEvents.id, scopedIds)).orderBy(desc(registrationEvents.createdAt))
+      : [];
 
     if (eventsList.length === 0) {
       return {
@@ -575,12 +572,17 @@ export async function getEventActivityStream(eventId?: string) {
       .from(replayEvents)
       .innerJoin(registrationEvents, eq(replayEvents.registrationEventId, registrationEvents.id));
 
-    const events = eventId
+    if (eventId) {
+      const denied = await replayAccessError(eventId);
+      if (denied) return { success: false, error: denied };
+    }
+    const scopedIds = eventId ? [eventId] : await workspaceEventIds(await requireStaffWorkspace());
+    const events = scopedIds.length
       ? await query
-          .where(eq(replayEvents.registrationEventId, eventId))
+          .where(inArray(replayEvents.registrationEventId, scopedIds))
           .orderBy(desc(replayEvents.timestamp))
           .limit(100)
-      : await query.orderBy(desc(replayEvents.timestamp)).limit(100);
+      : [];
 
     return {
       success: true,
@@ -612,6 +614,8 @@ export async function exportReplaySessionData(
     ) {
       return { success: false, error: "Unauthorized access." };
     }
+    const denied = await replayAccessError(eventId);
+    if (denied) return { success: false, error: denied };
 
     const eventResult = await db
       .select()

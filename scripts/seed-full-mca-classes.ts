@@ -82,8 +82,8 @@ async function main() {
 
   await db.delete(eventSections).where(eq(eventSections.eventId, mcaEvent.id));
   await db.insert(eventSections).values([
-    { eventId: mcaEvent.id, sectionId: secA.id },
-    { eventId: mcaEvent.id, sectionId: secB.id }
+    { eventId: mcaEvent.id, sectionId: secA.id, academicBatchId: mcaEvent.academicBatchId },
+    { eventId: mcaEvent.id, sectionId: secB.id, academicBatchId: mcaEvent.academicBatchId }
   ]);
 
   const groups = await db.query.electiveGroups.findMany({

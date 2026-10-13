@@ -13,9 +13,12 @@ import {
   passwordResetRequests,
   loginAttempts,
   auditLogs,
+  cohortSessionTerms,
 } from "@/lib/db/schema";
 import { eq, and, inArray } from "drizzle-orm";
 import { setTestSession, verifyJWT } from "@/lib/auth";
+import { setTestWorkspaceSession } from "@/lib/workspace";
+import { TEST_SESSION_START, testAcademicSession } from "./helpers/world";
 import * as bcrypt from "bcryptjs";
 import {
   validateClassSignupCode,
@@ -43,6 +46,7 @@ describe("Class-Based Student Self-Onboarding and Password Security", () => {
   let batchId: string;
   let sectionId: string;
   let classCode: string;
+  let academicSessionId: string;
   let testStudentReg: string;
   let testStudentEmail: string;
 
@@ -71,59 +75,26 @@ describe("Class-Based Student Self-Onboarding and Password Security", () => {
       .returning();
     departmentId = dept.id;
 
-    const [existingProg] = await db.select().from(programmes).where(eq(programmes.code, "MCA")).limit(1);
-    if (existingProg) {
-      programmeId = existingProg.id;
-      departmentId = existingProg.departmentId;
-    } else {
-      const [prog] = await db
-        .insert(programmes)
-        .values({
-          name: "Master of Computer Applications",
-          code: "MCA",
-          departmentId,
-        })
-        .returning();
-      programmeId = prog.id;
-    }
+    // Always an isolated hierarchy: never reuse (and later delete) real programme/batch/section rows.
+    const [prog] = await db
+      .insert(programmes)
+      .values({ name: "Master of Computer Applications", code: `MCA_${suffix}`, departmentId })
+      .returning();
+    programmeId = prog.id;
 
-    const [existingBatch] = await db
-      .select()
-      .from(academicBatches)
-      .where(and(eq(academicBatches.year, "2026"), eq(academicBatches.programmeId, programmeId)))
-      .limit(1);
+    const [batch] = await db
+      .insert(academicBatches)
+      .values({ year: `B${suffix}`, programmeId, admissionYear: TEST_SESSION_START - 1, expectedEndYear: TEST_SESSION_START + 1, datesConfirmed: true })
+      .returning();
+    batchId = batch.id;
 
-    if (existingBatch) {
-      batchId = existingBatch.id;
-    } else {
-      const [batch] = await db
-        .insert(academicBatches)
-        .values({
-          year: "2026",
-          programmeId,
-        })
-        .returning();
-      batchId = batch.id;
-    }
+    const [sec] = await db.insert(sections).values({ label: "F", academicBatchId: batchId }).returning();
+    sectionId = sec.id;
 
-    const [existingSec] = await db
-      .select()
-      .from(sections)
-      .where(and(eq(sections.label, "F"), eq(sections.academicBatchId, batchId)))
-      .limit(1);
-
-    if (existingSec) {
-      sectionId = existingSec.id;
-    } else {
-      const [sec] = await db
-        .insert(sections)
-        .values({
-          label: "F",
-          academicBatchId: batchId,
-        })
-        .returning();
-      sectionId = sec.id;
-    }
+    // The class studies in a test academic session; staff act inside it.
+    academicSessionId = (await testAcademicSession()).id;
+    await db.insert(cohortSessionTerms).values({ academicBatchId: batchId, academicSessionId, studyYear: 2, confirmed: true });
+    setTestWorkspaceSession(academicSessionId);
 
     // 2. Setup Class Tutor
     const [tutor] = await db
@@ -153,6 +124,7 @@ describe("Class-Based Student Self-Onboarding and Password Security", () => {
 
   after(() => {
     setTestSession(null);
+    setTestWorkspaceSession(undefined);
   });
 
   test("1. generateClassSignupCode produces EF-[PROG]-[SEC]-[RAND4] format", () => {
@@ -182,7 +154,7 @@ describe("Class-Based Student Self-Onboarding and Password Security", () => {
     });
 
     assert.ok(res.success, "Tutor should successfully create class code");
-    assert.match(res.code, /^EF-MCA-F-[2-9A-Z]{4}$/);
+    assert.match(res.code, /^EF-MCA[0-9]*-F-[2-9A-Z]{4}$/);
     assert.strictEqual(res.maxUses, 100, "Max uses must default and be capped at 100");
     classCode = res.code;
 
@@ -200,7 +172,8 @@ describe("Class-Based Student Self-Onboarding and Password Security", () => {
     const res = await validateClassSignupCode(classCode);
     assert.strictEqual(res.valid, true);
     assert.ok(res.data);
-    assert.strictEqual(res.data.programmeCode, "MCA");
+    assert.ok(res.data.programmeCode.startsWith("MCA_"));
+    assert.match(res.data.className, / F · \d{4}–\d{4}$/, "the class is named with its cohort years");
     assert.strictEqual(res.data.sectionLabel, "F");
     assert.strictEqual(res.data.departmentName, "Computer Applications");
     assert.strictEqual(res.data.tutorName, tutorUser.name);

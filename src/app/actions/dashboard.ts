@@ -9,11 +9,11 @@ import {
   eventSections,
   electiveGroups,
   electives,
-  studentRegistrations,
-  tutorSections
+  studentRegistrations
 } from "@/lib/db/schema";
 import { getSession } from "@/lib/auth";
-import { eq, and, count, desc, inArray, asc } from "drizzle-orm";
+import { requireStaffWorkspace, workspaceEventIds } from "@/lib/workspace";
+import { eq, and, count, desc, inArray, asc, sql } from "drizzle-orm";
 
 export async function getSystemAdminMetrics() {
   const session = await getSession();
@@ -29,7 +29,13 @@ export async function getSystemAdminMetrics() {
   ] = await Promise.all([
     db.select({ totalStudents: count() }).from(users).where(eq(users.role, "STUDENT")),
     db.select({ totalFaculty: count() }).from(users).where(and(eq(users.isActive, true), eq(users.role, "COURSE_COORDINATOR"))),
-    db.select({ activeEvents: count() }).from(registrationEvents).where(inArray(registrationEvents.status, ["PUBLISHED", "OPEN", "PAUSED"])),
+    // Active events of the selected academic session
+    (async () => {
+      const ids = await workspaceEventIds(await requireStaffWorkspace());
+      return ids.length
+        ? db.select({ activeEvents: count() }).from(registrationEvents).where(and(inArray(registrationEvents.id, ids), inArray(registrationEvents.status, ["PUBLISHED", "OPEN", "PAUSED"])))
+        : [{ activeEvents: 0 }];
+    })(),
     db.select().from(auditLogs).orderBy(desc(auditLogs.createdAt)).limit(5)
   ]);
 
@@ -42,6 +48,12 @@ export async function getCourseCoordinatorMetrics() {
     throw new Error("Unauthorized");
   }
 
+  // Everything below is limited to the selected academic session and the
+  // classes this coordinator manages there.
+  const ws = await requireStaffWorkspace();
+  const eventIds = await workspaceEventIds(ws);
+  const none = sql`false`;
+
   const [
     [{ totalTemplates }],
     [{ totalEvents }],
@@ -49,10 +61,20 @@ export async function getCourseCoordinatorMetrics() {
     [{ totalElectives }],
     recentEvents
   ] = await Promise.all([
-    db.select({ totalTemplates: count() }).from(eventTemplates),
-    db.select({ totalEvents: count() }).from(registrationEvents),
-    db.select({ activeEventsCount: count() }).from(registrationEvents).where(inArray(registrationEvents.status, ["PUBLISHED", "OPEN", "PAUSED"])),
-    db.select({ totalElectives: count() }).from(electives),
+    db
+      .select({ totalTemplates: count() })
+      .from(eventTemplates)
+      .where(ws.scope.programmeIds.length ? inArray(eventTemplates.programmeId, ws.scope.programmeIds) : undefined),
+    db.select({ totalEvents: count() }).from(registrationEvents).where(eventIds.length ? inArray(registrationEvents.id, eventIds) : none),
+    db
+      .select({ activeEventsCount: count() })
+      .from(registrationEvents)
+      .where(and(eventIds.length ? inArray(registrationEvents.id, eventIds) : none, inArray(registrationEvents.status, ["PUBLISHED", "OPEN", "PAUSED"]))),
+    db
+      .select({ totalElectives: count() })
+      .from(electives)
+      .innerJoin(electiveGroups, eq(electiveGroups.id, electives.groupId))
+      .where(eventIds.length ? inArray(electiveGroups.eventId, eventIds) : none),
     db.select({
       id: registrationEvents.id,
       name: registrationEvents.name,
@@ -62,6 +84,7 @@ export async function getCourseCoordinatorMetrics() {
       createdAt: registrationEvents.createdAt
     })
     .from(registrationEvents)
+    .where(eventIds.length ? inArray(registrationEvents.id, eventIds) : none)
     .orderBy(desc(registrationEvents.createdAt))
     .limit(5)
   ]);
@@ -75,26 +98,10 @@ export async function getClassTutorMetrics() {
     throw new Error("Unauthorized");
   }
 
-  let activeSectionId = session.sectionId;
-  if (activeSectionId) {
-    const [isAssigned] = await db
-      .select()
-      .from(tutorSections)
-      .where(and(eq(tutorSections.tutorId, session.userId), eq(tutorSections.sectionId, activeSectionId)))
-      .limit(1);
-    if (!isAssigned) {
-      activeSectionId = undefined;
-    }
-  }
-
-  if (!activeSectionId) {
-    const [assigned] = await db
-      .select({ sectionId: tutorSections.sectionId })
-      .from(tutorSections)
-      .where(eq(tutorSections.tutorId, session.userId))
-      .limit(1);
-    activeSectionId = assigned?.sectionId;
-  }
+  // The active class of the selected academic session (validated by the workspace).
+  const ws = await requireStaffWorkspace();
+  const activeSectionId = ws.activeClass?.sectionId;
+  const sessionEventIds = activeSectionId ? await workspaceEventIds(ws, { sectionId: activeSectionId }) : [];
 
   if (!activeSectionId) {
     return { 
@@ -116,7 +123,7 @@ export async function getClassTutorMetrics() {
     })
     .from(eventSections)
     .innerJoin(registrationEvents, eq(eventSections.eventId, registrationEvents.id))
-    .where(eq(eventSections.sectionId, activeSectionId))
+    .where(and(eq(eventSections.sectionId, activeSectionId), sessionEventIds.length ? inArray(registrationEvents.id, sessionEventIds) : sql`false`))
     .orderBy(desc(registrationEvents.createdAt))
   ]);
 

@@ -7,9 +7,10 @@ import { ContextBlocked, requireStudent, SubjectsHeader } from "./subject-page-g
 export const dynamic = "force-dynamic";
 export const metadata: Metadata = { title: "Explore subjects" };
 
-export default async function SubjectCatalogPage() {
+export default async function SubjectCatalogPage({ searchParams }: { searchParams: Promise<{ event?: string }> }) {
   const studentId = await requireStudent();
-  const { ctx, subjects } = await loadSubjectCatalog(studentId);
+  const { event: requested } = await searchParams;
+  const { ctx, subjects } = await loadSubjectCatalog(studentId, new Date(), requested ?? null);
 
   if (ctx.status !== "OK") return <ContextBlocked status={ctx.status} />;
 
@@ -18,6 +19,7 @@ export default async function SubjectCatalogPage() {
       <SubjectsHeader />
       <SubjectCatalogView
         eventName={ctx.event.name}
+        classLabel={[ctx.event.classLabel, ctx.event.sessionLabel ? `Academic session ${ctx.event.sessionLabel}` : null].filter(Boolean).join(" · ")}
         subjects={subjects}
         banner={{
           state: ctx.window.state,
@@ -26,6 +28,7 @@ export default async function SubjectCatalogPage() {
           serverNow: ctx.serverNow,
           registrationStatus: ctx.registrationStatus,
           eligible: ctx.student.isEligible && ctx.student.isActive,
+          eventId: ctx.event.id,
         }}
       />
     </div>

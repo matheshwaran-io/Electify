@@ -31,6 +31,7 @@ export default async function SubjectDetailPage({ params }: { params: Promise<{ 
           serverNow: ctx.serverNow,
           registrationStatus: ctx.registrationStatus,
           eligible: ctx.student.isEligible && ctx.student.isActive,
+          eventId: ctx.event.id,
         }}
       />
     </div>

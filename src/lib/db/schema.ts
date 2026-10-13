@@ -9,8 +9,12 @@ import {
   unique,
   index,
   pgEnum,
+  check,
+  foreignKey,
+  date,
+  type AnyPgColumn,
 } from "drizzle-orm/pg-core";
-import { relations } from "drizzle-orm";
+import { relations, sql } from "drizzle-orm";
 
 // ────────────────────────────────────────────────────────────────────
 // MASTER DATA
@@ -54,11 +58,47 @@ export const programmes = pgTable("programmes", {
 },
   (table) => [index("programmes_dept_idx").on(table.departmentId)]);
 
+// ────────────────────────────────────────────────────────────────────
+// ACADEMIC SESSIONS, COHORTS AND STUDY STAGE (drizzle/0006)
+//
+//   Academic session  academic_sessions: the year the institution operates,
+//                     e.g. 2026–2027. Staff work inside one session at a time.
+//   Admission cohort  academic_batches (programme + admission year) and its
+//                     sections (the class, e.g. MCA F · 2025–2027). A cohort's
+//                     admission year never changes with the session.
+//   Study stage       cohort_session_terms: which cohorts study in a session
+//                     and their study year / semester there.
+// ────────────────────────────────────────────────────────────────────
+
+export const academicSessions = pgTable(
+  "academic_sessions",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    startYear: integer("start_year").notNull(),
+    endYear: integer("end_year").notNull(),
+    status: text("status").default("ACTIVE").notNull(), // PLANNED | ACTIVE | ARCHIVED
+    startsOn: date("starts_on"),
+    endsOn: date("ends_on"),
+    createdById: uuid("created_by_id").references((): AnyPgColumn => users.id, { onDelete: "set null" }),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+    updatedAt: timestamp("updated_at").defaultNow().notNull(),
+  },
+  (table) => [
+    unique("academic_sessions_years_unique").on(table.startYear, table.endYear),
+    check("academic_sessions_years_check", sql`${table.endYear} = ${table.startYear} + 1 AND ${table.startYear} BETWEEN 2000 AND 2100`),
+    check("academic_sessions_status_check", sql`${table.status} IN ('PLANNED', 'ACTIVE', 'ARCHIVED')`),
+    check("academic_sessions_dates_check", sql`${table.startsOn} IS NULL OR ${table.endsOn} IS NULL OR ${table.endsOn} > ${table.startsOn}`),
+  ]
+);
+
 export const academicBatches = pgTable(
   "academic_batches",
   {
     id: uuid("id").defaultRandom().primaryKey(),
-    year: text("year").notNull(), // e.g. "2025", "2026"
+    year: text("year").notNull(), // legacy text label of the admission year, e.g. "2025"; kept as-is
+    admissionYear: integer("admission_year"), // e.g. 2025
+    expectedEndYear: integer("expected_end_year"), // e.g. 2027 for a two-year programme
+    datesConfirmed: boolean("dates_confirmed").default(false).notNull(), // false = derived, needs admin confirmation
     programmeId: uuid("programme_id")
       .notNull()
       .references(() => programmes.id, { onDelete: "cascade" }),
@@ -66,7 +106,13 @@ export const academicBatches = pgTable(
     createdAt: timestamp("created_at").defaultNow().notNull(),
     updatedAt: timestamp("updated_at").defaultNow().notNull(),
   },
-  (table) => [unique("academic_batches_year_programme_unique").on(table.year, table.programmeId)]
+  (table) => [
+    unique("academic_batches_year_programme_unique").on(table.year, table.programmeId),
+    check(
+      "academic_batches_cohort_years_check",
+      sql`${table.expectedEndYear} IS NULL OR ${table.admissionYear} IS NULL OR (${table.expectedEndYear} > ${table.admissionYear} AND ${table.expectedEndYear} - ${table.admissionYear} <= 6)`
+    ),
+  ]
 );
 
 export const sections = pgTable(
@@ -80,7 +126,35 @@ export const sections = pgTable(
     isActive: boolean("is_active").default(true).notNull(),
     createdAt: timestamp("created_at").defaultNow().notNull(),
   },
-  (table) => [unique("sections_label_batch_unique").on(table.label, table.academicBatchId)]
+  (table) => [
+    unique("sections_label_batch_unique").on(table.label, table.academicBatchId),
+    // Target of composite foreign keys that keep a class inside its cohort
+    unique("sections_id_batch_unique").on(table.id, table.academicBatchId),
+  ]
+);
+
+export const cohortSessionTerms = pgTable(
+  "cohort_session_terms",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    academicBatchId: uuid("academic_batch_id")
+      .notNull()
+      .references(() => academicBatches.id, { onDelete: "cascade" }),
+    academicSessionId: uuid("academic_session_id")
+      .notNull()
+      .references(() => academicSessions.id, { onDelete: "restrict" }),
+    studyYear: integer("study_year"),
+    currentSemester: integer("current_semester"),
+    confirmed: boolean("confirmed").default(false).notNull(), // false = derived during migration
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+    updatedAt: timestamp("updated_at").defaultNow().notNull(),
+  },
+  (table) => [
+    unique("cohort_session_terms_unique").on(table.academicBatchId, table.academicSessionId),
+    index("cohortSessionTerms_session_idx").on(table.academicSessionId),
+    check("cohort_session_terms_year_check", sql`${table.studyYear} IS NULL OR ${table.studyYear} BETWEEN 1 AND 6`),
+    check("cohort_session_terms_semester_check", sql`${table.currentSemester} IS NULL OR ${table.currentSemester} BETWEEN 1 AND 12`),
+  ]
 );
 
 // ────────────────────────────────────────────────────────────────────
@@ -107,7 +181,20 @@ export const users = pgTable("users", {
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 },
-  (table) => [index("users_role_idx").on(table.role), index("users_faculty_idx").on(table.facultyId), index("users_dept_idx").on(table.departmentId), index("users_prog_idx").on(table.programmeId), index("users_batch_idx").on(table.academicBatchId), index("users_section_idx").on(table.sectionId)]);
+  (table) => [
+    index("users_role_idx").on(table.role),
+    index("users_faculty_idx").on(table.facultyId),
+    index("users_dept_idx").on(table.departmentId),
+    index("users_prog_idx").on(table.programmeId),
+    index("users_batch_idx").on(table.academicBatchId),
+    index("users_section_idx").on(table.sectionId),
+    // A student's class must belong to their cohort (checked when both are set)
+    foreignKey({
+      name: "users_section_cohort_fk",
+      columns: [table.sectionId, table.academicBatchId],
+      foreignColumns: [sections.id, sections.academicBatchId],
+    }),
+  ]);
 
 // ────────────────────────────────────────────────────────────────────
 // MULTI-SECTION TUTOR MAPPING
@@ -150,7 +237,21 @@ export const inviteCodes = pgTable("invite_codes", {
   status: text("status").default("ACTIVE").notNull(), // ACTIVE | USED | EXPIRED | REVOKED
   createdAt: timestamp("created_at").defaultNow().notNull(),
 },
-  (table) => [index("inviteCodes_faculty_idx").on(table.facultyId), index("inviteCodes_dept_idx").on(table.departmentId), index("inviteCodes_prog_idx").on(table.programmeId), index("inviteCodes_batch_idx").on(table.academicBatchId), index("inviteCodes_section_idx").on(table.sectionId), index("inviteCodes_created_idx").on(table.createdById)]);
+  (table) => [
+    index("inviteCodes_faculty_idx").on(table.facultyId),
+    index("inviteCodes_dept_idx").on(table.departmentId),
+    index("inviteCodes_prog_idx").on(table.programmeId),
+    index("inviteCodes_batch_idx").on(table.academicBatchId),
+    index("inviteCodes_section_idx").on(table.sectionId),
+    index("inviteCodes_created_idx").on(table.createdById),
+    // Student class codes always name exactly one class, inside its cohort
+    check("invite_codes_student_section_check", sql`${table.role} <> 'STUDENT' OR ${table.sectionId} IS NOT NULL`),
+    foreignKey({
+      name: "invite_codes_section_cohort_fk",
+      columns: [table.sectionId, table.academicBatchId],
+      foreignColumns: [sections.id, sections.academicBatchId],
+    }),
+  ]);
 
 // ────────────────────────────────────────────────────────────────────
 // REGISTRATION EVENTS (Center of the system)
@@ -160,7 +261,9 @@ export const registrationEvents = pgTable("registration_events", {
   id: uuid("id").defaultRandom().primaryKey(),
   name: text("name").notNull(),
   description: text("description"),
-  academicYear: text("academic_year"), // e.g. "2026-2027" for the event period
+  academicYear: text("academic_year"), // legacy free-text label; academicSessionId is authoritative
+  academicSessionId: uuid("academic_session_id").references(() => academicSessions.id, { onDelete: "restrict" }), // null = legacy, needs reconciliation
+  semester: integer("semester"),
   academicBatchId: uuid("academic_batch_id")
     .notNull()
     .references(() => academicBatches.id),
@@ -176,8 +279,20 @@ export const registrationEvents = pgTable("registration_events", {
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 },
-  (table) => [index("registrationEvents_batch_idx").on(table.academicBatchId), index("registrationEvents_created_idx").on(table.createdById), index("registrationEvents_status_idx").on(table.status)]);
+  (table) => [
+    index("registrationEvents_batch_idx").on(table.academicBatchId),
+    index("registrationEvents_created_idx").on(table.createdById),
+    index("registrationEvents_status_idx").on(table.status),
+    index("registrationEvents_session_idx").on(table.academicSessionId),
+    unique("registration_events_id_batch_unique").on(table.id, table.academicBatchId),
+    check("registration_events_semester_check", sql`${table.semester} IS NULL OR ${table.semester} BETWEEN 1 AND 12`),
+  ]);
 
+/**
+ * The classes an event is open to. By default exactly one (one event per
+ * class). academic_batch_id is repeated here so composite foreign keys can
+ * guarantee a targeted class belongs to the event's own cohort.
+ */
 export const eventSections = pgTable(
   "event_sections",
   {
@@ -188,8 +303,23 @@ export const eventSections = pgTable(
     sectionId: uuid("section_id")
       .notNull()
       .references(() => sections.id),
+    academicBatchId: uuid("academic_batch_id").notNull(),
   },
-  (table) => [index("eventSections_event_idx").on(table.eventId), index("eventSections_section_idx").on(table.sectionId), unique("event_sections_unique").on(table.eventId, table.sectionId)]
+  (table) => [
+    index("eventSections_event_idx").on(table.eventId),
+    index("eventSections_section_idx").on(table.sectionId),
+    unique("event_sections_unique").on(table.eventId, table.sectionId),
+    foreignKey({
+      name: "event_sections_section_cohort_fk",
+      columns: [table.sectionId, table.academicBatchId],
+      foreignColumns: [sections.id, sections.academicBatchId],
+    }),
+    foreignKey({
+      name: "event_sections_event_cohort_fk",
+      columns: [table.eventId, table.academicBatchId],
+      foreignColumns: [registrationEvents.id, registrationEvents.academicBatchId],
+    }).onDelete("cascade"),
+  ]
 );
 
 export const eventStudents = pgTable(
@@ -266,7 +396,10 @@ export const electives = pgTable("electives", {
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 },
-  (table) => [index("electives_group_idx").on(table.groupId)]);
+  (table) => [
+    index("electives_group_idx").on(table.groupId),
+    check("electives_available_seats_nonnegative", sql`${table.availableSeats} >= 0`),
+  ]);
 
 // ────────────────────────────────────────────────────────────────────
 // ELECTIVE SEAT ALLOCATIONS (Department & Class Section Quotas)
@@ -295,6 +428,7 @@ export const electiveSeatAllocations = pgTable(
     index("allocations_dept_idx").on(table.departmentId),
     index("allocations_section_idx").on(table.sectionId),
     unique("elective_section_allocation_unique").on(table.electiveId, table.sectionId),
+    check("allocations_available_seats_nonnegative", sql`${table.availableSeats} >= 0`),
   ]
 );
 
@@ -498,6 +632,23 @@ export const academicBatchesRelations = relations(academicBatches, ({ one, many 
     references: [programmes.id],
   }),
   sections: many(sections),
+  terms: many(cohortSessionTerms),
+}));
+
+export const academicSessionsRelations = relations(academicSessions, ({ many }) => ({
+  terms: many(cohortSessionTerms),
+  registrationEvents: many(registrationEvents),
+}));
+
+export const cohortSessionTermsRelations = relations(cohortSessionTerms, ({ one }) => ({
+  academicBatch: one(academicBatches, {
+    fields: [cohortSessionTerms.academicBatchId],
+    references: [academicBatches.id],
+  }),
+  academicSession: one(academicSessions, {
+    fields: [cohortSessionTerms.academicSessionId],
+    references: [academicSessions.id],
+  }),
 }));
 
 export const sectionsRelations = relations(sections, ({ one }) => ({
@@ -534,6 +685,10 @@ export const registrationEventsRelations = relations(registrationEvents, ({ one,
   academicBatch: one(academicBatches, {
     fields: [registrationEvents.academicBatchId],
     references: [academicBatches.id],
+  }),
+  academicSession: one(academicSessions, {
+    fields: [registrationEvents.academicSessionId],
+    references: [academicSessions.id],
   }),
   createdBy: one(users, {
     fields: [registrationEvents.createdById],

@@ -15,9 +15,14 @@ import {
   registrations,
   replayEvents,
   auditLogs,
+  sections,
+  eventSections,
+  cohortSessionTerms,
 } from "@/lib/db/schema";
 import { eq, inArray } from "drizzle-orm";
 import { setTestSession } from "@/lib/auth";
+import { setTestWorkspaceSession } from "@/lib/workspace";
+import { testAcademicSession } from "./helpers/world";
 import { deleteRegistrationEvent, resetRegistrationEvent } from "@/app/actions/coordinator";
 
 describe("Event Management: Delete Event & Reset Registrations", () => {
@@ -28,6 +33,8 @@ describe("Event Management: Delete Event & Reset Registrations", () => {
   let departmentId: string;
   let programmeId: string;
   let batchId: string;
+  let sectionId: string;
+  let academicSessionId: string;
 
   before(async () => {
     // 1. Setup Academic hierarchy
@@ -69,6 +76,13 @@ describe("Event Management: Delete Event & Reset Registrations", () => {
       .returning();
     batchId = batch.id;
 
+    // The cohort's class, and an academic session it studies in. Staff act inside that session.
+    const [sec] = await db.insert(sections).values({ label: "E", academicBatchId: batchId }).returning();
+    sectionId = sec.id;
+    academicSessionId = (await testAcademicSession()).id;
+    await db.insert(cohortSessionTerms).values({ academicBatchId: batchId, academicSessionId, studyYear: 1, confirmed: true });
+    setTestWorkspaceSession(academicSessionId);
+
     // 2. Setup Users
     const [uAdmin] = await db
       .insert(users)
@@ -102,6 +116,7 @@ describe("Event Management: Delete Event & Reset Registrations", () => {
         registerNumber: `RA${Math.floor(100000 + Math.random() * 900000)}`,
         role: "STUDENT",
         academicBatchId: batchId,
+        sectionId,
         departmentId,
         passwordHash: "hash",
       })
@@ -118,6 +133,7 @@ describe("Event Management: Delete Event & Reset Registrations", () => {
       .values({
         name: `Event Test ${suffix} ${Date.now()}`,
         academicBatchId: batchId,
+        academicSessionId,
         createdById: adminUser.id,
         openDate: new Date(Date.now() - 3600000),
         closeDate: new Date(Date.now() + 86400000),
@@ -126,6 +142,7 @@ describe("Event Management: Delete Event & Reset Registrations", () => {
       })
       .returning();
     createdEventIds.push(ev.id);
+    await db.insert(eventSections).values({ eventId: ev.id, sectionId, academicBatchId: batchId });
 
     const [grp] = await db
       .insert(electiveGroups)
@@ -297,6 +314,7 @@ describe("Event Management: Delete Event & Reset Registrations", () => {
 
   after(async () => {
     setTestSession(null);
+    setTestWorkspaceSession(undefined);
     // Events deleted by a test are already gone; these deletes are then no-ops.
     for (const eventId of createdEventIds) {
       await db.delete(studentRegistrations).where(eq(studentRegistrations.eventId, eventId));

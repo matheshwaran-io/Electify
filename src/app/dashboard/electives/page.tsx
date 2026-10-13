@@ -2,18 +2,19 @@ import * as React from "react";
 import { redirect } from "next/navigation";
 import { getSession } from "@/lib/auth";
 import { db } from "@/lib/db";
-import { users, registrationEvents, electiveGroups, electives, electiveSeatAllocations, studentRegistrations, registrations, systemSettings } from "@/lib/db/schema";
-import { eq, and, inArray, desc } from "drizzle-orm";
+import { registrationEvents, electiveGroups, electives, electiveSeatAllocations, studentRegistrations, registrations, systemSettings } from "@/lib/db/schema";
+import { eq, and, inArray } from "drizzle-orm";
 import { RegistrationForm } from "../registration-form";
 import { Users } from "lucide-react";
 import Link from "next/link";
 import { StudentHeader, StudentStatus } from "@/components/student/student-chrome";
-import { getRegistrationWindow, STUDENT_VISIBLE_EVENT_STATUSES } from "@/lib/registration-window";
+import { getRegistrationWindow } from "@/lib/registration-window";
+import { resolveStudentEvent, withEvent } from "@/lib/student-events";
 
 export const dynamic = "force-dynamic";
 export const metadata = { title: "Choose your electives" };
 
-export default async function StudentElectivesPage() {
+export default async function StudentElectivesPage({ searchParams }: { searchParams: Promise<{ event?: string }> }) {
   const session = await getSession();
 
   if (!session) {
@@ -24,53 +25,43 @@ export default async function StudentElectivesPage() {
     redirect("/faculty/dashboard");
   }
 
-  const [student] = await db.select().from(users).where(eq(users.id, session.userId)).limit(1);
-
-  if (!student) {
-    redirect("/login");
-  }
-
-  if (!student.academicBatchId) {
-    return (
-      <StudentStatus icon={<Users />} tone="warning" title="You're not in a batch yet" next="Ask your class tutor to add you to your section. Once they do, sign in again.">
-        <p>Electives are offered per batch, so we can&apos;t show you any until your account is linked to one.</p>
-      </StudentStatus>
-    );
-  }
-
   const [settings] = await db.select().from(systemSettings).where(eq(systemSettings.id, "system")).limit(1);
 
   if (settings?.maintenanceMode) {
     redirect("/maintenance");
   }
 
-  // Fetch active or recently closed registration event
-  const [event] = await db.select().from(registrationEvents)
-    .where(
-      and(
-        eq(registrationEvents.academicBatchId, student.academicBatchId),
-        inArray(registrationEvents.status, [...STUDENT_VISIBLE_EVENT_STATUSES])
-      )
-    ).orderBy(desc(registrationEvents.createdAt)).limit(1);
+  // Only an event that targets this student's class (lib/student-events).
+  const { event: requested } = await searchParams;
+  const resolved = await resolveStudentEvent(session.userId, requested ?? null);
 
-  if (!event) {
-    redirect("/dashboard");
+  if (resolved.status === "NO_CLASS") {
+    return (
+      <StudentStatus icon={<Users />} tone="warning" title="You're not in a class yet" next="Ask your class tutor to add you to your class. Once they do, sign in again.">
+        <p>Electives are offered per class, so we can&apos;t show you any until your account is linked to one.</p>
+      </StudentStatus>
+    );
+  }
+  if (resolved.status !== "OK") {
+    redirect(withEvent("/dashboard", requested));
   }
 
-  // Check database registration record
+  const student = resolved.student;
+  const studentEvent = resolved.event;
+  const [event] = await db.select().from(registrationEvents).where(eq(registrationEvents.id, studentEvent.id)).limit(1);
+  if (!event) redirect("/dashboard");
+
   const [userRegistration] = await db.select().from(registrations)
     .where(and(eq(registrations.studentId, student.id), eq(registrations.eventId, event.id))).limit(1);
 
-  const hasSubmitted = userRegistration?.status === "CONFIRMED";
-
-  if (hasSubmitted) {
-    redirect("/dashboard/my-registration");
+  if (userRegistration?.status === "CONFIRMED") {
+    redirect(withEvent("/dashboard/my-registration", event.id));
   }
 
   // Same rule the register action enforces; /dashboard explains every closed state.
   const now = new Date();
   if (!getRegistrationWindow(event, now).isOpen) {
-    redirect("/dashboard");
+    redirect(withEvent("/dashboard", event.id));
   }
 
   const groups = await db.select().from(electiveGroups)
@@ -121,14 +112,14 @@ export default async function StudentElectivesPage() {
     <div className="flex min-h-dvh flex-col">
       <StudentHeader>
         <Link
-          href="/dashboard/subjects"
+          href={withEvent("/dashboard/subjects", event.id)}
           className="inline-flex h-8 items-center rounded-control px-2.5 text-xs font-medium text-fg-muted transition-colors hover:bg-surface-2 hover:text-fg"
         >
           Subjects
         </Link>
         {userRegistration ? (
           <Link
-            href="/dashboard/my-registration"
+            href={withEvent("/dashboard/my-registration", event.id)}
             className="inline-flex h-8 items-center gap-1.5 rounded-control border border-border px-2.5 text-xs font-medium text-fg hover:bg-surface-2 transition-colors"
           >
             My Registration
@@ -138,7 +129,12 @@ export default async function StudentElectivesPage() {
 
       <main className="mx-auto w-full max-w-6xl flex-1 px-4 pt-6 sm:px-6 sm:pt-10">
         <div className="mb-2 flex flex-col gap-1 animate-enter">
-          <p className="text-sm text-fg-muted">{event.name}</p>
+          <p className="text-sm text-fg-muted">
+            {event.name}
+            <span aria-hidden className="mx-2 text-border-strong">/</span>
+            {resolved.studentClass.label}
+            {studentEvent.sessionLabel ? ` · Academic session ${studentEvent.sessionLabel}` : ""}
+          </p>
           <h1 className="text-4xl font-light tracking-display text-fg">Choose your electives</h1>
           <p className="text-sm text-fg-muted">
             {student.name}

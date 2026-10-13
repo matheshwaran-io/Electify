@@ -52,21 +52,27 @@ export type EventItem = {
   description?: string | null;
   academicYear: string | null;
   academicBatchId?: string | null;
+  semester: number | null;
   status: string;
   openDate: Date | null;
   closeDate: Date | null;
   createdAt: Date;
   programmeName: string | null;
   programmeCode: string | null;
+  /** Full identity of the classes the event is open to, e.g. "MCA F · 2025–2027" */
+  classLabels: string[];
 };
 
-export type BatchOption = {
-  id: string;
-  year: string;
-  programmeId: string | null;
-  programmeName: string | null;
-  programmeCode: string | null;
+/** A class (cohort section) the user may create events for in the selected session. */
+export type ClassOption = {
+  sectionId: string;
+  label: string;
+  stage: string;
+  programmeId: string;
+  semester: number | null;
 };
+
+const SEMESTER_OPTIONS = [{ value: "", label: "Not set" }, ...Array.from({ length: 12 }, (_, i) => ({ value: String(i + 1), label: `Semester ${i + 1}` }))];
 
 function toLocalInput(d: Date | string | null) {
   if (!d) return "";
@@ -83,11 +89,13 @@ const STATUS_OPTIONS = [
 
 export function EventsClient({
   events,
-  batches = [],
+  classes = [],
+  sessionLabel,
   templates = [],
 }: {
   events: EventItem[];
-  batches?: BatchOption[];
+  classes?: ClassOption[];
+  sessionLabel: string;
   templates?: DetailedTemplate[];
 }) {
   const router = useRouter();
@@ -104,7 +112,7 @@ export function EventsClient({
   const [editing, setEditing] = useState<EventItem | null>(null);
   const [editOpen, setEditOpen] = useState(false);
   const [editName, setEditName] = useState("");
-  const [editAcademicYear, setEditAcademicYear] = useState("");
+  const [editSemester, setEditSemester] = useState("");
   const [editStatus, setEditStatus] = useState("DRAFT");
   const [editOpenDate, setEditOpenDate] = useState("");
   const [editCloseDate, setEditCloseDate] = useState("");
@@ -115,13 +123,14 @@ export function EventsClient({
   const [createOpen, setCreateOpen] = useState(false);
   const [createTemplateId, setCreateTemplateId] = useState("");
   const [createName, setCreateName] = useState("");
-  const [createBatchId, setCreateBatchId] = useState("");
-  const [createAcademicYear, setCreateAcademicYear] = useState("");
+  const [createSectionId, setCreateSectionId] = useState("");
+  const [createSemester, setCreateSemester] = useState("");
+  const [confirmCreateOpen, setConfirmCreateOpen] = useState(false);
   const [createOpenDate, setCreateOpenDate] = useState("");
   const [createCloseDate, setCreateCloseDate] = useState("");
   const [createStatus, setCreateStatus] = useState("DRAFT");
   const [createDescription, setCreateDescription] = useState("");
-  const [createErrors, setCreateErrors] = useState<{ name?: string; batchId?: string }>({});
+  const [createErrors, setCreateErrors] = useState<{ name?: string; sectionId?: string }>({});
 
   const [isPending, startTransition] = useTransition();
 
@@ -167,7 +176,7 @@ export function EventsClient({
   const openEditModal = (e: EventItem) => {
     setEditing(e);
     setEditName(e.name);
-    setEditAcademicYear(e.academicYear || "");
+    setEditSemester(e.semester ? String(e.semester) : "");
     setEditStatus(e.status);
     setEditOpenDate(toLocalInput(e.openDate));
     setEditCloseDate(toLocalInput(e.closeDate));
@@ -189,7 +198,7 @@ export function EventsClient({
       try {
         await updateRegistrationEvent(editing.id, {
           name: editName,
-          academicYear: editAcademicYear,
+          semester: editSemester ? Number(editSemester) : null,
           status: editStatus,
           openDate: editOpenDate ? new Date(editOpenDate).toISOString() : null,
           closeDate: editCloseDate ? new Date(editCloseDate).toISOString() : null,
@@ -206,12 +215,14 @@ export function EventsClient({
     });
   };
 
+  const targetClass = classes.find((c) => c.sectionId === createSectionId) ?? null;
+
   const openCreateModal = () => {
     setCreateTemplateId("");
     setCreateName("");
-    const defaultBatch = batches.length > 0 ? batches[0] : null;
-    setCreateBatchId(defaultBatch ? defaultBatch.id : "");
-    setCreateAcademicYear(defaultBatch ? defaultBatch.year : "");
+    const first = classes.length === 1 ? classes[0] : null;
+    setCreateSectionId(first ? first.sectionId : "");
+    setCreateSemester(first?.semester ? String(first.semester) : "");
     setCreateOpenDate("");
     setCreateCloseDate("");
     setCreateStatus("DRAFT");
@@ -220,70 +231,43 @@ export function EventsClient({
     setCreateOpen(true);
   };
 
+  // Validate, then ask for an explicit confirmation of the full class identity.
   const handleCreate = (e: React.FormEvent) => {
     e.preventDefault();
     const errors: typeof createErrors = {};
-
-    if (!createName.trim()) {
-      errors.name = "Event name is required.";
-    }
-    if (!createBatchId) {
-      errors.batchId = "Please select a target programme and batch.";
-    }
-
+    if (!createName.trim()) errors.name = "Event name is required.";
+    if (!createSectionId) errors.sectionId = "Choose the class this event is for.";
     if (Object.keys(errors).length > 0) {
       setCreateErrors(errors);
       return;
     }
-
-    startTransition(async () => {
-      try {
-        if (createTemplateId) {
-          const res = await createEventFromTemplate({
-            templateId: createTemplateId,
-            name: createName,
-            academicBatchId: createBatchId,
-            academicYear: createAcademicYear,
-            status: createStatus,
-            openDate: createOpenDate ? new Date(createOpenDate).toISOString() : null,
-            closeDate: createCloseDate ? new Date(createCloseDate).toISOString() : null,
-            description: createDescription,
-          });
-
-          if (!res.success) {
-            throw new Error(res.error || "Failed to create event from template");
-          }
-
-          toast.success(
-            `Registration event "${res.eventName}" created with pre-configured template electives.`
-          );
-        } else {
-          const result = await createRegistrationEvent({
-            name: createName,
-            academicBatchId: createBatchId,
-            academicYear: createAcademicYear,
-            status: createStatus,
-            openDate: createOpenDate ? new Date(createOpenDate).toISOString() : null,
-            closeDate: createCloseDate ? new Date(createCloseDate).toISOString() : null,
-            description: createDescription,
-          });
-
-          toast.success(`Registration event "${result.event.name}" created successfully.`);
-        }
-
-        setCreateOpen(false);
-        router.refresh();
-      } catch (err: unknown) {
-        const msg = err instanceof Error ? err.message : "Failed to create event";
-        toast.error(msg);
-      }
-    });
+    setConfirmCreateOpen(true);
   };
 
-  const batchOptions = batches.map((b) => ({
-    value: b.id,
-    label: `${b.programmeName ?? "Programme"} (${b.programmeCode ?? "—"}) · Year ${b.year}`,
-  }));
+  const confirmCreate = async () => {
+    const payload = {
+      name: createName,
+      targetSectionId: createSectionId,
+      semester: createSemester ? Number(createSemester) : null,
+      status: createStatus,
+      openDate: createOpenDate ? new Date(createOpenDate).toISOString() : null,
+      closeDate: createCloseDate ? new Date(createCloseDate).toISOString() : null,
+      description: createDescription,
+    };
+    if (createTemplateId) {
+      const res = await createEventFromTemplate({ templateId: createTemplateId, ...payload });
+      if (!res.success) throw new Error(res.error || "Failed to create event from template");
+      toast.success(`"${res.eventName}" created for ${targetClass?.label ?? "the class"} with the template's electives.`);
+    } else {
+      const result = await createRegistrationEvent(payload);
+      toast.success(`"${result.event.name}" created for ${targetClass?.label ?? "the class"}.`);
+    }
+    setConfirmCreateOpen(false);
+    setCreateOpen(false);
+    router.refresh();
+  };
+
+  const classOptions = classes.map((c) => ({ value: c.sectionId, label: `${c.label} · ${c.stage}` }));
 
   const columns: Column<EventItem>[] = [
     {
@@ -302,23 +286,18 @@ export function EventsClient({
       className: "min-w-56",
     },
     {
-      id: "programme",
-      header: "Programme",
+      id: "class",
+      header: "Class",
       mobile: "subtitle",
-      cell: (e) => (
-        <span className="text-fg-muted">
-          {e.programmeName ?? "—"}
-          {e.programmeCode ? <span className="ml-1.5 font-mono text-2xs text-fg-subtle">{e.programmeCode}</span> : null}
-        </span>
-      ),
-      sortValue: (e) => e.programmeName,
-      searchValue: (e) => `${e.programmeName ?? ""} ${e.programmeCode ?? ""}`,
+      cell: (e) => <span className="text-fg-muted">{e.classLabels.length ? e.classLabels.join(", ") : "No class"}</span>,
+      sortValue: (e) => e.classLabels[0] ?? "",
+      searchValue: (e) => `${e.classLabels.join(" ")} ${e.programmeName ?? ""} ${e.programmeCode ?? ""}`,
     },
     {
-      id: "year",
-      header: "Academic year",
-      cell: (e) => <span className="text-fg-muted">{e.academicYear ?? "—"}</span>,
-      sortValue: (e) => e.academicYear,
+      id: "semester",
+      header: "Semester",
+      cell: (e) => <span className="text-fg-muted">{e.semester ? `Semester ${e.semester}` : "—"}</span>,
+      sortValue: (e) => e.semester,
     },
     {
       id: "status",
@@ -463,7 +442,7 @@ export function EventsClient({
     <div>
       <PageHeader
         title="Registration events"
-        description="Every registration event across all programmes."
+        description={`Events in Academic Session ${sessionLabel} for the classes you manage. Each event is for one class and keeps its own subjects, seats and window.`}
         actions={
           <Button variant="primary" size="sm" onClick={openCreateModal}>
             <Plus className="size-3.5" /> Create event
@@ -476,14 +455,14 @@ export function EventsClient({
         columns={columns}
         getRowId={(e) => e.id}
         caption="Registration events"
-        searchPlaceholder="Search events or programmes"
+        searchPlaceholder="Search events or classes"
         filters={filters}
         empty={
           <EmptyState
             compact
             icon={<Calendar />}
             title="No events found"
-            description="Events created by course controllers show up here."
+            description={classes.length ? `No events in ${sessionLabel} yet.` : `You don't manage any class in ${sessionLabel}.`}
             action={
               <Button onClick={openCreateModal}>
                 <Plus className="size-4" /> Create event
@@ -504,7 +483,8 @@ export function EventsClient({
           resetting
             ? [
                 { label: "Event", value: resetting.name },
-                { label: "Programme", value: resetting.programmeName ?? "—" },
+                { label: "Class", value: resetting.classLabels.join(", ") || "—" },
+                { label: "Academic session", value: sessionLabel },
                 { label: "Registrations", value: "All deleted", tone: "danger" },
               ]
             : undefined
@@ -525,8 +505,8 @@ export function EventsClient({
           deleting
             ? [
                 { label: "Event", value: deleting.name },
-                { label: "Programme", value: deleting.programmeName ?? "—" },
-                { label: "Academic Year", value: deleting.academicYear ?? "—" },
+                { label: "Class", value: deleting.classLabels.join(", ") || "—" },
+                { label: "Academic session", value: sessionLabel },
                 { label: "Records", value: "All allocations & logs deleted", tone: "danger" },
               ]
             : undefined
@@ -541,7 +521,9 @@ export function EventsClient({
         <DialogContent size="lg" showClose={!isPending}>
           <DialogHeader>
             <DialogTitle>Edit registration event</DialogTitle>
-            <DialogDescription>Update event timeline, schedule, or details.</DialogDescription>
+            <DialogDescription>
+              {editing ? `${editing.classLabels.join(", ") || "No class"} · Academic session ${sessionLabel}` : "Update event timeline, schedule, or details."}
+            </DialogDescription>
           </DialogHeader>
 
           <form onSubmit={handleSaveEdit}>
@@ -559,12 +541,8 @@ export function EventsClient({
               </Field>
 
               <div className="grid gap-4 sm:grid-cols-2">
-                <Field label="Academic year" description="e.g. 2026-2028">
-                  <Input
-                    value={editAcademicYear}
-                    onChange={(e) => setEditAcademicYear(e.target.value)}
-                    disabled={isPending}
-                  />
+                <Field label="Semester">
+                  <Select value={editSemester} onValueChange={setEditSemester} options={SEMESTER_OPTIONS} disabled={isPending} />
                 </Field>
 
                 <Field label="Status">
@@ -624,7 +602,9 @@ export function EventsClient({
         <DialogContent size="lg" showClose={!isPending}>
           <DialogHeader>
             <DialogTitle>Create registration event</DialogTitle>
-            <DialogDescription>Define a new elective registration window for a programme batch.</DialogDescription>
+            <DialogDescription>
+              One event for one class in Academic Session {sessionLabel}. Another class (even with the same name) needs its own event.
+            </DialogDescription>
           </DialogHeader>
 
           <form onSubmit={handleCreate}>
@@ -643,10 +623,10 @@ export function EventsClient({
                         if (!createName || templates.some((t) => createName.startsWith(t.name.slice(0, 8)))) {
                           setCreateName(`${chosen.name.replace(" Template", "")} Registration`);
                         }
-                        const matchedBatch = batches.find((b) => b.programmeId === chosen.programmeId);
-                        if (matchedBatch) {
-                          setCreateBatchId(matchedBatch.id);
-                          setCreateAcademicYear(matchedBatch.year);
+                        const sameProgramme = classes.filter((c) => c.programmeId === chosen.programmeId);
+                        if (sameProgramme.length === 1) {
+                          setCreateSectionId(sameProgramme[0].sectionId);
+                          setCreateSemester(sameProgramme[0].semester ? String(sameProgramme[0].semester) : "");
                         }
                       }
                     }}
@@ -677,34 +657,27 @@ export function EventsClient({
               </Field>
 
               <Field
-                label="Target programme & batch"
-                description="Programme whose students will register"
-                error={createErrors.batchId}
+                label="Class"
+                description="Only students of this class and cohort can see and register for the event."
+                error={createErrors.sectionId}
               >
                 <Select
-                  value={createBatchId || null}
+                  value={createSectionId || null}
                   onValueChange={(val) => {
-                    setCreateBatchId(val);
-                    const matched = batches.find((b) => b.id === val);
-                    if (matched && !createAcademicYear) {
-                      setCreateAcademicYear(matched.year);
-                    }
-                    if (createErrors.batchId) setCreateErrors((prev) => ({ ...prev, batchId: undefined }));
+                    setCreateSectionId(val);
+                    const chosen = classes.find((c) => c.sectionId === val);
+                    if (chosen?.semester && !createSemester) setCreateSemester(String(chosen.semester));
+                    if (createErrors.sectionId) setCreateErrors((prev) => ({ ...prev, sectionId: undefined }));
                   }}
-                  options={batchOptions}
-                  placeholder="Select programme & batch"
-                  disabled={isPending}
+                  options={classOptions}
+                  placeholder={classes.length ? "Select class" : "No classes in this session"}
+                  disabled={isPending || classes.length === 0}
                 />
               </Field>
 
               <div className="grid gap-4 sm:grid-cols-2">
-                <Field label="Academic year" description="e.g. 2026-2028">
-                  <Input
-                    placeholder="2026-2028"
-                    value={createAcademicYear}
-                    onChange={(e) => setCreateAcademicYear(e.target.value)}
-                    disabled={isPending}
-                  />
+                <Field label="Semester" description={`Academic session ${sessionLabel}`}>
+                  <Select value={createSemester} onValueChange={setCreateSemester} options={SEMESTER_OPTIONS} disabled={isPending} />
                 </Field>
 
                 <Field label="Initial status">
@@ -752,13 +725,31 @@ export function EventsClient({
               <Button type="button" variant="secondary" onClick={() => setCreateOpen(false)} disabled={isPending}>
                 Cancel
               </Button>
-              <Button type="submit" loading={isPending} loadingText="Creating...">
-                Create event
+              <Button type="submit" disabled={isPending || classes.length === 0}>
+                Review and create
               </Button>
             </DialogFooter>
           </form>
         </DialogContent>
       </Dialog>
+
+      <ConfirmDialog
+        open={confirmCreateOpen}
+        onOpenChange={setConfirmCreateOpen}
+        title="Create this registration event?"
+        description="Check the class carefully: classes with the same name in other cohorts are separate and need their own events."
+        impact={[
+          { label: "Event", value: createName.trim() || "—" },
+          { label: "Class", value: targetClass?.label ?? "—" },
+          { label: "Academic session", value: sessionLabel },
+          { label: "Semester", value: createSemester ? `Semester ${createSemester}` : "Not set" },
+          { label: "Opens", value: createOpenDate ? new Date(createOpenDate).toLocaleString() : "Not scheduled" },
+          { label: "Closes", value: createCloseDate ? new Date(createCloseDate).toLocaleString() : "Not scheduled" },
+          ...(createTemplateId ? [{ label: "Template", value: templates.find((t) => t.id === createTemplateId)?.name ?? "—" }] : []),
+        ]}
+        confirmLabel="Create event"
+        onConfirm={confirmCreate}
+      />
     </div>
   );
 }

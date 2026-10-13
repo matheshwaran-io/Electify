@@ -12,6 +12,7 @@ import {
   Layers,
   Mail,
   Radio,
+  Server,
   Settings,
   ShieldCheck,
   Users,
@@ -33,7 +34,7 @@ export type NavItem = {
 export type NavGroup = { label: string; items: NavItem[] }
 
 /**
- * Navigation per role. Every route listed here is one the role could already
+ * Navigation per role. Apart from Academic sessions (new), every route listed here is one the role could already
  * reach before the redesign; nothing is newly exposed, only regrouped.
  */
 export function buildNav(role: Role, workspace: string): NavGroup[] {
@@ -49,6 +50,7 @@ export function buildNav(role: Role, workspace: string): NavGroup[] {
         label: "Academic registry",
         items: [
           { label: "Registration events", href: "/faculty/events", icon: Calendar, key: "e", primary: true },
+          { label: "Year Servers", href: "/faculty/academic-sessions", icon: Server, key: "y" },
           { label: "Departments", href: "/faculty/departments", icon: Building2, key: "t" },
         ],
       },
@@ -106,6 +108,7 @@ export function buildNav(role: Role, workspace: string): NavGroup[] {
         items: [
           { label: "Electives & baskets", href: "/faculty/electives", icon: BookOpen, key: "e", primary: true },
           { label: "Registration events", href: "/faculty/events", icon: Calendar, key: "v" },
+          { label: "Year Servers", href: "/faculty/academic-sessions", icon: Server, key: "y" },
           { label: "Departments & classes", href: "/faculty/departments", icon: Building2, key: "c" },
           { label: "Students", href: "/faculty/students", icon: GraduationCap, key: "s", primary: true },
           { label: "Reports", href: "/faculty/reports", icon: FileText, key: "r", primary: true },

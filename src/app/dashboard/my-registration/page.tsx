@@ -5,11 +5,12 @@ import { getStudentRegistrationDetails } from "@/app/actions/register";
 import { MyRegistrationClient } from "./my-registration-client";
 import { StudentStatus } from "@/components/student/student-chrome";
 import { AlertCircle } from "lucide-react";
+import { withEvent } from "@/lib/student-events";
 
 export const dynamic = "force-dynamic";
 export const metadata = { title: "My Registration · Electify" };
 
-export default async function MyRegistrationPage() {
+export default async function MyRegistrationPage({ searchParams }: { searchParams: Promise<{ event?: string }> }) {
   const session = await getSession();
 
   if (!session) {
@@ -20,7 +21,8 @@ export default async function MyRegistrationPage() {
     redirect("/faculty/dashboard");
   }
 
-  const details = await getStudentRegistrationDetails();
+  const { event: requested } = await searchParams;
+  const details = await getStudentRegistrationDetails(requested);
 
   if (!details.success) {
     return (
@@ -36,7 +38,7 @@ export default async function MyRegistrationPage() {
   }
 
   if (!details.hasRegistered) {
-    redirect("/dashboard/electives");
+    redirect(withEvent("/dashboard/electives", details.event?.id ?? requested));
   }
 
   return (

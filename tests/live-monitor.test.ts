@@ -17,9 +17,12 @@ import {
   replayEvents,
   auditLogs,
   tutorSections,
+  cohortSessionTerms,
 } from "@/lib/db/schema";
 import { eq, inArray } from "drizzle-orm";
 import { setTestSession } from "@/lib/auth";
+import { setTestWorkspaceSession } from "@/lib/workspace";
+import { testAcademicSession } from "./helpers/world";
 import {
   getLiveMonitorEvents,
   getLiveMonitoringData,
@@ -190,13 +193,19 @@ describe("Live Event Registration Monitor & Surveillance Module", () => {
       .returning();
     student3 = { id: s3.id, email: s3.email };
 
-    // 3. Registration Event
+    // 3. Registration Event, in a test academic session that includes this cohort.
+    // Staff in these tests work inside that session (the test stand-in for the session cookie).
+    const academicSession = await testAcademicSession();
+    await db.insert(cohortSessionTerms).values({ academicBatchId: batchId, academicSessionId: academicSession.id, studyYear: 1, confirmed: true });
+    setTestWorkspaceSession(academicSession.id);
+
     const [ev] = await db
       .insert(registrationEvents)
       .values({
         name: "Live Monitor Test Registration 2026",
         academicBatchId: batchId,
-        academicYear: "2026-2028",
+        academicSessionId: academicSession.id,
+        academicYear: "2091–2092",
         status: "OPEN",
         createdById: coordinatorUser.id,
       })
@@ -204,8 +213,8 @@ describe("Live Event Registration Monitor & Surveillance Module", () => {
     eventId = ev.id;
 
     await db.insert(eventSections).values([
-      { eventId, sectionId: section1Id },
-      { eventId, sectionId: section2Id },
+      { eventId, sectionId: section1Id, academicBatchId: batchId },
+      { eventId, sectionId: section2Id, academicBatchId: batchId },
     ]);
 
     // 4. Electives & Baskets
@@ -453,6 +462,7 @@ describe("Live Event Registration Monitor & Surveillance Module", () => {
 
   after(async () => {
     setTestSession(null);
+    setTestWorkspaceSession(undefined);
     if (eventId) {
       await db.delete(studentRegistrations).where(eq(studentRegistrations.eventId, eventId));
       await db.delete(registrations).where(eq(registrations.eventId, eventId));

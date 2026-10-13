@@ -1,7 +1,8 @@
 import { getSession } from "@/lib/auth";
-import { getEvents, getBatchesForEvents } from "@/app/actions/admin";
+import { getEvents } from "@/app/actions/admin";
 import { getTemplatesWithDetails } from "@/app/actions/templates";
 import { redirect } from "next/navigation";
+import { requireStaffWorkspace } from "@/lib/workspace";
 import { EventsClient } from "./events-client";
 
 export default async function EventsPage() {
@@ -10,13 +11,17 @@ export default async function EventsPage() {
     redirect("/faculty/dashboard");
   }
 
-  const [events, batches, templatesRes] = await Promise.all([
-    getEvents(),
-    getBatchesForEvents(),
-    getTemplatesWithDetails(),
-  ]);
-
+  // The layout guarantees a selected academic session on this page.
+  const ws = await requireStaffWorkspace();
+  const [events, templatesRes] = await Promise.all([getEvents(), getTemplatesWithDetails()]);
   const templates = templatesRes.success && templatesRes.data ? templatesRes.data : [];
 
-  return <EventsClient events={events} batches={batches} templates={templates} />;
+  return (
+    <EventsClient
+      events={events}
+      classes={ws.classes.map((c) => ({ sectionId: c.sectionId, label: c.label, stage: c.stage, programmeId: c.programmeId, semester: c.semester }))}
+      sessionLabel={ws.session.label}
+      templates={templates}
+    />
+  );
 }

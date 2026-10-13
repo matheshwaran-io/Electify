@@ -37,6 +37,7 @@ import { buildNav, isActive, ROLE_CONTROL, ROLE_LABEL, type NavGroup, type Role 
 import { RealtimeStatus } from "@/components/layout/realtime-status";
 import { SectionSwitcher, sectionName, useSwitchSection, type AssignedSection } from "@/components/layout/section-switcher";
 import { ShortcutsDialog, useGlobalShortcuts } from "@/components/layout/shortcuts";
+import { SessionIndicator, useWorkspaceStaleCheck, type ShellAcademicSession } from "@/components/layout/session-indicator";
 
 interface UserSession {
   userId: string;
@@ -53,11 +54,20 @@ interface AppShellProps {
   assignedSections?: AssignedSection[];
   activeWorkspace?: string;
   initialCollapsed?: boolean;
+  /** The academic session being worked in, if one is selected. */
+  academicSession?: ShellAcademicSession | null;
 }
 
 const SIDEBAR_COOKIE = "electify_sidebar";
 
-export function AppShell({ children, session, assignedSections = [], activeWorkspace = "COORDINATOR", initialCollapsed = false }: AppShellProps) {
+export function AppShell({
+  children,
+  session,
+  assignedSections = [],
+  activeWorkspace = "COORDINATOR",
+  initialCollapsed = false,
+  academicSession = null,
+}: AppShellProps) {
   const pathname = usePathname();
   const router = useRouter();
   const { setTheme } = useTheme();
@@ -68,6 +78,7 @@ export function AppShell({ children, session, assignedSections = [], activeWorks
   const [moreOpen, setMoreOpen] = React.useState(false);
   const [signingOut, setSigningOut] = React.useState(false);
   const { switchTo } = useSwitchSection();
+  useWorkspaceStaleCheck(academicSession ? `${academicSession.id}:${session.sectionId ?? ""}` : null);
 
   const groups = React.useMemo(() => buildNav(session.role, activeWorkspace), [session.role, activeWorkspace]);
   const items = React.useMemo(() => groups.flatMap((g) => g.items), [groups]);
@@ -144,8 +155,8 @@ export function AppShell({ children, session, assignedSections = [], activeWorks
     return [...nav, ...sections, ...actions];
   }, [groups, showSections, assignedSections, session.sectionId, session.role, collapsed, router, setTheme, switchTo, toggleSidebar, handleLogout]);
 
-  // Portal selection after sign-in is a standalone screen.
-  if (pathname === "/faculty/portal-select") {
+  // Session and portal selection after sign-in are standalone screens.
+  if (pathname === "/faculty/portal-select" || pathname === "/faculty/session-select") {
     return (
       <div className="relative flex min-h-dvh flex-col">
         <HeroGeometricBackground />
@@ -186,6 +197,7 @@ export function AppShell({ children, session, assignedSections = [], activeWorks
           session={session}
           showSections={showSections}
           sections={assignedSections}
+          academicSession={academicSession}
           onSearch={() => setPaletteOpen(true)}
           onToggle={toggleSidebar}
           onHelp={() => setHelpOpen(true)}
@@ -224,12 +236,14 @@ export function AppShell({ children, session, assignedSections = [], activeWorks
         </header>
 
         <main id="main" className="relative flex-1 overflow-y-auto overscroll-contain scrollbar-thin pb-24 md:pb-10">
-          {showSections ? (
-            <div className="border-b border-border px-4 py-2.5 lg:hidden">
-              <SectionSwitcher sections={assignedSections} activeId={session.sectionId} />
+          {showSections || academicSession ? (
+            <div className="grid gap-2 border-b border-border px-4 py-2.5 sm:grid-cols-2 lg:hidden">
+              {academicSession ? <SessionIndicator session={academicSession} /> : null}
+              {showSections ? <SectionSwitcher sections={assignedSections} activeId={session.sectionId} /> : null}
             </div>
           ) : null}
-          <div key={session.sectionId ?? "all"} className="mx-auto w-full max-w-[88rem] px-4 py-6 sm:px-6 lg:px-10 lg:py-8">
+          {/* Remount on session or class change so no page keeps showing the previous scope. */}
+          <div key={`${academicSession?.id ?? "none"}:${session.sectionId ?? "all"}`} className="mx-auto w-full max-w-[88rem] px-4 py-6 sm:px-6 lg:px-10 lg:py-8">
             {children}
           </div>
         </main>
@@ -246,6 +260,7 @@ export function AppShell({ children, session, assignedSections = [], activeWorks
             session={session}
             showSections={showSections}
             sections={assignedSections}
+            academicSession={academicSession}
             onSearch={() => {
               setDrawerOpen(false);
               setPaletteOpen(true);
@@ -345,6 +360,7 @@ function SidebarContent({
   session,
   showSections,
   sections,
+  academicSession,
   onSearch,
   onToggle,
   onHelp,
@@ -357,6 +373,7 @@ function SidebarContent({
   session: UserSession;
   showSections: boolean;
   sections: AssignedSection[];
+  academicSession: ShellAcademicSession | null;
   onSearch: () => void;
   onToggle?: () => void;
   onHelp: () => void;
@@ -381,6 +398,7 @@ function SidebarContent({
       </div>
 
       <div className={cn("space-y-2 pb-3", collapsed ? "px-3" : "px-3")}>
+        {academicSession ? <SessionIndicator session={academicSession} collapsed={collapsed} /> : null}
         {showSections ? <SectionSwitcher sections={sections} activeId={session.sectionId} collapsed={collapsed} /> : null}
         {collapsed ? (
           <Tooltip content="Search and jump" shortcut={<><Kbd>⌘</Kbd><Kbd>K</Kbd></>} side="right">

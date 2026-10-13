@@ -16,10 +16,14 @@ import {
   electiveSeatAllocations,
   replayEvents,
   auditLogs,
+  academicSessions,
 } from "@/lib/db/schema";
-import { eq, and, sql, inArray, desc, not, asc } from "drizzle-orm";
+import { eq, and, sql, inArray, not, asc } from "drizzle-orm";
 import { getSession } from "@/lib/auth";
-import { getRegistrationWindow, STUDENT_VISIBLE_EVENT_STATUSES } from "@/lib/registration-window";
+import { getRegistrationWindow } from "@/lib/registration-window";
+import { isStudentEligibleForEvent, resolveStudentEvent } from "@/lib/student-events";
+import { cohortLabel, sessionLabel } from "@/lib/academic";
+import { releaseSeat, SeatTakenError, takeSeat, type Tx } from "@/lib/seat-ops";
 
 export type RegisterErrorCode =
   | "UNAUTHORIZED"
@@ -48,7 +52,6 @@ export interface MutationResult {
   message?: string;
 }
 
-type Tx = Parameters<Parameters<typeof db.transaction>[0]>[0];
 
 /** A student may submit a fresh registration only from one of these states. */
 const REREGISTERABLE_STATUSES = new Set(["NOT_REGISTERED", "CANCELLED", "RESET_BY_COORDINATOR"]);
@@ -71,79 +74,9 @@ function displayName(e: { courseCode: string | null; name: string }) {
   return e.courseCode ? `${e.courseCode} - ${e.name}` : e.name;
 }
 
-/** Thrown when a seat ran out between the student opening the page and submitting. */
-class SeatTakenError extends Error {
-  constructor(readonly electiveId: string, name: string) {
-    super(`The last seat in ${name} was just taken. Please choose another elective.`);
-  }
-}
-
 class RegistrationRuleError extends Error {
   constructor(readonly code: RegisterErrorCode, message: string) {
     super(message);
-  }
-}
-
-/** Returns one confirmed seat to the elective and, if configured, the student's section quota. */
-async function releaseSeat(tx: Tx, electiveId: string, sectionId: string | null) {
-  await tx
-    .update(electives)
-    .set({ availableSeats: sql`${electives.availableSeats} + 1`, isFull: false, updatedAt: new Date() })
-    .where(eq(electives.id, electiveId));
-
-  if (sectionId) {
-    const [secAlloc] = await tx
-      .select()
-      .from(electiveSeatAllocations)
-      .where(and(eq(electiveSeatAllocations.electiveId, electiveId), eq(electiveSeatAllocations.sectionId, sectionId)))
-      .for("update");
-    if (secAlloc) {
-      await tx
-        .update(electiveSeatAllocations)
-        .set({ availableSeats: sql`${electiveSeatAllocations.availableSeats} + 1`, isFull: false, updatedAt: new Date() })
-        .where(eq(electiveSeatAllocations.id, secAlloc.id));
-    }
-  }
-}
-
-/**
- * Takes one seat for the student, checking the elective and the student's section quota
- * on rows the caller has locked. Throws if either is full.
- */
-async function takeSeat(tx: Tx, elective: typeof electives.$inferSelect, sectionId: string | null) {
-  if (elective.availableSeats <= 0) throw new SeatTakenError(elective.id, elective.name);
-
-  let secAllocId: string | null = null;
-  if (sectionId) {
-    const [secAlloc] = await tx
-      .select()
-      .from(electiveSeatAllocations)
-      .where(and(eq(electiveSeatAllocations.electiveId, elective.id), eq(electiveSeatAllocations.sectionId, sectionId)))
-      .for("update");
-    if (secAlloc) {
-      if (secAlloc.availableSeats <= 0) throw new SeatTakenError(elective.id, elective.name);
-      secAllocId = secAlloc.id;
-    }
-  }
-
-  await tx
-    .update(electives)
-    .set({
-      availableSeats: sql`${electives.availableSeats} - 1`,
-      isFull: sql`CASE WHEN ${electives.availableSeats} - 1 <= 0 THEN true ELSE false END`,
-      updatedAt: new Date(),
-    })
-    .where(eq(electives.id, elective.id));
-
-  if (secAllocId) {
-    await tx
-      .update(electiveSeatAllocations)
-      .set({
-        availableSeats: sql`${electiveSeatAllocations.availableSeats} - 1`,
-        isFull: sql`CASE WHEN ${electiveSeatAllocations.availableSeats} - 1 <= 0 THEN true ELSE false END`,
-        updatedAt: new Date(),
-      })
-      .where(eq(electiveSeatAllocations.id, secAllocId));
   }
 }
 
@@ -199,8 +132,9 @@ export async function registerElectives(
     if (!event) {
       return { success: false, code: "NOT_FOUND", error: "Registration event not found." };
     }
-    if (!student.academicBatchId || event.academicBatchId !== student.academicBatchId) {
-      return { success: false, code: "WRONG_EVENT", error: "This registration event is not open to your batch." };
+    // Must be this student's cohort AND explicitly target their class.
+    if (!(await isStudentEligibleForEvent(db, studentId, eventId))) {
+      return { success: false, code: "WRONG_EVENT", error: "This registration event is not open to your class." };
     }
 
     const window = getRegistrationWindow(event, new Date());
@@ -248,6 +182,12 @@ export async function registerElectives(
         throw new RegistrationRuleError("ALREADY_REGISTERED", "Registration already completed.");
       }
 
+      // Re-check eligibility on the transaction's snapshot (the class or the
+      // event's targeting may have changed since the first check).
+      if (!(await isStudentEligibleForEvent(tx, studentId, eventId))) {
+        throw new RegistrationRuleError("WRONG_EVENT", "This registration event is not open to your class.");
+      }
+
       // Student details for the receipt snapshot
       const [studentInfo] = await tx
         .select({
@@ -274,6 +214,7 @@ export async function registerElectives(
         degree: studentInfo?.programmeName || "N/A",
         section: studentInfo?.sectionName || "N/A",
       };
+      const academic = await receiptAcademicIdentity(tx, student, event);
 
       // Lock chosen electives in a stable order so concurrent submissions cannot deadlock.
       const ordered = [...selections].sort((a, b) => a.electiveId.localeCompare(b.electiveId));
@@ -378,6 +319,7 @@ export async function registerElectives(
         receiptNumber,
         submittedAt: new Date().toISOString(),
         student: studentDetails,
+        academic,
         electives: electiveSnapshots,
       };
 
@@ -401,7 +343,14 @@ export async function registerElectives(
         action: "STUDENT_REGISTERED",
         userId: studentId,
         userRole: "STUDENT",
-        metadata: { eventId, receiptNumber, selectionsCount: selections.length },
+        metadata: {
+          eventId,
+          receiptNumber,
+          selectionsCount: selections.length,
+          sectionId: student.sectionId,
+          academicBatchId: student.academicBatchId,
+          academicSessionId: event.academicSessionId,
+        },
       });
     });
 
@@ -420,6 +369,48 @@ export async function registerElectives(
       error: "Registration didn't go through because of a server error. Nothing was registered. Please try again.",
     };
   }
+}
+
+/**
+ * Academic identity stored on the receipt, so it still names the right class,
+ * cohort and session if the student's records change later.
+ */
+async function receiptAcademicIdentity(
+  tx: Tx,
+  student: { sectionId: string | null; academicBatchId: string | null },
+  event: { academicSessionId: string | null; semester: number | null; name: string; id: string }
+) {
+  const [row] = student.sectionId
+    ? await tx
+        .select({
+          sectionLabel: sections.label,
+          admissionYear: academicBatches.admissionYear,
+          expectedEndYear: academicBatches.expectedEndYear,
+          legacyYear: academicBatches.year,
+          programmeName: programmes.name,
+          programmeCode: programmes.code,
+        })
+        .from(sections)
+        .innerJoin(academicBatches, eq(academicBatches.id, sections.academicBatchId))
+        .innerJoin(programmes, eq(programmes.id, academicBatches.programmeId))
+        .where(eq(sections.id, student.sectionId))
+        .limit(1)
+    : [];
+  const [session] = event.academicSessionId
+    ? await tx.select().from(academicSessions).where(eq(academicSessions.id, event.academicSessionId)).limit(1)
+    : [];
+  return {
+    eventId: event.id,
+    eventName: event.name,
+    classLabel: row ? cohortLabel(row) : null,
+    sectionId: student.sectionId,
+    academicBatchId: student.academicBatchId,
+    admissionYear: row?.admissionYear ?? null,
+    expectedEndYear: row?.expectedEndYear ?? null,
+    academicSession: session ? sessionLabel(session) : null,
+    academicSessionId: event.academicSessionId,
+    semester: event.semester,
+  };
 }
 
 /** Shared guard for change/cancel: session, maintenance, eligibility, window. */
@@ -441,6 +432,10 @@ async function authorizeModification(eventId: string, requireEditing: boolean) {
   const [event] = await db.select().from(registrationEvents).where(eq(registrationEvents.id, eventId)).limit(1);
   if (!event) {
     return { error: "Registration event not found." } as const;
+  }
+
+  if (!(await isStudentEligibleForEvent(db, student.id, eventId))) {
+    return { error: "This registration event is not open to your class." } as const;
   }
 
   const window = getRegistrationWindow(event, new Date());
@@ -876,33 +871,12 @@ export async function getStudentRegistrationDetails(eventId?: string) {
       return { success: false, error: "Student or batch not found" };
     }
 
-    // Resolve event (only events for this student's batch)
-    let targetEventId = eventId;
-    if (!targetEventId) {
-      const [latestEvent] = await db
-        .select()
-        .from(registrationEvents)
-        .where(
-          and(
-            eq(registrationEvents.academicBatchId, student.academicBatchId),
-            inArray(registrationEvents.status, [...STUDENT_VISIBLE_EVENT_STATUSES])
-          )
-        )
-        .orderBy(desc(registrationEvents.createdAt))
-        .limit(1);
-
-      if (!latestEvent) {
-        return { success: false, error: "No registration event found." };
-      }
-      targetEventId = latestEvent.id;
+    // Only events this student is eligible for (their cohort AND their class).
+    const resolved = await resolveStudentEvent(studentId, eventId ?? null);
+    if (resolved.status !== "OK") {
+      return { success: false, error: resolved.status === "NOT_ELIGIBLE" ? "Event not found" : "No registration event found." };
     }
-
-    const [event] = await db
-      .select()
-      .from(registrationEvents)
-      .where(and(eq(registrationEvents.id, targetEventId), eq(registrationEvents.academicBatchId, student.academicBatchId)))
-      .limit(1);
-
+    const [event] = await db.select().from(registrationEvents).where(eq(registrationEvents.id, resolved.event.id)).limit(1);
     if (!event) {
       return { success: false, error: "Event not found" };
     }
@@ -918,6 +892,9 @@ export async function getStudentRegistrationDetails(eventId?: string) {
       autoClose: event.autoClose,
       isOpen: windowCheck.isOpen,
       reason: windowCheck.reason,
+      sessionLabel: resolved.event.sessionLabel,
+      semester: event.semester,
+      classLabel: resolved.studentClass.label,
     };
 
     const [userReg] = await db

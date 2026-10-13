@@ -9,7 +9,6 @@ import {
   eventSections,
   electiveGroups,
   electives,
-  electiveSeatAllocations,
   programmes,
   academicBatches,
   sections,
@@ -18,6 +17,7 @@ import {
 } from "@/lib/db/schema";
 import { eq, asc, desc, inArray, sql } from "drizzle-orm";
 import { getSession } from "@/lib/auth";
+import { requireStaffWorkspace } from "@/lib/workspace";
 import { revalidatePath } from "next/cache";
 
 function safeRevalidatePath(...paths: string[]) {
@@ -310,14 +310,15 @@ export async function getTemplateBatchOptions(
 }
 
 /**
- * Creates a brand new registration event from a template, copying all
- * groups, electives, and creating section allocations automatically.
+ * Creates a registration event for one class in the selected academic session
+ * from a template, copying its baskets and subjects. Each copied subject gets
+ * its own capacity counter for this event only.
  */
 export async function createEventFromTemplate(input: {
   templateId: string;
   name: string;
-  academicBatchId: string;
-  academicYear?: string;
+  targetSectionId: string;
+  semester?: number | null;
   description?: string;
   openDate?: string | null;
   closeDate?: string | null;
@@ -328,13 +329,18 @@ export async function createEventFromTemplate(input: {
     if (!session || (session.role !== "SYSTEM_ADMIN" && session.role !== "COURSE_COORDINATOR")) {
       return { success: false, error: "Unauthorized access to create event from template." };
     }
+    const ws = await requireStaffWorkspace();
+    const target = ws.classes.find((c) => c.sectionId === input.targetSectionId);
+    if (!target) {
+      return { success: false, error: `Choose a class you manage in Academic Session ${ws.session.label}.` };
+    }
+    if (input.semester != null && !(Number.isInteger(input.semester) && input.semester >= 1 && input.semester <= 12)) {
+      return { success: false, error: "Semester must be between 1 and 12." };
+    }
 
     const eventName = input.name.trim();
     if (!eventName) {
       return { success: false, error: "Event name is required." };
-    }
-    if (!input.academicBatchId) {
-      return { success: false, error: "Please select an academic batch." };
     }
 
     // 1. Fetch template and its structure
@@ -364,26 +370,6 @@ export async function createEventFromTemplate(input: {
             .orderBy(asc(templateElectives.courseCode), asc(templateElectives.name))
         : [];
 
-    // 2. Fetch department and sections for this academic batch
-    const [batch] = await db
-      .select({
-        departmentId: programmes.departmentId,
-      })
-      .from(academicBatches)
-      .innerJoin(programmes, eq(academicBatches.programmeId, programmes.id))
-      .where(eq(academicBatches.id, input.academicBatchId))
-      .limit(1);
-
-    if (!batch?.departmentId) {
-      return { success: false, error: "Target batch is not linked to a valid department." };
-    }
-
-    const batchSections = await db
-      .select({
-        id: sections.id,
-      })
-      .from(sections)
-      .where(eq(sections.academicBatchId, input.academicBatchId));
 
     // 3. Execute in atomic transaction
     const newEvent = await db.transaction(async (tx) => {
@@ -395,25 +381,22 @@ export async function createEventFromTemplate(input: {
         .insert(registrationEvents)
         .values({
           name: eventName,
-          academicBatchId: input.academicBatchId,
-          academicYear: input.academicYear?.trim() || null,
+          academicBatchId: target.batchId,
+          academicSessionId: ws.session.id,
+          academicYear: ws.session.label,
+          semester: input.semester ?? target.semester ?? null,
           description: input.description?.trim() || template.description || null,
           openDate,
           closeDate,
-          status: input.status || "DRAFT",
+          status: input.status && ["DRAFT", "PUBLISHED"].includes(input.status) ? input.status : "DRAFT",
           createdById: session.userId,
           allowEditing: true,
           autoClose: true,
         })
         .returning();
 
-      // 3.2 Insert sections into event_sections
-      for (const sec of batchSections) {
-        await tx.insert(eventSections).values({
-          eventId: event.id,
-          sectionId: sec.id,
-        });
-      }
+      // 3.2 The event is for exactly this class
+      await tx.insert(eventSections).values({ eventId: event.id, sectionId: target.sectionId, academicBatchId: target.batchId });
 
       // 3.3 Clone groups and electives
       for (const tGroup of tGroups) {
@@ -431,7 +414,7 @@ export async function createEventFromTemplate(input: {
         for (const tElective of groupElectives) {
           const maxSeats = tElective.defaultMaxSeats || 40;
 
-          const [newElective] = await tx
+          await tx
             .insert(electives)
             .values({
               groupId: newEventGroup.id,
@@ -443,20 +426,7 @@ export async function createEventFromTemplate(input: {
               description: tElective.description || null,
               isFull: false,
               isActive: true,
-            })
-            .returning();
-
-          // 3.4 Seed elective_seat_allocations for all batch sections
-          for (const sec of batchSections) {
-            await tx.insert(electiveSeatAllocations).values({
-              electiveId: newElective.id,
-              sectionId: sec.id,
-              departmentId: batch.departmentId,
-              maxSeats,
-              availableSeats: maxSeats,
-              isFull: false,
             });
-          }
         }
       }
 
@@ -474,6 +444,7 @@ export async function createEventFromTemplate(input: {
           groupsCopied: tGroups.length,
           electivesCopied: tElectives.length,
         },
+        metadata: { academicSessionId: ws.session.id, sectionId: target.sectionId, academicBatchId: target.batchId, classLabel: target.label },
       });
 
       return event;

@@ -84,7 +84,7 @@ function Row({
           type="button"
           size="icon-sm"
           variant="ghost"
-          className="text-fg-subtle opacity-0 transition-opacity group-hover:opacity-100 hover:bg-danger/10 hover:text-danger-text"
+          className="text-fg-subtle hover:bg-danger/10 hover:text-danger-text transition-colors"
           aria-label={deleteTitle ?? "Delete"}
           onClick={(e) => {
             e.stopPropagation();

@@ -1,8 +1,8 @@
 import { SignJWT, jwtVerify } from "jose";
 import { cookies } from "next/headers";
 import { db } from "@/lib/db";
-import { users } from "@/lib/db/schema";
-import { eq } from "drizzle-orm";
+import { tutorSections, users } from "@/lib/db/schema";
+import { and, eq } from "drizzle-orm";
 import { cleanDisplayName } from "@/lib/format";
 
 const SECRET = new TextEncoder().encode(
@@ -146,11 +146,22 @@ export async function getSession(): Promise<UserSession | null> {
 
   session.name = cleanDisplayName(session.name);
 
-  // Override sectionId if there's an active section cookie
+  // Override sectionId with the active class cookie, but only for a class this
+  // staff member is actually assigned to. A cookie is navigation state, never
+  // a grant of access.
   if (session.role === "CLASS_TUTOR" || session.role === "COURSE_COORDINATOR") {
     const activeSectionId = cookieStore.get("electify_active_section")?.value;
-    if (activeSectionId) {
-      session.sectionId = activeSectionId;
+    if (activeSectionId && activeSectionId !== session.sectionId) {
+      try {
+        const [assignment] = await db
+          .select({ sectionId: tutorSections.sectionId })
+          .from(tutorSections)
+          .where(and(eq(tutorSections.tutorId, session.userId), eq(tutorSections.sectionId, activeSectionId)))
+          .limit(1);
+        if (assignment) session.sectionId = assignment.sectionId;
+      } catch {
+        // malformed cookie value: keep the section from the signed token
+      }
     }
   }
 
@@ -184,6 +195,7 @@ export async function clearSessionCookie() {
     cookieStore.delete("electify_session");
     cookieStore.delete("electify_active_section");
     cookieStore.delete("electify_active_workspace");
+    cookieStore.delete("electify_academic_session");
   } catch {
     // Gracefully handled in test or background execution environments
   }

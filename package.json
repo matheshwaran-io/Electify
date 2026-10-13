@@ -18,6 +18,7 @@
     "test": "tsx --env-file=.env.local --test tests/**/*.test.ts",
     "db:migrate:remove-waitlist": "tsx --env-file=.env.local scripts/db/apply-sql.ts drizzle/0004_remove_waitlist.sql",
     "db:migrate:subject-profiles": "tsx --env-file=.env.local scripts/db/apply-sql.ts drizzle/0005_subject_profiles.sql",
+    "db:migrate:academic-sessions": "tsx --env-file=.env.local scripts/db/apply-sql.ts drizzle/0006_academic_sessions.sql",
     "db:seed:subjects": "tsx --env-file=.env.local scripts/seed-subject-profiles.ts"
   },
   "dependencies": {

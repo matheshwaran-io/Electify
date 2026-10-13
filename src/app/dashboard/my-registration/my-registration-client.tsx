@@ -84,6 +84,9 @@ export interface MyRegistrationProps {
     autoClose?: boolean;
     isOpen: boolean;
     reason?: string;
+    sessionLabel?: string | null;
+    semester?: number | null;
+    classLabel?: string | null;
   };
   registration: {
     id: string;
@@ -159,6 +162,7 @@ export function MyRegistrationClient({
         eventName: event.name,
         submittedAt: submittedAtDate ?? new Date(),
         student,
+        academic: { classLabel: event.classLabel, academicSession: event.sessionLabel, semester: event.semester },
         electives: choices.map((c) => ({
           groupName: c.groupName,
           electiveName: c.courseCode ? `${c.courseCode} - ${c.electiveName}` : c.electiveName,
@@ -267,7 +271,7 @@ export function MyRegistrationClient({
     <div className="flex min-h-dvh flex-col print:block print:min-h-0 bg-canvas">
       <StudentHeader className="print:hidden">
         <Link
-          href="/dashboard/subjects"
+          href={`/dashboard/subjects?event=${encodeURIComponent(event.id)}`}
           className="inline-flex h-8 items-center rounded-control px-2.5 text-xs font-medium text-fg-muted transition-colors hover:bg-surface-2 hover:text-fg"
         >
           Subjects
@@ -275,7 +279,7 @@ export function MyRegistrationClient({
         <Button
           variant="outline"
           size="sm"
-          onClick={() => router.push("/dashboard/electives")}
+          onClick={() => router.push(`/dashboard/electives?event=${encodeURIComponent(event.id)}`)}
           className="text-xs"
         >
           <BookOpen className="size-3.5" /> Course Browser
@@ -292,7 +296,8 @@ export function MyRegistrationClient({
             </div>
             <h1 className="mt-1 text-3xl font-light tracking-display text-fg">My Registration</h1>
             <p className="mt-0.5 text-sm text-fg-muted">
-              {student.name} · <span className="font-mono">{student.registerNumber}</span> · Section {student.section || "N/A"}
+              {student.name} · <span className="font-mono">{student.registerNumber}</span> · {event.classLabel || `Section ${student.section || "N/A"}`}
+              {event.sessionLabel ? ` · Academic session ${event.sessionLabel}` : ""}
             </p>
           </div>
 
@@ -377,7 +382,7 @@ export function MyRegistrationClient({
             </p>
             {isWindowActive && (
               <div className="mt-4">
-                <Button onClick={() => router.push("/dashboard/electives")}>
+                <Button onClick={() => router.push(`/dashboard/electives?event=${encodeURIComponent(event.id)}`)}>
                   Select Electives
                 </Button>
               </div>
