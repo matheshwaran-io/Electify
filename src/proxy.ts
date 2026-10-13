@@ -19,7 +19,7 @@ interface UserSession {
   sectionId?: string;
 }
 
-export async function middleware(request: NextRequest) {
+export async function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
   // Read the session cookie
@@ -105,3 +105,6 @@ export const config = {
     "/((?!api|_next/static|_next/image|favicon.ico).*)",
   ],
 };
+
+export { proxy as middleware };
+
