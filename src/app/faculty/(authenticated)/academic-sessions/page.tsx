@@ -5,7 +5,7 @@ import { ErrorState } from "@/components/ui/feedback";
 import { YearServersClient } from "./year-servers-client";
 
 export const dynamic = "force-dynamic";
-export const metadata = { title: "Year Servers · Electify" };
+export const metadata = { title: "Academic Years · Electify" };
 
 export default async function YearServersPage() {
   const user = await getSession();
@@ -14,7 +14,7 @@ export default async function YearServersPage() {
 
   const overview = await getYearServersOverview();
   if (!overview.success) {
-    return <ErrorState title="Year Servers didn't load" description={overview.error} />;
+    return <ErrorState title="Academic Years didn't load" description={overview.error} />;
   }
 
   return (

@@ -9,7 +9,7 @@ export const dynamic = "force-dynamic";
 
 export async function generateMetadata({ params }: { params: Promise<{ year: string }> }) {
   const { year } = await params;
-  return { title: `${year} Year Server · Electify` };
+  return { title: `Academic Year ${year} · Electify` };
 }
 
 export default async function YearServerWorkspacePage({
@@ -24,14 +24,14 @@ export default async function YearServerWorkspacePage({
   const { year: yearParam } = await params;
   const year = Number(yearParam);
   if (!Number.isFinite(year)) {
-    return <ErrorState title="Invalid Year Server" description="Please provide a valid year." />;
+    return <ErrorState title="Invalid Academic Year" description="Please provide a valid year." />;
   }
 
   const details = await getYearServerWorkspaceDetails(year);
   if (!details.success) {
     return (
       <ErrorState
-        title={`${year} Year Server not found`}
+        title={`Academic Year ${year} not found`}
         description={details.error}
       />
     );

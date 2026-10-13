@@ -16,8 +16,12 @@ export function sessionLabel(s: { startYear: number; endYear: number }) {
   return `${s.startYear}–${s.endYear}`;
 }
 
-export function yearServerLabel(s: { startYear: number }) {
-  return `${s.startYear} Year Server`;
+export function yearServerLabel(s: { startYear: number; endYear?: number }) {
+  return s.endYear ? `Academic Year ${s.startYear}–${s.endYear}` : `Academic Year ${s.startYear}`;
+}
+
+export function academicYearLabel(s: { startYear: number; endYear?: number }) {
+  return s.endYear ? `Academic Year ${s.startYear}–${s.endYear}` : `Academic Year ${s.startYear}`;
 }
 
 /** "2025–2027", or "2025 intake" while the expected end year is unknown. */

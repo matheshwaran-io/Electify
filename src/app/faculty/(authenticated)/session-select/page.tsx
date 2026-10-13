@@ -3,7 +3,7 @@ import { listClassesForScope, resolveStaffWorkspace } from "@/lib/workspace";
 import { SessionSelectClient, type SessionCard } from "./session-select-client";
 
 export const dynamic = "force-dynamic";
-export const metadata = { title: "Choose Year Server · Electify" };
+export const metadata = { title: "Select Year Server · Electify" };
 
 /** Only same-site faculty paths are accepted as a destination. */
 function safeNext(next: string | undefined) {
@@ -11,15 +11,12 @@ function safeNext(next: string | undefined) {
 }
 
 export default async function SessionSelectPage({ searchParams }: { searchParams: Promise<{ next?: string; choose?: string }> }) {
-  const { next, choose } = await searchParams;
+  const { next } = await searchParams;
   const res = await resolveStaffWorkspace();
   if (res.status === "NOT_STAFF") redirect("/login");
 
   const role = res.status === "OK" ? res.workspace.scope.role : res.scope.role;
   const destination = safeNext(next) ?? (role === "COURSE_COORDINATOR" ? "/faculty/portal-select" : "/faculty/dashboard");
-
-  // Only one session to work in: no need to ask (it stays visible in the header).
-  if (res.status === "OK" && res.workspace.implicit && !choose) redirect(destination);
 
   const scope = res.status === "OK" ? res.workspace.scope : res.scope;
   const cards: SessionCard[] = await Promise.all(
@@ -30,7 +27,7 @@ export default async function SessionSelectPage({ searchParams }: { searchParams
       return {
         id: s.id,
         year: s.startYear,
-        label: `${s.startYear} Year Server`,
+        label: s.endYear ? `Academic Year ${s.startYear}–${s.endYear}` : `Academic Year ${s.startYear}`,
         status: s.status,
         classCount: classes.length,
         programmes: Array.from(new Set(classes.map((c) => c.programmeName))).slice(0, 4),
@@ -42,7 +39,7 @@ export default async function SessionSelectPage({ searchParams }: { searchParams
 
   return (
     <SessionSelectClient
-      sessions={cards.sort((a, b) => b.label.localeCompare(a.label))}
+      sessions={cards.sort((a, b) => (a.year ?? 0) - (b.year ?? 0))}
       currentId={res.status === "OK" ? res.workspace.session.id : null}
       destination={destination}
       isAdmin={role === "SYSTEM_ADMIN"}

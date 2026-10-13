@@ -8,6 +8,7 @@ import {
   ArrowRight,
   BookOpen,
   Calendar,
+  CalendarDays,
   Check,
   GraduationCap,
   History,
@@ -15,7 +16,6 @@ import {
   MoreVertical,
   Plus,
   Search,
-  Server,
   Sparkles,
   Trash2,
   X,
@@ -96,16 +96,18 @@ export function YearServersClient({
   );
 
   const filteredServers = React.useMemo(() => {
-    return servers.filter((server) => {
-      if (statusFilter !== "ALL" && server.status !== statusFilter) return false;
-      if (searchQuery.trim()) {
-        const q = searchQuery.toLowerCase().trim();
-        const matchesYear = String(server.year).includes(q);
-        const matchesLabel = server.label.toLowerCase().includes(q);
-        return matchesYear || matchesLabel;
-      }
-      return true;
-    });
+    return servers
+      .filter((server) => {
+        if (statusFilter !== "ALL" && server.status !== statusFilter) return false;
+        if (searchQuery.trim()) {
+          const q = searchQuery.toLowerCase().trim();
+          const matchesYear = String(server.year).includes(q);
+          const matchesLabel = server.label.toLowerCase().includes(q);
+          return matchesYear || matchesLabel;
+        }
+        return true;
+      })
+      .sort((a, b) => (a.year ?? 0) - (b.year ?? 0));
   }, [servers, statusFilter, searchQuery]);
 
   const handleOpenWorkspace = async (server: YearServerCard) => {
@@ -113,13 +115,13 @@ export function YearServersClient({
     try {
       const res = await selectAcademicSession(server.id);
       if (!res.success) {
-        throw new Error(res.error || "Could not enter year server");
+        throw new Error(res.error || "Could not enter academic year");
       }
       toast.success(`Entered ${server.label}`);
       router.push(`/faculty/academic-sessions/${server.year}`);
       router.refresh();
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Failed to open year server");
+      toast.error(err instanceof Error ? err.message : "Failed to open academic year");
       setEnteringId(null);
     }
   };
@@ -128,10 +130,10 @@ export function YearServersClient({
     try {
       const res = await selectAcademicSession(server.id);
       if (!res.success) throw new Error(res.error);
-      toast.success(`Active workspace switched to ${server.label}`);
+      toast.success(`Active workspace switched to Academic Year ${server.year}`);
       router.refresh();
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Failed to switch active server");
+      toast.error(err instanceof Error ? err.message : "Failed to switch active academic year");
     }
   };
 
@@ -145,7 +147,7 @@ export function YearServersClient({
       return;
     }
     if (yr > maxAllowedYear) {
-      toast.error(`Year Servers can only be planned up to 2 years in advance (maximum ${maxAllowedYear}).`);
+      toast.error(`Academic Years can only be planned up to 2 years in advance (maximum ${maxAllowedYear}).`);
       return;
     }
 
@@ -155,11 +157,11 @@ export function YearServersClient({
       if (!res.success) {
         throw new Error(res.error);
       }
-      toast.success(`${yr} Year Server created successfully!`);
+      toast.success(`Academic Year ${yr} created successfully!`);
       setCreateOpen(false);
       router.refresh();
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Failed to create Year Server");
+      toast.error(err instanceof Error ? err.message : "Failed to create Academic Year");
     } finally {
       setSubmitting(false);
     }
@@ -197,8 +199,8 @@ export function YearServersClient({
     }
     toast.success(
       res.deletedCount > 0
-        ? `Cleaned up ${res.deletedCount} empty test Year Server(s)`
-        : "No empty servers to clean"
+        ? `Cleaned up ${res.deletedCount} empty Academic Year(s)`
+        : "No empty academic years to clean"
     );
     setCleanEmptyOpen(false);
     router.refresh();
@@ -211,13 +213,13 @@ export function YearServersClient({
         <div>
           <div className="flex items-center gap-2.5">
             <span className="flex size-9 items-center justify-center rounded-badge bg-primary/10 text-primary border border-primary/20">
-              <Server className="size-4" />
+              <CalendarDays className="size-4" />
             </span>
-            <h1 className="text-2xl font-light tracking-display text-fg sm:text-3xl">Year Servers</h1>
+            <h1 className="text-2xl font-light tracking-display text-fg sm:text-3xl">Academic Years & Timelines</h1>
           </div>
           <p className="mt-1.5 text-sm text-fg-muted max-w-2xl">
-            Select an academic year server to manage programmes, classes, students and registrations.
-            Each year is a self-contained workspace.
+            Select an academic timeline to manage programmes, classes, students and registrations.
+            Each year is a self-contained, isolated workspace.
           </p>
         </div>
 
@@ -254,7 +256,7 @@ export function YearServersClient({
               className="gap-1.5 shadow-sm"
             >
               <Plus className="size-4" />
-              <span>Create Year Server</span>
+              <span>Create Academic Year</span>
             </Button>
           ) : null}
         </div>
@@ -338,20 +340,20 @@ export function YearServersClient({
         </div>
       )}
 
-      {/* ── Year Server Cards Grid ── */}
+      {/* ── Academic Year Cards Grid ── */}
       {servers.length === 0 ? (
         <EmptyState
-          title="No Year Servers available"
+          title="No Academic Years available"
           description={
             isAdmin
-              ? "Create your first Year Server to start managing programmes and classes."
-              : "Contact an administrator to create and configure a Year Server."
+              ? "Create your first Academic Year to start managing programmes and classes."
+              : "Contact an administrator to create and configure an Academic Year."
           }
           className="rounded-panel border border-border bg-surface p-12 text-center"
         />
       ) : filteredServers.length === 0 ? (
         <EmptyState
-          title="No Year Servers match your criteria"
+          title="No Academic Years match your criteria"
           description="Try clearing your search query or selecting a different status filter."
           action={
             <Button
@@ -387,7 +389,7 @@ export function YearServersClient({
                     <div>
                       <div className="flex items-center gap-2">
                         <h2 className="text-xl font-medium tracking-tight text-fg font-sans">
-                          {server.year} Year Server
+                          Academic Year {server.year}
                         </h2>
                         {server.isCurrent && (
                           <span className="inline-flex items-center gap-1 rounded-badge bg-primary/15 px-2 py-0.5 text-2xs font-medium text-primary border border-primary/25">
@@ -397,7 +399,7 @@ export function YearServersClient({
                         )}
                       </div>
                       <p className="mt-1 text-xs text-fg-muted font-mono">
-                        Workspace · Academic Intake {server.year}
+                        Academic Timeline · {server.year} Intake
                       </p>
                     </div>
 
@@ -413,7 +415,7 @@ export function YearServersClient({
                               buttonVariants({ variant: "ghost", size: "icon" }),
                               "size-7.5 rounded-control text-fg-subtle hover:text-fg hover:bg-surface-2 transition-colors cursor-pointer"
                             )}
-                            aria-label={`Actions for ${server.year} Year Server`}
+                            aria-label={`Actions for Academic Year ${server.year}`}
                           >
                             <MoreVertical className="size-4" />
                           </MenuTrigger>
@@ -521,7 +523,7 @@ export function YearServersClient({
                     </Button>
                   ) : (
                     <div className="w-full rounded-control bg-surface-2/60 px-3 py-2.5 text-center text-xs text-fg-subtle font-mono">
-                      {server.status === "ARCHIVED" ? "Archived Server" : "No Assigned Classes"}
+                      {server.status === "ARCHIVED" ? "Archived Timeline" : "No Assigned Classes"}
                     </div>
                   )}
                 </div>
@@ -531,17 +533,17 @@ export function YearServersClient({
         </div>
       )}
 
-      {/* ── Create Year Server Modal ── */}
+      {/* ── Create Academic Year Modal ── */}
       <Dialog open={createOpen} onOpenChange={setCreateOpen}>
         <DialogContent className="sm:max-w-md">
           <form onSubmit={handleCreateServer}>
             <DialogHeader>
               <DialogTitle className="flex items-center gap-2">
-                <Server className="size-5 text-primary" />
-                <span>Create Year Server</span>
+                <CalendarDays className="size-5 text-primary" />
+                <span>Create Academic Year</span>
               </DialogTitle>
               <DialogDescription>
-                Initializes a new annual academic workspace. Programmes and batches for this admission year will be grouped here.
+                Initializes a new annual academic timeline. Programmes and cohorts for this admission year will be grouped here.
               </DialogDescription>
             </DialogHeader>
 
@@ -562,7 +564,7 @@ export function YearServersClient({
                 />
               </Field>
 
-              <Field label="Status" description="Planned servers can be configured before opening to students">
+              <Field label="Status" description="Planned academic years can be configured before opening to students">
                 <Select
                   value={newStatus}
                   onValueChange={(val) => setNewStatus(val as "ACTIVE" | "PLANNED")}
@@ -584,7 +586,7 @@ export function YearServersClient({
                 Cancel
               </Button>
               <Button type="submit" disabled={submitting}>
-                {submitting ? "Creating..." : "Create Year Server"}
+                {submitting ? "Creating..." : "Create Academic Year"}
               </Button>
             </DialogFooter>
           </form>
@@ -595,14 +597,14 @@ export function YearServersClient({
       <ConfirmDialog
         open={deleteTarget !== null}
         onOpenChange={(open) => !open && setDeleteTarget(null)}
-        title={`Delete ${deleteTarget?.year} Year Server`}
+        title={`Delete Academic Year ${deleteTarget?.year}`}
         description={
           deleteTarget && (deleteTarget.studentCount > 0 || deleteTarget.eventCount > 0)
-            ? `This will remove the ${deleteTarget.year} Year Server workspace. Existing student registrations and historical receipts will be safely preserved in Data Review.`
-            : `This will permanently remove the ${deleteTarget?.year} Year Server workspace.`
+            ? `This will remove the Academic Year ${deleteTarget.year} workspace. Existing student registrations and historical receipts will be safely preserved in Data Review.`
+            : `This will permanently remove the Academic Year ${deleteTarget?.year} workspace.`
         }
         tone="danger"
-        confirmLabel="Delete Year Server"
+        confirmLabel="Delete Academic Year"
         requireText={
           deleteTarget && (deleteTarget.studentCount > 0 || deleteTarget.eventCount > 0)
             ? String(deleteTarget.year)
@@ -629,10 +631,10 @@ export function YearServersClient({
       <ConfirmDialog
         open={cleanEmptyOpen}
         onOpenChange={setCleanEmptyOpen}
-        title="Prune Empty Year Servers"
-        description={`This will delete all ${emptyServers.length} empty Year Servers with 0 classes, 0 students, and 0 events (${emptyServers.map((s) => s.year).join(", ")}).`}
+        title="Prune Empty Academic Years"
+        description={`This will delete all ${emptyServers.length} empty Academic Years with 0 classes, 0 students, and 0 events (${emptyServers.map((s) => s.year).join(", ")}).`}
         tone="default"
-        confirmLabel="Prune Empty Servers"
+        confirmLabel="Prune Empty Years"
         onConfirm={handleCleanEmptyConfirm}
       />
     </div>

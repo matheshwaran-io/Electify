@@ -4,7 +4,7 @@ import * as React from "react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
 import { toast } from "sonner"
-import { ChevronRight, Server } from "lucide-react"
+import { CalendarDays, ChevronRight } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { Tooltip } from "@/components/ui/tooltip"
 import { getActiveWorkspaceStamp } from "@/app/actions/workspace"
@@ -23,16 +23,20 @@ export type ShellAcademicSession = {
 
 const SWITCH_HREF = "/faculty/session-select?choose=1"
 
-/** Always-visible Year Server label with a way to switch year servers. */
+/** Always-visible Academic Year label with a way to switch academic years. */
 export function SessionIndicator({ session, collapsed, className }: { session: ShellAcademicSession; collapsed?: boolean; className?: string }) {
-  const displayLabel = session.startYear ? `${session.startYear} Year Server` : session.label
+  const displayLabel = session.startYear && session.endYear
+    ? `AY ${session.startYear}–${session.endYear}`
+    : session.startYear
+    ? `AY ${session.startYear}–${session.startYear + 1}`
+    : session.label
 
   const body = (
     <>
-      <Server className="size-4 shrink-0 text-primary" aria-hidden />
+      <CalendarDays className="size-4 shrink-0 text-primary" aria-hidden />
       {!collapsed ? (
         <span className="min-w-0 flex-1">
-          <span className="block text-2xs uppercase tracking-wider text-fg-subtle">Year Server</span>
+          <span className="block text-2xs uppercase tracking-wider text-fg-subtle">Academic Year</span>
           <span className="block truncate text-sm font-medium tabular-nums text-fg">{displayLabel}</span>
         </span>
       ) : null}
@@ -52,7 +56,7 @@ export function SessionIndicator({ session, collapsed, className }: { session: S
   )
 
   const content = session.switchable ? (
-    <Link href={SWITCH_HREF} className={classes} aria-label={`${displayLabel}. Switch Year Server`}>
+    <Link href={SWITCH_HREF} className={classes} aria-label={`${displayLabel}. Switch Academic Year`}>
       {body}
     </Link>
   ) : (

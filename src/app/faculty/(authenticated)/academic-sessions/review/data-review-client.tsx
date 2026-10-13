@@ -41,7 +41,7 @@ export function DataReviewClient({
   const handleLink = async (eventId: string) => {
     const targetSessionId = selectedServers[eventId] || availableYearServers[0]?.id;
     if (!targetSessionId) {
-      toast.error("Please choose a Year Server to link to.");
+      toast.error("Please choose an Academic Year to link to.");
       return;
     }
 
@@ -51,7 +51,7 @@ export function DataReviewClient({
       if (!res.success) {
         throw new Error(res.error);
       }
-      toast.success("Event successfully linked to Year Server!");
+      toast.success("Event successfully linked to Academic Year!");
       router.refresh();
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Failed to link event");
@@ -62,7 +62,7 @@ export function DataReviewClient({
 
   const serverOptions = availableYearServers.map((s) => ({
     value: s.id,
-    label: s.label,
+    label: `Academic Year ${s.year}`,
   }));
 
   return (
@@ -74,7 +74,7 @@ export function DataReviewClient({
           className="hover:text-fg transition-colors flex items-center gap-1"
         >
           <ArrowLeft className="size-3" />
-          <span>Year Servers</span>
+          <span>Academic Years</span>
         </Link>
         <span>/</span>
         <span className="text-fg font-medium">Historical Data Review</span>
@@ -92,7 +92,7 @@ export function DataReviewClient({
             </h1>
             <p className="text-sm text-fg-muted max-w-2xl leading-relaxed">
               This administrator-only screen tracks historical and legacy records from earlier migrations.
-              Events that lack a confirmed Year Server can be linked here safely without guessing or data loss.
+              Events that lack a confirmed Academic Year can be linked here safely without guessing or data loss.
             </p>
           </div>
         </div>
@@ -119,7 +119,7 @@ export function DataReviewClient({
             <CheckCircle2 className="size-8 text-emerald-500 mx-auto" />
             <h3 className="text-sm font-medium text-fg">All events resolved</h3>
             <p className="text-xs text-fg-muted max-w-sm mx-auto">
-              Every registration event in the database is currently mapped to an active Year Server.
+              Every registration event in the database is currently mapped to an active Academic Year.
             </p>
           </div>
         ) : (
@@ -163,7 +163,7 @@ export function DataReviewClient({
                       disabled={isPending || !currentChoice}
                     >
                       <Link2 className="size-3.5 mr-1" />
-                      <span>{isPending ? "Linking..." : "Link to Server"}</span>
+                      <span>{isPending ? "Linking..." : "Link to Year"}</span>
                     </Button>
                   </div>
                 </div>
