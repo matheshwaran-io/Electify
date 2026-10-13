@@ -74,6 +74,7 @@ async function runCleanupAndSync() {
     console.log("1. Purging test accounts...");
     // Real emails that must NEVER be deleted under any circumstance
     const preservedEmails = [
+      "electify@srmist.edu.in",
       "admin@electify.edu",
       "angelb1@srmist.edu.in",
       "sabenaba@srmist.edu.in",

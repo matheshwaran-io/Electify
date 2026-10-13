@@ -146,7 +146,21 @@ type AuthUser = {
   sectionId: string | null;
 };
 
-const LOGIN_IP = "client-ip"; // In production, get from request headers
+/**
+ * Client address for the audit trail and the attempts table, from the proxy
+ * headers of the current request. Recorded for information only; access
+ * decisions never depend on it (headers can be forged without a trusted proxy).
+ */
+async function clientIp(): Promise<string | null> {
+  try {
+    const { headers } = await import("next/headers");
+    const h = await headers();
+    const forwarded = h.get("x-forwarded-for")?.split(",")[0]?.trim();
+    return forwarded || h.get("x-real-ip")?.trim() || null;
+  } catch {
+    return null; // no request context (tests, scripts)
+  }
+}
 
 /** Starts a fresh session for an authenticated user (single active session per user). */
 async function startSession(user: AuthUser) {
@@ -232,7 +246,7 @@ async function startSession(user: AuthUser) {
       userId: user.id,
       userEmail: user.email,
       userRole: user.role,
-      ipAddress: LOGIN_IP,
+      ipAddress: await clientIp(),
     });
   } catch (auditErr) {
     console.warn("Audit log insert warning:", auditErr);
@@ -262,7 +276,7 @@ function hashFingerprint(passwordHash: string) {
 async function lockoutMessage(key: string): Promise<string | null> {
   let lockoutTime: Date | null = null;
   try {
-    lockoutTime = await handleRateLimit(key, LOGIN_IP);
+    lockoutTime = await handleRateLimit(key, (await clientIp()) ?? "unknown");
   } catch (rlErr) {
     console.warn("Rate limit check warning:", rlErr);
   }
@@ -273,7 +287,7 @@ async function lockoutMessage(key: string): Promise<string | null> {
 
 async function recordFailure(key: string) {
   try {
-    await registerFailedAttempt(key, LOGIN_IP);
+    await registerFailedAttempt(key, (await clientIp()) ?? "unknown");
   } catch {}
 }
 
@@ -306,14 +320,14 @@ export async function login(formData: {
     let user: AuthUser | undefined = foundUser;
 
     // Self-healing: if logging in with default master admin and no record exists, auto-provision it
-    if (!user && normalizedEmail === "admin@electify.edu" && password === "Admin@12345") {
+    if (!user && (normalizedEmail === "electify@srmist.edu.in" || normalizedEmail === "admin@electify.edu") && password === "Admin@12345") {
       try {
         const adminHash = await bcrypt.hash("Admin@12345", 12);
         const [seededAdmin] = await db
           .insert(users)
           .values({
-            name: "System Administrator",
-            email: "admin@electify.edu",
+            name: "Root Administrator",
+            email: "electify@srmist.edu.in",
             passwordHash: adminHash,
             role: "SYSTEM_ADMIN",
             employeeId: "EMP-ADMIN",
@@ -326,7 +340,7 @@ export async function login(formData: {
         if (seededAdmin) {
           user = seededAdmin;
         } else {
-          const [existingAdmin] = await db.select(authUserColumns).from(users).where(eq(users.email, "admin@electify.edu")).limit(1);
+          const [existingAdmin] = await db.select(authUserColumns).from(users).where(eq(users.email, "electify@srmist.edu.in")).limit(1);
           user = existingAdmin;
         }
       } catch (provisionErr) {

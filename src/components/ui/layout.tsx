@@ -17,13 +17,15 @@ export function PageHeader({
   className?: string
 }) {
   return (
-    <header className={cn("flex flex-col gap-4 pb-6 sm:flex-row sm:items-end sm:justify-between", className)}>
-      <div className="min-w-0 space-y-1.5">
+    // Stacked below lg: with several actions a side-by-side row squeezed the title
+    // into a one-word-wide column on tablets.
+    <header className={cn("flex flex-col gap-4 pb-6 lg:flex-row lg:items-end lg:justify-between", className)}>
+      <div className="min-w-0 flex-1 space-y-1.5">
         {meta ? <div className="flex flex-wrap items-center gap-2">{meta}</div> : null}
         <h1 className="text-2xl font-light tracking-display text-fg sm:text-3xl">{title}</h1>
         {description ? <p className="max-w-2xl text-sm text-fg-muted sm:text-base">{description}</p> : null}
       </div>
-      {actions ? <div className="flex shrink-0 flex-wrap items-center gap-2">{actions}</div> : null}
+      {actions ? <div className="flex flex-wrap items-center gap-2 lg:max-w-[60%] lg:justify-end">{actions}</div> : null}
     </header>
   )
 }

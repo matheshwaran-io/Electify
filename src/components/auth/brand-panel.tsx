@@ -18,7 +18,7 @@ export function BrandPanel() {
         <h1 className="max-w-[16ch] text-4xl font-light tracking-display text-fg animate-enter">
           Elective registration, without the scramble.
         </h1>
-        <div className="-mr-2 mb-1 shrink-0 animate-enter [animation-delay:120ms]">
+        <div className="mb-1 shrink-0 pr-2 animate-enter [animation-delay:120ms] sm:-mr-2 sm:pr-0">
           <SeatMark size={84} interactive={false} />
         </div>
       </div>

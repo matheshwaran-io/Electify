@@ -1,6 +1,6 @@
 import * as React from "react"
 import { cn } from "@/lib/utils"
-import { Logo } from "@/components/brand"
+import { Logo, LogoMark } from "@/components/brand"
 import { ThemeToggle } from "@/components/theme-toggle"
 import { SignOutButton } from "@/components/student/sign-out-button"
 
@@ -8,12 +8,14 @@ import { SignOutButton } from "@/components/student/sign-out-button"
 export function StudentHeader({ children, className }: { children?: React.ReactNode; className?: string }) {
   return (
     <header className={cn("sticky top-0 z-30 border-b border-border bg-canvas/85 backdrop-blur-md pt-safe", className)}>
-      <div className="mx-auto flex h-14 max-w-6xl items-center gap-3 px-4 sm:px-6">
-        <Logo size="sm" />
-        <div className="ml-auto flex items-center gap-1">
+      <div className="mx-auto flex h-14 max-w-6xl items-center gap-2 px-4 sm:gap-3 sm:px-6">
+        {/* The wordmark doesn't fit next to the page links on narrow phones. */}
+        <LogoMark size="sm" className="sm:hidden" label="Electify" />
+        <Logo size="sm" className="hidden sm:block" label="Electify" />
+        <div className="ml-auto flex min-w-0 items-center gap-0.5 sm:gap-1">
           {children}
-          <ThemeToggle className="size-10" />
-          <SignOutButton />
+          <ThemeToggle className="size-10 shrink-0" />
+          <SignOutButton compactOnMobile />
         </div>
       </div>
     </header>

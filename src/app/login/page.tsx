@@ -1,5 +1,7 @@
+import { Suspense } from "react";
 import type { Metadata } from "next";
 import { AuthContainer } from "@/components/auth/auth-container";
+import { SessionEndedNotice } from "@/components/auth/session-ended-notice";
 import { BrandPanel } from "@/components/auth/brand-panel";
 import { Logo } from "@/components/brand";
 import { ThemeToggle } from "@/components/theme-toggle";
@@ -19,6 +21,9 @@ export default function UnifiedLoginPage() {
 
         <div className="w-full animate-enter [animation-delay:100ms] lg:max-w-md lg:justify-self-end">
           <div className="rounded-panel bg-surface-2 p-5 sm:p-8">
+            <Suspense fallback={null}>
+              <SessionEndedNotice />
+            </Suspense>
             <AuthContainer />
           </div>
           <p className="mt-5 px-1 text-xs text-fg-subtle">Sign-ins are rate limited and recorded in the audit log.</p>

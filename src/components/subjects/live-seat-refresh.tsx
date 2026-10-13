@@ -34,8 +34,9 @@ export function LiveSeatRefresh({ electiveIds }: { electiveIds: string[] }) {
   React.useEffect(() => {
     let channel: { unsubscribe?: () => void } | null = null;
     let removed = false;
-    import("@/lib/supabase").then(({ supabase }) => {
+    import("@/lib/supabase").then(({ supabase, realtimeConfigured }) => {
       if (removed) return;
+      if (!realtimeConfigured) return setState("idle");
       const ch = supabase
         .channel(`subject-explorer-${Math.random().toString(36).slice(2)}`)
         .on("postgres_changes", { event: "UPDATE", schema: "public", table: "electives" }, (payload) => {

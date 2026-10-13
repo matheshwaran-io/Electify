@@ -379,7 +379,19 @@ export function UsersClient({
       id: "role",
       header: "Role",
       mobileWide: true,
-      cell: (u) => <StatusBadge status={u.role} size="sm" />,
+      cell: (u) => {
+        const isRoot = u.email === "electify@srmist.edu.in" || u.email === "admin@electify.edu";
+        return (
+          <div className="flex items-center gap-1.5 flex-wrap">
+            <StatusBadge status={u.role} size="sm" />
+            {isRoot && (
+              <Badge size="sm" tone="primary" className="font-semibold tracking-wide">
+                Root Admin
+              </Badge>
+            )}
+          </div>
+        );
+      },
       sortValue: (u) => u.role,
     },
     {
@@ -404,80 +416,85 @@ export function UsersClient({
       align: "right",
       mobile: "actions",
       hideable: false,
-      cell: (u) => (
-        <div className="flex items-center justify-end gap-1.5">
-          {u.role === "CLASS_TUTOR" ? (
+      cell: (u) => {
+        const isRoot = u.email === "electify@srmist.edu.in" || u.email === "admin@electify.edu";
+        return (
+          <div className="flex items-center justify-end gap-1.5">
+            {u.role === "CLASS_TUTOR" ? (
+              <Button
+                size="sm"
+                variant="secondary"
+                onClick={() => {
+                  setManagingTutor(u);
+                  setManageOpen(true);
+                }}
+                aria-label={`Manage sections for ${u.name}`}
+              >
+                <Layers className="size-3.5" /> Sections
+              </Button>
+            ) : null}
+
             <Button
               size="sm"
               variant="secondary"
-              onClick={() => {
-                setManagingTutor(u);
-                setManageOpen(true);
-              }}
-              aria-label={`Manage sections for ${u.name}`}
+              onClick={() => openEditModal(u)}
+              aria-label={`Edit ${u.name}`}
             >
-              <Layers className="size-3.5" /> Sections
+              <Pencil className="size-3.5" /> Edit
             </Button>
-          ) : null}
 
-          <Button
-            size="sm"
-            variant="secondary"
-            onClick={() => openEditModal(u)}
-            aria-label={`Edit ${u.name}`}
-          >
-            <Pencil className="size-3.5" /> Edit
-          </Button>
-
-          <Menu>
-            <MenuTrigger render={<Button variant="ghost" size="icon-sm" aria-label={`More actions for ${u.name}`} />}>
-              <MoreHorizontal className="size-4" />
-            </MenuTrigger>
-            <MenuContent align="end">
-              <MenuLabel>Account Controls</MenuLabel>
-              <MenuItem onClick={() => handleToggleActive(u)}>
-                {u.isActive ? (
-                  <>
-                    <UserX className="size-4 text-warning" /> Deactivate account
-                  </>
-                ) : (
-                  <>
-                    <UserCheck className="size-4 text-success" /> Activate account
-                  </>
-                )}
-              </MenuItem>
-              <MenuItem onClick={() => openResetPasswordModal(u)}>
-                <KeyRound className="size-4" /> Reset password
-              </MenuItem>
-              {u.role === "CLASS_TUTOR" ? (
-                <MenuItem
-                  onClick={() => {
-                    setManagingTutor(u);
-                    setManageOpen(true);
-                  }}
-                >
-                  <Layers className="size-4" /> Manage assigned sections
+            <Menu>
+              <MenuTrigger render={<Button variant="ghost" size="icon-sm" aria-label={`More actions for ${u.name}`} />}>
+                <MoreHorizontal className="size-4" />
+              </MenuTrigger>
+              <MenuContent align="end">
+                <MenuLabel>Account Controls</MenuLabel>
+                {!isRoot ? (
+                  <MenuItem onClick={() => handleToggleActive(u)}>
+                    {u.isActive ? (
+                      <>
+                        <UserX className="size-4 text-warning" /> Deactivate account
+                      </>
+                    ) : (
+                      <>
+                        <UserCheck className="size-4 text-success" /> Activate account
+                      </>
+                    )}
+                  </MenuItem>
+                ) : null}
+                <MenuItem onClick={() => openResetPasswordModal(u)}>
+                  <KeyRound className="size-4" /> Reset password
                 </MenuItem>
-              ) : null}
-
-              {u.id !== currentUserId ? (
-                <>
-                  <MenuLabel>Danger Zone</MenuLabel>
+                {u.role === "CLASS_TUTOR" ? (
                   <MenuItem
-                    tone="danger"
                     onClick={() => {
-                      setDeletingUser({ id: u.id, name: u.name, email: u.email, role: u.role });
-                      setDeleteConfirmOpen(true);
+                      setManagingTutor(u);
+                      setManageOpen(true);
                     }}
                   >
-                    <Trash2 className="size-4" /> Delete account
+                    <Layers className="size-4" /> Manage assigned sections
                   </MenuItem>
-                </>
-              ) : null}
-            </MenuContent>
-          </Menu>
-        </div>
-      ),
+                ) : null}
+
+                {u.id !== currentUserId && !isRoot ? (
+                  <>
+                    <MenuLabel>Danger Zone</MenuLabel>
+                    <MenuItem
+                      tone="danger"
+                      onClick={() => {
+                        setDeletingUser({ id: u.id, name: u.name, email: u.email, role: u.role });
+                        setDeleteConfirmOpen(true);
+                      }}
+                    >
+                      <Trash2 className="size-4" /> Delete account
+                    </MenuItem>
+                  </>
+                ) : null}
+              </MenuContent>
+            </Menu>
+          </div>
+        );
+      },
     },
   ];
 

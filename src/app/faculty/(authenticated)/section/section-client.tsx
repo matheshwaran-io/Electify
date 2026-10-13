@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useRef, useEffect, useCallback } from "react";
-import { supabase } from "@/lib/supabase";
+import { realtimeConfigured, supabase } from "@/lib/supabase";
 import { Download, KeyRound, MoreHorizontal, Pencil, Plus, ShieldCheck, Sparkles, Trash2, Upload, Users } from "lucide-react";
 import { createStudent, importStudentsCSV, updateStudent, deleteStudent, unlockStudentRegistration, deleteMultipleStudentsTutor, deleteAllSectionStudents, getPendingPasswordResetsForTutor } from "@/app/actions/tutor";
 import { useRouter } from "next/navigation";
@@ -91,6 +91,7 @@ export function SectionClient({ reportData, session }: { reportData: ReportData;
 
   // Presence tracking
   useEffect(() => {
+    if (!realtimeConfigured) return;
     const channel = supabase.channel('online-users');
 
     channel.on('presence', { event: 'sync' }, () => {
@@ -116,6 +117,7 @@ export function SectionClient({ reportData, session }: { reportData: ReportData;
 
   // Real-time updates for live registrations
   useEffect(() => {
+    if (!realtimeConfigured) return;
     const channel = supabase
       .channel("public:student_registrations_section")
       .on(
@@ -136,7 +138,7 @@ export function SectionClient({ reportData, session }: { reportData: ReportData;
     return <TutorSectionOnboarding />;
   }
 
-  const canUnlock = session.role === "SUPER_ADMIN" || session.role === "COURSE_COORDINATOR";
+  const canUnlock = session.role === "SYSTEM_ADMIN" || session.role === "COURSE_COORDINATOR";
 
   function openAddModal() {
     setFormMode("add");

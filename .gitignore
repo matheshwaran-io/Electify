@@ -46,3 +46,10 @@ next-env.d.ts
 # scratch
 /scratch
 *.pdf
+
+# isolated next output (e2e server, verification builds)
+/.next-*/
+
+# playwright
+/test-results/
+/playwright-report/

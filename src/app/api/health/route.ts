@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { pool, db, ensureDatabaseReady } from "@/lib/db";
 import { users } from "@/lib/db/schema";
-import { eq } from "drizzle-orm";
+import { eq, or } from "drizzle-orm";
 import * as bcrypt from "bcryptjs";
 
 export const dynamic = "force-dynamic";
@@ -77,7 +77,7 @@ export async function GET(request: Request) {
       const [adminUser] = await db
         .select({ id: users.id, email: users.email, role: users.role, isActive: users.isActive })
         .from(users)
-        .where(eq(users.email, "admin@electify.edu"))
+        .where(or(eq(users.email, "electify@srmist.edu.in"), eq(users.email, "admin@electify.edu")))
         .limit(1);
 
       if (adminUser) {
@@ -103,8 +103,8 @@ export async function GET(request: Request) {
           const adminPassword = process.env.INITIAL_ADMIN_PASSWORD || "Admin@12345";
           const adminHash = await bcrypt.hash(adminPassword, 12);
           await db.insert(users).values({
-            name: "System Administrator",
-            email: "admin@electify.edu",
+            name: "Root Administrator",
+            email: "electify@srmist.edu.in",
             passwordHash: adminHash,
             role: "SYSTEM_ADMIN",
             employeeId: "EMP-ADMIN",
@@ -115,7 +115,7 @@ export async function GET(request: Request) {
           result.database.adminAccount = {
             exists: true,
             provisionedNow: true,
-            email: "admin@electify.edu",
+            email: "electify@srmist.edu.in",
             role: "SYSTEM_ADMIN",
             isActive: true,
           };

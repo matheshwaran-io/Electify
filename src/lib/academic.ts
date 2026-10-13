@@ -82,3 +82,13 @@ export function suggestedStudyYear(admissionYear: number | null, session: { star
   if (durationYears && year > durationYears) return null;
   return year;
 }
+
+/**
+ * ODD/EVEN term printed in receipt numbers (ELC-<year>-<term>-<seq>). The
+ * event's semester decides; the name is only a fallback for older events
+ * created without a semester.
+ */
+export function receiptTerm(event: { semester: number | null; name: string }): "ODD" | "EVEN" {
+  if (event.semester != null && event.semester > 0) return event.semester % 2 === 1 ? "ODD" : "EVEN";
+  return event.name.toLowerCase().includes("odd") ? "ODD" : "EVEN";
+}

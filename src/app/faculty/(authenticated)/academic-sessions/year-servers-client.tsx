@@ -277,7 +277,7 @@ export function YearServersClient({
                   : "text-fg-subtle hover:text-fg hover:bg-surface-2/50"
               )}
             >
-              All <span className="ml-1 font-mono text-2xs opacity-70">({allCount})</span>
+              All <span className="ml-1 font-mono text-2xs text-fg-muted">({allCount})</span>
             </button>
             <button
               type="button"
@@ -289,7 +289,7 @@ export function YearServersClient({
                   : "text-fg-subtle hover:text-fg hover:bg-surface-2/50"
               )}
             >
-              Active <span className="ml-1 font-mono text-2xs opacity-70">({activeCount})</span>
+              Active <span className="ml-1 font-mono text-2xs text-fg-muted">({activeCount})</span>
             </button>
             <button
               type="button"
@@ -301,7 +301,7 @@ export function YearServersClient({
                   : "text-fg-subtle hover:text-fg hover:bg-surface-2/50"
               )}
             >
-              Planned <span className="ml-1 font-mono text-2xs opacity-70">({plannedCount})</span>
+              Planned <span className="ml-1 font-mono text-2xs text-fg-muted">({plannedCount})</span>
             </button>
             <button
               type="button"
@@ -313,7 +313,7 @@ export function YearServersClient({
                   : "text-fg-subtle hover:text-fg hover:bg-surface-2/50"
               )}
             >
-              Archived <span className="ml-1 font-mono text-2xs opacity-70">({archivedCount})</span>
+              Archived <span className="ml-1 font-mono text-2xs text-fg-muted">({archivedCount})</span>
             </button>
           </div>
 
@@ -379,15 +379,15 @@ export function YearServersClient({
               <div
                 key={server.id}
                 className={cn(
-                  "group relative flex flex-col justify-between rounded-card border bg-surface p-6 shadow-1 transition-all duration-200 hover:shadow-2",
+                  "group relative flex min-w-0 flex-col justify-between rounded-card border bg-surface p-4 shadow-1 transition-all duration-200 hover:shadow-2 sm:p-6",
                   server.isCurrent ? "border-primary/50 ring-1 ring-primary/30" : statusConfig.border
                 )}
               >
                 <div>
                   {/* Top Bar: Title, Status, and Admin Action Menu */}
                   <div className="flex items-start justify-between gap-2">
-                    <div>
-                      <div className="flex items-center gap-2">
+                    <div className="min-w-0">
+                      <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
                         <h2 className="text-xl font-medium tracking-tight text-fg font-sans">
                           Academic Year {server.year}
                         </h2>
@@ -403,7 +403,7 @@ export function YearServersClient({
                       </p>
                     </div>
 
-                    <div className="flex items-center gap-1.5">
+                    <div className="flex shrink-0 items-center gap-1.5">
                       <Badge size="sm" tone={statusConfig.tone}>
                         {statusConfig.label}
                       </Badge>

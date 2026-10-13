@@ -7,7 +7,7 @@ import {
   templateGroups, inviteCodes, systemSettings, tutorSections,
   studentRegistrations, registrations, electives, electiveSeatAllocations, eventStudents, eventSections
 } from "@/lib/db/schema";
-import { getSession } from "@/lib/auth";
+import { getSession, isRootAdmin, ROOT_ADMIN_EMAIL } from "@/lib/auth";
 import { eq, desc, count, asc, or, inArray, sql, and } from "drizzle-orm";
 import * as bcrypt from "bcryptjs";
 import { generateRoleBasedCode, type InviteRole } from "@/lib/invites";
@@ -277,10 +277,11 @@ export async function getSystemSettings() {
 
 export async function toggleMaintenanceMode(enabled: boolean) {
   await assertAdmin();
+  // Upsert so the switch works before the settings row has ever been created.
   await db
-    .update(systemSettings)
-    .set({ maintenanceMode: enabled })
-    .where(eq(systemSettings.id, "system"));
+    .insert(systemSettings)
+    .values({ id: "system", maintenanceMode: enabled })
+    .onConflictDoUpdate({ target: systemSettings.id, set: { maintenanceMode: enabled, updatedAt: new Date() } });
 }
 
 // ── Invite Codes (Create / Revoke / Delete) ───────────────────────────────────────────
@@ -1043,6 +1044,18 @@ export async function updateUser(
   const [user] = await db.select().from(users).where(eq(users.id, userId));
   if (!user) throw new Error("User not found.");
 
+  if (isRootAdmin(user.email)) {
+    if (data.email && !isRootAdmin(data.email)) {
+      throw new Error(`The root administrator email cannot be changed from ${ROOT_ADMIN_EMAIL}.`);
+    }
+    if (data.role && data.role !== "SYSTEM_ADMIN") {
+      throw new Error("The root administrator role cannot be changed.");
+    }
+    if (data.isActive === false) {
+      throw new Error("The root administrator account cannot be deactivated.");
+    }
+  }
+
   const updates: Record<string, any> = { updatedAt: new Date() };
 
   if (data.name !== undefined) {
@@ -1119,6 +1132,11 @@ export async function toggleUserActive(userId: string, isActive: boolean) {
     throw new Error("You cannot deactivate your own account.");
   }
 
+  const [targetUser] = await db.select({ email: users.email }).from(users).where(eq(users.id, userId));
+  if (targetUser && isRootAdmin(targetUser.email) && !isActive) {
+    throw new Error(`The root administrator (${ROOT_ADMIN_EMAIL}) cannot be deactivated.`);
+  }
+
   await db
     .update(users)
     .set({ isActive, updatedAt: new Date() })
@@ -1193,6 +1211,10 @@ export async function deleteUser(userId: string) {
 
   const [user] = await db.select().from(users).where(eq(users.id, userId));
   if (!user) throw new Error("User not found.");
+
+  if (isRootAdmin(user.email)) {
+    throw new Error(`The root system administrator (${ROOT_ADMIN_EMAIL}) is protected and cannot be deleted.`);
+  }
 
   await db.transaction(async (tx) => {
     // 1. If user is a student, refund seats and clean up student records

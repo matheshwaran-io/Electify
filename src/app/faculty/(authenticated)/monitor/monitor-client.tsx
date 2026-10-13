@@ -45,6 +45,7 @@ import {
 } from "@/components/ui/dialog";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { formatTimeAgo, formatDate } from "@/lib/format";
+import { getRegistrationWindow } from "@/lib/registration-window";
 
 interface MonitorClientProps {
   initialData: LiveMonitoringData;
@@ -398,8 +399,12 @@ export function MonitorClient({ initialData, userRole }: MonitorClientProps) {
   }
 
   const { event, kpis } = data;
-  const isEventOpen = event.status === "OPEN";
-  const isEventPaused = event.status === "PAUSED";
+  // Effective window state from the shared rule, not the stored status alone: a
+  // published event whose opening time has passed is open to students.
+  const windowState = getRegistrationWindow(event, new Date()).state;
+  const isEventOpen = windowState === "OPEN";
+  const isEventPaused = windowState === "PAUSED";
+  const isEventUpcoming = windowState === "UPCOMING" || windowState === "UNSCHEDULED";
 
   return (
     <div className="space-y-6 pb-16">
@@ -408,7 +413,7 @@ export function MonitorClient({ initialData, userRole }: MonitorClientProps) {
         <div>
           <div className="flex items-center gap-3 flex-wrap">
             <h1 className="text-3xl font-light tracking-display text-fg">Live Registration Monitor</h1>
-            <Badge tone="live" dot className="px-2.5 py-0.5 text-xs font-mono font-medium animate-pulse">
+            <Badge tone="live" dot className="px-2.5 py-0.5 text-xs font-mono font-medium">
               LIVE TELEMETRY
             </Badge>
             <Badge tone="outline" className="border-border text-fg-muted text-xs capitalize">
@@ -429,11 +434,13 @@ export function MonitorClient({ initialData, userRole }: MonitorClientProps) {
         {/* Global Monitor Controls Bar */}
         <div className="flex items-center gap-2.5 flex-wrap">
           {/* Active Event Selector */}
-          <div className="relative">
+          {/* Full width on phones: long event names must not push the page sideways. */}
+          <div className="relative w-full min-w-0 sm:w-auto">
             <select
               value={event.id}
               onChange={(e) => handleSelectEvent(e.target.value)}
-              className="bg-surface-2 border border-border-strong text-fg text-xs rounded-control pl-3 pr-8 py-2 font-medium focus:outline-none focus:ring-2 focus:ring-primary/40 cursor-pointer appearance-none shadow-sm"
+              aria-label="Registration event to monitor"
+              className="h-10 w-full truncate bg-surface-2 border border-border-strong text-fg text-xs rounded-control pl-3 pr-8 font-medium focus:outline-none focus:ring-2 focus:ring-primary/40 cursor-pointer appearance-none shadow-sm sm:max-w-[28rem]"
             >
               {data.eventsList.map((evt) => (
                 <option key={evt.id} value={evt.id}>
@@ -456,6 +463,8 @@ export function MonitorClient({ initialData, userRole }: MonitorClientProps) {
             }}
             className={`border-border ${soundEnabled ? "text-primary-text bg-primary/10 border-primary/30" : "text-fg-muted hover:text-fg"}`}
             title={soundEnabled ? "Disable audio chimes on new registration" : "Enable audio chimes on new registration"}
+            aria-label={soundEnabled ? "Disable audio chimes on new registration" : "Enable audio chimes on new registration"}
+            aria-pressed={soundEnabled}
           >
             {soundEnabled ? <Volume2 className="w-4 h-4" /> : <VolumeX className="w-4 h-4" />}
           </Button>
@@ -481,7 +490,8 @@ export function MonitorClient({ initialData, userRole }: MonitorClientProps) {
                   setRefreshIntervalSec(val);
                   setCountdown(val);
                 }}
-                className="bg-transparent text-fg-muted text-[11px] px-1.5 focus:outline-none cursor-pointer hover:text-fg font-mono"
+                aria-label="Auto-refresh interval"
+                className="bg-transparent text-fg-muted text-[11px] px-1.5 focus:outline-none focus-visible:ring-2 focus-visible:ring-ring rounded cursor-pointer hover:text-fg font-mono"
               >
                 <option value={3} className="bg-surface text-fg">3s</option>
                 <option value={5} className="bg-surface text-fg">5s</option>
@@ -546,6 +556,8 @@ export function MonitorClient({ initialData, userRole }: MonitorClientProps) {
                 ? "Portal is actively accepting elective submissions and choice mutations."
                 : isEventPaused
                 ? "Window is currently on hold. Students cannot submit or alter electives."
+                : isEventUpcoming
+                ? "Window has not opened yet. Students can browse subjects but cannot submit."
                 : "Window is closed for new student submissions."}
             </p>
           </div>
@@ -579,7 +591,7 @@ export function MonitorClient({ initialData, userRole }: MonitorClientProps) {
               onClick={() => setStatusConfirmTarget("OPEN")}
               className="border-primary/30 text-primary-text hover:bg-primary/10 text-xs font-medium"
             >
-              Reopen Window
+              {isEventUpcoming ? "Open now" : "Reopen Window"}
             </Button>
           )}
 

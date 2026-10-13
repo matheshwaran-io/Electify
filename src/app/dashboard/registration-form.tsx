@@ -55,50 +55,69 @@ export function RegistrationForm({ event, student, groups, electives, initialReg
   const [localElectives, setLocalElectives] = React.useState<Elective[]>(electives);
   const [live, setLive] = React.useState<LiveState>("connecting");
 
-  // Supabase Realtime subscription (same channel, table and event as before).
+  // Seat counts come from the server render. When the page re-renders with fresh
+  // data (router.refresh, polling below) take the new counts, otherwise the
+  // picker would keep showing the counts from first load.
+  const [syncedElectives, setSyncedElectives] = React.useState(electives);
+  if (syncedElectives !== electives) {
+    setSyncedElectives(electives);
+    setLocalElectives(electives);
+  }
+
+  // Supabase Realtime: patch seat counts in place as they change. The client is
+  // imported lazily, so the effect may be cleaned up (React strict mode, fast
+  // navigation) before the import resolves; never subscribe after cleanup, and
+  // use a per-mount channel name so a remount never reuses a subscribed channel.
   React.useEffect(() => {
-    let channel: any;
-    import("@/lib/supabase").then((mod) => {
-      channel = mod.supabase
-        .channel("table-db-changes")
-        .on(
-          "postgres_changes",
-          {
-            event: "UPDATE",
-            schema: "public",
-            table: "electives",
-          },
-          (payload) => {
-            const newRow = payload.new as any;
-            if (newRow && newRow.id) {
-              setLocalElectives((prev) =>
-                prev.map((e) =>
-                  e.id === newRow.id
-                    ? {
-                        ...e,
-                        availableSeats: Number(newRow.available_seats),
-                        isFull: Number(newRow.available_seats) <= 0,
-                        isActive: newRow.is_active,
-                      }
-                    : e
-                )
-              );
-            }
-          }
-        )
+    let removed = false;
+    let channel: { topic: string } | null = null;
+    import("@/lib/supabase").then(({ supabase, realtimeConfigured }) => {
+      if (removed) return;
+      if (!realtimeConfigured) {
+        setLive("idle");
+        return;
+      }
+      const ch = supabase
+        .channel(`picker-${event.id}-${Math.random().toString(36).slice(2)}`)
+        .on("postgres_changes", { event: "UPDATE", schema: "public", table: "electives" }, (payload) => {
+          const newRow = payload.new as { id?: string; available_seats?: number; is_active?: boolean } | null;
+          if (!newRow?.id) return;
+          setLocalElectives((prev) =>
+            prev.map((e) =>
+              e.id === newRow.id
+                ? { ...e, availableSeats: Number(newRow.available_seats), isFull: Number(newRow.available_seats) <= 0, isActive: Boolean(newRow.is_active) }
+                : e
+            )
+          );
+        })
         .subscribe((status: string) => {
           setLive(status === "SUBSCRIBED" ? "live" : status === "CLOSED" ? "idle" : "connecting");
         });
+      channel = ch;
     });
-
     return () => {
+      removed = true;
       if (channel) {
-        import("@/lib/supabase").then((mod) => {
-          mod.supabase.removeChannel(channel);
-        });
+        const ch = channel;
+        import("@/lib/supabase").then(({ supabase }) => supabase.removeChannel(ch as never));
       }
     };
-  }, []);
+  }, [event.id]);
+
+  // Fallback refresh while the tab is visible: covers class quotas (not on the
+  // realtime feed) and deployments without realtime. Counts are informational;
+  // the registration transaction re-checks every seat.
+  React.useEffect(() => {
+    const tick = () => {
+      if (!document.hidden) router.refresh();
+    };
+    const id = setInterval(tick, 30_000);
+    document.addEventListener("visibilitychange", tick);
+    return () => {
+      clearInterval(id);
+      document.removeEventListener("visibilitychange", tick);
+    };
+  }, [router]);
 
   // State: mapping from groupId to an array of selected electiveIds
   const [selections, setSelections] = React.useState<Selections>(() => {
@@ -352,7 +371,7 @@ export function RegistrationForm({ event, student, groups, electives, initialReg
           </ol>
           <div className="hidden shrink-0 items-center gap-3 sm:flex">
             {closeAt !== null && !closed ? <CloseTimer closeAt={closeAt} serverNow={serverNow} onClosed={onClosed} /> : null}
-            <LiveIndicator state={online ? live : "offline"} label={online ? (live === "live" ? "Seats live" : undefined) : undefined} />
+            <LiveIndicator state={online ? live : "offline"} label={online ? (live === "live" ? "Seats live" : live === "idle" ? "Seats refresh every 30s" : undefined) : undefined} />
           </div>
         </div>
       </div>

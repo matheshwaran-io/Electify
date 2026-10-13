@@ -23,6 +23,10 @@ function getPool(): Pool {
     max: process.env.NODE_ENV === "production" ? 10 : 10,
     connectionTimeoutMillis: 10000,
     idleTimeoutMillis: 30000,
+    // Scripts and test processes may exit once every client is idle instead of
+    // waiting out the idle timeout. A running server is kept alive by its HTTP
+    // listener, so this does not close connections in the app.
+    allowExitOnIdle: true,
   };
 
   // Cloud PostgreSQL (Supabase, Neon, RDS) requires SSL

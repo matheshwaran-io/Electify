@@ -22,7 +22,7 @@ import { eq, and, sql, inArray, not, asc } from "drizzle-orm";
 import { getSession } from "@/lib/auth";
 import { getRegistrationWindow } from "@/lib/registration-window";
 import { isStudentEligibleForEvent, resolveStudentEvent } from "@/lib/student-events";
-import { cohortLabel, sessionLabel } from "@/lib/academic";
+import { cohortLabel, receiptTerm, sessionLabel } from "@/lib/academic";
 import { releaseSeat, SeatTakenError, takeSeat, type Tx } from "@/lib/seat-ops";
 
 export type RegisterErrorCode =
@@ -298,8 +298,7 @@ export async function registerElectives(
 
       // Receipt number. The advisory lock serialises allocation so two simultaneous
       // confirmations can never compute the same number.
-      const isOdd = event.name.toLowerCase().includes("odd");
-      const semester = isOdd ? "ODD" : "EVEN";
+      const semester = receiptTerm(event);
       const year = new Date().getFullYear();
 
       let receiptNumber = existingReg?.receiptNumber;
