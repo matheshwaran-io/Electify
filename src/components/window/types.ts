@@ -1,3 +1,5 @@
+import { getRegistrationWindow } from "@/lib/registration-window"
+
 /** Shape returned by getRegistrationMetrics (app/actions/tutor.ts). */
 export type WindowMetrics = {
   totalStudents: number
@@ -26,14 +28,23 @@ export type WindowEvent = {
 
 export type WindowPhase = "live" | "paused" | "scheduled" | "closed" | "configured"
 
-/** Same rules the page has always used to label the window's state. */
+/**
+ * Window phase for staff screens, derived from the same rule the server uses
+ * for students (lib/registration-window.ts), so the status banner, the
+ * pause/resume controls and what students can actually do always agree.
+ */
 export function windowPhase(event: WindowEvent, now: Date): { phase: WindowPhase; target: Date | null } {
-  if (event.status === "PAUSED") return { phase: "paused", target: null }
-  if (event.status === "CLOSED") return { phase: "closed", target: null }
-  const open = event.openDate ? new Date(event.openDate) : null
-  const close = event.closeDate ? new Date(event.closeDate) : null
-  if (event.status === "OPEN" || (open && now >= open && (!close || now < close))) return { phase: "live", target: close }
-  if (open && now < open) return { phase: "scheduled", target: open }
-  if (close && now >= close) return { phase: "closed", target: null }
-  return { phase: "configured", target: null }
+  const w = getRegistrationWindow(event, now)
+  switch (w.state) {
+    case "PAUSED":
+      return { phase: "paused", target: null }
+    case "CLOSED":
+      return { phase: "closed", target: null }
+    case "OPEN":
+      return { phase: "live", target: w.closesAt }
+    case "UPCOMING":
+      return { phase: "scheduled", target: w.opensAt }
+    default:
+      return { phase: "configured", target: null }
+  }
 }

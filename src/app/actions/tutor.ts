@@ -1806,10 +1806,12 @@ export async function updateMaxTutorSectionsLimit(newLimit: number) {
   if (!Number.isInteger(newLimit) || newLimit < 1 || newLimit > 50) {
     throw new Error("Limit must be an integer between 1 and 50.");
   }
+  // Upsert: on a fresh database the settings row may not exist yet, and a plain
+  // UPDATE would silently change nothing.
   await db
-    .update(systemSettings)
-    .set({ maxTutorSections: newLimit, updatedAt: new Date() })
-    .where(eq(systemSettings.id, "system"));
+    .insert(systemSettings)
+    .values({ id: "system", maxTutorSections: newLimit })
+    .onConflictDoUpdate({ target: systemSettings.id, set: { maxTutorSections: newLimit, updatedAt: new Date() } });
 
   await db.insert(auditLogs).values({
     action: "UPDATE_SYSTEM_SETTINGS",

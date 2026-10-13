@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { BarChart3, BookOpen, ChevronDown, Download, FileSpreadsheet, MoreHorizontal, RotateCcw, Search, Users, X } from "lucide-react";
 import { toast } from "sonner";
 import { TutorSectionOnboarding } from "@/components/tutor-section-onboarding";
-import { supabase } from "@/lib/supabase";
+import { realtimeConfigured, supabase } from "@/lib/supabase";
 import { formatDateTime } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import { resetSectionRegistrationEvent, manualRegisterStudentByTutor } from "@/app/actions/tutor";
@@ -131,6 +131,7 @@ export function TutorReportsClient({ reportData, hasActiveSection = true }: { re
   const [registerOpen, setRegisterOpen] = useState(false);
 
   useEffect(() => {
+    if (!realtimeConfigured) return;
     const channel = supabase.channel('online-users');
 
     channel.on('presence', { event: 'sync' }, () => {

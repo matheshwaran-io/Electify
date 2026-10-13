@@ -136,16 +136,16 @@ async function seed() {
 
   console.log("    ✓ Full hierarchy seeded successfully");
 
-  // ── System Admin Account ────────────────────────────────────
-  console.log("  → System Admin...");
-  const adminEmail = "admin@electify.edu";
+  // ── Root Admin Account ──────────────────────────────────────
+  console.log("  → Root Admin...");
+  const adminEmail = "electify@srmist.edu.in";
   const adminPassword = "Admin@12345";
   const adminHash = await bcrypt.hash(adminPassword, 12);
 
   await db
     .insert(schema.users)
     .values({
-      name: "System Administrator",
+      name: "Root Administrator",
       email: adminEmail,
       passwordHash: adminHash,
       role: "SYSTEM_ADMIN",
@@ -155,7 +155,7 @@ async function seed() {
     })
     .onConflictDoNothing({ target: schema.users.email });
 
-  console.log(`    ✓ admin@electify.edu / Admin@12345`);
+  console.log(`    ✓ electify@srmist.edu.in / Admin@12345`);
 
   // ── Faculty Roles (Course Coordinator & Class Tutor) ───────
   console.log("  → Core Faculty Accounts...");

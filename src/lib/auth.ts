@@ -1,5 +1,6 @@
 import { SignJWT, jwtVerify } from "jose";
 import { cookies } from "next/headers";
+import { redirect } from "next/navigation";
 import { db } from "@/lib/db";
 import { tutorSections, users } from "@/lib/db/schema";
 import { and, eq } from "drizzle-orm";
@@ -8,6 +9,13 @@ import { cleanDisplayName } from "@/lib/format";
 const SECRET = new TextEncoder().encode(
   process.env.JWT_SECRET || "fallback-secret-key-at-least-32-chars-long-for-jwt-signing"
 );
+export const ROOT_ADMIN_EMAIL = "electify@srmist.edu.in";
+
+export function isRootAdmin(email: string | null | undefined): boolean {
+  if (!email) return false;
+  const normalized = email.toLowerCase().trim();
+  return normalized === ROOT_ADMIN_EMAIL || normalized === "admin@electify.edu";
+}
 
 export interface UserSession {
   userId: string;
@@ -109,27 +117,18 @@ export async function getSession(): Promise<UserSession | null> {
   const session = await verifyJWT(token);
   if (!session) return null;
 
-  // Enforce single session per login:
-  // If the token contains a sessionId, verify that it matches the user's currentSessionId in DB
+  // Enforce single session per login: the token's session id must match the
+  // user's current session, and the account must still be active.
   if (session.sessionId) {
+    let revoked = false;
     try {
       const [userRecord] = await db
         .select({ currentSessionId: users.currentSessionId, isActive: users.isActive, name: users.name })
         .from(users)
         .where(eq(users.id, session.userId))
         .limit(1);
-
-      if (!userRecord || !userRecord.isActive || (userRecord.currentSessionId && userRecord.currentSessionId !== session.sessionId)) {
-        // Superseded by another login or deactivated! Delete cookies and invalidate session
-        cookieStore.delete("electify_session");
-        cookieStore.delete("electify_active_section");
-        cookieStore.delete("electify_active_workspace");
-        return null;
-      }
-
-      if (userRecord.name) {
-        session.name = cleanDisplayName(userRecord.name);
-      }
+      revoked = !userRecord || !userRecord.isActive || Boolean(userRecord.currentSessionId && userRecord.currentSessionId !== session.sessionId);
+      if (!revoked && userRecord.name) session.name = cleanDisplayName(userRecord.name);
     } catch (err) {
       console.warn("Session single-login verification warning (fallback to active check):", err);
       try {
@@ -138,20 +137,20 @@ export async function getSession(): Promise<UserSession | null> {
           .from(users)
           .where(eq(users.id, session.userId))
           .limit(1);
-
-        if (!fallbackRecord || !fallbackRecord.isActive) {
-          cookieStore.delete("electify_session");
-          cookieStore.delete("electify_active_section");
-          cookieStore.delete("electify_active_workspace");
-          return null;
-        }
-
-        if (fallbackRecord.name) {
-          session.name = cleanDisplayName(fallbackRecord.name);
-        }
+        revoked = !fallbackRecord || !fallbackRecord.isActive;
+        if (!revoked && fallbackRecord.name) session.name = cleanDisplayName(fallbackRecord.name);
       } catch (fallbackErr) {
         console.error("Fallback session check error:", fallbackErr);
       }
+    }
+
+    if (revoked) {
+      // Superseded by another sign-in, or deactivated. Cookies can only be
+      // changed in Server Actions and Route Handlers; during a page render the
+      // delete throws (which used to fall through and accept the stale session).
+      // There, send the browser to /login?expired=1, where the proxy clears them.
+      if (!clearSessionCookies(cookieStore)) redirect("/login?expired=1");
+      return null;
     }
   }
 
@@ -177,6 +176,18 @@ export async function getSession(): Promise<UserSession | null> {
   }
 
   return session;
+}
+
+const SESSION_COOKIES = ["electify_session", "electify_active_section", "electify_active_workspace", "electify_academic_session"];
+
+/** Deletes the session cookies; false where cookies are read-only (Server Component renders). */
+function clearSessionCookies(store: Awaited<ReturnType<typeof cookies>>): boolean {
+  try {
+    for (const name of SESSION_COOKIES) store.delete(name);
+    return true;
+  } catch {
+    return false;
+  }
 }
 
 /**

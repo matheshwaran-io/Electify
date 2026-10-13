@@ -1,11 +1,11 @@
 "use client";
 
 import { useEffect } from "react";
-import { supabase } from "@/lib/supabase";
+import { realtimeConfigured, supabase } from "@/lib/supabase";
 
 export function PresenceTracker({ userId }: { userId: string }) {
   useEffect(() => {
-    if (!userId) return;
+    if (!userId || !realtimeConfigured) return;
 
     const channel = supabase.channel('online-users', {
       config: {

@@ -10,7 +10,7 @@ import { CountdownTimer } from "./countdown-timer";
 import { StudentHeader, StudentStatus } from "@/components/student/student-chrome";
 import { formatDateTime, formatOpening } from "@/lib/format";
 import { SeatMark } from "@/components/auth/seat-mark";
-import { buttonVariants } from "@/components/ui/button";
+import { buttonVariants } from "@/components/ui/button-variants";
 import { getRegistrationWindow } from "@/lib/registration-window";
 import { resolveStudentEvent, withEvent } from "@/lib/student-events";
 
@@ -183,21 +183,22 @@ export default async function CountdownPage({ searchParams }: { searchParams: Pr
             <dd className="mt-1 truncate font-medium text-fg">{student.name}</dd>
             <dd className="mt-0.5 truncate font-mono text-sm text-fg-muted">{student.registerNumber}</dd>
           </div>
-          <div className="flex gap-3 p-5 text-left">
-            <RadioTower className="mt-0.5 size-4 shrink-0 text-fg-subtle" />
-            <div>
-              <dt className="font-medium text-fg">Seats are live</dt>
-              <dd className="mt-0.5 text-sm text-fg-muted">Counts update as classmates confirm.</dd>
-            </div>
+          {/* dt/dd must be direct children of the group, so the icon sits inside the dt. */}
+          <div className="relative p-5 pl-12 text-left">
+            <dt className="font-medium text-fg">
+              <RadioTower aria-hidden className="absolute left-5 top-[1.45rem] size-4 text-fg-subtle" />
+              Seats are live
+            </dt>
+            <dd className="mt-0.5 text-sm text-fg-muted">Counts update as classmates confirm.</dd>
           </div>
-          <div className="flex gap-3 p-5 text-left">
-            <Lock className="mt-0.5 size-4 shrink-0 text-fg-subtle" />
-            <div>
-              <dt className="font-medium text-fg">{event.allowEditing ? "Changes close with the window" : "Choices are final"}</dt>
-              <dd className="mt-0.5 text-sm text-fg-muted">
-                {event.allowEditing ? "You can change or cancel a pick until registration closes." : "You can't change them after you confirm."}
-              </dd>
-            </div>
+          <div className="relative p-5 pl-12 text-left">
+            <dt className="font-medium text-fg">
+              <Lock aria-hidden className="absolute left-5 top-[1.45rem] size-4 text-fg-subtle" />
+              {event.allowEditing ? "Changes close with the window" : "Choices are final"}
+            </dt>
+            <dd className="mt-0.5 text-sm text-fg-muted">
+              {event.allowEditing ? "You can change or cancel a pick until registration closes." : "You can't change them after you confirm."}
+            </dd>
           </div>
         </dl>
       </main>

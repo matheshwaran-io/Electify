@@ -12,7 +12,7 @@ import { Switch } from "@/components/ui/switch";
 import { Tooltip } from "@/components/ui/tooltip";
 import { Badge } from "@/components/ui/badge";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
-import type { WindowEvent } from "./types";
+import { windowPhase, type WindowEvent } from "./types";
 
 /**
  * `<input type="datetime-local">` takes local wall-clock time format (YYYY-MM-DDTHH:mm).
@@ -73,6 +73,9 @@ export function ConfigurationCard({ event }: { event: WindowEvent }) {
   const router = useRouter();
   const [isSaving, setIsSaving] = useState(false);
   const [isUpdatingStatus, setIsUpdatingStatus] = useState(false);
+  // Controls follow the effective window state (an event published with its
+  // opening time passed is open to students even though its status is PUBLISHED).
+  const { phase } = windowPhase(event, new Date());
 
   const [openDate, setOpenDate] = useState(() => toLocalInput(event.openDate));
   const [closeDate, setCloseDate] = useState(() => toLocalInput(event.closeDate));
@@ -246,7 +249,7 @@ export function ConfigurationCard({ event }: { event: WindowEvent }) {
       </div>
 
       <div className="space-y-2 border-t border-border bg-surface-2/50 px-4 py-3 sm:px-5">
-        {event.status === "OPEN" ? (
+        {phase === "live" ? (
           <Button
             type="button"
             variant="outline"
@@ -257,7 +260,7 @@ export function ConfigurationCard({ event }: { event: WindowEvent }) {
           >
             <Pause /> Pause window
           </Button>
-        ) : event.status === "PAUSED" ? (
+        ) : phase === "paused" ? (
           <Button
             type="button"
             variant="outline"
@@ -268,7 +271,7 @@ export function ConfigurationCard({ event }: { event: WindowEvent }) {
           >
             <Play /> Resume window
           </Button>
-        ) : event.status === "CLOSED" ? (
+        ) : phase === "closed" ? (
           <Button
             type="button"
             variant="outline"

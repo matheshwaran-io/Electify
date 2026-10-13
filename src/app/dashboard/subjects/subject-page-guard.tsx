@@ -28,13 +28,13 @@ export function SubjectsHeader() {
       <nav aria-label="Student" className="mr-1 flex items-center gap-1">
         <Link
           href="/dashboard/subjects"
-          className="inline-flex h-10 items-center rounded-full px-3 text-sm font-medium text-fg hover:bg-surface-2"
+          className="inline-flex h-10 items-center rounded-full px-2 text-sm sm:px-3 font-medium text-fg hover:bg-surface-2"
         >
           Subjects
         </Link>
         <Link
           href="/dashboard"
-          className="inline-flex h-10 items-center rounded-full px-3 text-sm font-medium text-fg-muted hover:bg-surface-2 hover:text-fg"
+          className="inline-flex h-10 items-center rounded-full px-2 text-sm sm:px-3 font-medium text-fg-muted hover:bg-surface-2 hover:text-fg"
         >
           Registration
         </Link>
