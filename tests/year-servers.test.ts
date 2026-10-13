@@ -143,6 +143,14 @@ describe("Year Servers System — Simplified Annual Workspaces", () => {
     // 2. Unlink any academic sessions created by this admin user so user can be deleted
     await db.update(academicSessions).set({ createdById: null }).where(eq(academicSessions.createdById, adminUser.id));
 
+    // Clean up any test Year Servers created during test runs (e.g. currentYear + 1 or + 2)
+    const currentYear = new Date().getFullYear();
+    const testSessions = await db.select({ id: academicSessions.id }).from(academicSessions).where(inArray(academicSessions.startYear, [currentYear + 1, currentYear + 2]));
+    if (testSessions.length > 0) {
+      await db.delete(cohortSessionTerms).where(inArray(cohortSessionTerms.academicSessionId, testSessions.map((s) => s.id)));
+      await db.delete(academicSessions).where(inArray(academicSessions.id, testSessions.map((s) => s.id)));
+    }
+
     // 3. Clean up tutor assignments, audit logs, and test users
     await db.delete(tutorSections).where(eq(tutorSections.tutorId, tutorUser.id));
     await db.delete(auditLogs).where(inArray(auditLogs.userId, [adminUser.id, tutorUser.id, coordUser.id]));
@@ -203,7 +211,8 @@ describe("Year Servers System — Simplified Annual Workspaces", () => {
 
   test("2. Admin can create a new Year Server with status PLANNED or ACTIVE", async () => {
     asAdmin();
-    const testYear = 2031 + Math.floor(Math.random() * 18);
+    const currentYear = new Date().getFullYear();
+    const testYear = currentYear + 1; // within max 2 years
     await db.delete(academicSessions).where(eq(academicSessions.startYear, testYear));
     const res = await createYearServer({ year: testYear, status: "PLANNED" });
     assert.strictEqual(res.success, true);
@@ -224,6 +233,11 @@ describe("Year Servers System — Simplified Annual Workspaces", () => {
     const dupRes = await createYearServer({ year: testYear });
     assert.strictEqual(dupRes.success, false);
     assert.ok(dupRes.error.includes("already exists"));
+
+    // Planning more than 2 years in advance is rejected (locked)
+    const futureRes = await createYearServer({ year: currentYear + 3 });
+    assert.strictEqual(futureRes.success, false);
+    assert.ok(futureRes.error.includes("maximum of 2 years in advance"));
 
     // Activate the server
     const activateRes = await setYearServerStatus(res.id, "ACTIVE");
@@ -321,8 +335,9 @@ describe("Year Servers System — Simplified Annual Workspaces", () => {
 
   test("7. deleteYearServer deletes a Year Server and unlinks attached events without data loss", async () => {
     asAdmin();
-    // Create a temporary Year Server to test deletion
-    const testYear = 2048;
+    // Create a temporary Year Server to test deletion (within 2-year planning window)
+    const currentYear = new Date().getFullYear();
+    const testYear = currentYear + 2;
     await db.delete(academicSessions).where(eq(academicSessions.startYear, testYear));
     const created = await createYearServer({ year: testYear });
     assert.strictEqual(created.success, true);
@@ -374,7 +389,8 @@ describe("Year Servers System — Simplified Annual Workspaces", () => {
 
   test("9. deleteEmptyYearServers safely prunes empty test servers", async () => {
     asAdmin();
-    const pruneYear = 2049;
+    const currentYear = new Date().getFullYear();
+    const pruneYear = currentYear + 2;
     await db.delete(academicSessions).where(eq(academicSessions.startYear, pruneYear));
     const created = await createYearServer({ year: pruneYear });
     assert.strictEqual(created.success, true);

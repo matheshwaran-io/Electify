@@ -138,8 +138,14 @@ export function YearServersClient({
   const handleCreateServer = async (e: React.FormEvent) => {
     e.preventDefault();
     const yr = Number(newYear);
-    if (!Number.isFinite(yr) || yr < 2000 || yr > 2100) {
-      toast.error("Please enter a valid year between 2000 and 2100.");
+    const currentYear = new Date().getFullYear();
+    const maxAllowedYear = currentYear + 2;
+    if (!Number.isFinite(yr) || yr < 2020) {
+      toast.error("Please enter a valid year (2020 onwards).");
+      return;
+    }
+    if (yr > maxAllowedYear) {
+      toast.error(`Year Servers can only be planned up to 2 years in advance (maximum ${maxAllowedYear}).`);
       return;
     }
 
@@ -540,15 +546,18 @@ export function YearServersClient({
             </DialogHeader>
 
             <DialogBody className="space-y-4 py-4">
-              <Field label="Admission / Cohort Year" description="The starting academic intake year (e.g. 2027)">
+              <Field
+                label="Admission / Cohort Year"
+                description={`The starting academic intake year. You can plan up to 2 years in advance (maximum ${new Date().getFullYear() + 2}).`}
+              >
                 <Input
                   type="number"
-                  min={2000}
-                  max={2100}
+                  min={2020}
+                  max={new Date().getFullYear() + 2}
                   required
                   value={newYear}
                   onChange={(e) => setNewYear(e.target.value)}
-                  placeholder="2027"
+                  placeholder={String(new Date().getFullYear() + 1)}
                   className="font-mono text-base"
                 />
               </Field>

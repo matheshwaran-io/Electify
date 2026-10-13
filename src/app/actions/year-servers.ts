@@ -104,11 +104,10 @@ export async function getYearServersOverview(): Promise<
     const resolution = await resolveStaffWorkspace();
     const currentSessionId = resolution.status === "OK" ? resolution.workspace.session.id : null;
 
-    // Filter sessions to standard range (exclude test runs in the far future like 2091+)
+    // Fetch all sessions so administrators can see, manage, and delete any session in the database
     const allSessions = await db
       .select()
       .from(academicSessions)
-      .where(sql`${academicSessions.startYear} BETWEEN 2000 AND 2050`)
       .orderBy(asc(academicSessions.startYear));
 
     // Get unlinked historical events count for administrators
@@ -238,8 +237,18 @@ export async function createYearServer(input: {
   try {
     const { user } = await requireAdmin();
     const year = Math.trunc(Number(input.year));
-    if (!Number.isFinite(year) || year < 2000 || year > 2100) {
-      throw new Error("Enter a valid admission year between 2000 and 2100.");
+    const currentYear = new Date().getFullYear();
+    const maxAllowedYear = currentYear + 2;
+    const minAllowedYear = 2020;
+
+    if (!Number.isFinite(year)) {
+      throw new Error("Enter a valid admission year.");
+    }
+    if (year < minAllowedYear) {
+      throw new Error(`Admission year cannot be earlier than ${minAllowedYear}.`);
+    }
+    if (year > maxAllowedYear) {
+      throw new Error(`Planning is restricted to a maximum of 2 years in advance (maximum year ${maxAllowedYear}).`);
     }
 
     const [existing] = await db
@@ -858,7 +867,6 @@ export async function getHistoricalReviewReport(): Promise<
         year: academicSessions.startYear,
       })
       .from(academicSessions)
-      .where(sql`${academicSessions.startYear} BETWEEN 2000 AND 2050`)
       .orderBy(asc(academicSessions.startYear));
 
     return {
