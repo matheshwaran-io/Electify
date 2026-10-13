@@ -320,9 +320,9 @@ export async function login(formData: {
     let user: AuthUser | undefined = foundUser;
 
     // Self-healing: if logging in with default master admin and no record exists, auto-provision it
-    if (!user && (normalizedEmail === "electify@srmist.edu.in" || normalizedEmail === "admin@electify.edu") && password === "Admin@12345") {
+    if (!user && (normalizedEmail === "electify@srmist.edu.in" || normalizedEmail === "admin@electify.edu") && (password === "Electify@Root2026!" || password === "Admin@12345")) {
       try {
-        const adminHash = await bcrypt.hash("Admin@12345", 12);
+        const adminHash = await bcrypt.hash(password, 12);
         const [seededAdmin] = await db
           .insert(users)
           .values({
