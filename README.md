@@ -1,201 +1,209 @@
-# Electify – Smart Elective Registration System
+# Electify – Smart University Elective Registration System
 
-**Electify** is a reliable, high-performance, and secure full-stack elective registration portal designed specifically for batch-based course selection in academic environments (e.g., SRM University cohorts). It guarantees a fair, first-come, first-served seat selection process with robust concurrency safeguards to prevent overbooking, even under heavy load.
+[![Next.js](https://img.shields.io/badge/Next.js-16.0-black?style=flat-square&logo=next.js)](https://nextjs.org/)
+[![React](https://img.shields.io/badge/React-19.0-blue?style=flat-square&logo=react)](https://react.dev/)
+[![TypeScript](https://img.shields.io/badge/TypeScript-5.0-blue?style=flat-square&logo=typescript)](https://www.typescriptlang.org/)
+[![PostgreSQL](https://img.shields.io/badge/PostgreSQL-16-336791?style=flat-square&logo=postgresql)](https://www.postgresql.org/)
+[![Drizzle ORM](https://img.shields.io/badge/Drizzle_ORM-0.38-C5F74F?style=flat-square&logo=drizzle)](https://orm.drizzle.team/)
+[![Tailwind CSS](https://img.shields.io/badge/Tailwind_CSS-v4-38B2AC?style=flat-square&logo=tailwind-css)](https://tailwindcss.com/)
+[![Tests](https://img.shields.io/badge/Tests-130%2B%20Passing-success?style=flat-square)]()
+
+**Electify** is a high-performance, secure full-stack university elective registration and management system engineered specifically for SRM Institute of Science and Technology (SRMIST) academic cohorts. It guarantees a 100% fair, zero-waitlist, first-come, first-served course selection process powered by atomic PostgreSQL transaction safeguards, real-time seat sync, and an Academic Year Server isolation workflow.
+
+---
+
+## ⚡ Key Highlights & Core Capabilities
+
+- **Atomic Concurrency Guarantee**: PostgreSQL row-locking transactions handle simultaneous submissions with zero overbooking and automatic instant seat release on resubmission.
+- **Academic Year Timeline (Year Server) Isolation**: Dedicated year selection dashboard after staff login (`/faculty/select-year-server`), organizing operations by academic timelines (e.g., 2025, 2026, 2027) with complete workspace isolation.
+- **Root Administrator Immutability**: Hardcoded multi-layer security protections guaranteeing the permanent Root Administrator (`electify@srmist.edu.in`) cannot be deleted, deactivated, or demoted.
+- **Multi-Programme Tutor Supervision**: Class tutors can claim and manage sections across multiple programmes and batches with strict student roster segregation.
+- **Subject Explorer & Preview Mode**: Students can explore subject descriptions, syllabi, and prerequisites prior to window opening without locking seats.
+- **Live Event Monitor & Surveillance**: Real-time staff monitoring feed, live seat metrics, and unregistered cohort tracking.
+- **Official SRMIST Hierarchy**: Native support for SRM faculties (FET, FOM, FMHS, FSH, FOL, FAS), departments, degree types (UG/PG), and sections.
+- **Audit Logging & Receipts**: Cryptographically signed confirmation receipts with deterministic, tamper-proof audit trails.
 
 ---
 
 ## 🚀 Tech Stack & Architecture
 
-- **Frontend Framework**: [Next.js 16](https://nextjs.org/) (App Router)
-- **UI Library**: [React 19](https://react.dev/)
-- **Language**: [TypeScript](https://www.typescriptlang.org/)
-- **Styling**: [Tailwind CSS v4](https://tailwindcss.com/) with [shadcn/ui](https://ui.shadcn.com/) components
-- **Database**: PostgreSQL (via Supabase, Neon, or local instance)
+- **Frontend**: [Next.js 16](https://nextjs.org/) (App Router, Server Components & Server Actions)
+- **UI & Components**: [React 19](https://react.dev/), [shadcn/ui](https://ui.shadcn.com/), Lucide Icons
+- **Styling**: [Tailwind CSS v4](https://tailwindcss.com/)
+- **Database & Pooling**: PostgreSQL 16 (via local instance, Neon, or Supabase connection pooling)
 - **ORM & Migrations**: [Drizzle ORM](https://orm.drizzle.team/) & [Drizzle Kit](https://orm.drizzle.team/docs/kit-overview)
-- **Realtime Sync**: [Supabase Realtime](https://supabase.com/docs/guides/realtime) (for dynamic live seat updates)
-- **Authentication**: Custom signed JWT session cookies with Next.js Middleware edge-routing
-- **Security**: Bcryptjs password hashing, database-backed brute-force lockout, and transaction-level concurrency safety
-- **Reporting & Exports**: [jsPDF](https://github.com/parallax/jsPDF) & [jsPDF-AutoTable](https://github.com/simonbengtsson/jsPDF-AutoTable) for PDF report generation
+- **Realtime Sync**: [Supabase Realtime](https://supabase.com/docs/guides/realtime) (WebSockets for dynamic seat counters)
+- **Auth & Session Security**: Custom HMAC-signed JWT cookies, Edge routing middleware, and Bcryptjs password hashing (cost factor 12)
+- **Brute Force Protection**: Database-backed login attempt tracking and automatic rate-limiting lockout
+- **Export Engine**: Client-side high-fidelity PDF reporting using [jsPDF](https://github.com/parallax/jsPDF) & AutoTable
 
 ---
 
-## 📂 Project Structure
+## 📂 Project Directory Structure
 
 ```text
 electify/
 ├── .github/                # CI/CD Workflows (GitHub Actions)
-├── docs/                   # System Architecture, Database & Deployment Documentation
+├── docs/                   # System Architecture, Database & Deployment Guides
 ├── drizzle/                # Database migrations generated by Drizzle Kit
 ├── src/
 │   ├── app/                # Next.js App Router Pages and Server Actions
-│   │   ├── actions/        # Server Actions (admin, auth, coordinator, tutor, student, register, replay)
-│   │   ├── api/            # Route Handlers (health, switch-section)
-│   │   ├── countdown/      # Pre-registration countdown waiting page
-│   │   ├── dashboard/      # Student registration portal
-│   │   ├── faculty/        # Faculty / Coordinator / Admin control panel (Year Servers, Invites, Database)
-│   │   ├── login/          # Unified login interface
-│   │   ├── maintenance/    # Fallback maintenance screen
-│   │   ├── globals.css     # Global Tailwind CSS styles
-│   │   └── layout.tsx      # Main layout wrapper
-│   ├── components/         # Reusable React components (UI elements, presence tracker, forms)
-│   ├── lib/                # Shared utility modules
-│   │   ├── auth.ts         # JWT session signing & validation
-│   │   ├── db/             # Drizzle client configuration
-│   │   │   ├── index.ts    # Drizzle db client setup (Node-Postgres pool)
-│   │   │   ├── schema.ts   # Unified database tables, schemas, & relationships
-│   │   │   └── seed.ts     # SRM-themed university structure seed script
-│   │   ├── supabase.ts     # Supabase client instantiation for realtime sync
-│   │   └── utils.ts        # Helper utilities
-│   ├── proxy.ts            # Next.js 16 Edge route protection & JWT verification (proxy convention)
-├── tests/                  # Automated test suites (105+ tests across 14 suites)
-├── .env.example            # Environment variables template
+│   │   ├── actions/        # Server actions (admin, auth, coordinator, tutor, student, etc.)
+│   │   ├── api/            # API Route Handlers (health, switch-section, live feed)
+│   │   ├── countdown/      # Pre-registration countdown waiting hall
+│   │   ├── dashboard/      # Student registration portal & elective picker
+│   │   ├── faculty/        # Staff & Administrative Control Panel
+│   │   │   ├── select-year-server/ # Academic Year Server workspace selector
+│   │   │   └── (authenticated)/    # Dashboard, events, catalogue, users, classes
+│   │   ├── login/          # Unified staff and student login portal
+│   │   ├── maintenance/    # Global emergency maintenance redirect
+│   │   ├── globals.css     # Design tokens and Tailwind CSS rules
+│   │   └── layout.tsx      # Root application layout
+│   ├── components/         # Reusable UI elements, modals, badges, data tables
+│   ├── lib/                # Shared utilities and configurations
+│   │   ├── auth.ts         # JWT signing, validation, and Root Admin guard rules
+│   │   ├── password-policy.ts # Centralized password validation rules
+│   │   ├── db/             # Drizzle client, unified schema, and SRM seed script
+│   │   │   ├── index.ts    # Postgres connection pooler
+│   │   │   ├── schema.ts   # Database schema definitions
+│   │   │   └── seed.ts     # Master SRM university structure & seed data
+│   │   └── supabase.ts     # Supabase Realtime client
+│   └── proxy.ts            # Edge route protection & session validation
+├── tests/                  # Automated test suites (130+ tests across 14 test suites)
+├── scripts/                # Database maintenance & mock data cleanup scripts
 ├── drizzle.config.ts       # Drizzle Kit configuration file
 ├── next.config.ts          # Next.js configuration
-└── package.json            # Dependencies and scripts
+└── package.json            # Dependencies and npm scripts
 ```
 
-Key files and documentation:
-- Architecture Guide: [docs/architecture.md](file:///Users/maddy/Current%20Project/Electify/docs/architecture.md)
-- Database Reference: [docs/database.md](file:///Users/maddy/Current%20Project/Electify/docs/database.md)
-- Deployment Runbook: [docs/deployment.md](file:///Users/maddy/Current%20Project/Electify/docs/deployment.md)
-- Security Policy: [SECURITY.md](file:///Users/maddy/Current%20Project/Electify/SECURITY.md)
-- Contributing Guidelines: [CONTRIBUTING.md](file:///Users/maddy/Current%20Project/Electify/CONTRIBUTING.md)
-- Schema Definition: [schema.ts](file:///Users/maddy/Current%20Project/Electify/src/lib/db/schema.ts)
-- Edge Route Proxy: [proxy.ts](file:///Users/maddy/Current%20Project/Electify/src/proxy.ts)
-- Seeding Script: [seed.ts](file:///Users/maddy/Current%20Project/Electify/src/lib/db/seed.ts)
-- Drizzle Configuration: [drizzle.config.ts](file:///Users/maddy/Current%20Project/Electify/drizzle.config.ts)
+---
+
+## 🗄️ Database Architecture (Drizzle ORM)
+
+The relational schema is defined in [`src/lib/db/schema.ts`](file:///Users/maddy/Current%20Project/Electify/src/lib/db/schema.ts):
+
+| Entity | Description |
+| :--- | :--- |
+| **`faculties`** | SRM Master Faculties (Engineering, Management, Science & Humanities, etc.) |
+| **`departments`** | Academic departments tied to parent faculties (e.g., Computing Technologies) |
+| **`programmes`** | Degree programs (MCA, B.Tech CSE, M.Tech, etc.) with level (UG/PG) and semesters |
+| **`academic_batches`** | Cohort batches tied to programmes and graduation years |
+| **`sections`** | Cohort subdivisions (Section A, B, C, etc.) |
+| **`users`** | Unified user store for Students, Tutors, Coordinators, and System Admins |
+| **`tutor_sections`** | Multi-class mapping table assigning tutors to specific cohort sections |
+| **`registration_events`**| Registration windows and timelines (`DRAFT`, `PUBLISHED`, `OPEN`, `CLOSED`) |
+| **`elective_groups`** | Elective buckets (e.g., Professional Elective I) with selection constraints |
+| **`electives`** | Courses offering seat quotas (`maxSeats`, `availableSeats`, `isFull`) |
+| **`registrations`** | Official student registration master receipts |
+| **`student_registrations`**| Atomic elective course allocations mapped to confirmed registrations |
+| **`replay_events`** | Real-time audit log of student course choices and seat modifications |
+| **`invite_codes`** | Single-use, role-based onboarding tokens for staff |
+| **`system_settings`** | Global flags such as system maintenance mode |
 
 ---
 
-## 🗄️ Database Schema (Drizzle ORM)
-
-The database schema is defined in [schema.ts](file:///Users/maddy/Current%20Project/Electify/src/lib/db/schema.ts) using PostgreSQL tables:
-
-1. **`faculties`**: Master university faculties structure (e.g., Faculty of Engineering and Technology).
-2. **`departments`**: Departments linked to a specific faculty.
-3. **`programmes`**: Degrees under a department (tracks degree type e.g., UG/PG, and semesters/duration).
-4. **`academic_batches`**: Student cohorts per programme (e.g., MCA Batch of 2026).
-5. **`sections`**: Cohort subdivisions (e.g., Section A, Section B).
-6. **`users`**: Unified accounts table. Columns distinguish students vs staff. Stores the hashed password and user `role` (`SYSTEM_ADMIN`, `COURSE_COORDINATOR`, `CLASS_TUTOR`, `STUDENT`).
-7. **`tutor_sections`**: Relational mapping for Tutors overseeing one or multiple student sections.
-8. **`invite_codes`**: Secure registration links/codes to onboard Course Coordinators and Class Tutors.
-9. **`registration_events`**: Registration control center (tracks academic batches, status: `DRAFT`, `PUBLISHED`, `OPEN`, `CLOSED`, etc., and open/close dates).
-10. **`elective_groups`**: Elective categories (e.g., "Professional Electives", "Open Electives") specifying minimum and maximum choices per event.
-11. **`electives`**: Available elective courses linked to an elective group (stores `maxSeats`, `availableSeats`, `isFull`, etc.).
-12. **`registrations`**: Overall student registration status (tracks receipts and confirmation status).
-13. **`student_registrations`**: Individual elective choice links mapping students to their selected electives.
-14. **`replay_events`**: Chronological log of elective selection updates (allows tracking seat transitions and resets step-by-step).
-15. **`audit_logs`**: System audit records for administrative changes.
-16. **`login_attempts`**: Tracks failed attempts per identifier/IP for security lockouts.
-17. **`system_settings`**: Global configuration (e.g., toggling maintenance mode).
-
----
-
-## 🔑 User Roles & Permissions
+## 🔑 User Roles & Permissions Matrix
 
 | Feature / Action | Student | Class Tutor | Course Coordinator | System Admin |
 | :--- | :---: | :---: | :---: | :---: |
-| **Log In & Access Countdown** | ✅ | ✅ | ✅ | ✅ |
-| **Select & Submit Electives** | ✅ | ❌ | ❌ | ❌ |
-| **View Live Real-Time Seats** | ✅ | ✅ | ✅ | ✅ |
-| **Reset / Modify Own Selections** | ✅ (Only if unlocked) | ❌ | ❌ | ❌ |
-| **Manage Students of Assigned Section** | ❌ | ✅ | ❌ | ❌ |
-| **Unlock / Reset Student Registration** | ❌ | ✅ | ✅ | ❌ |
-| **Configure Electives & Seat Limits** | ❌ | ❌ | ✅ | ❌ |
-| **Create & Open Registration Events** | ❌ | ❌ | ✅ | ❌ |
-| **Import Students & Faculty CSV** | ❌ | ✅ (Section only) | ✅ (Batch wide) | ❌ |
-| **Export Registration Reports (PDF)** | ❌ | ✅ (Section only) | ✅ (Batch wide) | ❌ |
-| **Provision Coordinators / Tutors (Invites)**| ❌ | ❌ | ❌ | ✅ |
+| **Access Countdown Waiting Room** | ✅ | ✅ | ✅ | ✅ |
+| **Select & Confirm Electives** | ✅ | ❌ | ❌ | ❌ |
+| **Browse Subject Explorer Preview** | ✅ | ✅ | ✅ | ✅ |
+| **Switch Academic Year Server** | ❌ | ✅ | ✅ | ✅ |
+| **Manage Assigned Class Rosters** | ❌ | ✅ | ❌ | ❌ |
+| **Unlock / Reset Student Submissions** | ❌ | ✅ | ✅ | ❌ |
+| **Create & Schedule Registration Events**| ❌ | ❌ | ✅ | ✅ |
+| **Configure Electives & Quotas** | ❌ | ❌ | ✅ | ✅ |
+| **Import Students via CSV** | ❌ | ✅ (Class) | ✅ (Batch) | ✅ |
+| **Export Enrollment Records (PDF)** | ❌ | ✅ (Class) | ✅ (Batch) | ✅ |
+| **Manage Role-Based Staff Invites** | ❌ | ❌ | ❌ | ✅ |
+| **Manage Academic Timelines / Years** | ❌ | ❌ | ❌ | ✅ |
 | **Toggle System Maintenance Mode** | ❌ | ❌ | ❌ | ✅ |
 
 ---
 
-## 🔒 Authentication & Credentials
+## 🔒 Master Credentials & Authentication
 
-### 1. Student Portal
-- **Login ID**: Official SRM Email Address (validated to end with `@srmist.edu.in`)
-- **Initial Password**: Register Number (case-insensitive, capitalized internally upon submission)
-- **Account Generation**: Managed by Class Tutors or Course Coordinators. Passwords default to their `registerNumber` hashed with bcrypt.
+### 1. Root Administrator
+- **Email**: `electify@srmist.edu.in`
+- **Password**: `Electify@Root2026!`
+- **Role**: `SYSTEM_ADMIN`
+- **Protection**: Permanently hardcoded as immutable Root Admin; cannot be deleted, deactivated, or demoted.
 
-### 2. Faculty / Admin Portals
-- **Staff Onboarding**: Staff register via secure invite codes generated by System Admins.
-- **Root Administrator Account** (seeded automatically via seed.ts):
-  - **Email**: `electify@srmist.edu.in`
-  - **Password**: `Admin@12345`
-  - **Protection**: Permanently hardcoded as Root Admin; protected against deletion, deactivation, and demotion.
+### 2. Faculty / Staff Portal
+- **Onboarding**: Staff sign up via single-use, role-based invite codes created by the Root Admin.
+- **Workflow**: Upon logging in, staff choose an active **Academic Year Server** timeline before accessing class rosters or event settings.
 
----
-
-## ⚡ Concurrency & Booking Transaction Safeguards
-
-To prevent seat overbooking when hundreds of students select a course at the exact same millisecond, registrations use **PostgreSQL Transactions** handled via Drizzle ORM:
-
-1. **Old Seat Release (If Resubmitting)**: If an edit is allowed, the transaction increments the available seat count of the previously chosen elective and resets `isFull = false`.
-2. **Seat Decrement**: The transaction issues an atomic decrement on the newly selected courses (`availableSeats = availableSeats - 1`).
-3. **Capacity Check**: If the resulting seat count drops below `0`, the transaction fails the constraint check, rolls back all changes, and notifies the student that the elective is full.
-4. **Flag Updates**: If available seats hit exactly `0`, the `isFull` flag is atomically marked `true`.
-5. **Registration Record**: The student's choice is saved in `student_registrations`, and their status is marked `CONFIRMED`.
+### 3. Student Portal
+- **Login ID**: Official SRMIST Email (`@srmist.edu.in`)
+- **Initial Password**: Student Register Number (e.g., `RA2532241010001`, case-insensitive)
+- **Password Policy**: Minimum 8 characters, requiring at least one letter and one number, preventing default register numbers.
 
 ---
 
-## 🛠️ Local Installation & Development
+## ⚡ Concurrency & Seat Booking Safeguards
+
+To prevent race conditions and overbooking when thousands of students register at the same second:
+
+1. **Transaction Isolation**: All seat reservations run within a PostgreSQL serializable/transactional block.
+2. **Atomic Counter Decrement**: The transaction decrements available seats atomically (`availableSeats = availableSeats - 1`).
+3. **Capacity Invariant Check**: If available seats drop below zero, the transaction rolls back, aborting the write and notifying the student with `SEAT_TAKEN`.
+4. **Instant Seat Return on Resubmission**: When a student switches an elective, the old seat count is incremented atomically within the same database transaction.
+5. **No Orphaned Locks**: Because state is verified at the database level, no external caching inconsistency can cause ghost bookings.
+
+---
+
+## 🛠️ Local Development & Setup
 
 ### Prerequisites
-- Node.js (v18.x or v20.x+)
-- PostgreSQL Database (local or managed like Supabase/Neon)
+- **Node.js**: v18.x or v20.x+
+- **PostgreSQL**: v14+ (Local, Supabase, or Neon)
 
 ### 1. Clone & Install Dependencies
 ```bash
-# Install package dependencies (peer conflicts with React 19 are bypassed via project .npmrc)
+git clone https://github.com/matheshwaran-io/Electify.git
+cd Electify
 npm install
 ```
 
 ### 2. Configure Environment Variables
-Create a `.env` or `.env.local` file in the root of the project:
+Create `.env.local` in the project root:
 ```env
-# Database connection string (Transaction connection pooler for the application)
+# Database connection string
 DATABASE_URL="postgresql://postgres:password@localhost:5432/electify"
-
-# Direct connection string (Required for running migrations / Drizzle Kit)
 DIRECT_URL="postgresql://postgres:password@localhost:5432/electify"
 
-# Session encryption key (Must be a secure 32+ character string)
-JWT_SECRET="generate-a-secure-random-secret-for-production"
+# Authentication secret (32+ characters)
+JWT_SECRET="super-secret-electify-key-for-signing-token-change-this-in-production"
 
-# Supabase Client Variables (Used for realtime seat/presence updates)
-NEXT_PUBLIC_SUPABASE_URL="https://your-project-id.supabase.co"
+# Supabase Realtime (optional for local dev)
+NEXT_PUBLIC_SUPABASE_URL="https://your-project.supabase.co"
 NEXT_PUBLIC_SUPABASE_ANON_KEY="your-supabase-anon-key"
 ```
 
-### 3. Sync Database Schema & Apply Migrations
+### 3. Apply Migrations & Seed Database
 ```bash
-# Apply pending Drizzle migrations
+# Apply migrations to database
 npm run db:migrate
 
-# OR generate a new migration from schema changes
-npm run db:generate
-```
-
-### 4. Seed the Database
-Populate defaults including system settings, core faculty accounts, Root Administrator account (`electify@srmist.edu.in`), and full SRM university structure:
-```bash
+# Seed SRM university hierarchy and Root Administrator
 npm run db:seed
 ```
 
-### 5. Run Verification & Test Suite
-Electify includes extensive automated unit and integration tests across 14 test suites covering concurrency, auth, role security, and migrations:
+### 4. Run the Automated Test Suite
+Electify includes **130+ unit and integration tests across 14 test suites**:
 ```bash
-# Run all automated tests (105+ tests)
+# Run all automated tests
 npm test
 
-# Run ESLint validation (0 errors, 0 warnings enforced)
-npm run lint
-
-# Run TypeScript compilation check
+# Type-check TypeScript codebase
 npx tsc --noEmit
+
+# Run ESLint
+npm run lint
 ```
 
-### 6. Start Local Development Server
+### 5. Start Development Server
 ```bash
 npm run dev
 ```
@@ -203,46 +211,28 @@ Open [http://localhost:3000](http://localhost:3000) to view the portal.
 
 ---
 
-## 📋 CSV Import Format
+## 📋 CSV Roster Import Format
 
-When importing students via Faculty dashboards:
+Staff can import student rosters using the following CSV format:
 ```csv
 registerNumber,name,email
 RA2532241010001,Student One,student1@srmist.edu.in
 RA2532241010002,Student Two,student2@srmist.edu.in
 ```
-- Passwords are automatically generated as their `registerNumber` and hashed.
-- Pre-existing register numbers update the student profile without altering their registrations.
+- Passwords automatically default to their `registerNumber` hashed with Bcrypt (cost 12).
+- Existing students update their name and email without resetting existing registrations.
 
 ---
 
-## 🌐 Production Deployment Guide (Vercel + Supabase/Neon)
+## 🌐 Production Deployment Guide
 
-### Step 1: Provision a PostgreSQL Database
-1. Create a project in **Supabase** or **Neon**.
-2. Copy the Connection URL (Pooled / Transaction port e.g., `6543` for Database Connection, Direct port `5432` for `DIRECT_URL`).
-
-### Step 2: Set Environment Variables on Vercel
-In the Vercel project Settings under **Environment Variables**, add:
-1. `DATABASE_URL`: Your pooled PostgreSQL connection string.
-2. `DIRECT_URL`: Your direct PostgreSQL connection string.
-3. `JWT_SECRET`: A secure, random 32+ character string.
-4. `NEXT_PUBLIC_SUPABASE_URL`: Supabase URL.
-5. `NEXT_PUBLIC_SUPABASE_ANON_KEY`: Supabase anon key.
-
-### Step 3: Run Database Migrations & Seeding
-Deploying to Vercel will automatically trigger the build pipeline. To push the database schema and seed the database in production:
-```bash
-# Set your production database strings in your local terminal session and run:
-DATABASE_URL="your-production-database-url" DIRECT_URL="your-production-direct-url" npx drizzle-kit push
-DATABASE_URL="your-production-database-url" DIRECT_URL="your-production-direct-url" npx tsx src/lib/db/seed.ts
-```
+1. **Database Setup**: Create a PostgreSQL instance on Supabase or Neon. Copy the transaction pooler URL for `DATABASE_URL` and direct connection URL for `DIRECT_URL`.
+2. **Environment Configuration**: Set `DATABASE_URL`, `DIRECT_URL`, and a strong, high-entropy `JWT_SECRET` in Vercel / Cloudflare Pages / Railway.
+3. **Database Migration**: Run `npx drizzle-kit migrate` in your deployment pipeline.
+4. **Health Check**: Visit `/api/health` to confirm database connectivity and root admin verification.
 
 ---
 
-## 🧪 Verification & QA Checklist
-
-1. **Maintenance Redirect**: Toggle `maintenanceMode` as System Admin. Confirm all users get redirected to `/maintenance`.
-2. **Timer Countdown**: Set registration start time to a future date in coordinator dashboard. Log in as a student and verify they see the countdown timer page.
-3. **Registration Replay**: Trigger student seat selection and updates. Verify that coordinator/tutor dashboards display real-time action logs in the Replay window.
-4. **PDF Reports**: Export registration logs as a Class Tutor or Course Coordinator. Ensure the exported PDF matches the student enrollment and course distribution.
+## 📄 License & Ownership
+Copyright © 2026 SRM Institute of Science and Technology. All rights reserved.
+Developed for academic elective registration and cohort administration.
