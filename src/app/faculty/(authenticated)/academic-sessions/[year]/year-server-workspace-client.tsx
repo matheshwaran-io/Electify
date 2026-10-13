@@ -9,13 +9,13 @@ import {
   ArrowRight,
   BookOpen,
   Calendar,
+  CalendarDays,
   ChevronRight,
   FileBarChart,
   GraduationCap,
   Layers,
   LayoutDashboard,
   Mail,
-  Server,
   Trash2,
 } from "lucide-react";
 import {
@@ -135,7 +135,7 @@ export function YearServerWorkspaceClient({
           className="hover:text-fg transition-colors flex items-center gap-1"
         >
           <ArrowLeft className="size-3" />
-          <span>Year Servers</span>
+          <span>Academic Years</span>
         </Link>
         <span>/</span>
         <span className="text-fg font-medium">{details.year}</span>
@@ -153,14 +153,14 @@ export function YearServerWorkspaceClient({
           <div className="space-y-2">
             <div className="flex items-center gap-3">
               <span className="flex size-10 items-center justify-center rounded-badge bg-primary/10 text-primary border border-primary/20">
-                <Server className="size-5" />
+                <CalendarDays className="size-5" />
               </span>
               <div>
                 <h1 className="text-2xl font-light tracking-display text-fg sm:text-3xl">
-                  {details.title}
+                  Academic Year {details.year}
                 </h1>
                 <p className="text-xs text-fg-muted font-mono mt-0.5">
-                  Academic Intake {details.year} · Dedicated Annual Workspace
+                  Academic Timeline · {details.year} Intake
                 </p>
               </div>
             </div>
@@ -174,7 +174,7 @@ export function YearServerWorkspaceClient({
               href="/faculty/academic-sessions"
               className={buttonVariants({ variant: "outline", size: "sm" })}
             >
-              Switch Year Server
+              Switch Academic Year
             </Link>
             {isAdmin && (
               <Button
@@ -184,7 +184,7 @@ export function YearServerWorkspaceClient({
                 className="text-danger-text hover:bg-danger/10 gap-1 text-xs"
               >
                 <Trash2 className="size-3.5" />
-                <span>Delete Server</span>
+                <span>Delete Academic Year</span>
               </Button>
             )}
           </div>
@@ -414,10 +414,10 @@ export function YearServerWorkspaceClient({
             <div>
               <h3 className="text-sm font-medium text-danger-text flex items-center gap-1.5">
                 <Trash2 className="size-4" />
-                Danger Zone · Delete Year Server
+                Danger Zone · Delete Academic Year
               </h3>
               <p className="text-xs text-fg-muted mt-1 max-w-xl">
-                Permanently delete the {details.year} Year Server workspace. Unresolved historical events and registrations will remain preserved in Data Review.
+                Permanently delete the Academic Year {details.year} workspace. Unresolved historical events and registrations will remain preserved in Data Review.
               </p>
             </div>
             <Button
@@ -426,7 +426,7 @@ export function YearServerWorkspaceClient({
               onClick={() => setDeleteOpen(true)}
               className="shrink-0"
             >
-              Delete {details.year} Server
+              Delete Academic Year {details.year}
             </Button>
           </div>
         </div>
@@ -436,14 +436,14 @@ export function YearServerWorkspaceClient({
       <ConfirmDialog
         open={deleteOpen}
         onOpenChange={setDeleteOpen}
-        title={`Delete ${details.year} Year Server`}
+        title={`Delete Academic Year ${details.year}`}
         description={
           details.metrics.studentsCount > 0 || details.metrics.eventsCount > 0
-            ? `This will remove the ${details.year} Year Server workspace. Existing student registrations and historical receipts will be safely preserved in Data Review.`
-            : `This will permanently remove the ${details.year} Year Server workspace.`
+            ? `This will remove the Academic Year ${details.year} workspace. Existing student registrations and historical receipts will be safely preserved in Data Review.`
+            : `This will permanently remove the Academic Year ${details.year} workspace.`
         }
         tone="danger"
-        confirmLabel="Delete Year Server"
+        confirmLabel="Delete Academic Year"
         requireText={
           details.metrics.studentsCount > 0 || details.metrics.eventsCount > 0
             ? String(details.year)

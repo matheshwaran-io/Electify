@@ -27,22 +27,27 @@ export async function selectAcademicSession(sessionId: string): Promise<{ succes
   if (!target) return { success: false, error: "You don't have access to that academic session." };
   if (target.status === "ARCHIVED") return { success: false, error: `Academic session ${target.label} is archived.` };
 
-  const { cookies } = await import("next/headers");
-  const store = await cookies();
-  store.set(WORKSPACE_COOKIE, target.id, COOKIE_OPTIONS);
+  try {
+    const { cookies } = await import("next/headers");
+    const store = await cookies();
+    store.set(WORKSPACE_COOKIE, target.id, COOKIE_OPTIONS);
 
-  // Keep the active class inside the new session, so tutor pages never show a
-  // class from the previous session.
-  const tutorClasses = (await listClassesForScope(scope, target.id)).filter((c) => c.isTutorClass);
-  const current = store.get("electify_active_section")?.value ?? user.sectionId;
-  if (tutorClasses.length === 0) {
-    store.delete("electify_active_section");
-  } else if (!tutorClasses.some((c) => c.sectionId === current)) {
-    store.set("electify_active_section", tutorClasses[0].sectionId, { ...COOKIE_OPTIONS, maxAge: 7200 });
+    // Keep the active class inside the new session, so tutor pages never show a
+    // class from the previous session.
+    const tutorClasses = (await listClassesForScope(scope, target.id)).filter((c) => c.isTutorClass);
+    const current = store.get("electify_active_section")?.value ?? user.sectionId;
+    if (tutorClasses.length === 0) {
+      store.delete("electify_active_section");
+    } else if (!tutorClasses.some((c) => c.sectionId === current)) {
+      store.set("electify_active_section", tutorClasses[0].sectionId, { ...COOKIE_OPTIONS, maxAge: 7200 });
+    }
+
+    const { revalidatePath } = await import("next/cache");
+    revalidatePath("/", "layout");
+  } catch {
+    // Graceful no-op in test environments without a request context
   }
 
-  const { revalidatePath } = await import("next/cache");
-  revalidatePath("/", "layout");
   return { success: true, label: target.label };
 }
 

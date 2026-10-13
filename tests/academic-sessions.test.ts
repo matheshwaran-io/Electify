@@ -189,6 +189,7 @@ describe("Academic sessions and cohort-isolated registration", () => {
       await db.delete(users).where(inArray(users.id, allUsers));
     }
     await db.delete(inviteCodes).where(inArray(inviteCodes.sectionId, [ids.aF, ids.aG, ids.bF, ids.xA].filter(Boolean)));
+    await db.delete(sections).where(inArray(sections.academicBatchId, [ids.batchA, ids.batchB, ids.batchX].filter(Boolean)));
     if (ids.batchA) await db.delete(academicBatches).where(inArray(academicBatches.id, [ids.batchA, ids.batchB, ids.batchX]));
     if (ids.mca) await db.delete(programmes).where(inArray(programmes.id, [ids.mca, ids.msc]));
     if (ids.dept) await db.delete(departments).where(eq(departments.id, ids.dept));

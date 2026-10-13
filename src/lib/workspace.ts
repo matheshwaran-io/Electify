@@ -239,7 +239,7 @@ export const resolveStaffWorkspace = cache(async (): Promise<WorkspaceResolution
 
   let selected = cookieId ? enterable.find((s) => s.id === cookieId) ?? null : null;
   let implicit = false;
-  if (!selected && enterable.length === 1) {
+  if (!selected && enterable.length === 1 && cookieId) {
     selected = enterable[0];
     implicit = true;
   }

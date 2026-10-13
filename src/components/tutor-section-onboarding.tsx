@@ -184,7 +184,7 @@ export function TutorSectionOnboarding({ isManageMode = false }: { isManageMode?
             </h1>
           </div>
           <p className="text-sm text-fg-muted max-w-2xl">
-            You can manage multiple classes across different programmes, batches and Year Servers within your authorized department.
+            You can manage multiple classes across different programmes, batches and Academic Years within your authorized department.
           </p>
         </div>
 
