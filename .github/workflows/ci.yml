@@ -1,0 +1,40 @@
+name: Electify CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  validate:
+    name: Lint, Type Check & Build
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: "npm"
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run ESLint
+        run: npm run lint
+
+      - name: Run TypeScript type check
+        run: npx tsc --noEmit
+
+      - name: Run Production Build
+        run: npm run build
+        env:
+          NEXT_PUBLIC_APP_URL: "https://electify.example.edu"
+          NEXT_PUBLIC_SUPABASE_URL: "https://mock-supabase.supabase.co"
+          NEXT_PUBLIC_SUPABASE_ANON_KEY: "mock-anon-key"
+          DATABASE_URL: "postgresql://postgres:postgres@localhost:5432/postgres"
+          JWT_SECRET: "ci-dummy-jwt-secret-key-at-least-32-characters-long"

@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useTransition, useEffect } from "react";
-import { Check, Copy, Mail, Plus, RotateCcw, Shield, Sparkles, Trash2, Users } from "lucide-react";
+import { Check, Copy, Mail, Plus, RotateCcw, Sparkles, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { createInviteCode, revokeInviteCode, deleteInviteCode } from "@/app/actions/admin";
 import { cn } from "@/lib/utils";

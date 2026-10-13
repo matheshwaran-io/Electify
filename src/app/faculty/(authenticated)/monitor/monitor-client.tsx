@@ -85,7 +85,6 @@ export function MonitorClient({ initialData, userRole }: MonitorClientProps) {
 
   // Confirm Status Change Dialog
   const [statusConfirmTarget, setStatusConfirmTarget] = React.useState<"OPEN" | "PAUSED" | "CLOSED" | null>(null);
-  const [isUpdatingStatus, setIsUpdatingStatus] = React.useState<boolean>(false);
 
   // Audio chime synthesizer for live events
   const playAlertSound = React.useCallback(() => {
@@ -219,7 +218,7 @@ export function MonitorClient({ initialData, userRole }: MonitorClientProps) {
     }, 1000);
 
     return () => clearInterval(interval);
-  }, [isAutoRefresh, refreshIntervalSec, data.event?.id]);
+  }, [isAutoRefresh, refreshIntervalSec, data.event]);
 
   // Manual Refresh Handler
   const handleManualRefresh = async () => {
@@ -311,7 +310,6 @@ export function MonitorClient({ initialData, userRole }: MonitorClientProps) {
   // Toggle Event Status
   const handleConfirmStatusChange = async () => {
     if (!data.event || !statusConfirmTarget) return;
-    setIsUpdatingStatus(true);
     try {
       const res = await toggleEventStatusFromMonitor(data.event.id, statusConfirmTarget);
       if (res.success && res.newStatus) {
@@ -327,8 +325,6 @@ export function MonitorClient({ initialData, userRole }: MonitorClientProps) {
       }
     } catch (err: any) {
       toast.error(err.message || "Failed to update window status.");
-    } finally {
-      setIsUpdatingStatus(false);
     }
   };
 

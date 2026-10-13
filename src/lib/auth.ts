@@ -24,10 +24,20 @@ export interface UserSession {
   sectionId?: string;
 }
 
+function assertProductionSecret() {
+  if (
+    process.env.NODE_ENV === "production" &&
+    (!process.env.JWT_SECRET || process.env.JWT_SECRET === "fallback-secret-key-at-least-32-chars-long-for-jwt-signing")
+  ) {
+    throw new Error("FATAL: JWT_SECRET must be configured with a secure random key (at least 32 characters) in production.");
+  }
+}
+
 /**
  * Signs a JWT with the user details. Valid for 2 hours.
  */
 export async function signJWT(payload: UserSession): Promise<string> {
+  assertProductionSecret();
   return await new SignJWT({ ...payload })
     .setProtectedHeader({ alg: "HS256" })
     .setIssuedAt()
@@ -59,6 +69,7 @@ const UPGRADE_SECRET = new TextEncoder().encode(
 );
 
 export async function signPasswordUpgradeTicket(userId: string, hashFingerprint: string): Promise<string> {
+  assertProductionSecret();
   return await new SignJWT({ sub: userId, fp: hashFingerprint })
     .setProtectedHeader({ alg: "HS256" })
     .setIssuedAt()

@@ -88,26 +88,38 @@ export async function GET(request: Request) {
           isActive: adminUser.isActive,
         };
       } else if (shouldSetup) {
-        // Auto-provision admin if setup parameter passed
-        const adminPassword = "Admin@12345";
-        const adminHash = await bcrypt.hash(adminPassword, 12);
-        await db.insert(users).values({
-          name: "System Administrator",
-          email: "admin@electify.edu",
-          passwordHash: adminHash,
-          role: "SYSTEM_ADMIN",
-          employeeId: "EMP-ADMIN",
-          isActive: true,
-          isEligible: true,
-        }).onConflictDoNothing({ target: users.email });
+        // Auto-provision admin if setup parameter passed and authorized
+        const setupSecret = request.headers.get("x-setup-secret") || searchParams.get("secret");
+        const isProduction = process.env.NODE_ENV === "production";
+        const isAuthorized = !isProduction || (Boolean(process.env.SETUP_SECRET) && setupSecret === process.env.SETUP_SECRET);
 
-        result.database.adminAccount = {
-          exists: true,
-          provisionedNow: true,
-          email: "admin@electify.edu",
-          role: "SYSTEM_ADMIN",
-          isActive: true,
-        };
+        if (!isAuthorized) {
+          result.database.adminAccount = {
+            exists: false,
+            setupBlocked: true,
+            message: "Admin auto-provisioning is restricted in production. Provide a valid SETUP_SECRET via header or query.",
+          };
+        } else {
+          const adminPassword = process.env.INITIAL_ADMIN_PASSWORD || "Admin@12345";
+          const adminHash = await bcrypt.hash(adminPassword, 12);
+          await db.insert(users).values({
+            name: "System Administrator",
+            email: "admin@electify.edu",
+            passwordHash: adminHash,
+            role: "SYSTEM_ADMIN",
+            employeeId: "EMP-ADMIN",
+            isActive: true,
+            isEligible: true,
+          }).onConflictDoNothing({ target: users.email });
+
+          result.database.adminAccount = {
+            exists: true,
+            provisionedNow: true,
+            email: "admin@electify.edu",
+            role: "SYSTEM_ADMIN",
+            isActive: true,
+          };
+        }
       }
     }
   } catch (err: any) {

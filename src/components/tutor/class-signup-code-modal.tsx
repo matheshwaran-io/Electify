@@ -7,7 +7,6 @@ import {
   ExternalLink,
   Plus,
   RefreshCw,
-  ShieldAlert,
   Sparkles,
   Trash2,
   Users,

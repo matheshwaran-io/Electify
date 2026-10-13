@@ -21,13 +21,12 @@ const geistMono = localFont({
 });
 
 // Absolute base for social preview images. Set NEXT_PUBLIC_APP_URL (e.g. https://electify.example.edu);
-// on Vercel the production domain is used automatically.
 const appUrl =
   process.env.NEXT_PUBLIC_APP_URL ??
-  (process.env.VERCEL_PROJECT_PRODUCTION_URL ? `https://${process.env.VERCEL_PROJECT_PRODUCTION_URL}` : undefined);
+  (process.env.VERCEL_PROJECT_PRODUCTION_URL ? `https://${process.env.VERCEL_PROJECT_PRODUCTION_URL}` : "http://localhost:3000");
 
 export const metadata: Metadata = {
-  ...(appUrl ? { metadataBase: new URL(appUrl) } : {}),
+  metadataBase: new URL(appUrl),
   title: { default: "Electify", template: "%s · Electify" },
   description: "Elective registration for SRMIST: live seat counts, locked-in choices and an instant receipt.",
   applicationName: "Electify",

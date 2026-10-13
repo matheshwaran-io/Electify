@@ -183,7 +183,7 @@ function TutorView({ m }: { m: any }) {
   const event = m.activeEvent;
   const total = Number(m.totalStudents) || 0;
   const registered = Number(m.registeredCount) || 0;
-  const pending = m.pendingStudents ?? [];
+  const pending = React.useMemo(() => m.pendingStudents ?? [], [m.pendingStudents]);
   const recent = m.recentRegistrations ?? [];
 
   const [searchPending, setSearchPending] = React.useState("");
