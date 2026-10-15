@@ -115,8 +115,21 @@ export function buildNav(role: Role, workspace: string): NavGroup[] {
         ],
       },
       {
+        label: "My Class (Tutor)",
+        items: [
+          { label: "Class students", href: "/faculty/section", icon: GraduationCap, key: "k" },
+          { label: "Class electives", href: "/faculty/tutor-electives", icon: BookOpen },
+          { label: "Class reports", href: "/faculty/tutor-reports", icon: FileBarChart },
+          { label: "Approvals", href: "/faculty/approvals", icon: ShieldCheck },
+        ],
+      },
+      {
         label: "Administration",
-        items: [{ label: "Event templates", href: "/faculty/templates", icon: Layers, key: "m" }, database],
+        items: [
+          { label: "Invite codes", href: "/faculty/invites", icon: Mail, key: "i" },
+          { label: "Event templates", href: "/faculty/templates", icon: Layers, key: "m" },
+          database,
+        ],
       },
     ]
   }
@@ -129,10 +142,10 @@ export function isActive(pathname: string, href: string) {
 }
 
 export const ROLE_LABEL: Record<string, string> = {
-  SYSTEM_ADMIN: "Admin",
-  COURSE_COORDINATOR: "Course Controller",
-  CLASS_TUTOR: "Faculty",
-  STUDENT: "Students",
+  SYSTEM_ADMIN: "System Admin",
+  COURSE_COORDINATOR: "Course Coordinator",
+  CLASS_TUTOR: "Class Tutor",
+  STUDENT: "Student",
 }
 
 export const ROLE_CONTROL: Record<string, string> = {

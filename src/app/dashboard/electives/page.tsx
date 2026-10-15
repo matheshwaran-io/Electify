@@ -37,7 +37,20 @@ export default async function StudentElectivesPage({ searchParams }: { searchPar
 
   if (resolved.status === "NO_CLASS") {
     return (
-      <StudentStatus icon={<Users />} tone="warning" title="You're not in a class yet" next="Ask your class tutor to add you to your class. Once they do, sign in again.">
+      <StudentStatus
+        icon={<Users />}
+        tone="warning"
+        title="You're not in a class yet"
+        next={
+          <span>
+            Ask your class tutor for your class code, or{" "}
+            <Link href="/join" className="font-medium text-fg underline underline-offset-4">
+              enter your class code to join
+            </Link>
+            .
+          </span>
+        }
+      >
         <p>Electives are offered per class, so we can&apos;t show you any until your account is linked to one.</p>
       </StudentStatus>
     );

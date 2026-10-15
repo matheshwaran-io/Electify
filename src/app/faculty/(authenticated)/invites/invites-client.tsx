@@ -36,19 +36,26 @@ type InviteCode = {
   createdAt: Date;
 };
 
-const AVAILABLE_ROLES: InviteRole[] = [
-  "CLASS_TUTOR",
+const ADMIN_AVAILABLE_ROLES: InviteRole[] = [
   "COURSE_COORDINATOR",
+  "CLASS_TUTOR",
   "SYSTEM_ADMIN",
-  "STUDENT",
+];
+
+const COORDINATOR_AVAILABLE_ROLES: InviteRole[] = [
+  "CLASS_TUTOR",
 ];
 
 export function InvitesClient({
   codes: initialCodes,
+  userRole = "SYSTEM_ADMIN",
 }: {
   codes: InviteCode[];
   tree?: any;
+  userRole?: string;
 }) {
+  const isCoordinator = userRole === "COURSE_COORDINATOR";
+  const availableRoles = isCoordinator ? COORDINATOR_AVAILABLE_ROLES : ADMIN_AVAILABLE_ROLES;
   const [codes, setCodes] = useState(initialCodes);
   const [showModal, setShowModal] = useState(false);
   const [copiedId, setCopiedId] = useState<string | null>(null);
@@ -256,7 +263,7 @@ export function InvitesClient({
     {
       id: "role",
       label: "Role",
-      options: AVAILABLE_ROLES.map((r) => ({
+      options: availableRoles.map((r) => ({
         value: r,
         label: `${ROLE_CONFIGS[r].label} (${ROLE_CONFIGS[r].prefix})`,
       })),
@@ -279,8 +286,12 @@ export function InvitesClient({
   return (
     <div>
       <PageHeader
-        title="Invite codes"
-        description="Role-based unique invite codes for staff and department access."
+        title={isCoordinator ? "Class Tutor invite codes" : "Staff invite codes"}
+        description={
+          isCoordinator
+            ? "Generate unique invite codes for Class Tutors in your department."
+            : "Generate unique role-based invite codes for Course Coordinators and Class Tutors."
+        }
         actions={
           <Button onClick={() => setShowModal(true)}>
             <Plus /> Generate invite
@@ -300,7 +311,11 @@ export function InvitesClient({
             compact
             icon={<Mail />}
             title="No invite codes yet"
-            description="Generate a unique role-based code and share it with a new staff member."
+            description={
+              isCoordinator
+                ? "Generate a unique code to onboard a Class Tutor in your department."
+                : "Generate a unique role-based code and share it with a new staff member."
+            }
           />
         }
       />
@@ -309,9 +324,13 @@ export function InvitesClient({
       <Dialog open={showModal} onOpenChange={(o) => !isPending && setShowModal(o)}>
         <DialogContent size="lg" showClose={!isPending}>
           <DialogHeader>
-            <DialogTitle>Generate role-based invite code</DialogTitle>
+            <DialogTitle>
+              {isCoordinator ? "Generate Class Tutor invite code" : "Generate role-based invite code"}
+            </DialogTitle>
             <DialogDescription>
-              Each code uses a dedicated role prefix (e.g. <code>FAC</code>, <code>COORD</code>, <code>ADM</code>) to guarantee consistency and security.
+              {isCoordinator
+                ? "Generate an invite code with the FAC prefix for a Class Tutor in your department."
+                : "Each code uses a dedicated role prefix (e.g. COORD, FAC, ADM) to guarantee consistency and security."}
             </DialogDescription>
           </DialogHeader>
 
@@ -320,7 +339,7 @@ export function InvitesClient({
             <fieldset className="space-y-2">
               <legend className="text-sm font-medium text-fg">Select Role</legend>
               <div className="grid gap-2 sm:grid-cols-2">
-                {AVAILABLE_ROLES.map((r) => {
+                {availableRoles.map((r) => {
                   const cfg = ROLE_CONFIGS[r];
                   const isSelected = role === r;
                   return (

@@ -85,7 +85,7 @@ const yesNo = [
 ];
 
 const STAFF_ROLES = [
-  { value: "SYSTEM_ADMIN", label: "System Administrator" },
+  { value: "SYSTEM_ADMIN", label: "System Admin" },
   { value: "COURSE_COORDINATOR", label: "Course Coordinator" },
   { value: "CLASS_TUTOR", label: "Class Tutor" },
 ];

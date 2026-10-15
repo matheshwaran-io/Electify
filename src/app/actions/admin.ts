@@ -8,7 +8,7 @@ import {
   studentRegistrations, registrations, electives, electiveSeatAllocations, eventStudents, eventSections
 } from "@/lib/db/schema";
 import { getSession, isRootAdmin, ROOT_ADMIN_EMAIL } from "@/lib/auth";
-import { eq, desc, count, asc, or, inArray, sql, and } from "drizzle-orm";
+import { eq, desc, count, asc, or, inArray, sql, and, ne } from "drizzle-orm";
 import * as bcrypt from "bcryptjs";
 import { generateRoleBasedCode, type InviteRole } from "@/lib/invites";
 import { requireStaffWorkspace, workspaceEventIds } from "@/lib/workspace";
@@ -233,7 +233,25 @@ export async function getStudentUsers() {
 // ── Invite Codes ─────────────────────────────────────────────────────────────
 
 export async function getInviteCodes() {
-  await assertAdmin();
+  const session = await assertAdminOrCoordinator();
+  if (session.role === "SYSTEM_ADMIN") {
+    return db
+      .select({
+        id: inviteCodes.id,
+        code: inviteCodes.code,
+        role: inviteCodes.role,
+        status: inviteCodes.status,
+        maxUses: inviteCodes.maxUses,
+        usedCount: inviteCodes.usedCount,
+        expiresAt: inviteCodes.expiresAt,
+        createdAt: inviteCodes.createdAt,
+      })
+      .from(inviteCodes)
+      .where(ne(inviteCodes.role, "STUDENT"))
+      .orderBy(desc(inviteCodes.createdAt));
+  }
+
+  // Course Coordinator: see invite codes created by them or for Class Tutors in their department
   return db
     .select({
       id: inviteCodes.id,
@@ -246,6 +264,15 @@ export async function getInviteCodes() {
       createdAt: inviteCodes.createdAt,
     })
     .from(inviteCodes)
+    .where(
+      and(
+        eq(inviteCodes.role, "CLASS_TUTOR"),
+        or(
+          eq(inviteCodes.createdById, session.userId),
+          session.departmentId ? eq(inviteCodes.departmentId, session.departmentId) : undefined
+        )
+      )
+    )
     .orderBy(desc(inviteCodes.createdAt));
 }
 
@@ -296,7 +323,29 @@ export async function createInviteCode(formData: {
   maxUses: number;
   expiresInDays: number;
 }) {
-  const session = await assertAdmin();
+  const session = await assertAdminOrCoordinator();
+
+  if (session.role === "SYSTEM_ADMIN") {
+    if (formData.role === "STUDENT") {
+      throw new Error("Students must onboard through their Class Tutor's class code, not staff invite codes.");
+    }
+  } else if (session.role === "COURSE_COORDINATOR") {
+    if (formData.role !== "CLASS_TUTOR") {
+      throw new Error("Course Coordinators can only generate invite codes for Class Tutors.");
+    }
+    const [coord] = await db
+      .select({ facultyId: users.facultyId, departmentId: users.departmentId })
+      .from(users)
+      .where(eq(users.id, session.userId))
+      .limit(1);
+
+    if (coord?.departmentId) {
+      formData.departmentId = coord.departmentId;
+    }
+    if (coord?.facultyId) {
+      formData.facultyId = coord.facultyId;
+    }
+  }
 
   let code = formData.customCode?.trim().toUpperCase();
 
@@ -375,7 +424,18 @@ export async function createInviteCode(formData: {
 }
 
 export async function revokeInviteCode(id: string) {
-  const session = await assertAdmin();
+  const session = await assertAdminOrCoordinator();
+
+  const [invite] = await db
+    .select()
+    .from(inviteCodes)
+    .where(eq(inviteCodes.id, id))
+    .limit(1);
+
+  if (!invite) throw new Error("Invite code not found.");
+  if (session.role !== "SYSTEM_ADMIN" && invite.createdById !== session.userId) {
+    throw new Error("Unauthorized to revoke this invite code.");
+  }
 
   await db
     .update(inviteCodes)
@@ -399,7 +459,7 @@ export async function revokeInviteCode(id: string) {
 }
 
 export async function deleteInviteCode(id: string) {
-  const session = await assertAdmin();
+  const session = await assertAdminOrCoordinator();
 
   const [invite] = await db
     .select()
@@ -408,6 +468,9 @@ export async function deleteInviteCode(id: string) {
     .limit(1);
 
   if (!invite) throw new Error("Invite code not found.");
+  if (session.role !== "SYSTEM_ADMIN" && invite.createdById !== session.userId) {
+    throw new Error("Unauthorized to delete this invite code.");
+  }
 
   await db.delete(inviteCodes).where(eq(inviteCodes.id, id));
 

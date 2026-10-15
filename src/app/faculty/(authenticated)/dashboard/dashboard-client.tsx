@@ -16,6 +16,7 @@ import {
   GraduationCap,
   History,
   Layers,
+  Mail,
   Radio,
   Search,
   ShieldCheck,
@@ -55,14 +56,14 @@ export function DashboardClient({ session, metrics, activeWorkspace = "COORDINAT
 
   const roleDisplay =
     session.role === "SYSTEM_ADMIN"
-      ? { label: "Admin", scope: "Full Control" }
+      ? { label: "System Admin", scope: "Full Control" }
       : session.role === "COURSE_COORDINATOR"
         ? activeWorkspace === "TUTOR"
-          ? { label: "Faculty", scope: "Class Control" }
-          : { label: "Course Controller", scope: "Semi Control" }
+          ? { label: "Class Tutor", scope: "Class Control" }
+          : { label: "Course Coordinator", scope: "Semi Control" }
         : session.role === "CLASS_TUTOR"
-          ? { label: "Faculty", scope: "Class Control" }
-          : { label: "Students", scope: "Elective" };
+          ? { label: "Class Tutor", scope: "Class Control" }
+          : { label: "Student", scope: "Elective" };
 
   return (
     <div className="space-y-10 sm:space-y-12">
@@ -424,6 +425,7 @@ function CoordinatorView({ m }: { m: any }) {
           { href: "/faculty/monitor", label: "Live monitor", icon: Radio },
           { href: "/faculty/events", label: "Registration events", icon: Calendar },
           { href: "/faculty/templates", label: "Event templates", icon: Layers },
+          { href: "/faculty/invites", label: "Invite codes", icon: Mail },
           { href: "/faculty/electives", label: "Electives & baskets", icon: BookOpen },
           { href: "/faculty/reports", label: "Reports", icon: FileText },
         ]}
@@ -469,7 +471,7 @@ function AdminView({ m }: { m: any }) {
     <div className="space-y-8">
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-3 [&>*:first-child]:col-span-2 lg:[&>*:first-child]:col-span-1">
         <Stat label="Students" value={Number(m.totalStudents) || 0} />
-        <Stat label="Course controllers" value={Number(m.totalFaculty) || 0} />
+        <Stat label="Course Coordinators" value={Number(m.totalFaculty) || 0} />
         <Stat label="Published / Open events" value={Number(m.activeEvents) || 0} />
       </div>
 

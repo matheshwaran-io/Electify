@@ -2,7 +2,7 @@ import { getSession } from "@/lib/auth";
 import { getEvents } from "@/app/actions/admin";
 import { getTemplatesWithDetails } from "@/app/actions/templates";
 import { redirect } from "next/navigation";
-import { requireStaffWorkspace } from "@/lib/workspace";
+import { requirePageWorkspace } from "@/lib/workspace";
 import { EventsClient } from "./events-client";
 
 export default async function EventsPage() {
@@ -12,7 +12,7 @@ export default async function EventsPage() {
   }
 
   // The layout guarantees a selected academic session on this page.
-  const ws = await requireStaffWorkspace();
+  const ws = await requirePageWorkspace("/faculty/events");
   const [events, templatesRes] = await Promise.all([getEvents(), getTemplatesWithDetails()]);
   const templates = templatesRes.success && templatesRes.data ? templatesRes.data : [];
 

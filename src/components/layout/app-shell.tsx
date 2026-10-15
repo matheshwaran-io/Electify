@@ -83,7 +83,7 @@ export function AppShell({
   const groups = React.useMemo(() => buildNav(session.role, activeWorkspace), [session.role, activeWorkspace]);
   const items = React.useMemo(() => groups.flatMap((g) => g.items), [groups]);
   const showSections =
-    (session.role === "CLASS_TUTOR" || (session.role === "COURSE_COORDINATOR" && activeWorkspace === "TUTOR")) &&
+    (session.role === "CLASS_TUTOR" || session.role === "COURSE_COORDINATOR") &&
     assignedSections.length > 0;
 
   // Close transient navigation when the route changes.

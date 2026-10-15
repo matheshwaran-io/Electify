@@ -31,7 +31,7 @@ export function PortalSelectClient({ session, assignedSectionsCount, currentWork
   const [loadingPortal, setLoadingPortal] = useState<Workspace | null>(null);
 
   const handleSelectPortal = async (workspace: Workspace) => {
-    const name = workspace === "COORDINATOR" ? "Course Controller" : "Faculty";
+    const name = workspace === "COORDINATOR" ? "Course Coordinator" : "Class Tutor";
     try {
       setLoadingPortal(workspace);
       const res = await setWorkspacePortal(workspace);
@@ -62,7 +62,7 @@ export function PortalSelectClient({ session, assignedSectionsCount, currentWork
       <div className="grid gap-4 sm:grid-cols-2">
         <WorkspaceCard
           icon={GraduationCap}
-          title="Course Controller"
+          title="Course Coordinator"
           badge={<Badge tone="outline" size="sm">Semi Control</Badge>}
           description="Programme-wide view: seat allotments across departments and classes, catalogue, and combined reports."
           points={[
@@ -79,7 +79,7 @@ export function PortalSelectClient({ session, assignedSectionsCount, currentWork
         />
         <WorkspaceCard
           icon={Users}
-          title="Faculty"
+          title="Class Tutor"
           description="Class-level control: your assigned section roster, live registration window, and class reports."
           badge={
             <Badge tone={assignedSectionsCount > 0 ? "primary" : "warning"} size="sm">

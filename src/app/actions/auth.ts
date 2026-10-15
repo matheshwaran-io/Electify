@@ -458,6 +458,13 @@ export async function registerStaff(formData: {
       return { success: false, error: "This invite code has expired." };
     }
 
+    if (invite.role === "STUDENT") {
+      return {
+        success: false,
+        error: "This is a student class signup code. Please switch to the Student tab and click 'Join your class with code'.",
+      };
+    }
+
     // 3. Email domain check
     if (!email.toLowerCase().trim().endsWith("@srmist.edu.in")) {
       return {

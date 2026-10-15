@@ -276,7 +276,8 @@ describe("Year Server Selection Flow & Complete Workspace Isolation", () => {
     const currentYear = new Date().getFullYear();
     const futureYear = currentYear + 2;
 
-    // Check creation
+    // Ensure future year is clean before testing dynamic creation
+    await db.delete(academicSessions).where(eq(academicSessions.startYear, futureYear));
     const createRes = await createYearServer({ year: futureYear, status: "PLANNED" });
     assert.ok(createRes.success, "Admin should be able to create future Year Server dynamically");
 
@@ -285,8 +286,14 @@ describe("Year Server Selection Flow & Complete Workspace Isolation", () => {
     const foundFuture = updatedSessions.find((s) => s.startYear === futureYear);
     assert.ok(foundFuture, `Year Server ${futureYear} must appear dynamically in database query`);
 
-    // Clean up created future session
+    // Keep persistent 2028 server for production / preview UI
     await db.delete(academicSessions).where(eq(academicSessions.startYear, futureYear));
+    await db.insert(academicSessions).values({
+      id: "0228eca7-7b34-46e4-b932-76e856e56983",
+      startYear: futureYear,
+      endYear: futureYear + 1,
+      status: "PLANNED",
+    });
   });
 
   test("4. Selecting 2026 sets the workspace context to 2026", async () => {
