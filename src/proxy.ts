@@ -6,18 +6,7 @@ const SECRET = new TextEncoder().encode(
   process.env.JWT_SECRET || "fallback-secret-key-at-least-32-chars-long-for-jwt-signing"
 );
 
-interface UserSession {
-  userId: string;
-  name: string;
-  email: string;
-  role: "SYSTEM_ADMIN" | "COURSE_COORDINATOR" | "CLASS_TUTOR" | "STUDENT";
-  employeeId?: string;
-  registerNumber?: string;
-  facultyId?: string;
-  departmentId?: string;
-  programmeId?: string;
-  sectionId?: string;
-}
+import type { UserSession } from "@/types";
 
 export async function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;

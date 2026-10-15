@@ -8,7 +8,7 @@ import {
   cohortSessionTerms,
   tutorSections,
 } from "../src/lib/db/schema";
-import { eq, and, inArray } from "drizzle-orm";
+import { eq, and } from "drizzle-orm";
 
 async function main() {
   console.log("Setting up multi-year, multi-programme tutor data for Dr. Angel Rubavathi...");

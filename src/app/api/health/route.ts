@@ -3,6 +3,7 @@ import { pool, db, ensureDatabaseReady } from "@/lib/db";
 import { users } from "@/lib/db/schema";
 import { eq, or } from "drizzle-orm";
 import * as bcrypt from "bcryptjs";
+import type { HealthCheckResponse } from "@/types";
 
 export const dynamic = "force-dynamic";
 
@@ -10,7 +11,7 @@ export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
   const shouldSetup = searchParams.get("setup") === "1" || searchParams.get("setup") === "true";
 
-  const result: Record<string, any> = {
+  const result: HealthCheckResponse = {
     status: "ok",
     timestamp: new Date().toISOString(),
     environment: {
@@ -44,13 +45,13 @@ export async function GET(request: Request) {
     await ensureDatabaseReady();
 
     // 3. Inspect table existence
-    const tableCheck = await pool.query(`
+    const tableCheck = await pool.query<{ table_name: string }>(`
       SELECT table_name 
       FROM information_schema.tables 
       WHERE table_schema = 'public' 
       AND table_name IN ('users', 'faculties', 'departments', 'programmes', 'sections', 'login_attempts', 'audit_logs')
     `);
-    const foundTables = new Set(tableCheck.rows.map((r: any) => r.table_name));
+    const foundTables = new Set(tableCheck.rows.map((r) => r.table_name));
 
     result.database.tables = {
       users: foundTables.has("users"),
@@ -64,7 +65,7 @@ export async function GET(request: Request) {
 
     // 4. Inspect columns in users table
     if (foundTables.has("users")) {
-      const colCheck = await pool.query(`
+      const colCheck = await pool.query<{ column_name: string }>(`
         SELECT column_name 
         FROM information_schema.columns 
         WHERE table_schema = 'public' 
@@ -99,22 +100,32 @@ export async function GET(request: Request) {
             setupBlocked: true,
             message: "Admin auto-provisioning is restricted in production. Provide a valid SETUP_SECRET via header or query.",
           };
+        } else if (isProduction && !process.env.INITIAL_ADMIN_PASSWORD) {
+          // Never create the production root admin with the well-known development password.
+          result.database.adminAccount = {
+            exists: false,
+            setupBlocked: true,
+            message: "Set INITIAL_ADMIN_PASSWORD before provisioning the admin account in production.",
+          };
         } else {
           const adminPassword = process.env.INITIAL_ADMIN_PASSWORD || "Admin@12345";
           const adminHash = await bcrypt.hash(adminPassword, 12);
-          await db.insert(users).values({
-            name: "Root Administrator",
-            email: "electify@srmist.edu.in",
-            passwordHash: adminHash,
-            role: "SYSTEM_ADMIN",
-            employeeId: "EMP-ADMIN",
-            isActive: true,
-            isEligible: true,
-          }).onConflictDoNothing({ target: users.email });
+          await db
+            .insert(users)
+            .values({
+              name: "Root Administrator",
+              email: "electify@srmist.edu.in",
+              passwordHash: adminHash,
+              role: "SYSTEM_ADMIN",
+              employeeId: "EMP-ADMIN",
+              isActive: true,
+              isEligible: true,
+            })
+            .onConflictDoNothing({ target: users.email });
 
           result.database.adminAccount = {
             exists: true,
-            provisionedNow: true,
+            created: true,
             email: "electify@srmist.edu.in",
             role: "SYSTEM_ADMIN",
             isActive: true,
@@ -122,10 +133,10 @@ export async function GET(request: Request) {
         }
       }
     }
-  } catch (err: any) {
+  } catch (err: unknown) {
     result.status = "error";
     result.database.connected = false;
-    result.database.error = err.message || String(err);
+    result.database.error = err instanceof Error ? err.message : String(err);
   }
 
   return NextResponse.json(result, {

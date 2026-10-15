@@ -5,7 +5,7 @@ import { users, inviteCodes, auditLogs } from "@/lib/db/schema";
 import { eq } from "drizzle-orm";
 import { setTestSession } from "@/lib/auth";
 import { createInviteCode, revokeInviteCode, deleteInviteCode } from "@/app/actions/admin";
-import { generateRoleBasedCode, ROLE_CONFIGS } from "@/lib/invites";
+import { generateRoleBasedCode } from "@/lib/invites";
 
 describe("Role-Based Unique Invite Codes", () => {
   let adminUser: { id: string; email: string };

@@ -15,6 +15,16 @@ import { getSession } from "@/lib/auth";
 import { requireStaffWorkspace, workspaceEventIds } from "@/lib/workspace";
 import { eq, and, count, desc, inArray, asc, sql } from "drizzle-orm";
 
+export interface DashboardRecentRegistration {
+  id: string;
+  createdAt: Date | null;
+  studentName: string | null;
+  studentRegNo: string | null;
+  electiveName: string;
+  courseCode: string | null;
+  groupName: string;
+}
+
 export async function getSystemAdminMetrics() {
   const session = await getSession();
   if (!session || session.role !== "SYSTEM_ADMIN") {
@@ -136,7 +146,7 @@ export async function getClassTutorMetrics() {
   let groupsCount = 0;
   let allocationRate = 0;
   let activeEvent = null;
-  let recentRegistrations: any[] = [];
+  let recentRegistrations: DashboardRecentRegistration[] = [];
   let registeredCount = 0;
   let uniqueStudents = new Set<string>();
 

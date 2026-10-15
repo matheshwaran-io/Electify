@@ -2,11 +2,15 @@
   "name": "electify",
   "version": "0.1.0",
   "private": true,
+  "engines": {
+    "node": ">=20.9.0"
+  },
   "scripts": {
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
     "lint": "eslint src",
+    "typecheck": "tsc --noEmit",
     "db:generate": "drizzle-kit generate",
     "db:migrate": "drizzle-kit migrate",
     "db:push": "drizzle-kit push",
@@ -15,7 +19,8 @@
     "db:clean": "tsx scripts/cleanup-mock-data.ts",
     "fix:passwords": "tsx scripts/fix-passwords.ts",
     "brand:generate": "tsx scripts/brand/generate-brand-assets.ts",
-    "test": "tsx --env-file=.env.local --test --test-concurrency=1 tests/**/*.test.ts",
+    "test": "tsx --env-file=.env.local --test --test-concurrency=1 \"tests/**/*.test.ts\"",
+    "test:unit": "tsx --test tests/password-policy.test.ts tests/qa-regressions.test.ts",
     "db:migrate:remove-waitlist": "tsx --env-file=.env.local scripts/db/apply-sql.ts drizzle/0004_remove_waitlist.sql",
     "db:migrate:subject-profiles": "tsx --env-file=.env.local scripts/db/apply-sql.ts drizzle/0005_subject_profiles.sql",
     "db:migrate:academic-sessions": "tsx --env-file=.env.local scripts/db/apply-sql.ts drizzle/0006_academic_sessions.sql",
@@ -56,6 +61,7 @@
     "@types/pg": "^8.20.0",
     "@types/react": "^19.2.17",
     "@types/react-dom": "^19.2.3",
+    "dotenv": "^17.4.2",
     "drizzle-kit": "^0.31.10",
     "eslint": "^8",
     "eslint-config-next": "15.0.0",
