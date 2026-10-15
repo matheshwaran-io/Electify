@@ -15,13 +15,13 @@
 ## ⚡ Key Highlights & Core Capabilities
 
 - **Atomic Concurrency Guarantee**: PostgreSQL row-locking transactions handle simultaneous submissions with zero overbooking and automatic instant seat release on resubmission.
-- **Academic Year Timeline (Year Server) Isolation**: Dedicated year selection dashboard after staff login (`/faculty/select-year-server`), organizing operations by academic timelines (e.g. 2025, 2026, 2027) with complete workspace isolation.
+- **Academic Year Timeline (Year Server) Isolation**: Dedicated year selection screen after staff login (`/faculty/session-select`), organizing operations by academic timelines (e.g. 2025, 2026, 2027) with complete workspace isolation.
 - **Root Administrator Immutability**: Multi-layer security protections guaranteeing the permanent Root Administrator (`electify@srmist.edu.in`) cannot be deleted, deactivated, or demoted.
 - **Single-Session Sentinel**: Anti-sniping protection ensuring that logging in from another device immediately revokes any prior active sessions.
 - **Multi-Programme Tutor Supervision**: Class tutors can claim and manage sections across multiple programmes and batches with strict student roster segregation.
 - **Subject Explorer & Preview Mode**: Students can explore subject descriptions, syllabi, and prerequisites prior to window opening without locking seats.
 - **Live Event Monitor & Surveillance**: Real-time staff monitoring feed, live seat metrics, and unregistered cohort tracking.
-- **Audit Logging & Receipts**: Cryptographically signed confirmation receipts with deterministic, tamper-proof audit trails and downloadable PDF exports.
+- **Audit Logging & Receipts**: Uniquely numbered confirmation receipts stored as snapshots at confirmation time, an audit log, a registration replay, and downloadable PDF exports.
 
 ---
 
@@ -33,7 +33,7 @@
 - **Database & Pooling**: PostgreSQL 16 (via local instance, Neon, or Supabase connection pooling)
 - **ORM & Migrations**: [Drizzle ORM](https://orm.drizzle.team/) & [Drizzle Kit](https://orm.drizzle.team/docs/kit-overview)
 - **Realtime Sync**: [Supabase Realtime](https://supabase.com/docs/guides/realtime) (WebSockets for dynamic seat counters)
-- **Auth & Session Security**: Custom HMAC-signed JWT cookies, Edge routing proxy (`src/proxy.ts`), and Bcryptjs password hashing (cost factor 12)
+- **Auth & Session Security**: Custom HMAC-signed JWT cookies, routing proxy (`src/proxy.ts`), and Bcryptjs password hashing (cost factor 12)
 - **Brute Force Protection**: Database-backed login attempt tracking and automatic rate-limiting lockout
 - **Export Engine**: Client-side high-fidelity PDF reporting using [jsPDF](https://github.com/parallax/jsPDF) & AutoTable
 
@@ -78,7 +78,7 @@ electify/
 │   │   ├── api.ts          # API response and health check contracts
 │   │   ├── registration.ts # Registration and seat availability types
 │   │   └── session.ts      # Authentication session and login types
-│   └── proxy.ts            # Next.js 16 Edge route protection & session validation
+│   └── proxy.ts            # Next.js 16 proxy: route protection & session validation
 ├── tests/                  # Automated test suites (unit, integration, and e2e)
 ├── drizzle.config.ts       # Drizzle Kit configuration file
 ├── next.config.ts          # Next.js configuration
@@ -115,9 +115,9 @@ The relational schema is defined in [`src/lib/db/schema.ts`](src/lib/db/schema.t
 
 | Feature / Action | Student | Class Tutor | Course Coordinator | System Admin |
 | :--- | :---: | :---: | :---: | :---: |
-| **Access Countdown Waiting Room** | ✅ | ✅ | ✅ | ✅ |
+| **Access Countdown Waiting Room** | ✅ | ❌ | ❌ | ❌ |
 | **Select & Confirm Electives** | ✅ | ❌ | ❌ | ❌ |
-| **Browse Subject Explorer Preview** | ✅ | ✅ | ✅ | ✅ |
+| **Browse Subject Explorer Preview** | ✅ | ❌ | ❌ | ❌ |
 | **Switch Academic Year Server** | ❌ | ✅ | ✅ | ✅ |
 | **Manage Assigned Class Rosters** | ❌ | ✅ | ❌ | ❌ |
 | **Unlock / Reset Student Submissions** | ❌ | ✅ | ✅ | ❌ |
@@ -144,8 +144,8 @@ The relational schema is defined in [`src/lib/db/schema.ts`](src/lib/db/schema.t
 - **Workflow**: Upon logging in, staff choose an active **Academic Year Server** timeline before accessing class rosters or event settings.
 
 ### 3. Student Portal
-- **Login ID**: Official SRMIST Email (`@srmist.edu.in`)
-- **Initial Password**: Student Register Number (e.g. `RA2532241010001`, case-insensitive)
+- **Login ID**: University register number (e.g. `RA2532241010001`); e-mail addresses are not accepted on the student form
+- **Onboarding**: Students join their class with a tutor-issued signup code and choose their own password. Accounts created by a tutor start with a temporary credential and must set a new password at first sign-in.
 - **Password Policy**: Minimum 8 characters, requiring at least one letter and one number, blocking trivial defaults.
 
 ---
@@ -162,7 +162,7 @@ The relational schema is defined in [`src/lib/db/schema.ts`](src/lib/db/schema.t
 ```bash
 git clone https://github.com/matheshwaran-io/Electify.git
 cd Electify
-npm install
+npm ci
 ```
 
 ### 2. Configure Environment Variables
@@ -180,7 +180,7 @@ JWT_SECRET="your-secure-random-secret-at-least-32-chars-long"
 
 ### 3. Apply Migrations & Seed Database
 ```bash
-# Generate and apply migrations
+# Create the tables from the schema (new, empty database only)
 npm run db:push
 
 # Seed university hierarchy and Root Administrator

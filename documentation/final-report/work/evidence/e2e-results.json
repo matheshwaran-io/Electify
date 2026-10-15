@@ -1,0 +1,1699 @@
+{
+  "config": {
+    "argv": [
+      "/usr/local/bin/node",
+      "/Users/maddy/Current Project/Electify/node_modules/.bin/playwright",
+      "test"
+    ],
+    "configFile": "/Users/maddy/Current Project/Electify/playwright.config.ts",
+    "rootDir": "/Users/maddy/Current Project/Electify/tests/e2e",
+    "failOnFlakyTests": false,
+    "forbidOnly": false,
+    "fullyParallel": false,
+    "globalSetup": "/Users/maddy/Current Project/Electify/tests/e2e/global-setup.ts",
+    "globalTeardown": null,
+    "globalTimeout": 0,
+    "grep": {},
+    "grepInvert": null,
+    "maxFailures": 0,
+    "metadata": {
+      "actualWorkers": 1
+    },
+    "preserveOutput": "always",
+    "projects": [
+      {
+        "outputDir": "/Users/maddy/Current Project/Electify/test-results",
+        "repeatEach": 1,
+        "retries": 0,
+        "metadata": {
+          "actualWorkers": 1
+        },
+        "id": "desktop",
+        "name": "desktop",
+        "testDir": "/Users/maddy/Current Project/Electify/tests/e2e",
+        "testIgnore": [],
+        "testMatch": [
+          "**/*.spec.ts"
+        ],
+        "timeout": 90000
+      }
+    ],
+    "filteredProjects": [
+      {
+        "grep": {},
+        "grepInvert": null,
+        "outputDir": "/Users/maddy/Current Project/Electify/test-results",
+        "repeatEach": 1,
+        "retries": 0,
+        "metadata": {
+          "actualWorkers": 1
+        },
+        "name": "desktop",
+        "testDir": "/Users/maddy/Current Project/Electify/tests/e2e",
+        "snapshotDir": "/Users/maddy/Current Project/Electify/tests/e2e",
+        "testIgnore": [],
+        "testMatch": "**/*.spec.ts",
+        "timeout": 90000,
+        "use": {
+          "baseURL": "http://localhost:3210",
+          "channel": "chrome",
+          "timezoneId": "Asia/Kolkata",
+          "trace": "retain-on-failure",
+          "screenshot": "only-on-failure",
+          "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/156.0.8078.4 Safari/537.36",
+          "viewport": {
+            "width": 1440,
+            "height": 900
+          },
+          "screen": {
+            "width": 1920,
+            "height": 1080
+          },
+          "deviceScaleFactor": 1,
+          "isMobile": false,
+          "hasTouch": false,
+          "defaultBrowserType": "chromium"
+        },
+        "dependencies": [],
+        "ignoreSnapshots": false,
+        "__projectId": "desktop"
+      }
+    ],
+    "quiet": false,
+    "reporter": [
+      [
+        "list",
+        null
+      ],
+      [
+        "json",
+        {
+          "outputFile": "test-results/e2e-results.json"
+        }
+      ]
+    ],
+    "reportSlowTests": {
+      "max": 5,
+      "threshold": 300000
+    },
+    "shard": null,
+    "tags": [],
+    "updateSnapshots": "default",
+    "updateSourceMethod": "patch",
+    "version": "1.64.0",
+    "workers": 1,
+    "webServer": {
+      "command": "npx next dev -p 3210",
+      "url": "http://localhost:3210/login",
+      "timeout": 180000,
+      "reuseExistingServer": true,
+      "stdout": "pipe",
+      "stderr": "pipe",
+      "env": {
+        "NEXT_DIST_DIR": ".next-e2e",
+        "DATABASE_URL": "postgresql://localhost:5432/electify_e2e",
+        "DIRECT_URL": "postgresql://localhost:5432/electify_e2e",
+        "JWT_SECRET": "e2e-only-jwt-secret-not-used-anywhere-else-0123456789",
+        "NEXT_PUBLIC_SUPABASE_URL": "",
+        "NEXT_PUBLIC_SUPABASE_ANON_KEY": "",
+        "NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY": ""
+      }
+    }
+  },
+  "suites": [
+    {
+      "title": "accessibility.spec.ts",
+      "file": "accessibility.spec.ts",
+      "column": 0,
+      "line": 0,
+      "specs": [
+        {
+          "title": "public pages",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 300000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "desktop",
+              "projectName": "desktop",
+              "results": [
+                {
+                  "workerIndex": 0,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 6306,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-15T09:40:40.361Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "ddd864604af8a6a0198f-ed717eecd927626598ac",
+          "file": "accessibility.spec.ts",
+          "line": 41,
+          "column": 5
+        },
+        {
+          "title": "student pages",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 300000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "desktop",
+              "projectName": "desktop",
+              "results": [
+                {
+                  "workerIndex": 0,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 14817,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-15T09:40:47.561Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "ddd864604af8a6a0198f-9cb44ef4be34c01a058a",
+          "file": "accessibility.spec.ts",
+          "line": 46,
+          "column": 5
+        },
+        {
+          "title": "staff pages",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 300000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "desktop",
+              "projectName": "desktop",
+              "results": [
+                {
+                  "workerIndex": 0,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 32914,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-15T09:41:02.383Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "ddd864604af8a6a0198f-ab4901bc5941e61a1b9e",
+          "file": "accessibility.spec.ts",
+          "line": 60,
+          "column": 5
+        }
+      ]
+    },
+    {
+      "title": "freshness.spec.ts",
+      "file": "freshness.spec.ts",
+      "column": 0,
+      "line": 0,
+      "specs": [
+        {
+          "title": "picker shows updated seat counts after a background refresh, without a reload",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 90000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "desktop",
+              "projectName": "desktop",
+              "results": [
+                {
+                  "workerIndex": 0,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 2710,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-15T09:41:35.318Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "b50bbcbaf45e340d2006-9e5cf6c41f683ccb11ac",
+          "file": "freshness.spec.ts",
+          "line": 11,
+          "column": 5
+        }
+      ]
+    },
+    {
+      "title": "mobile-layout.spec.ts",
+      "file": "mobile-layout.spec.ts",
+      "column": 0,
+      "line": 0,
+      "specs": [
+        {
+          "title": "public pages",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 600000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "desktop",
+              "projectName": "desktop",
+              "results": [
+                {
+                  "workerIndex": 0,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 16203,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-15T09:41:38.044Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "2463d90220c817a01905-68e62ee65286c41674f0",
+          "file": "mobile-layout.spec.ts",
+          "line": 101,
+          "column": 5
+        },
+        {
+          "title": "student pages",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 600000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "desktop",
+              "projectName": "desktop",
+              "results": [
+                {
+                  "workerIndex": 0,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 26903,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-15T09:41:54.253Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "2463d90220c817a01905-8733cfddb76077e1cce1",
+          "file": "mobile-layout.spec.ts",
+          "line": 106,
+          "column": 5
+        },
+        {
+          "title": "student countdown",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 600000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "desktop",
+              "projectName": "desktop",
+              "results": [
+                {
+                  "workerIndex": 0,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 10229,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-15T09:42:21.164Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "2463d90220c817a01905-98c37cec0f6650970c85",
+          "file": "mobile-layout.spec.ts",
+          "line": 117,
+          "column": 5
+        },
+        {
+          "title": "tutor pages",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 600000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "desktop",
+              "projectName": "desktop",
+              "results": [
+                {
+                  "workerIndex": 0,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 62691,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-15T09:42:31.403Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "2463d90220c817a01905-9913b53acc08f7bf82a2",
+          "file": "mobile-layout.spec.ts",
+          "line": 131,
+          "column": 5
+        },
+        {
+          "title": "coordinator and admin pages",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 600000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "desktop",
+              "projectName": "desktop",
+              "results": [
+                {
+                  "workerIndex": 0,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 80724,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-15T09:43:34.101Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "2463d90220c817a01905-da591d88db6ac05cdc01",
+          "file": "mobile-layout.spec.ts",
+          "line": 145,
+          "column": 5
+        }
+      ]
+    },
+    {
+      "title": "navigation-a11y.spec.ts",
+      "file": "navigation-a11y.spec.ts",
+      "column": 0,
+      "line": 0,
+      "specs": [
+        {
+          "title": "phone: bottom bar and More sheet",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 180000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "desktop",
+              "projectName": "desktop",
+              "results": [
+                {
+                  "workerIndex": 0,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 4734,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-15T09:44:54.853Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "258f15233697325108a6-bbe7b66f10f5161ef45a",
+          "file": "navigation-a11y.spec.ts",
+          "line": 16,
+          "column": 5
+        },
+        {
+          "title": "tablet: navigation drawer",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 180000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "desktop",
+              "projectName": "desktop",
+              "results": [
+                {
+                  "workerIndex": 0,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 5435,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-15T09:44:59.595Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "258f15233697325108a6-048235ab930daa7b76b7",
+          "file": "navigation-a11y.spec.ts",
+          "line": 52,
+          "column": 5
+        }
+      ]
+    },
+    {
+      "title": "route-reload.spec.ts",
+      "file": "route-reload.spec.ts",
+      "column": 0,
+      "line": 0,
+      "specs": [],
+      "suites": [
+        {
+          "title": "Unauthenticated access",
+          "file": "route-reload.spec.ts",
+          "line": 30,
+          "column": 6,
+          "specs": [
+            {
+              "title": "/dashboard redirects to sign-in without exposing content",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 90000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "desktop",
+                  "projectName": "desktop",
+                  "results": [
+                    {
+                      "workerIndex": 0,
+                      "parallelIndex": 0,
+                      "status": "passed",
+                      "duration": 565,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-10-15T09:45:05.049Z",
+                      "annotations": [],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "9f5c194c7fe2a5092225-a6568e6e9616ed2e6d1d",
+              "file": "route-reload.spec.ts",
+              "line": 33,
+              "column": 9
+            },
+            {
+              "title": "/dashboard/subjects redirects to sign-in without exposing content",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 90000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "desktop",
+                  "projectName": "desktop",
+                  "results": [
+                    {
+                      "workerIndex": 0,
+                      "parallelIndex": 0,
+                      "status": "passed",
+                      "duration": 545,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-10-15T09:45:05.621Z",
+                      "annotations": [],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "9f5c194c7fe2a5092225-a636b1a0df1aa759de02",
+              "file": "route-reload.spec.ts",
+              "line": 33,
+              "column": 9
+            },
+            {
+              "title": "/dashboard/electives redirects to sign-in without exposing content",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 90000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "desktop",
+                  "projectName": "desktop",
+                  "results": [
+                    {
+                      "workerIndex": 0,
+                      "parallelIndex": 0,
+                      "status": "passed",
+                      "duration": 522,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-10-15T09:45:06.174Z",
+                      "annotations": [],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "9f5c194c7fe2a5092225-4a4e086becc06906ae12",
+              "file": "route-reload.spec.ts",
+              "line": 33,
+              "column": 9
+            },
+            {
+              "title": "/dashboard/my-registration redirects to sign-in without exposing content",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 90000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "desktop",
+                  "projectName": "desktop",
+                  "results": [
+                    {
+                      "workerIndex": 0,
+                      "parallelIndex": 0,
+                      "status": "passed",
+                      "duration": 523,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-10-15T09:45:06.702Z",
+                      "annotations": [],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "9f5c194c7fe2a5092225-997b9df3995b1762a09b",
+              "file": "route-reload.spec.ts",
+              "line": 33,
+              "column": 9
+            },
+            {
+              "title": "/faculty/dashboard redirects to sign-in without exposing content",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 90000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "desktop",
+                  "projectName": "desktop",
+                  "results": [
+                    {
+                      "workerIndex": 0,
+                      "parallelIndex": 0,
+                      "status": "passed",
+                      "duration": 727,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-10-15T09:45:07.231Z",
+                      "annotations": [],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "9f5c194c7fe2a5092225-d5483792d6ae2a5bdbab",
+              "file": "route-reload.spec.ts",
+              "line": 33,
+              "column": 9
+            },
+            {
+              "title": "/faculty/reports redirects to sign-in without exposing content",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 90000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "desktop",
+                  "projectName": "desktop",
+                  "results": [
+                    {
+                      "workerIndex": 0,
+                      "parallelIndex": 0,
+                      "status": "passed",
+                      "duration": 549,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-10-15T09:45:07.965Z",
+                      "annotations": [],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "9f5c194c7fe2a5092225-0c7ee38b609dfc332a8f",
+              "file": "route-reload.spec.ts",
+              "line": 33,
+              "column": 9
+            },
+            {
+              "title": "/faculty/users redirects to sign-in without exposing content",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 90000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "desktop",
+                  "projectName": "desktop",
+                  "results": [
+                    {
+                      "workerIndex": 0,
+                      "parallelIndex": 0,
+                      "status": "passed",
+                      "duration": 487,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-10-15T09:45:08.523Z",
+                      "annotations": [],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "9f5c194c7fe2a5092225-ca1e23edd6915d51ca00",
+              "file": "route-reload.spec.ts",
+              "line": 33,
+              "column": 9
+            },
+            {
+              "title": "/faculty/section redirects to sign-in without exposing content",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 90000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "desktop",
+                  "projectName": "desktop",
+                  "results": [
+                    {
+                      "workerIndex": 0,
+                      "parallelIndex": 0,
+                      "status": "passed",
+                      "duration": 501,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-10-15T09:45:09.018Z",
+                      "annotations": [],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "9f5c194c7fe2a5092225-719a3ff27619a7754961",
+              "file": "route-reload.spec.ts",
+              "line": 33,
+              "column": 9
+            },
+            {
+              "title": "public pages load and survive reload",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 90000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "desktop",
+                  "projectName": "desktop",
+                  "results": [
+                    {
+                      "workerIndex": 0,
+                      "parallelIndex": 0,
+                      "status": "passed",
+                      "duration": 2847,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "steps": [
+                        {
+                          "title": "/login",
+                          "duration": 1410
+                        },
+                        {
+                          "title": "/join",
+                          "duration": 1256
+                        }
+                      ],
+                      "startTime": "2026-10-15T09:45:09.527Z",
+                      "annotations": [],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "9f5c194c7fe2a5092225-c6282b4ae1fa8b6dbfc5",
+              "file": "route-reload.spec.ts",
+              "line": 43,
+              "column": 7
+            }
+          ]
+        },
+        {
+          "title": "Student routes",
+          "file": "route-reload.spec.ts",
+          "line": 51,
+          "column": 6,
+          "specs": [
+            {
+              "title": "open-event student: every page loads and reloads cleanly",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 90000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "desktop",
+                  "projectName": "desktop",
+                  "results": [
+                    {
+                      "workerIndex": 0,
+                      "parallelIndex": 0,
+                      "status": "passed",
+                      "duration": 9161,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "steps": [
+                        {
+                          "title": "/dashboard",
+                          "duration": 1471
+                        },
+                        {
+                          "title": "/dashboard/subjects",
+                          "duration": 1340
+                        },
+                        {
+                          "title": "/dashboard/subjects/f1ace31f-8f49-4382-8f6b-5dc2df2c88f6",
+                          "duration": 1556
+                        },
+                        {
+                          "title": "/dashboard/electives",
+                          "duration": 1357
+                        },
+                        {
+                          "title": "/dashboard/my-registration",
+                          "duration": 1380
+                        }
+                      ],
+                      "startTime": "2026-10-15T09:45:12.381Z",
+                      "annotations": [],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "9f5c194c7fe2a5092225-840004d88a20a1feda69",
+              "file": "route-reload.spec.ts",
+              "line": 52,
+              "column": 7
+            },
+            {
+              "title": "upcoming-event student: countdown page loads and reloads cleanly",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 90000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "desktop",
+                  "projectName": "desktop",
+                  "results": [
+                    {
+                      "workerIndex": 0,
+                      "parallelIndex": 0,
+                      "status": "passed",
+                      "duration": 5726,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "steps": [
+                        {
+                          "title": "/dashboard",
+                          "duration": 1325
+                        },
+                        {
+                          "title": "/countdown",
+                          "duration": 1273
+                        },
+                        {
+                          "title": "/dashboard/subjects",
+                          "duration": 1357
+                        }
+                      ],
+                      "startTime": "2026-10-15T09:45:21.548Z",
+                      "annotations": [],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "9f5c194c7fe2a5092225-27a3c37790543fce7d5b",
+              "file": "route-reload.spec.ts",
+              "line": 68,
+              "column": 7
+            }
+          ]
+        },
+        {
+          "title": "Staff routes",
+          "file": "route-reload.spec.ts",
+          "line": 79,
+          "column": 6,
+          "specs": [
+            {
+              "title": "class tutor pages",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 300000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "desktop",
+                  "projectName": "desktop",
+                  "results": [
+                    {
+                      "workerIndex": 0,
+                      "parallelIndex": 0,
+                      "status": "passed",
+                      "duration": 18571,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "steps": [
+                        {
+                          "title": "/faculty/dashboard",
+                          "duration": 1593
+                        },
+                        {
+                          "title": "/faculty/section",
+                          "duration": 1789
+                        },
+                        {
+                          "title": "/faculty/window",
+                          "duration": 1502
+                        },
+                        {
+                          "title": "/faculty/tutor-electives",
+                          "duration": 1389
+                        },
+                        {
+                          "title": "/faculty/tutor-reports",
+                          "duration": 1442
+                        },
+                        {
+                          "title": "/faculty/monitor",
+                          "duration": 1507
+                        },
+                        {
+                          "title": "/faculty/replay",
+                          "duration": 1525
+                        },
+                        {
+                          "title": "/faculty/assign-sections",
+                          "duration": 1467
+                        },
+                        {
+                          "title": "/faculty/approvals",
+                          "duration": 1398
+                        },
+                        {
+                          "title": "/faculty/settings",
+                          "duration": 1572
+                        }
+                      ],
+                      "startTime": "2026-10-15T09:45:27.278Z",
+                      "annotations": [],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "9f5c194c7fe2a5092225-8f73f0e102857cb20520",
+              "file": "route-reload.spec.ts",
+              "line": 81,
+              "column": 7
+            },
+            {
+              "title": "course coordinator pages",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 300000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "desktop",
+                  "projectName": "desktop",
+                  "results": [
+                    {
+                      "workerIndex": 0,
+                      "parallelIndex": 0,
+                      "status": "passed",
+                      "duration": 16020,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "steps": [
+                        {
+                          "title": "/faculty/portal-select",
+                          "duration": 1440
+                        },
+                        {
+                          "title": "/faculty/dashboard",
+                          "duration": 1406
+                        },
+                        {
+                          "title": "/faculty/electives",
+                          "duration": 1591
+                        },
+                        {
+                          "title": "/faculty/events",
+                          "duration": 1402
+                        },
+                        {
+                          "title": "/faculty/templates",
+                          "duration": 1382
+                        },
+                        {
+                          "title": "/faculty/students",
+                          "duration": 1636
+                        },
+                        {
+                          "title": "/faculty/reports",
+                          "duration": 1339
+                        },
+                        {
+                          "title": "/faculty/monitor",
+                          "duration": 1372
+                        },
+                        {
+                          "title": "/faculty/academic-sessions",
+                          "duration": 1543
+                        }
+                      ],
+                      "startTime": "2026-10-15T09:45:45.858Z",
+                      "annotations": [],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "9f5c194c7fe2a5092225-bec48f3b47419b688c91",
+              "file": "route-reload.spec.ts",
+              "line": 98,
+              "column": 7
+            },
+            {
+              "title": "administrator pages",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 300000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "desktop",
+                  "projectName": "desktop",
+                  "results": [
+                    {
+                      "workerIndex": 0,
+                      "parallelIndex": 0,
+                      "status": "passed",
+                      "duration": 21844,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "steps": [
+                        {
+                          "title": "/faculty/dashboard",
+                          "duration": 1607
+                        },
+                        {
+                          "title": "/faculty/academic-sessions",
+                          "duration": 1408
+                        },
+                        {
+                          "title": "/faculty/academic-sessions/2026",
+                          "duration": 1846
+                        },
+                        {
+                          "title": "/faculty/academic-sessions/review",
+                          "duration": 1522
+                        },
+                        {
+                          "title": "/faculty/year-servers",
+                          "duration": 1688
+                        },
+                        {
+                          "title": "/faculty/users",
+                          "duration": 1409
+                        },
+                        {
+                          "title": "/faculty/departments",
+                          "duration": 1353
+                        },
+                        {
+                          "title": "/faculty/invites",
+                          "duration": 1378
+                        },
+                        {
+                          "title": "/faculty/audit",
+                          "duration": 1559
+                        },
+                        {
+                          "title": "/faculty/database",
+                          "duration": 1524
+                        },
+                        {
+                          "title": "/faculty/approvals",
+                          "duration": 1631
+                        },
+                        {
+                          "title": "/faculty/settings",
+                          "duration": 1354
+                        }
+                      ],
+                      "startTime": "2026-10-15T09:46:01.884Z",
+                      "annotations": [],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "9f5c194c7fe2a5092225-867939b93a5b493d0fc9",
+              "file": "route-reload.spec.ts",
+              "line": 114,
+              "column": 7
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "title": "session.spec.ts",
+      "file": "session.spec.ts",
+      "column": 0,
+      "line": 0,
+      "specs": [
+        {
+          "title": "signing out and pressing Back never shows the protected page again",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 120000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "desktop",
+              "projectName": "desktop",
+              "results": [
+                {
+                  "workerIndex": 0,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 3903,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-15T09:46:23.743Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "6fa1842ca325e3ffbb00-ce089b17fbceb0e96010",
+          "file": "session.spec.ts",
+          "line": 8,
+          "column": 5
+        },
+        {
+          "title": "a tampered session cookie is treated as signed out",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 120000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "desktop",
+              "projectName": "desktop",
+              "results": [
+                {
+                  "workerIndex": 0,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 3253,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-15T09:46:27.652Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "6fa1842ca325e3ffbb00-86b76a38d057f5543938",
+          "file": "session.spec.ts",
+          "line": 23,
+          "column": 5
+        },
+        {
+          "title": "signing in elsewhere ends the earlier session on reload",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 120000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "desktop",
+              "projectName": "desktop",
+              "results": [
+                {
+                  "workerIndex": 0,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 5397,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-15T09:46:30.914Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "6fa1842ca325e3ffbb00-bf7962764d3e33536705",
+          "file": "session.spec.ts",
+          "line": 34,
+          "column": 5
+        },
+        {
+          "title": "a deactivated account loses access on the next page load",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 120000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "desktop",
+              "projectName": "desktop",
+              "results": [
+                {
+                  "workerIndex": 0,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 2530,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-15T09:46:36.323Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "6fa1842ca325e3ffbb00-120c2451993557682f28",
+          "file": "session.spec.ts",
+          "line": 50,
+          "column": 5
+        },
+        {
+          "title": "double-clicking confirm creates exactly one registration",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 120000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "desktop",
+              "projectName": "desktop",
+              "results": [
+                {
+                  "workerIndex": 0,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 3220,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-15T09:46:38.862Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "6fa1842ca325e3ffbb00-f856f24954c0d0cc4892",
+          "file": "session.spec.ts",
+          "line": 64,
+          "column": 5
+        },
+        {
+          "title": "sign-ins record the request address, not a placeholder, in the audit log",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 120000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "desktop",
+              "projectName": "desktop",
+              "results": [
+                {
+                  "workerIndex": 0,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 1921,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-15T09:46:42.092Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "6fa1842ca325e3ffbb00-caecfc6a8e5428364ce2",
+          "file": "session.spec.ts",
+          "line": 87,
+          "column": 5
+        }
+      ]
+    },
+    {
+      "title": "staff-isolation.spec.ts",
+      "file": "staff-isolation.spec.ts",
+      "column": 0,
+      "line": 0,
+      "specs": [
+        {
+          "title": "tutor workspace: Year Server and class survive reloads and switching",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 180000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "desktop",
+              "projectName": "desktop",
+              "results": [
+                {
+                  "workerIndex": 0,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 9367,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "steps": [
+                    {
+                      "title": "selected Year Server and class are restored after reload",
+                      "duration": 1010
+                    },
+                    {
+                      "title": "switching to MSc IT F shows only that class, before and after reload",
+                      "duration": 1902
+                    },
+                    {
+                      "title": "signup code of the active class is listed after reload",
+                      "duration": 131
+                    },
+                    {
+                      "title": "a forged class cookie for an unassigned class is ignored",
+                      "duration": 1016
+                    },
+                    {
+                      "title": "switching to the 2025 Year Server narrows classes and survives reload",
+                      "duration": 2373
+                    }
+                  ],
+                  "startTime": "2026-10-15T09:46:44.038Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "bd7c993266a3f3a21f96-17ede4fa30392d5bdee5",
+          "file": "staff-isolation.spec.ts",
+          "line": 34,
+          "column": 5
+        },
+        {
+          "title": "tutor configuration change (pause window) persists after reload and reaches students",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 180000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "desktop",
+              "projectName": "desktop",
+              "results": [
+                {
+                  "workerIndex": 0,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 9178,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-15T09:46:53.416Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "bd7c993266a3f3a21f96-396feec8df8c046d7baa",
+          "file": "staff-isolation.spec.ts",
+          "line": 90,
+          "column": 5
+        },
+        {
+          "title": "students only see their own class's event and seat counters stay separate",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 180000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "desktop",
+              "projectName": "desktop",
+              "results": [
+                {
+                  "workerIndex": 0,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 3784,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "steps": [
+                    {
+                      "title": "crafted URL to another cohort's event does not open it",
+                      "duration": 1515
+                    }
+                  ],
+                  "startTime": "2026-10-15T09:47:02.606Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "bd7c993266a3f3a21f96-4fcc54930bef4a14fb11",
+          "file": "staff-isolation.spec.ts",
+          "line": 121,
+          "column": 5
+        },
+        {
+          "title": "a tutor cannot open another class's replay by URL",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 180000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "desktop",
+              "projectName": "desktop",
+              "results": [
+                {
+                  "workerIndex": 0,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 6260,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-15T09:47:06.403Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "bd7c993266a3f3a21f96-6b114df1157b13a54b24",
+          "file": "staff-isolation.spec.ts",
+          "line": 158,
+          "column": 5
+        }
+      ]
+    },
+    {
+      "title": "student-workflow.spec.ts",
+      "file": "student-workflow.spec.ts",
+      "column": 0,
+      "line": 0,
+      "specs": [
+        {
+          "title": "student registers, reloads, changes and cancels with consistent seats",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 180000,
+              "annotations": [
+                {
+                  "type": "serial",
+                  "location": {
+                    "file": "/Users/maddy/Current Project/Electify/tests/e2e/student-workflow.spec.ts",
+                    "line": 0,
+                    "column": 0
+                  }
+                }
+              ],
+              "expectedStatus": "passed",
+              "projectId": "desktop",
+              "projectName": "desktop",
+              "results": [
+                {
+                  "workerIndex": 0,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 8740,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "steps": [
+                    {
+                      "title": "sign in and reload keeps the session and identity",
+                      "duration": 2277
+                    },
+                    {
+                      "title": "subject explorer and detail show live capacity without reserving",
+                      "duration": 1607
+                    },
+                    {
+                      "title": "picks survive a reload before confirming",
+                      "duration": 901
+                    },
+                    {
+                      "title": "confirm registration, receipt shown only after the server confirms",
+                      "duration": 500
+                    },
+                    {
+                      "title": "reload, back navigation and revisiting the picker never resubmit",
+                      "duration": 890
+                    },
+                    {
+                      "title": "change Cloud Computing to Data Science moves exactly one seat",
+                      "duration": 1637
+                    },
+                    {
+                      "title": "cancel the open elective releases its seat and survives reload",
+                      "duration": 762
+                    }
+                  ],
+                  "startTime": "2026-10-15T09:47:12.680Z",
+                  "annotations": [
+                    {
+                      "type": "serial",
+                      "location": {
+                        "file": "/Users/maddy/Current Project/Electify/tests/e2e/student-workflow.spec.ts",
+                        "line": 0,
+                        "column": 0
+                      }
+                    }
+                  ],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "7e4c7c6a5b37327282ac-03c4e57edf99b98e1da4",
+          "file": "student-workflow.spec.ts",
+          "line": 29,
+          "column": 5
+        }
+      ]
+    }
+  ],
+  "errors": [],
+  "stats": {
+    "startTime": "2026-10-15T09:40:34.876Z",
+    "duration": 408577.86000000004,
+    "expected": 36,
+    "skipped": 0,
+    "unexpected": 0,
+    "flaky": 0
+  }
+}

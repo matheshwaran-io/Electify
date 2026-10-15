@@ -50,8 +50,8 @@ def chapter6(R):
     R.figure(F + "fig_change_cancel.png", "Figure 6.4 | Seat Handling When a Choice Is Changed or Cancelled", width=6.3)
     R.heading("6.6 Receipts", 2)
     for t in [
-        "Every confirmed registration receives a receipt number of the form `ELC-<year>-<term>-<sequence>`, for example ELC-2026-EVEN-000048. The sequence is computed from the highest existing number while holding a PostgreSQL advisory lock, so two confirmations committed at the same moment cannot receive the same number; a unique constraint on the receipt number provides a further guarantee. The receipt is also stored as a JSON snapshot containing the student's details, the full class, cohort, Year Server and semester, and the confirmed subjects. Because it is a snapshot, the receipt continues to show what was confirmed even if the student's records or the subject names change later.",
-        "Students see their registration record and receipt immediately after confirming (Figure 6.5) and can download it as a PDF, which is generated in the browser with jsPDF, or print it. During testing it was observed that the term part of the receipt number is derived from the event's name — it is ODD only if the name contains the word “odd” — rather than from the semester stored on the event. As a result, the Semester 3 event in the demonstration data produced an EVEN receipt number. This defect is recorded in Chapter 8.",
+        "Every confirmed registration receives a receipt number of the form `ELC-<year>-<term>-<sequence>`, where the term is ODD or EVEN according to the event's semester; a Semester 3 registration in 2026 is numbered like ELC-2026-ODD-000048. The sequence is computed from the highest existing number while holding a PostgreSQL advisory lock, so two confirmations committed at the same moment cannot receive the same number; a unique constraint on the receipt number provides a further guarantee. The receipt is also stored as a JSON snapshot containing the student's details, the full class, cohort, Year Server and semester, and the confirmed subjects. Because it is a snapshot, the receipt continues to show what was confirmed even if the student's records or the subject names change later.",
+        "Students see their registration record and receipt immediately after confirming (Figure 6.5) and can download it as a PDF, which is generated in the browser with jsPDF, or print it. An earlier version took the term from the event's name, so the Semester 3 event in the demonstration data received an EVEN number; the term now comes from the semester stored on the event, and the name is used only for older events created without one (defect D3 in Chapter 8).",
     ]:
         R.para(t)
     R.figure(S + "15_after_submit.png", "Figure 6.5 | Registration Record and Receipt Shown After a Successful Submission", width=6.2)
@@ -72,7 +72,7 @@ def chapter6(R):
     R.heading("6.8 Audit Trail and Registration Replay", 2)
     for t in [
         "Two complementary logs are kept. The audit log records administrative and security-relevant actions, such as sign-ins, account creation, signup-code use, password-reset approvals, event status changes and registrations, with the user, role and a structured description of the change (Figure 6.7). Authorisation codes themselves are never written to the log. The replay log records registration activity for each event — registrations, changes, cancellations and resets — together with the seat count before and after each step.",
-        "The replay log supports the Registration Replay page (Figure 6.6), which lets staff step through the order in which students registered, distinguish student submissions from manual entries made by tutors, and export the activity. This makes it possible to answer questions such as who took the last seat in a subject and when, which is difficult to establish with form-based processes. A limitation observed during testing is that the IP address column of the audit log shows a fixed placeholder value, `client-ip`, because the sign-in code does not yet read the client's address from the request.",
+        "The replay log supports the Registration Replay page (Figure 6.6), which lets staff step through the order in which students registered, distinguish student submissions from manual entries made by tutors, and export the activity. This makes it possible to answer questions such as who took the last seat in a subject and when, which is difficult to establish with form-based processes. The audit log also records the address a sign-in came from, taken from the proxy headers of the request. It is kept for information only: access decisions never depend on it, because such headers can be forged unless a trusted proxy sets them.",
     ]:
         R.para(t)
     R.figure(S + "36b_replay_event.png", "Figure 6.6 | Registration Replay for an Event", width=6.2)
@@ -86,11 +86,11 @@ def chapter7(R):
     R.table("Table 7.1 | Development and Test Environment", ["Item", "Details"], [
         ["Operating system", "macOS 26.6 (Apple silicon)"],
         ["Runtime", "Node.js 24.16.0"],
-        ["Database (tests and screenshots)", "PostgreSQL 18.4 on the local machine, in a database created for this report"],
+        ["Databases (tests and screenshots)", "PostgreSQL 18.4 on the local machine: separate throwaway databases for the server-side tests, the browser tests and the demonstration data"],
         ["Database (development)", "A hosted Supabase PostgreSQL project used by the team as its development database"],
         ["Package manager and tools", "npm, tsx, drizzle-kit, ESLint, TypeScript compiler"],
-        ["Browser automation", "Playwright 1.64 driving Google Chrome, used to capture the screenshots in this report [26]"],
-        ["Version control", "Git; the results in this report refer to commit 8861a14"],
+        ["Browser automation", "Playwright 1.64 driving Google Chrome, used for the end-to-end tests and to capture the screenshots in this report [26]"],
+        ["Version control", "Git; the results in this report refer to commit bfd9bd8"],
     ], widths=[2.2, 4.4], bold_first=True)
     R.heading("7.2 Project Structure", 2)
     R.para("The repository follows the conventions of the Next.js App Router. The principal directories are described in Table 7.2.", after=8)
@@ -101,16 +101,17 @@ def chapter7(R):
         ["src/app/actions", "Server Actions grouped by area (Table 4.3)."],
         ["src/app/api", "Route handlers: health check and class switching."],
         ["src/lib", "Domain modules (authentication, workspace, eligibility, window rule, seat operations, password policy) and the database client and schema in src/lib/db."],
+        ["src/hooks, src/types", "Shared React hooks (for example the server-clock hook used by countdowns) and shared TypeScript types for sessions, registrations and API responses."],
         ["src/components", "Reusable interface components: layout shell, subject explorer, tutor tools, form controls and data tables."],
         ["src/proxy.ts", "Edge function that verifies the session cookie and guards routes by role."],
         ["drizzle", "Generated and hand-written SQL migrations, with rollback scripts in drizzle/rollback."],
         ["scripts", "Maintenance scripts: applying SQL migrations, seeding subject profiles, data clean-up."],
-        ["tests", "Automated tests and the fixture helper tests/helpers/world.ts."],
+        ["tests", "Server-side tests and their fixture helper tests/helpers/world.ts; browser tests, synthetic fixtures and helpers in tests/e2e (configured in playwright.config.ts)."],
     ], widths=[2.3, 4.3], size=10.5)
     R.heading("7.3 Database Schema and Migrations", 2)
     for t in [
         "The schema is declared in TypeScript with Drizzle in `src/lib/db/schema.ts`, from which drizzle-kit can create or synchronise tables. Changes that alter existing data are written as reviewed SQL files and applied with a small script, `scripts/db/apply-sql.ts`, which runs each file inside a single transaction so that a failure leaves the database unchanged. Each data-changing migration has a matching rollback script. Table 7.3 lists the migrations.",
-        "Migrations that rewrite data are written to be safe to run more than once, and they archive any row they change before changing it. For example, migration 0004, which retired an earlier waitlist feature, copies every affected row into an archive table as JSON, converts waitlisted choices — which never held a seat — into cancelled choices, and only then drops the waitlist columns. Migration 0006 introduced academic sessions and cohort targeting; where it could not map existing data with confidence, it left the data unchanged and recorded it for review by an administrator rather than guessing.",
+        "Migrations that rewrite data are written to be safe to run more than once, and they archive any row they change before changing it. For example, migration 0004, which retired an earlier waitlist feature, copies every affected row into an archive table as JSON, converts waitlisted choices — which never held a seat — into cancelled choices, and only then drops the waitlist columns. Migration 0006 introduced academic sessions and cohort targeting; where it could not map existing data with confidence, it left the data unchanged and recorded it for review by an administrator rather than guessing. Drizzle-kit's own migration runner is not used for existing databases: its journal records only the first three generated files (0000–0002), and on a database whose tables were created from the schema it stops with an error. Databases are therefore created from the schema with `db:push` and updated with the reviewed SQL files.",
     ]:
         R.para(t)
     R.table("Table 7.3 | Database Migrations", ["File", "Change", "Rollback"], [
@@ -137,7 +138,7 @@ def chapter7(R):
     ], widths=[2.2, 4.4], bold_first=True)
     R.heading("7.5 Student Interface", 2)
     for t in [
-        "After signing in, a student is taken to the event for their class. If the event has not yet opened, the application sends the student to a countdown page (in the version tested this page failed with a server error, as reported in Chapter 8); once the window opens, the student sees the elective picker. The picker is a client component that keeps the student's selections in memory, shows the remaining seats for each subject, offers a details view and a side-by-side comparison of subjects, and enables the confirmation button only when every basket has a choice. When the picker receives a realtime notification that a subject's seats have changed, it updates the counts and disables subjects that have become full.",
+        "After signing in, a student is taken to the event for their class. If the event has not yet opened, the application sends the student to a countdown page that follows the server's clock and moves the student to the picker when the window opens. (An earlier version of this page failed with a server error on every load; see defect D1 in Chapter 8.) The picker is a client component that keeps the student's selections in memory, shows the remaining seats for each subject, offers a details view and a side-by-side comparison of subjects, and enables the confirmation button only when every basket has a choice. When the picker receives a realtime notification that a subject's seats have changed, it updates the counts and disables subjects that have become full. It also asks the server for fresh data every thirty seconds and whenever the tab becomes visible again, and it uses the new counts each time, so the display stays current even where realtime is not configured.",
         "The registration record page (Figure 6.5) shows the confirmed choices with buttons to change or cancel each one while the window is open, the closing time, and the receipt with a copy button for the receipt number. Errors are shown in plain language and identify what the student can do next, for example when the student is offline or when the window has closed.",
     ]:
         R.para(t)
@@ -152,7 +153,7 @@ def chapter7(R):
     R.heading("7.7 Live Monitoring and Realtime Updates", 2)
     for t in [
         "The Live Registration Monitor (Figure 7.3) gives coordinators and tutors a view of an event while it is running: student turnout, submissions per minute, seat saturation, the number of full subjects, participation by class, seat saturation for each subject, and a stream of recent activity that can be filtered to confirmations, changes or cancellations. The page refreshes automatically at a selectable interval, and staff can pause, resume or close the window and export the activity stream as CSV from the same page.",
-        "Live updates use Supabase Realtime [24]. The student picker and the subject explorer subscribe to changes on the subject table, and the tutor's class page subscribes to changes in registrations; a presence channel shows which students are currently online. These subscriptions improve responsiveness, but no rule depends on them: the subject explorer also polls every thirty seconds, the monitor polls on its own interval, and every action re-checks seats on the server. During the screenshot session, realtime was intentionally not configured in the isolated copy of the application, which is why the student pages in this report show a “Reconnecting” indicator. The monitor also displayed the message that the window was closed for new submissions while the Semester 3 event was in fact open to students; this inconsistency is recorded in Chapter 8.",
+        "Live updates use Supabase Realtime [24]. The student picker and the subject explorer subscribe to changes on the subject table, and the tutor's class page subscribes to changes in registrations; a presence channel shows which students are currently online. These subscriptions improve responsiveness, but no rule depends on them: the subject explorer also polls every thirty seconds, the monitor polls on its own interval, and every action re-checks seats on the server. Realtime is optional: when no Supabase project is configured, the application opens no channels at all and the pages show that seats refresh every thirty seconds. Realtime was not configured for the screenshots in this report, so that the isolated copy of the application would not connect to the team's hosted project.",
     ]:
         R.para(t)
     R.figure(S + "34_coord_monitor.png", "Figure 7.3 | Live Registration Monitor for the Semester 3 Event", width=6.2)
@@ -164,7 +165,7 @@ def chapter7(R):
     R.figure(S + "35_coord_reports.png", "Figure 7.4 | Coordinator Reports Page with Allotments by Student", width=6.2)
     R.heading("7.9 Configuration and Deployment Considerations", 2)
     for t in [
-        "The application is configured through environment variables, listed in Table 7.5. A health endpoint, `/api/health`, reports whether the database is reachable and whether the expected configuration is present; it can also create the first administrator account, which in production requires a separate setup secret. Administrators can switch on maintenance mode, which shows a maintenance page and makes registration actions refuse requests.",
+        "The application is configured through environment variables, listed in Table 7.5. A health endpoint, `/api/health`, reports whether the database is reachable and whether the expected configuration is present; it can also create the first administrator account, which in production requires a separate setup secret and an explicitly configured initial password, so the well-known development password is never used there. Administrators can switch on maintenance mode, which shows a maintenance page and makes registration actions refuse requests.",
         "The project includes deployment notes for hosting on a Node.js platform with a pooled PostgreSQL connection. At the time of writing the system has been run only in development environments; it has not been deployed for a live registration cycle, and the settings recommended in the deployment notes, such as connection pool sizes, have not been validated under load.",
     ]:
         R.para(t)
