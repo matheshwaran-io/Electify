@@ -138,21 +138,6 @@ export function SettingsClient({ settings, user }: { settings: SystemSettings; u
           </Panel>
         ) : null}
 
-        <Panel title="About">
-          <dl className="divide-y divide-border text-sm">
-            {[
-              ["Application", "Electify"],
-              ["Database", "Supabase PostgreSQL"],
-              ["ORM", "Drizzle ORM"],
-              ["Framework", "Next.js 16"],
-            ].map(([k, v]) => (
-              <div key={k} className="flex justify-between gap-4 py-2.5 first:pt-0 last:pb-0">
-                <dt className="text-fg-muted">{k}</dt>
-                <dd className="font-medium text-fg">{v}</dd>
-              </div>
-            ))}
-          </dl>
-        </Panel>
       </div>
     </div>
   );

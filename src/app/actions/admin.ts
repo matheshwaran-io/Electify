@@ -728,6 +728,106 @@ export async function createDepartment(data: {
   return { success: true, department: newDepartment };
 }
 
+export async function createProgramme(data: {
+  departmentId: string;
+  name: string;
+  code: string;
+  degreeType?: string | null;
+  durationYears?: number | null;
+  semesters?: number | null;
+}) {
+  const session = await assertAdminOrCoordinator();
+
+  const departmentId = data.departmentId?.trim();
+  const name = data.name?.trim();
+  const code = data.code?.trim().toUpperCase();
+  const degreeType = data.degreeType?.trim() || null;
+  const durationYears = data.durationYears ?? 4;
+  const semesters = data.semesters ?? (durationYears * 2);
+
+  if (!departmentId) {
+    throw new Error("Department is required.");
+  }
+  if (!name || !code) {
+    throw new Error("Programme name and code are required.");
+  }
+  if (durationYears < 1 || durationYears > 10) {
+    throw new Error("Duration must be between 1 and 10 years.");
+  }
+  if (semesters < 1 || semesters > 20) {
+    throw new Error("Semesters must be between 1 and 20.");
+  }
+
+  const [dept] = await db
+    .select({ id: departments.id, name: departments.name })
+    .from(departments)
+    .where(eq(departments.id, departmentId));
+
+  if (!dept) {
+    throw new Error("Selected department not found.");
+  }
+
+  const existingProg = await db
+    .select({ id: programmes.id, code: programmes.code, name: programmes.name })
+    .from(programmes)
+    .where(
+      or(
+        eq(sql`lower(${programmes.code})`, code.toLowerCase()),
+        and(
+          eq(sql`lower(${programmes.name})`, name.toLowerCase()),
+          eq(programmes.departmentId, departmentId)
+        )
+      )
+    )
+    .limit(1);
+
+  if (existingProg.length > 0) {
+    if (existingProg[0].code.toUpperCase() === code) {
+      throw new Error(`Programme code "${code}" already exists.`);
+    }
+    throw new Error(`Programme name "${name}" already exists in this department.`);
+  }
+
+  const [newProgramme] = await db
+    .insert(programmes)
+    .values({
+      name,
+      code,
+      degreeType,
+      durationYears,
+      semesters,
+      departmentId,
+    })
+    .returning();
+
+  await db.insert(auditLogs).values({
+    action: "PROGRAMME_CREATED",
+    userId: session.userId,
+    userEmail: session.email,
+    userRole: session.role,
+    newValue: { id: newProgramme.id, name, code, degreeType, durationYears, semesters, departmentId },
+  });
+
+  try {
+    const cache = await import("next/cache") as any;
+    if (typeof cache.revalidatePath === "function") {
+      cache.revalidatePath("/faculty/departments");
+      cache.revalidatePath("/faculty/invites");
+      cache.revalidatePath("/", "layout");
+    }
+    if (typeof cache.updateTag === "function") {
+      cache.updateTag("hierarchy");
+    }
+    if (typeof cache.revalidateTag === "function") {
+      cache.revalidateTag("hierarchy", "max");
+    }
+  } catch (err) {
+    console.warn("Revalidation warning:", err);
+  }
+
+  return { success: true, programme: newProgramme };
+}
+
 export async function deleteFaculty(facultyId: string) {
   const session = await assertAdminOrCoordinator();
 

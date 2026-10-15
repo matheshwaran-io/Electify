@@ -84,6 +84,7 @@ export function buildNav(role: Role, workspace: string): NavGroup[] {
         { label: "Electives & baskets", href: "/faculty/tutor-electives", icon: BookOpen, key: "e" },
         { label: "Students", href: "/faculty/section", icon: GraduationCap, key: "s", primary: true },
         { label: "Reports", href: "/faculty/tutor-reports", icon: FileBarChart, key: "r", primary: true },
+        { label: "Approvals", href: "/faculty/approvals", icon: ShieldCheck },
       ],
     },
     { label: "Administration", items: [database] },
