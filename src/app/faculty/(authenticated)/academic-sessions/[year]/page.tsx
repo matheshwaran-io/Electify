@@ -1,5 +1,5 @@
 import { redirect } from "next/navigation";
-import { getSession } from "@/lib/auth";
+import { getSession, isRootAdmin } from "@/lib/auth";
 import { getYearServerWorkspaceDetails } from "@/app/actions/year-servers";
 import { resolveStaffWorkspace } from "@/lib/workspace";
 import { ErrorState } from "@/components/ui/feedback";
@@ -9,7 +9,7 @@ export const dynamic = "force-dynamic";
 
 export async function generateMetadata({ params }: { params: Promise<{ year: string }> }) {
   const { year } = await params;
-  return { title: `Academic Year ${year} · Electify` };
+  return { title: `Academic Timeline ${year} · Electify` };
 }
 
 export default async function YearServerWorkspacePage({
@@ -24,14 +24,14 @@ export default async function YearServerWorkspacePage({
   const { year: yearParam } = await params;
   const year = Number(yearParam);
   if (!Number.isFinite(year)) {
-    return <ErrorState title="Invalid Academic Year" description="Please provide a valid year." />;
+    return <ErrorState title="Invalid Academic Timeline" description="Please provide a valid year." />;
   }
 
   const details = await getYearServerWorkspaceDetails(year);
   if (!details.success) {
     return (
       <ErrorState
-        title={`Academic Year ${year} not found`}
+        title={`Academic Timeline ${year} not found`}
         description={details.error}
       />
     );
@@ -44,7 +44,9 @@ export default async function YearServerWorkspacePage({
     <YearServerWorkspaceClient
       details={details}
       isAdmin={user.role === "SYSTEM_ADMIN"}
+      isRootAdmin={isRootAdmin(user.email)}
       activeSectionId={activeSectionId}
     />
   );
 }
+

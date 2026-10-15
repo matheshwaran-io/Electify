@@ -26,7 +26,7 @@ import {
   sections,
   users,
 } from "@/lib/db/schema";
-import { getSession, type UserSession } from "@/lib/auth";
+import { getSession, isRootAdmin, type UserSession } from "@/lib/auth";
 import { loadStaffScope, type StaffScope } from "@/lib/workspace";
 import { cohortYears, sessionLabel, stageLabel, suggestedStudyYear } from "@/lib/academic";
 
@@ -121,8 +121,23 @@ export async function getAcademicSessionsOverview(): Promise<Result<{ sessions: 
 export async function createAcademicSession(input: { startYear: number; status?: "PLANNED" | "ACTIVE" }): Promise<Result<{ id: string }>> {
   try {
     const { user } = await requireManager(true);
+    if (!isRootAdmin(user.email)) {
+      throw new Error("Only the Root Administrator can create an Academic Timeline.");
+    }
     const startYear = Math.trunc(Number(input.startYear));
-    if (!Number.isFinite(startYear) || startYear < 2000 || startYear > 2100) throw new Error("Enter a start year between 2000 and 2100.");
+    const currentYear = new Date().getFullYear();
+    const minAllowedYear = currentYear - 1;
+    const maxAllowedYear = currentYear + 3;
+
+    if (!Number.isFinite(startYear)) {
+      throw new Error("Enter a valid start year.");
+    }
+    if (startYear < minAllowedYear) {
+      throw new Error(`Only 1 past year from the current year can exist (minimum year ${minAllowedYear}).`);
+    }
+    if (startYear > maxAllowedYear) {
+      throw new Error(`Only up to 3 years from the current year can be added (maximum year ${maxAllowedYear}).`);
+    }
     const status = input.status === "PLANNED" ? "PLANNED" : "ACTIVE";
     const [existing] = await db.select().from(academicSessions).where(eq(academicSessions.startYear, startYear)).limit(1);
     if (existing) throw new Error(`Academic session ${sessionLabel(existing)} already exists.`);
