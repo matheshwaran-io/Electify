@@ -87,7 +87,7 @@ Navigation (already present, verified rather than rebuilt): phone bottom bar + "
 
 ## 6. Accessibility
 
-Automated: axe-core (WCAG 2.0/2.1 A and AA rules) on 14 pages at 1440 and 390 px (`accessibility.spec.ts`).
+Automated: axe-core (WCAG 2.0/2.1 A and AA rules) on 15 pages at 1440 and 390 px (`accessibility.spec.ts`).
 
 | Before | After |
 | --- | --- |
@@ -124,7 +124,7 @@ No duplicate requests or repeated server-action calls on load were seen (the sin
 | `eslint src` | **Passed** (0 problems). Linting `tests/` shows 15 warnings, all unused imports in pre-existing test files |
 | Node unit/integration tests (`npm test`, local DB) | **136 / 136 passed** (18 suites, ~9 s), repeated serially; includes 6 new unit regression tests |
 | Playwright end-to-end (`npm run test:e2e`) | **All passed** — 36 tests: route reload sweep (14), student workflow (1), staff workspace and isolation (4), sessions (6), freshness (1), mobile layout (5), accessibility (3), navigation (2) |
-| Accessibility (axe) | **Passed** — 0 violations on 14 pages × 2 widths |
+| Accessibility (axe) | **Passed** — 0 violations on 15 pages × 2 widths |
 | Responsive (7 viewports) | **Passed** — 0 overflow in 154 measurements |
 | Production build (`NEXT_DIST_DIR=.next-build next build`) | **Passed**; `/login` still statically rendered |
 
@@ -150,6 +150,8 @@ Workflows verified in the browser with database assertions: sign-in and reload; 
 3. "Reopen" after an automatic deadline has passed sets the status to OPEN, but the window rule still closes the window after `close_date`; staff must move the closing time instead. The button label does not explain this.
 4. The R4 realtime race fix and presence channels that share the topic `online-users` (tutor class and report pages) should be re-tested with realtime configured.
 5. `src/lib/workspace.ts`'s header comment still says a single Year Server is selected automatically; since commit `2ceabe6` staff always choose explicitly after sign-in (intended behaviour, covered by tests). Comment only.
+
+6a. **Hydration mismatch with reduced motion (open).** Found on 15 October 2026 while capturing report screenshots: when the browser requests reduced motion, the decorative `SeatMark` graphic on `/login` and `/join` renders a different `style` on the server than on the client, and React logs a hydration error. The e2e suite runs without that preference, so it does not catch this. Fix: render the same markup on both sides (decide the reduced-motion variant after mount), then add a Playwright project with `reducedMotion: "reduce"`.
 
 **Cosmetic / usability**
 6. Data-heavy tables (audit log, invite codes, events) remain horizontally scrollable tables on phones rather than card layouts; they are usable but dense.

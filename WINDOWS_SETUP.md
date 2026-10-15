@@ -6,7 +6,7 @@ A step-by-step guide for running Electify on **Windows 10 or Windows 11**, writt
 - No administrator rights are needed, except where an installer asks for them.
 - Docker and WSL are **not** required.
 
-> **What has been verified.** The commands in this guide come from the repository's `package.json` and configuration. They were run on macOS (Node.js 24.16, npm 11.13): install, lint, type check, unit tests, production build and one end-to-end spec. They have **not yet been run on a Windows PC**; §G.4 describes how to confirm them there.
+> **What has been verified.** The commands in this guide come from the repository's `package.json` and configuration. On 15 October 2026 they were run on **macOS** (Node.js 24.16, npm 11.13): lint, type check, unit tests (12/12), integration tests against a local PostgreSQL (136/136), production build and the full end-to-end suite (36/36). The lockfile was checked for the Windows builds of the native packages (Next.js SWC, Tailwind, lightningcss, sharp, esbuild). They have **not been run on a Windows PC**; §G and §G.4 describe how to confirm them there.
 
 ---
 
@@ -195,14 +195,15 @@ Choose **one** option.
 
 - Get `DATABASE_URL` (pooled, port 6543) and `DIRECT_URL` from the project owner or Supabase → *Connect*. Remote connections use SSL automatically.
 - **A shared database already has its schema. Do not run `db:push`, `db:seed`, `db:reset`, `db:clean` or `fix:passwords` against it.**
-- Schema changes to an existing database go through the reviewed SQL migrations, after taking a backup. See `docs/database.md` and `docs/deployment.md`:
+- Schema changes to an existing database go through the reviewed, hand-written SQL migrations, after taking a backup. Each runs in one transaction and changes nothing if it fails. Run only the ones the project owner tells you are pending:
 
   ```powershell
-  npm run db:migrate
   npm run db:migrate:remove-waitlist
   npm run db:migrate:subject-profiles
   npm run db:migrate:academic-sessions
   ```
+
+- **Do not use `npm run db:migrate`** (drizzle-kit's migrator) for these databases, even though `docs/database.md` lists it. Its migration list only covers the first three generated files (`drizzle/0000`–`0002`). On a database built with `db:push` it stops with an error, and on an empty database it creates only part of the schema. Both were checked on a throwaway local database.
 
 ### Commands that change or delete data
 

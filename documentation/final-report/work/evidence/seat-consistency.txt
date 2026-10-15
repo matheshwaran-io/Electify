@@ -9,4 +9,4 @@ Organisational Behaviour|20|9|11
 Python for Data Analysis|35|35|0
 UI/UX Fundamentals|35|35|0
 (9 rows)
-2026-10-13 11:48:59 IST
+2026-10-15 15:21:03 IST

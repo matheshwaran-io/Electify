@@ -1,5 +1,6 @@
 import { drizzle } from "drizzle-orm/node-postgres";
 import { Pool, PoolConfig } from "pg";
+import dns from "node:dns";
 import * as schema from "./schema";
 
 const globalForDb = globalThis as unknown as {
@@ -29,9 +30,18 @@ function getPool(): Pool {
     allowExitOnIdle: true,
   };
 
-  // Cloud PostgreSQL (Supabase, Neon, RDS) requires SSL
+  // Cloud PostgreSQL (Supabase, Neon, RDS) requires SSL and IPv6-compatible DNS resolution
   if (!isLocal) {
     poolConfig.ssl = { rejectUnauthorized: false };
+    poolConfig.lookup = (hostname, options, cb) => {
+      dns.lookup(hostname, { all: true }, (err, addresses) => {
+        if (!err && addresses && addresses.length > 0) {
+          cb(null, addresses[0].address, addresses[0].family);
+          return;
+        }
+        dns.lookup(hostname, options, cb);
+      });
+    };
   }
 
   const pool = new Pool(poolConfig);
