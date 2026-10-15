@@ -33,15 +33,15 @@ function getPool(): Pool {
   // Cloud PostgreSQL (Supabase, Neon, RDS) requires SSL and IPv6-compatible DNS resolution
   if (!isLocal) {
     poolConfig.ssl = { rejectUnauthorized: false };
-    poolConfig.lookup = (hostname, options, cb) => {
+    (poolConfig as unknown as { lookup: typeof dns.lookup }).lookup = ((hostname: string, options: dns.LookupOptions, cb: (err: NodeJS.ErrnoException | null, address: string, family: number) => void) => {
       dns.lookup(hostname, { all: true }, (err, addresses) => {
         if (!err && addresses && addresses.length > 0) {
           cb(null, addresses[0].address, addresses[0].family);
           return;
         }
-        dns.lookup(hostname, options, cb);
+        dns.lookup(hostname, options as dns.LookupOneOptions, cb);
       });
-    };
+    }) as unknown as typeof dns.lookup;
   }
 
   const pool = new Pool(poolConfig);

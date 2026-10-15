@@ -202,7 +202,7 @@ export function ElectivesClient({ initialGroups, hierarchy }: ElectivesClientPro
       <PageHeader
         title="Electives & seats"
         description="Subjects, the baskets students pick from, and how seats are split across classes."
-        meta={<Badge tone="outline">Course Controller · Semi Control</Badge>}
+        meta={<Badge tone="outline">Course Coordinator · Semi Control</Badge>}
         actions={
           <>
             <Tooltip content="Refresh">

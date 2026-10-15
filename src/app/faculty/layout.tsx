@@ -53,7 +53,17 @@ export default async function FacultyLayout({
       </main>
     );
   }
-  if (isSessionScopedPath(pathname) && resolution.status !== "OK") {
+  const isSessionSelect = pathname === "/faculty/session-select" || pathname?.startsWith("/faculty/session-select?");
+  const isUnscopedPath =
+    pathname === "/faculty/settings" ||
+    pathname === "/faculty/academic-sessions" ||
+    pathname === "/faculty/users" ||
+    pathname === "/faculty/invites" ||
+    pathname === "/faculty/templates" ||
+    pathname === "/faculty/portal-select";
+  const shouldRequireSession = isSessionScopedPath(pathname) || (!pathname && !isSessionSelect);
+
+  if (!isSessionSelect && !isUnscopedPath && shouldRequireSession && resolution.status !== "OK") {
     redirect(`/faculty/session-select?next=${encodeURIComponent(pathname ?? "/faculty/dashboard")}`);
   }
 

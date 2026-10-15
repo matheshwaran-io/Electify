@@ -2,7 +2,7 @@ export type InviteRole = "CLASS_TUTOR" | "COURSE_COORDINATOR" | "SYSTEM_ADMIN" |
 
 export const ROLE_CONFIGS: Record<InviteRole, { label: string; prefix: string; description: string }> = {
   CLASS_TUTOR: {
-    label: "Faculty",
+    label: "Class Tutor",
     prefix: "FAC",
     description: "Class control, section roster & reports",
   },
@@ -12,7 +12,7 @@ export const ROLE_CONFIGS: Record<InviteRole, { label: string; prefix: string; d
     description: "Programme electives, courses & allocations",
   },
   SYSTEM_ADMIN: {
-    label: "Admin",
+    label: "System Admin",
     prefix: "ADM",
     description: "Full system administration & governance",
   },

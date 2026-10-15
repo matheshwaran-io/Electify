@@ -14,6 +14,7 @@
  * - With exactly one enterable session it is used without asking.
  */
 import { cache } from "react";
+import { redirect } from "next/navigation";
 import { and, asc, eq, inArray, or, sql } from "drizzle-orm";
 import { db } from "@/lib/db";
 import {
@@ -261,6 +262,15 @@ export async function requireStaffWorkspace(): Promise<Workspace> {
   if (res.status === "OK") return res.workspace;
   if (res.status === "NOT_STAFF") throw new WorkspaceError("Unauthorized");
   throw new WorkspaceError("Choose an academic session first.");
+}
+
+/** For server component pages: returns the workspace or redirects cleanly to session selection without crashing. */
+export async function requirePageWorkspace(nextPath?: string): Promise<Workspace> {
+  const res = await resolveStaffWorkspace();
+  if (res.status === "OK") return res.workspace;
+  if (res.status === "NOT_STAFF") redirect("/login");
+  const target = nextPath ? `/faculty/session-select?next=${encodeURIComponent(nextPath)}` : "/faculty/session-select";
+  redirect(target);
 }
 
 /** The class with this id, if the workspace may manage it. */
