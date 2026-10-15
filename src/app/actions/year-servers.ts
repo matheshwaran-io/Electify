@@ -28,7 +28,7 @@ import {
   tutorSections,
   users,
 } from "@/lib/db/schema";
-import { getSession, type UserSession } from "@/lib/auth";
+import { getSession, isRootAdmin, type UserSession } from "@/lib/auth";
 import { loadStaffScope, resolveStaffWorkspace, WORKSPACE_COOKIE, type StaffScope } from "@/lib/workspace";
 import { cohortLabel, sessionLabel } from "@/lib/academic";
 
@@ -76,7 +76,7 @@ async function revalidate() {
 export type YearServerCard = {
   id: string;
   year: number;
-  label: string; // e.g. "2026 Year Server"
+  label: string; // e.g. "2026 Academic Timeline"
   status: "ACTIVE" | "PLANNED" | "ARCHIVED";
   programmeCount: number;
   classCount: number;
@@ -95,12 +95,13 @@ export async function getYearServersOverview(): Promise<
   Result<{
     servers: YearServerCard[];
     isAdmin: boolean;
+    isRootAdmin: boolean;
     currentSessionId: string | null;
     unresolvedCount: number;
   }>
 > {
   try {
-    const { scope } = await requireStaff();
+    const { user, scope } = await requireStaff();
     const resolution = await resolveStaffWorkspace();
     const currentSessionId = resolution.status === "OK" ? resolution.workspace.session.id : null;
 
@@ -203,7 +204,7 @@ export async function getYearServersOverview(): Promise<
       cards.push({
         id: s.id,
         year: s.startYear,
-        label: `${s.startYear} Year Server`,
+        label: `${s.startYear} Academic Timeline`,
         status: s.status as "ACTIVE" | "PLANNED" | "ARCHIVED",
         programmeCount: relevantProgrammeIds.length,
         classCount: sectionIds.length,
@@ -216,8 +217,9 @@ export async function getYearServersOverview(): Promise<
 
     return {
       success: true,
-      servers: cards,
+      servers: cards.sort((a, b) => (a.year ?? 0) - (b.year ?? 0)),
       isAdmin: scope.allClasses,
+      isRootAdmin: isRootAdmin(user.email),
       currentSessionId,
       unresolvedCount,
     };
@@ -236,19 +238,22 @@ export async function createYearServer(input: {
 }): Promise<Result<{ id: string; year: number }>> {
   try {
     const { user } = await requireAdmin();
+    if (!isRootAdmin(user.email)) {
+      throw new Error("Only the Root Administrator can create an Academic Timeline.");
+    }
     const year = Math.trunc(Number(input.year));
     const currentYear = new Date().getFullYear();
-    const maxAllowedYear = currentYear + 2;
-    const minAllowedYear = 2020;
+    const minAllowedYear = currentYear - 1; // 1 year old from current year
+    const maxAllowedYear = currentYear + 3; // up to 3 years from current year
 
     if (!Number.isFinite(year)) {
       throw new Error("Enter a valid admission year.");
     }
     if (year < minAllowedYear) {
-      throw new Error(`Admission year cannot be earlier than ${minAllowedYear}.`);
+      throw new Error(`Only 1 past year from the current year can exist (minimum year ${minAllowedYear}).`);
     }
     if (year > maxAllowedYear) {
-      throw new Error(`Planning is restricted to a maximum of 2 years in advance (maximum year ${maxAllowedYear}).`);
+      throw new Error(`Only up to 3 years from the current year can be added (maximum year ${maxAllowedYear}).`);
     }
 
     const [existing] = await db
@@ -258,7 +263,7 @@ export async function createYearServer(input: {
       .limit(1);
 
     if (existing) {
-      throw new Error(`${year} Year Server already exists.`);
+      throw new Error(`${year} Academic Timeline already exists.`);
     }
 
     const status = input.status === "PLANNED" ? "PLANNED" : "ACTIVE";
@@ -321,7 +326,7 @@ export async function setYearServerStatus(
     }
 
     const [row] = await db.select().from(academicSessions).where(eq(academicSessions.id, id)).limit(1);
-    if (!row) throw new Error("Year Server not found.");
+    if (!row) throw new Error("Academic Timeline not found.");
 
     if (status === "ARCHIVED") {
       const [open] = await db
@@ -330,7 +335,7 @@ export async function setYearServerStatus(
         .where(and(eq(registrationEvents.academicSessionId, id), inArray(registrationEvents.status, ["OPEN", "PUBLISHED", "PAUSED"])));
       if (open && open.n > 0) {
         throw new Error(
-          `Cannot archive ${row.startYear} Year Server while it has ${open.n} active or open registration event(s). Close them first.`
+          `Cannot archive ${row.startYear} Academic Timeline while it has ${open.n} active or open registration event(s). Close them first.`
         );
       }
     }
@@ -382,7 +387,7 @@ export async function getYearServerDeleteImpact(
       .limit(1);
 
     if (!session) {
-      throw new Error("Year Server not found.");
+      throw new Error("Academic Timeline not found.");
     }
 
     // Cohorts linked
@@ -444,7 +449,7 @@ export async function getYearServerDeleteImpact(
       success: true,
       id: session.id,
       year: session.startYear,
-      label: `${session.startYear} Year Server`,
+      label: `${session.startYear} Academic Timeline`,
       status: session.status,
       programmeCount: programmeIds.length,
       classCount,
@@ -477,6 +482,9 @@ export async function deleteYearServer(
 ): Promise<Result<{ deletedYear: number }>> {
   try {
     const { user } = await requireAdmin();
+    if (!isRootAdmin(user.email)) {
+      throw new Error("Only the Root Administrator can delete an Academic Timeline.");
+    }
 
     const [session] = await db
       .select()
@@ -485,7 +493,7 @@ export async function deleteYearServer(
       .limit(1);
 
     if (!session) {
-      throw new Error("Year Server not found.");
+      throw new Error("Academic Timeline not found.");
     }
 
     // 1. Inspect attached registration events
@@ -561,6 +569,9 @@ export async function deleteEmptyYearServers(): Promise<
 > {
   try {
     const { user } = await requireAdmin();
+    if (!isRootAdmin(user.email)) {
+      throw new Error("Only the Root Administrator can delete Academic Timelines.");
+    }
 
     const overview = await getYearServersOverview();
     if (!overview.success) {
@@ -652,7 +663,7 @@ export async function getYearServerWorkspaceDetails(
       .limit(1);
 
     if (!session) {
-      throw new Error(`Year Server ${year} was not found.`);
+      throw new Error(`Academic Timeline ${year} was not found.`);
     }
 
     // Find all classes in this session
@@ -809,7 +820,7 @@ export async function getYearServerWorkspaceDetails(
       success: true,
       id: session.id,
       year: session.startYear,
-      title: `${session.startYear} Year Server`,
+      title: `${session.startYear} Academic Timeline`,
       status: session.status,
       programmes: Array.from(programmeMap.values()),
       events: eventsList,
@@ -875,7 +886,7 @@ export async function getHistoricalReviewReport(): Promise<
       availableYearServers: sessions.map((s) => ({
         id: s.id,
         year: s.year,
-        label: `${s.year} Year Server`,
+        label: `${s.year} Academic Timeline`,
       })),
     };
   } catch (err) {
@@ -897,7 +908,7 @@ export async function linkHistoricalEventToYearServer(
     if (!event) throw new Error("Event not found.");
 
     const [session] = await db.select().from(academicSessions).where(eq(academicSessions.id, sessionId)).limit(1);
-    if (!session) throw new Error("Year Server not found.");
+    if (!session) throw new Error("Academic Timeline not found.");
 
     await db
       .update(registrationEvents)
@@ -912,7 +923,7 @@ export async function linkHistoricalEventToYearServer(
       eventId,
       eventName: event.name,
       sessionId,
-      yearServer: `${session.startYear} Year Server`,
+      yearServer: `${session.startYear} Academic Timeline`,
     });
 
     await revalidate();

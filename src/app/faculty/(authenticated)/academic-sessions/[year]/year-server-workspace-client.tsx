@@ -33,10 +33,12 @@ import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 export function YearServerWorkspaceClient({
   details,
   isAdmin = false,
+  isRootAdmin = false,
   activeSectionId,
 }: {
   details: YearServerWorkspaceDetails;
   isAdmin?: boolean;
+  isRootAdmin?: boolean;
   activeSectionId?: string;
 }) {
   const router = useRouter();
@@ -135,7 +137,7 @@ export function YearServerWorkspaceClient({
           className="hover:text-fg transition-colors flex items-center gap-1"
         >
           <ArrowLeft className="size-3" />
-          <span>Academic Years</span>
+          <span>Academic Timelines</span>
         </Link>
         <span>/</span>
         <span className="text-fg font-medium">{details.year}</span>
@@ -157,7 +159,7 @@ export function YearServerWorkspaceClient({
               </span>
               <div>
                 <h1 className="text-2xl font-light tracking-display text-fg sm:text-3xl">
-                  Academic Year {details.year}
+                  {details.year} Academic Timeline
                 </h1>
                 <p className="text-xs text-fg-muted font-mono mt-0.5">
                   Academic Timeline · {details.year} Intake
@@ -174,9 +176,9 @@ export function YearServerWorkspaceClient({
               href="/faculty/academic-sessions"
               className={buttonVariants({ variant: "outline", size: "sm" })}
             >
-              Switch Academic Year
+              Switch Timeline
             </Link>
-            {isAdmin && (
+            {isAdmin && isRootAdmin && (
               <Button
                 variant="ghost"
                 size="sm"
@@ -184,7 +186,7 @@ export function YearServerWorkspaceClient({
                 className="text-danger-text hover:bg-danger/10 gap-1 text-xs"
               >
                 <Trash2 className="size-3.5" />
-                <span>Delete Academic Year</span>
+                <span>Delete Academic Timeline</span>
               </Button>
             )}
           </div>
@@ -426,7 +428,7 @@ export function YearServerWorkspaceClient({
               onClick={() => setDeleteOpen(true)}
               className="shrink-0"
             >
-              Delete Academic Year {details.year}
+              Delete Academic Timeline {details.year}
             </Button>
           </div>
         </div>
@@ -436,14 +438,14 @@ export function YearServerWorkspaceClient({
       <ConfirmDialog
         open={deleteOpen}
         onOpenChange={setDeleteOpen}
-        title={`Delete Academic Year ${details.year}`}
+        title={`Delete Academic Timeline ${details.year}`}
         description={
           details.metrics.studentsCount > 0 || details.metrics.eventsCount > 0
-            ? `This will remove the Academic Year ${details.year} workspace. Existing student registrations and historical receipts will be safely preserved in Data Review.`
-            : `This will permanently remove the Academic Year ${details.year} workspace.`
+            ? `This will remove the Academic Timeline ${details.year} workspace. Existing student registrations and historical receipts will be safely preserved in Data Review.`
+            : `This will permanently remove the Academic Timeline ${details.year} workspace.`
         }
         tone="danger"
-        confirmLabel="Delete Academic Year"
+        confirmLabel="Delete Academic Timeline"
         requireText={
           details.metrics.studentsCount > 0 || details.metrics.eventsCount > 0
             ? String(details.year)

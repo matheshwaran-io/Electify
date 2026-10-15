@@ -1383,7 +1383,7 @@ export async function getAllAvailableSections(): Promise<AvailableSectionsResult
     const activeTerms = sessionTermsByBatch.get(s.batchId) || [];
     const activeSessions = activeTerms.map((t) => ({
       id: t.sessionId,
-      label: `${t.startYear} Year Server`,
+      label: `${t.startYear} Academic Timeline`,
       studyYear: t.studyYear,
       semester: t.semester,
     }));
@@ -1662,7 +1662,7 @@ export async function getMyAssignedSections(): Promise<AssignedSectionCard[]> {
     const activeTerms = sessionTermsByBatch.get(a.batchId) || [];
     const activeSessions = activeTerms.map((t) => ({
       id: t.sessionId,
-      label: `${t.startYear} Year Server`,
+      label: `${t.startYear} Academic Timeline`,
       studyYear: t.studyYear,
       semester: t.semester,
     }));

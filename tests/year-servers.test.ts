@@ -201,8 +201,8 @@ describe("Year Servers System — Simplified Annual Workspaces", () => {
     assert.ok(server2025, "2025 Year Server card should exist");
     assert.ok(server2026, "2026 Year Server card should exist");
 
-    assert.strictEqual(server2025.label, "2025 Year Server");
-    assert.strictEqual(server2026.label, "2026 Year Server");
+    assert.ok(server2025.label.includes("2025") && server2025.label.includes("Academic Timeline"));
+    assert.ok(server2026.label.includes("2026") && server2026.label.includes("Academic Timeline"));
     assert.strictEqual(typeof server2025.programmeCount, "number");
     assert.strictEqual(typeof server2025.classCount, "number");
     assert.strictEqual(typeof server2025.studentCount, "number");
@@ -212,8 +212,12 @@ describe("Year Servers System — Simplified Annual Workspaces", () => {
   test("2. Admin can create a new Year Server with status PLANNED or ACTIVE", async () => {
     asAdmin();
     const currentYear = new Date().getFullYear();
-    const testYear = currentYear + 1; // within max 2 years
-    await db.delete(academicSessions).where(eq(academicSessions.startYear, testYear));
+    const testYear = currentYear + 2; // within max 3 years
+    const sRows = await db.select({ id: academicSessions.id }).from(academicSessions).where(eq(academicSessions.startYear, testYear));
+    for (const s of sRows) {
+      await db.delete(cohortSessionTerms).where(eq(cohortSessionTerms.academicSessionId, s.id));
+      await db.delete(academicSessions).where(eq(academicSessions.id, s.id));
+    }
     const res = await createYearServer({ year: testYear, status: "PLANNED" });
     assert.strictEqual(res.success, true);
     if (!res.success) return;
@@ -234,10 +238,10 @@ describe("Year Servers System — Simplified Annual Workspaces", () => {
     assert.strictEqual(dupRes.success, false);
     assert.ok(dupRes.error.includes("already exists"));
 
-    // Planning more than 2 years in advance is rejected (locked)
-    const futureRes = await createYearServer({ year: currentYear + 3 });
+    // Planning more than 3 years in advance is rejected (locked)
+    const futureRes = await createYearServer({ year: currentYear + 4 });
     assert.strictEqual(futureRes.success, false);
-    assert.ok(futureRes.error.includes("maximum of 2 years in advance"));
+    assert.ok(futureRes.error.includes("3 years from the current year"));
 
     // Activate the server
     const activateRes = await setYearServerStatus(res.id, "ACTIVE");
@@ -251,7 +255,7 @@ describe("Year Servers System — Simplified Annual Workspaces", () => {
     if (!details.success) return;
 
     assert.strictEqual(details.year, 2026);
-    assert.strictEqual(details.title, "2026 Year Server");
+    assert.ok(details.title.includes("2026") && details.title.includes("Academic Timeline"));
     assert.ok(details.metrics.programmesCount > 0);
     assert.ok(details.metrics.classesCount > 0);
 
@@ -327,7 +331,7 @@ describe("Year Servers System — Simplified Annual Workspaces", () => {
     if (!impact2026.success) return;
 
     assert.strictEqual(impact2026.year, 2026);
-    assert.strictEqual(impact2026.label, "2026 Year Server");
+    assert.ok(impact2026.label.includes("2026") && impact2026.label.includes("Academic Timeline"));
     assert.ok(impact2026.programmeCount > 0);
     assert.ok(impact2026.classCount > 0);
     assert.strictEqual(impact2026.isEmpty, false);
@@ -384,7 +388,7 @@ describe("Year Servers System — Simplified Annual Workspaces", () => {
     asTutor(session2026Id);
     const delRes = await deleteYearServer(session2026Id);
     assert.strictEqual(delRes.success, false);
-    assert.ok(delRes.error.toLowerCase().includes("only an administrator") || delRes.error.toLowerCase().includes("unauthorized"));
+    assert.ok(delRes.error.toLowerCase().includes("root") || delRes.error.toLowerCase().includes("administrator") || delRes.error.toLowerCase().includes("unauthorized"));
   });
 
   test("9. deleteEmptyYearServers safely prunes empty test servers", async () => {

@@ -64,10 +64,12 @@ const STATUS_CONFIG: Record<
 export function YearServersClient({
   servers,
   isAdmin,
+  isRootAdmin = false,
   unresolvedCount,
 }: {
   servers: YearServerCard[];
   isAdmin: boolean;
+  isRootAdmin?: boolean;
   currentSessionId?: string | null;
   unresolvedCount: number;
 }) {
@@ -141,13 +143,18 @@ export function YearServersClient({
     e.preventDefault();
     const yr = Number(newYear);
     const currentYear = new Date().getFullYear();
-    const maxAllowedYear = currentYear + 2;
-    if (!Number.isFinite(yr) || yr < 2020) {
-      toast.error("Please enter a valid year (2020 onwards).");
+    const minAllowedYear = currentYear - 1;
+    const maxAllowedYear = currentYear + 3;
+    if (!Number.isFinite(yr)) {
+      toast.error("Please enter a valid year.");
+      return;
+    }
+    if (yr < minAllowedYear) {
+      toast.error(`Only 1 past year from the current year can exist (minimum year ${minAllowedYear}).`);
       return;
     }
     if (yr > maxAllowedYear) {
-      toast.error(`Academic Years can only be planned up to 2 years in advance (maximum ${maxAllowedYear}).`);
+      toast.error(`Academic Timelines can only be added up to 3 years from the current year (maximum year ${maxAllowedYear}).`);
       return;
     }
 
@@ -157,11 +164,11 @@ export function YearServersClient({
       if (!res.success) {
         throw new Error(res.error);
       }
-      toast.success(`Academic Year ${yr} created successfully!`);
+      toast.success(`Academic Timeline ${yr} created successfully!`);
       setCreateOpen(false);
       router.refresh();
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Failed to create Academic Year");
+      toast.error(err instanceof Error ? err.message : "Failed to create Academic Timeline");
     } finally {
       setSubmitting(false);
     }
@@ -237,7 +244,7 @@ export function YearServersClient({
             </Link>
           ) : null}
 
-          {isAdmin && emptyServers.length > 0 ? (
+          {isRootAdmin && emptyServers.length > 0 ? (
             <Button
               variant="outline"
               size="sm"
@@ -249,14 +256,14 @@ export function YearServersClient({
             </Button>
           ) : null}
 
-          {isAdmin ? (
+          {isRootAdmin ? (
             <Button
               onClick={() => setCreateOpen(true)}
               size="sm"
               className="gap-1.5 shadow-sm"
             >
               <Plus className="size-4" />
-              <span>Create Academic Year</span>
+              <span>Create Academic Timeline</span>
             </Button>
           ) : null}
         </div>
@@ -450,15 +457,19 @@ export function YearServersClient({
                             {server.status !== "ARCHIVED" && (
                               <MenuItem onClick={() => handleStatusChange(server, "ARCHIVED")}>
                                 <span className="size-2 rounded-full bg-amber-500 mr-2" />
-                                <span>Archive Server</span>
+                                <span>Archive Timeline</span>
                               </MenuItem>
                             )}
 
-                            <MenuSeparator />
-                            <MenuItem tone="danger" onClick={() => setDeleteTarget(server)}>
-                              <Trash2 className="size-4 text-danger-text" />
-                              <span>Delete Server</span>
-                            </MenuItem>
+                            {isRootAdmin && (
+                              <>
+                                <MenuSeparator />
+                                <MenuItem tone="danger" onClick={() => setDeleteTarget(server)}>
+                                  <Trash2 className="size-4 text-danger-text" />
+                                  <span>Delete Academic Timeline</span>
+                                </MenuItem>
+                              </>
+                            )}
                           </MenuContent>
                         </Menu>
                       )}
@@ -533,29 +544,29 @@ export function YearServersClient({
         </div>
       )}
 
-      {/* ── Create Academic Year Modal ── */}
+      {/* ── Create Academic Timeline Modal ── */}
       <Dialog open={createOpen} onOpenChange={setCreateOpen}>
         <DialogContent className="sm:max-w-md">
           <form onSubmit={handleCreateServer}>
             <DialogHeader>
               <DialogTitle className="flex items-center gap-2">
                 <CalendarDays className="size-5 text-primary" />
-                <span>Create Academic Year</span>
+                <span>Create Academic Timeline</span>
               </DialogTitle>
               <DialogDescription>
-                Initializes a new annual academic timeline. Programmes and cohorts for this admission year will be grouped here.
+                Initializes a new isolated academic timeline and database workspace. Only Root Administrator can manage timelines.
               </DialogDescription>
             </DialogHeader>
 
             <DialogBody className="space-y-4 py-4">
               <Field
                 label="Admission / Cohort Year"
-                description={`The starting academic intake year. You can plan up to 2 years in advance (maximum ${new Date().getFullYear() + 2}).`}
+                description={`Up to 3 years from current year (${new Date().getFullYear() - 1} to ${new Date().getFullYear() + 3}).`}
               >
                 <Input
                   type="number"
-                  min={2020}
-                  max={new Date().getFullYear() + 2}
+                  min={new Date().getFullYear() - 1}
+                  max={new Date().getFullYear() + 3}
                   required
                   value={newYear}
                   onChange={(e) => setNewYear(e.target.value)}
@@ -564,7 +575,7 @@ export function YearServersClient({
                 />
               </Field>
 
-              <Field label="Status" description="Planned academic years can be configured before opening to students">
+              <Field label="Status" description="Planned timelines can be configured before opening to students">
                 <Select
                   value={newStatus}
                   onValueChange={(val) => setNewStatus(val as "ACTIVE" | "PLANNED")}
@@ -586,7 +597,7 @@ export function YearServersClient({
                 Cancel
               </Button>
               <Button type="submit" disabled={submitting}>
-                {submitting ? "Creating..." : "Create Academic Year"}
+                {submitting ? "Creating..." : "Create Academic Timeline"}
               </Button>
             </DialogFooter>
           </form>
@@ -597,14 +608,14 @@ export function YearServersClient({
       <ConfirmDialog
         open={deleteTarget !== null}
         onOpenChange={(open) => !open && setDeleteTarget(null)}
-        title={`Delete Academic Year ${deleteTarget?.year}`}
+        title={`Delete Academic Timeline ${deleteTarget?.year}`}
         description={
           deleteTarget && (deleteTarget.studentCount > 0 || deleteTarget.eventCount > 0)
-            ? `This will remove the Academic Year ${deleteTarget.year} workspace. Existing student registrations and historical receipts will be safely preserved in Data Review.`
-            : `This will permanently remove the Academic Year ${deleteTarget?.year} workspace.`
+            ? `This will remove the Academic Timeline ${deleteTarget.year} workspace. Existing student registrations and historical receipts will be safely preserved in Data Review.`
+            : `This will permanently remove the Academic Timeline ${deleteTarget?.year} workspace.`
         }
         tone="danger"
-        confirmLabel="Delete Academic Year"
+        confirmLabel="Delete Academic Timeline"
         requireText={
           deleteTarget && (deleteTarget.studentCount > 0 || deleteTarget.eventCount > 0)
             ? String(deleteTarget.year)

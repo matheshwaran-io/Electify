@@ -36,7 +36,7 @@ export function SessionIndicator({ session, collapsed, className }: { session: S
       <CalendarDays className="size-4 shrink-0 text-primary" aria-hidden />
       {!collapsed ? (
         <span className="min-w-0 flex-1">
-          <span className="block text-2xs uppercase tracking-wider text-fg-subtle">Academic Year</span>
+          <span className="block text-2xs uppercase tracking-wider text-fg-subtle">Academic Timeline</span>
           <span className="block truncate text-sm font-medium tabular-nums text-fg">{displayLabel}</span>
         </span>
       ) : null}
@@ -56,7 +56,7 @@ export function SessionIndicator({ session, collapsed, className }: { session: S
   )
 
   const content = session.switchable ? (
-    <Link href={SWITCH_HREF} className={classes} aria-label={`${displayLabel}. Switch Academic Year`}>
+    <Link href={SWITCH_HREF} className={classes} aria-label={`${displayLabel}. Switch Academic Timeline`}>
       {body}
     </Link>
   ) : (
