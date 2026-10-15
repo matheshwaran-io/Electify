@@ -13,6 +13,7 @@ import { SeatMark } from "@/components/auth/seat-mark";
 import { buttonVariants } from "@/components/ui/button-variants";
 import { getRegistrationWindow } from "@/lib/registration-window";
 import { resolveStudentEvent, withEvent } from "@/lib/student-events";
+import { StudentPresencePing } from "@/components/student/student-presence-ping";
 
 export const dynamic = "force-dynamic";
 export const metadata = { title: "Registration opens soon" };
@@ -142,6 +143,7 @@ export default async function CountdownPage({ searchParams }: { searchParams: Pr
 
   return (
     <div className="flex min-h-dvh flex-col">
+      <StudentPresencePing eventId={event.id} stage="COUNTDOWN" />
       <StudentHeader />
 
       <main className="flex flex-1 flex-col items-center px-5 pb-12 pt-10 sm:pt-16">

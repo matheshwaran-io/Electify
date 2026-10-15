@@ -6,14 +6,15 @@ import { Controller, useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
 import { AnimatePresence, motion } from "framer-motion";
-import { AlertCircle, ArrowLeft, ArrowRight, Check, Eye, EyeOff, GraduationCap, KeyRound, Mail, UserCog } from "lucide-react";
-import { login, registerStaff, studentLogin, upgradeStudentPassword } from "@/app/actions/auth";
+import { AlertCircle, ArrowLeft, ArrowRight, Check, Eye, EyeOff, GraduationCap, KeyRound, Mail, UserCog, ShieldCheck } from "lucide-react";
+import { login, registerStaff, studentLogin, upgradeStudentPassword, studentSSOLogin } from "@/app/actions/auth";
 import { normalizeRegisterNumber, passwordProblem, REGISTER_NUMBER_PATTERN } from "@/lib/password-policy";
 import { transition, variants } from "@/lib/motion";
 import { Button } from "@/components/ui/button";
 import { Field, Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogBody, DialogFooter } from "@/components/ui/dialog";
 import { StudentJoinClassCard } from "./student-join-class-card";
 import { StudentPasswordResetModal } from "./student-password-reset-modal";
 import { PasswordChecklist, PasswordInput } from "./password-input";
@@ -80,6 +81,9 @@ export function AuthContainer() {
   const [status, setStatus] = React.useState<Status>("idle");
   const [formError, setFormError] = React.useState<string | null>(null);
   const [resetModalOpen, setResetModalOpen] = React.useState(false);
+  const [ssoModalOpen, setSsoModalOpen] = React.useState(false);
+  const [ssoRegisterNumber, setSsoRegisterNumber] = React.useState("");
+  const [ssoError, setSsoError] = React.useState<string | null>(null);
   const [upgrade, setUpgrade] = React.useState<Upgrade | null>(null);
 
   // Runs the real server action; the button reflects its true progress.
@@ -210,6 +214,10 @@ export function AuthContainer() {
                 setFormError(null);
                 setUpgrade(u);
               }}
+              onSSOClick={() => {
+                setSsoError(null);
+                setSsoModalOpen(true);
+              }}
             />
           )}
           {view === "upgrade" && upgrade && <UpgradePasswordForm upgrade={upgrade} status={status} onSubmit={submit} />}
@@ -237,6 +245,88 @@ export function AuthContainer() {
 
       {/* Tutor-authorized password reset */}
       <StudentPasswordResetModal open={resetModalOpen} onOpenChange={setResetModalOpen} />
+
+      {/* Student Institutional SSO Modal */}
+      {ssoModalOpen && (
+        <Dialog open={ssoModalOpen} onOpenChange={setSsoModalOpen}>
+          <DialogContent className="max-w-md">
+            <DialogHeader>
+              <DialogTitle className="flex items-center gap-2">
+                <ShieldCheck className="size-5 text-emerald-500" />
+                SRM Student Institutional SSO
+              </DialogTitle>
+              <DialogDescription>
+                Authenticate with your university registration number.
+              </DialogDescription>
+            </DialogHeader>
+
+            <DialogBody className="space-y-4 pt-2">
+              <div className="rounded-control border border-border bg-surface-2 p-3 text-xs text-fg-muted space-y-1">
+                <p className="font-medium text-fg flex items-center gap-1.5">
+                  <span className="size-1.5 rounded-full bg-emerald-500 inline-block" />
+                  Single Session Policy
+                </p>
+                <p>
+                  Multiple simultaneous logins are strictly restricted. Signing in here will immediately terminate any active session on other browsers or devices.
+                </p>
+              </div>
+
+              <Field label="SRM Student Register Number" error={ssoError || undefined}>
+                <Input
+                  type="text"
+                  autoCapitalize="characters"
+                  spellCheck={false}
+                  placeholder="e.g. RA2532241010001"
+                  value={ssoRegisterNumber}
+                  onChange={(e) => {
+                    setSsoRegisterNumber(e.target.value);
+                    setSsoError(null);
+                  }}
+                  leading={<GraduationCap />}
+                  className="font-mono tracking-wide"
+                  inputSize="lg"
+                  disabled={status === "submitting"}
+                />
+              </Field>
+            </DialogBody>
+
+            <DialogFooter>
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => setSsoModalOpen(false)}
+                disabled={status === "submitting"}
+              >
+                Cancel
+              </Button>
+              <Button
+                type="button"
+                variant="brand"
+                loading={status === "submitting"}
+                loadingText="Verifying SSO"
+                onClick={async () => {
+                  const reg = ssoRegisterNumber.trim();
+                  if (!reg) {
+                    setSsoError("Enter your SRM Register Number");
+                    return;
+                  }
+                  await submit(async () => {
+                    const res = await studentSSOLogin({ registerNumber: reg });
+                    if (!res.success) {
+                      setSsoError(res.error || "SSO Verification Failed");
+                    } else {
+                      setSsoModalOpen(false);
+                    }
+                    return res;
+                  });
+                }}
+              >
+                Authenticate via SSO
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+      )}
     </div>
   );
 }
@@ -279,10 +369,12 @@ function StudentForm({
   onJoinClass,
   onForgotPassword,
   onUpgradeRequired,
+  onSSOClick,
 }: FormProps & {
   onJoinClass: () => void;
   onForgotPassword: () => void;
   onUpgradeRequired: (upgrade: Upgrade) => void;
+  onSSOClick: () => void;
 }) {
   const { register, handleSubmit, formState: { errors } } = useForm<StudentLoginData>({ resolver: zodResolver(studentLoginSchema) });
   const busy = status !== "idle";
@@ -333,6 +425,31 @@ function StudentForm({
       </div>
 
       <SubmitButton status={status} label="Sign in" />
+
+      {/* Institutional SSO & Single Active Session Enforcement */}
+      <div className="relative my-3 pt-1">
+        <div className="absolute inset-0 flex items-center">
+          <span className="w-full border-t border-border" />
+        </div>
+        <div className="relative flex justify-center text-xs uppercase">
+          <span className="bg-surface-2 px-2 text-fg-subtle font-mono text-[10px]">Institutional Access</span>
+        </div>
+      </div>
+
+      <Button
+        type="button"
+        variant="outline"
+        onClick={onSSOClick}
+        disabled={busy}
+        className="w-full border-border text-fg hover:bg-surface-3 flex items-center justify-center gap-2 text-xs font-medium h-10"
+      >
+        <ShieldCheck className="size-4 text-emerald-500" />
+        SRM Student Institutional SSO
+      </Button>
+
+      <p className="text-[11px] text-fg-subtle text-center">
+        Single session enforced. Multiple simultaneous logins are strictly restricted.
+      </p>
 
       <div className="pt-2 text-center text-sm text-fg-muted">
         Need to onboard with your class?{" "}

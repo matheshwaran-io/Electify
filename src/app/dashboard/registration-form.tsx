@@ -17,6 +17,7 @@ import { Select } from "@/components/ui/select";
 import { ElectiveCard } from "./picker/elective-card";
 import { CompareDialog, ElectiveDetail, ReviewDialog } from "./picker/picker-dialogs";
 import { groupComplete, ruleText, type Elective, type Group, type Selections } from "./picker/types";
+import { StudentPresencePing } from "@/components/student/student-presence-ping";
 
 interface Student {
   id: string;
@@ -178,8 +179,18 @@ export function RegistrationForm({ event, student, groups, electives, initialReg
   const [closed, setClosed] = React.useState(() => closeAt !== null && closeAt <= serverNow);
   const onClosed = React.useCallback(() => {
     setClosed(true);
-    router.refresh();
-  }, [router]);
+    if (typeof window !== "undefined") {
+      window.location.href = `/dashboard?event=${encodeURIComponent(event.id)}`;
+    } else {
+      router.refresh();
+    }
+  }, [event.id, router]);
+
+  React.useEffect(() => {
+    if (closed && typeof window !== "undefined") {
+      window.location.href = `/dashboard?event=${encodeURIComponent(event.id)}`;
+    }
+  }, [closed, event.id]);
 
   const byId = React.useMemo(() => new Map(localElectives.map((e) => [e.id, e])), [localElectives]);
   const initiallySelected = React.useMemo(() => new Set(initialRegistrations.map((r) => r.electiveId)), [initialRegistrations]);
@@ -330,6 +341,7 @@ export function RegistrationForm({ event, student, groups, electives, initialReg
 
   return (
     <div className="pb-40">
+      <StudentPresencePing eventId={event.id} stage="IN_SELECTION" />
       <p aria-live="polite" role="status" className="sr-only">
         {announcement}
       </p>

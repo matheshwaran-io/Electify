@@ -36,16 +36,16 @@ describe("Role-Based Unique Invite Codes", () => {
     const year = new Date().getFullYear().toString();
 
     const facCode = generateRoleBasedCode("CLASS_TUTOR");
-    assert.match(facCode, new RegExp(`^FAC-${year}-[2-9A-Z]{4}$`), "Faculty code must follow FAC-YEAR-XXXX");
+    assert.match(facCode, new RegExp(`^EFCT${year}-[2-9A-Z]{6}$`), "Class Tutor code must follow EFCTYEAR-XXXXXX");
 
     const coordCode = generateRoleBasedCode("COURSE_COORDINATOR");
-    assert.match(coordCode, new RegExp(`^COORD-${year}-[2-9A-Z]{4}$`), "Coordinator code must follow COORD-YEAR-XXXX");
+    assert.match(coordCode, new RegExp(`^EFCC${year}-[2-9A-Z]{5}$`), "Coordinator code must follow EFCCYEAR-XXXXX");
 
     const admCode = generateRoleBasedCode("SYSTEM_ADMIN");
-    assert.match(admCode, new RegExp(`^ADM-${year}-[2-9A-Z]{4}$`), "Admin code must follow ADM-YEAR-XXXX");
+    assert.match(admCode, new RegExp(`^EFSA${year}-[2-9A-Z]{5}$`), "Admin code must follow EFSAYEAR-XXXXX");
 
     const stuCode = generateRoleBasedCode("STUDENT");
-    assert.match(stuCode, new RegExp(`^STU-${year}-[2-9A-Z]{4}$`), "Student code must follow STU-YEAR-XXXX");
+    assert.match(stuCode, new RegExp(`^EFST${year}-[2-9A-Z]{5}$`), "Student code must follow EFSTYEAR-XXXXX");
   });
 
   test("2. Admin can create unique role-based invite codes for Faculty, Coordinator, and Admin", async () => {
@@ -62,7 +62,7 @@ describe("Role-Based Unique Invite Codes", () => {
       maxUses: 1,
       expiresInDays: 7,
     });
-    assert.ok(facRes.code.startsWith("FAC-"), "Faculty code must start with FAC-");
+    assert.ok(facRes.code.startsWith("EFCT"), "Faculty code must start with EFCT");
 
     // Course Coordinator code
     const coordRes = await createInviteCode({
@@ -70,7 +70,7 @@ describe("Role-Based Unique Invite Codes", () => {
       maxUses: 5,
       expiresInDays: 14,
     });
-    assert.ok(coordRes.code.startsWith("COORD-"), "Coordinator code must start with COORD-");
+    assert.ok(coordRes.code.startsWith("EFCC"), "Coordinator code must start with EFCC");
 
     // System Admin code
     const admRes = await createInviteCode({
@@ -78,7 +78,7 @@ describe("Role-Based Unique Invite Codes", () => {
       maxUses: 1,
       expiresInDays: 3,
     });
-    assert.ok(admRes.code.startsWith("ADM-"), "Admin code must start with ADM-");
+    assert.ok(admRes.code.startsWith("EFSA"), "Admin code must start with EFSA");
 
     // Verify in database
     const [facDb] = await db.select().from(inviteCodes).where(eq(inviteCodes.code, facRes.code));
@@ -148,5 +148,46 @@ describe("Role-Based Unique Invite Codes", () => {
 
     const [deletedRow] = await db.select().from(inviteCodes).where(eq(inviteCodes.id, codeRow.id));
     assert.strictEqual(deletedRow, undefined, "Invite code must be permanently removed from DB");
+  });
+
+  test("5. Course Coordinator can generate invite codes for Class Tutors", async () => {
+    const [coordUser] = await db
+      .insert(users)
+      .values({
+        name: "Coord Invite Test",
+        email: `coord_inv_${Date.now()}@srmist.edu.in`,
+        role: "COURSE_COORDINATOR",
+        passwordHash: "hash",
+      })
+      .returning();
+
+    setTestSession({
+      userId: coordUser.id,
+      name: "Coord Invite Test",
+      email: coordUser.email,
+      role: "COURSE_COORDINATOR",
+    });
+
+    const tutorCodeRes = await createInviteCode({
+      role: "CLASS_TUTOR",
+      maxUses: 1,
+      expiresInDays: 7,
+    });
+
+    assert.ok(tutorCodeRes.code.startsWith(`EFCT${new Date().getFullYear()}-`), "Course Coordinator generates EFCT code");
+
+    // Course Coordinator cannot generate invite code for Admin
+    await assert.rejects(async () => {
+      await createInviteCode({
+        role: "SYSTEM_ADMIN",
+        maxUses: 1,
+        expiresInDays: 7,
+      });
+    }, /Course Coordinators can only generate invite codes for Class Tutors/i);
+
+    // Clean up
+    await db.delete(inviteCodes).where(eq(inviteCodes.code, tutorCodeRes.code));
+    await db.delete(auditLogs).where(eq(auditLogs.userId, coordUser.id));
+    await db.delete(users).where(eq(users.id, coordUser.id));
   });
 });

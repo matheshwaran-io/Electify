@@ -27,6 +27,7 @@ import {
   users,
 } from "@/lib/db/schema";
 import { getRegistrationWindow, STUDENT_VISIBLE_EVENT_STATUSES, type RegistrationWindow } from "@/lib/registration-window";
+import { syncExpiredRegistrationEvents } from "@/lib/auto-close";
 import { cohortLabel, sessionLabel } from "@/lib/academic";
 
 type Executor = Pick<typeof db, "select">;
@@ -107,6 +108,8 @@ export async function loadStudentClass(student: Pick<StudentRecord, "sectionId" 
 
 /** All events this student is eligible for, newest first. */
 export async function listStudentEvents(studentId: string, now: Date = new Date()): Promise<StudentEventsResult> {
+  await syncExpiredRegistrationEvents();
+
   const [student] = await db.select().from(users).where(eq(users.id, studentId)).limit(1);
   if (!student) return { status: "NO_STUDENT" };
   if (student.role !== "STUDENT") return { status: "NOT_STUDENT" };

@@ -16,8 +16,10 @@ import {
 } from "@/lib/db/schema";
 import { getSession } from "@/lib/auth";
 import { assertClass, assertEventInWorkspace, requireStaffWorkspace, workspaceEventIds } from "@/lib/workspace";
-import { eq, and, inArray, desc, asc, count, gt } from "drizzle-orm";
+import { eq, and, inArray, desc, asc, count, gt, ne } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
+import { syncExpiredRegistrationEvents } from "@/lib/auto-close";
+import { getActiveStudentsForEvent } from "@/lib/student-presence";
 
 function safeRevalidatePath(...paths: string[]) {
   try {
@@ -105,6 +107,15 @@ export interface MonitorActivityItem {
   metadata: unknown;
 }
 
+export interface ActiveStudentPresence {
+  studentId: string;
+  name: string;
+  registerNumber: string;
+  sectionName: string;
+  stage: "COUNTDOWN" | "IN_SELECTION" | "SUBMITTED";
+  lastSeenSecondsAgo: number;
+}
+
 export interface LiveMonitoringData {
   event: {
     id: string;
@@ -125,6 +136,11 @@ export interface LiveMonitoringData {
   courses: MonitorCourseStat[];
   sections: MonitorSectionStat[];
   recentActivity: MonitorActivityItem[];
+  activeStudents?: ActiveStudentPresence[];
+  activeCount?: number;
+  countdownCount?: number;
+  inSelectionCount?: number;
+  submittedCount?: number;
 }
 
 /**
@@ -166,11 +182,22 @@ export async function getLiveMonitorEvents(): Promise<{
       .leftJoin(academicBatches, eq(registrationEvents.academicBatchId, academicBatches.id))
       .leftJoin(programmes, eq(academicBatches.programmeId, programmes.id));
 
-    // Only events of the selected academic session for classes this user manages.
+    // Sync expired events to CLOSED in database
+    await syncExpiredRegistrationEvents();
+
+    // Only active events of the selected academic session for classes this user manages.
     const ws = await requireStaffWorkspace();
     const scopedIds = await workspaceEventIds(ws);
     const allowedEvents = scopedIds.length
-      ? await baseQuery.where(inArray(registrationEvents.id, scopedIds)).orderBy(desc(registrationEvents.createdAt))
+      ? await baseQuery
+          .where(
+            and(
+              inArray(registrationEvents.id, scopedIds),
+              ne(registrationEvents.status, "CLOSED"),
+              ne(registrationEvents.status, "ARCHIVED")
+            )
+          )
+          .orderBy(desc(registrationEvents.createdAt))
       : [];
     const managedSections = new Set(ws.classes.map((c) => c.sectionId));
     const labelOf = new Map(ws.classes.map((c) => [c.sectionId, c.label]));
@@ -272,7 +299,7 @@ export async function getLiveMonitoringData(
     }
 
     const eventsList = eventsListRes.data;
-    if (eventsList.length === 0) {
+    if (eventsList.length === 0 && !requestedEventId) {
       return {
         success: true,
         data: {
@@ -296,6 +323,11 @@ export async function getLiveMonitoringData(
           courses: [],
           sections: [],
           recentActivity: [],
+          activeStudents: [],
+          activeCount: 0,
+          countdownCount: 0,
+          inSelectionCount: 0,
+          submittedCount: 0,
         },
       };
     }
@@ -303,11 +335,42 @@ export async function getLiveMonitoringData(
     // Determine target event
     let targetEventOption = eventsList.find((e) => e.id === requestedEventId);
     if (!targetEventOption) {
-      // Pick first OPEN event, or first in list
-      targetEventOption = eventsList.find((e) => e.status === "OPEN") || eventsList[0];
+      targetEventOption = eventsList.find((e) => e.status === "OPEN" || e.status === "PAUSED") || eventsList[0];
     }
 
-    const eventId = targetEventOption.id;
+    const eventId = requestedEventId || targetEventOption?.id;
+    if (!eventId) {
+      return {
+        success: true,
+        data: {
+          event: null,
+          eventsList: [],
+          kpis: {
+            totalEligibleStudents: 0,
+            registeredStudents: 0,
+            unregisteredStudents: 0,
+            completionRate: 0,
+            totalCapacity: 0,
+            filledSeats: 0,
+            availableSeats: 0,
+            seatUtilizationRate: 0,
+            fullCoursesCount: 0,
+            totalCoursesCount: 0,
+            registrationsLast5Min: 0,
+            registrationsLastHour: 0,
+            velocityRpm: 0,
+          },
+          courses: [],
+          sections: [],
+          recentActivity: [],
+          activeStudents: [],
+          activeCount: 0,
+          countdownCount: 0,
+          inSelectionCount: 0,
+          submittedCount: 0,
+        },
+      };
+    }
 
     // 2. Query target event details
     const [rawEvent] = await db
@@ -551,6 +614,8 @@ export async function getLiveMonitoringData(
       };
     });
 
+    const activeStudentData = getActiveStudentsForEvent(eventId);
+
     return {
       success: true,
       data: {
@@ -566,7 +631,7 @@ export async function getLiveMonitoringData(
           batchYear: rawEvent.batchYear,
           programmeName: rawEvent.programmeName,
           programmeCode: rawEvent.programmeCode,
-          classLabels: targetEventOption.classLabels,
+          classLabels: targetEventOption?.classLabels || [],
         },
         eventsList,
         kpis: {
@@ -587,6 +652,11 @@ export async function getLiveMonitoringData(
         courses,
         sections: sectionsStats,
         recentActivity,
+        activeStudents: activeStudentData.students,
+        activeCount: activeStudentData.activeCount,
+        countdownCount: activeStudentData.countdownCount,
+        inSelectionCount: activeStudentData.inSelectionCount,
+        submittedCount: activeStudentData.submittedCount,
       },
     };
   } catch (error) {
@@ -608,6 +678,11 @@ export async function getLiveFeedUpdates(
     kpis: Partial<MonitorKPIs>;
     latestCourseSeats: Array<{ id: string; availableSeats: number; isFull: boolean }>;
     status: string;
+    activeStudents?: ActiveStudentPresence[];
+    activeCount?: number;
+    countdownCount?: number;
+    inSelectionCount?: number;
+    submittedCount?: number;
   };
   error?: string;
 }> {
@@ -670,6 +745,8 @@ export async function getLiveFeedUpdates(
       .from(registrations)
       .where(and(eq(registrations.eventId, eventId), eq(registrations.status, "CONFIRMED")));
 
+    const activeStudentData = getActiveStudentsForEvent(eventId);
+
     return {
       success: true,
       data: {
@@ -688,6 +765,11 @@ export async function getLiveFeedUpdates(
           isFull: c.isFull || c.availableSeats <= 0,
         })),
         status: eventRow.status,
+        activeStudents: activeStudentData.students,
+        activeCount: activeStudentData.activeCount,
+        countdownCount: activeStudentData.countdownCount,
+        inSelectionCount: activeStudentData.inSelectionCount,
+        submittedCount: activeStudentData.submittedCount,
       },
     };
   } catch (error) {

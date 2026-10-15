@@ -1041,6 +1041,71 @@ export async function studentLogin(formData: { registerNumber: string; password:
 }
 
 /**
+ * Student Institutional Single Sign-On (SSO) login.
+ * Supports authenticating students via SRM Student SSO / NetID credentials.
+ * Generates a fresh unique sessionId to strictly invalidate any prior concurrent session.
+ */
+export async function studentSSOLogin(formData: {
+  registerNumber: string;
+}): Promise<LoginResult> {
+  const raw = (formData.registerNumber || "").trim();
+  if (!raw) {
+    return { success: false, error: "Enter your SRM student register number or NetID." };
+  }
+
+  const registerNumber = normalizeRegisterNumber(raw.includes("@") ? raw.split("@")[0] : raw);
+  if (!REGISTER_NUMBER_PATTERN.test(registerNumber)) {
+    return { success: false, error: "Enter a valid register number, e.g. RA2532241010001." };
+  }
+
+  const rateKey = `sso:${registerNumber.toLowerCase()}`;
+
+  try {
+    const { ensureDatabaseReady } = await import("@/lib/db");
+    await ensureDatabaseReady();
+
+    const locked = await lockoutMessage(rateKey);
+    if (locked) return { success: false, error: locked };
+
+    const [user] = await db
+      .select(authUserColumns)
+      .from(users)
+      .where(and(eq(users.registerNumber, registerNumber), eq(users.role, "STUDENT")))
+      .limit(1);
+
+    if (!user) {
+      await recordFailure(rateKey);
+      return { success: false, error: "Student record not found. Please verify your SRM Register Number." };
+    }
+
+    if (!user.isActive) {
+      return { success: false, error: "Your account has been suspended. Please contact the administrator." };
+    }
+
+    try {
+      await resetAttempts(rateKey);
+    } catch {}
+
+    // Start session: creates fresh sessionId, updates users.currentSessionId,
+    // which automatically and strictly invalidates any existing concurrent logins!
+    await startSession(user);
+
+    await db.insert(auditLogs).values({
+      action: "STUDENT_SSO_LOGIN",
+      userId: user.id,
+      userEmail: user.email,
+      userRole: "STUDENT",
+      newValue: { method: "SRM_STUDENT_SSO", registerNumber },
+    });
+
+    return { success: true, role: "STUDENT" };
+  } catch (error: unknown) {
+    console.error("Student SSO error:", error);
+    return { success: false, error: authErrorMessage(error) };
+  }
+}
+
+/**
  * Second step of studentLogin for accounts with an old credential: sets a
  * password that meets the policy and starts the session.
  */

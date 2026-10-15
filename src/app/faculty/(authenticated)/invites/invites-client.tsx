@@ -329,8 +329,8 @@ export function InvitesClient({
             </DialogTitle>
             <DialogDescription>
               {isCoordinator
-                ? "Generate an invite code with the FAC prefix for a Class Tutor in your department."
-                : "Each code uses a dedicated role prefix (e.g. COORD, FAC, ADM) to guarantee consistency and security."}
+                ? "Generate an invite code with the EFCT prefix for a Class Tutor in your department."
+                : "Each code uses a dedicated role prefix (e.g. EFSA, EFCC, EFCT) to guarantee consistency and security."}
             </DialogDescription>
           </DialogHeader>
 
