@@ -22,7 +22,7 @@ import {
 import { Field, Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
-import { createFaculty, createDepartment, deleteFaculty, deleteDepartment } from "@/app/actions/admin";
+import { createFaculty, createDepartment, createProgramme, deleteFaculty, deleteDepartment } from "@/app/actions/admin";
 
 type Section = { id: string; label: string; isActive: boolean };
 type Batch = { id: string; year: string; sections: Section[] };
@@ -117,6 +117,7 @@ export function DepartmentsClient({ tree }: { tree: { faculties: Faculty[] } }) 
   // Modal states
   const [showFacultyModal, setShowFacultyModal] = useState(false);
   const [showDeptModal, setShowDeptModal] = useState(false);
+  const [showProgModal, setShowProgModal] = useState(false);
 
   // Delete dialog states
   const [deletingFaculty, setDeletingFaculty] = useState<Faculty | null>(null);
@@ -125,6 +126,7 @@ export function DepartmentsClient({ tree }: { tree: { faculties: Faculty[] } }) 
   // Transitions
   const [isFacultyPending, startFacultyTransition] = useTransition();
   const [isDeptPending, startDeptTransition] = useTransition();
+  const [isProgPending, startProgTransition] = useTransition();
 
   // Faculty form
   const [facultyName, setFacultyName] = useState("");
@@ -147,6 +149,21 @@ export function DepartmentsClient({ tree }: { tree: { faculties: Faculty[] } }) 
     facultyId?: string;
     name?: string;
     code?: string;
+  }>({});
+
+  // Programme form
+  const [progDeptId, setProgDeptId] = useState<string | null>(null);
+  const [progName, setProgName] = useState("");
+  const [progCode, setProgCode] = useState("");
+  const [progDegreeType, setProgDegreeType] = useState<string | null>(null);
+  const [progDuration, setProgDuration] = useState("4");
+  const [progSemesters, setProgSemesters] = useState("8");
+  const [progErrors, setProgErrors] = useState<{
+    departmentId?: string;
+    name?: string;
+    code?: string;
+    duration?: string;
+    semesters?: string;
   }>({});
 
   const toggle = (set: Set<string>, setter: (s: Set<string>) => void, id: string) => {
@@ -179,6 +196,20 @@ export function DepartmentsClient({ tree }: { tree: { faculties: Faculty[] } }) 
     setDeptCode("");
     setDeptErrors({});
     setShowDeptModal(true);
+  };
+
+  const allDepts = tree.faculties.flatMap((f) => f.departments.map((d) => ({ ...d, facultyName: f.name })));
+
+  const openAddProgModal = (departmentId?: string) => {
+    const defaultId = departmentId || (allDepts.length > 0 ? allDepts[0].id : null);
+    setProgDeptId(defaultId);
+    setProgName("");
+    setProgCode("");
+    setProgDegreeType(null);
+    setProgDuration("4");
+    setProgSemesters("8");
+    setProgErrors({});
+    setShowProgModal(true);
   };
 
   const resetFacultyForm = () => {
@@ -284,6 +315,69 @@ export function DepartmentsClient({ tree }: { tree: { faculties: Faculty[] } }) 
     });
   };
 
+  const handleCreateProgramme = (e: React.FormEvent) => {
+    e.preventDefault();
+    const errors: typeof progErrors = {};
+
+    if (!progDeptId) {
+      errors.departmentId = "Please select a department.";
+    }
+    if (!progName.trim()) {
+      errors.name = "Programme name is required.";
+    }
+    if (!progCode.trim()) {
+      errors.code = "Programme code is required.";
+    }
+
+    const dur = parseInt(progDuration, 10);
+    if (isNaN(dur) || dur < 1 || dur > 10) {
+      errors.duration = "Duration must be between 1 and 10 years.";
+    }
+
+    const sems = parseInt(progSemesters, 10);
+    if (isNaN(sems) || sems < 1 || sems > 20) {
+      errors.semesters = "Semesters must be between 1 and 20.";
+    }
+
+    if (Object.keys(errors).length > 0) {
+      setProgErrors(errors);
+      return;
+    }
+
+    startProgTransition(async () => {
+      try {
+        const result = await createProgramme({
+          departmentId: progDeptId!,
+          name: progName,
+          code: progCode,
+          degreeType: progDegreeType,
+          durationYears: dur,
+          semesters: sems,
+        });
+
+        toast.success(`Programme "${result.programme.name}" created successfully.`);
+        if (progDeptId) {
+          const parentFac = tree.faculties.find((f) => f.departments.some((d) => d.id === progDeptId));
+          if (parentFac) {
+            setOpenFaculties((prev) => new Set([...prev, parentFac.id]));
+          }
+          setOpenDepts((prev) => new Set([...prev, progDeptId]));
+        }
+        setShowProgModal(false);
+        setProgName("");
+        setProgCode("");
+        setProgDegreeType(null);
+        setProgDuration("4");
+        setProgSemesters("8");
+        setProgErrors({});
+        router.refresh();
+      } catch (err: unknown) {
+        const msg = err instanceof Error ? err.message : "Failed to create programme.";
+        toast.error(msg);
+      }
+    });
+  };
+
   const handleDeleteFaculty = async () => {
     if (!deletingFaculty) return;
     try {
@@ -324,6 +418,14 @@ export function DepartmentsClient({ tree }: { tree: { faculties: Faculty[] } }) 
                 {allOpen ? "Collapse all" : "Expand all"}
               </Button>
             ) : null}
+            <Button
+              variant="secondary"
+              size="sm"
+              onClick={() => openAddProgModal()}
+              disabled={allDepts.length === 0}
+            >
+              <BookOpen className="size-3.5" /> Add programme
+            </Button>
             <Button
               variant="secondary"
               size="sm"
@@ -422,36 +524,65 @@ export function DepartmentsClient({ tree }: { tree: { faculties: Faculty[] } }) 
                           />
 
                           <Disclosure open={openDepts.has(dept.id)}>
-                            <ul className="space-y-2 bg-surface-2/50 p-3 sm:pl-14">
-                              {dept.programmes.map((prog) => (
-                                <li key={prog.id} className="overflow-hidden rounded-control border border-border bg-surface">
-                                  <Row
-                                    level={2}
-                                    open={openProgs.has(prog.id)}
-                                    onToggle={() => toggle(openProgs, setOpenProgs, prog.id)}
-                                    icon={<BookOpen />}
-                                    title={prog.name}
-                                    meta={`${prog.code} · ${prog.degreeType ?? "—"} · ${plural(prog.batches.length, "batch", "batches")}`}
-                                  />
+                            <div className="bg-surface-2/50">
+                              <div className="flex items-center justify-between px-4 py-2 sm:pl-14">
+                                <span className="text-xs font-semibold uppercase tracking-wider text-fg-muted">
+                                  Programmes ({dept.programmes.length})
+                                </span>
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  className="h-7 text-xs text-fg-muted hover:text-fg"
+                                  onClick={() => openAddProgModal(dept.id)}
+                                >
+                                  <Plus className="size-3.5" /> Add programme
+                                </Button>
+                              </div>
+                              {dept.programmes.length === 0 ? (
+                                <div className="flex flex-col items-center justify-center bg-surface py-8 px-4 text-center">
+                                  <BookOpen className="mb-2 size-7 text-fg-subtle opacity-40" />
+                                  <p className="text-sm font-medium text-fg">No programmes yet</p>
+                                  <p className="mt-0.5 mb-3 text-xs text-fg-muted">Add the first programme under {dept.name}.</p>
+                                  <Button
+                                    variant="secondary"
+                                    size="sm"
+                                    onClick={() => openAddProgModal(dept.id)}
+                                  >
+                                    <Plus className="size-3.5" /> Add programme
+                                  </Button>
+                                </div>
+                              ) : (
+                                <ul className="space-y-2 p-3 sm:pl-14">
+                                  {dept.programmes.map((prog) => (
+                                    <li key={prog.id} className="overflow-hidden rounded-control border border-border bg-surface">
+                                      <Row
+                                        level={2}
+                                        open={openProgs.has(prog.id)}
+                                        onToggle={() => toggle(openProgs, setOpenProgs, prog.id)}
+                                        icon={<BookOpen />}
+                                        title={prog.name}
+                                        meta={`${prog.code} · ${prog.degreeType ?? "—"} · ${plural(prog.batches.length, "batch", "batches")}`}
+                                      />
 
-                                  <Disclosure open={openProgs.has(prog.id)}>
-                                    <div className="flex flex-wrap gap-2 border-t border-border px-4 py-3">
-                                      {prog.batches.flatMap((b) => b.sections).map((sec) => (
-                                        <span
-                                          key={sec.id}
-                                          className="inline-flex h-8 items-center gap-1.5 rounded-full border border-border bg-surface-2 px-3 text-xs font-medium text-fg"
-                                        >
-                                          <GraduationCap className="size-3.5 text-fg-subtle" />
-                                          Section {sec.label}
-                                        </span>
-                                      ))}
-                                      {prog.batches.length === 0 ? <p className="text-xs text-fg-muted">No batches or sections defined.</p> : null}
-                                    </div>
-                                  </Disclosure>
-                                </li>
-                              ))}
-                              {dept.programmes.length === 0 ? <li className="px-1 text-xs text-fg-muted">No programmes yet.</li> : null}
-                            </ul>
+                                      <Disclosure open={openProgs.has(prog.id)}>
+                                        <div className="flex flex-wrap gap-2 border-t border-border px-4 py-3">
+                                          {prog.batches.flatMap((b) => b.sections).map((sec) => (
+                                            <span
+                                              key={sec.id}
+                                              className="inline-flex h-8 items-center gap-1.5 rounded-full border border-border bg-surface-2 px-3 text-xs font-medium text-fg"
+                                            >
+                                              <GraduationCap className="size-3.5 text-fg-subtle" />
+                                              Section {sec.label}
+                                            </span>
+                                          ))}
+                                          {prog.batches.length === 0 ? <p className="text-xs text-fg-muted">No batches or sections defined.</p> : null}
+                                        </div>
+                                      </Disclosure>
+                                    </li>
+                                  ))}
+                                </ul>
+                              )}
+                            </div>
                           </Disclosure>
                         </li>
                       ))}
@@ -677,6 +808,129 @@ export function DepartmentsClient({ tree }: { tree: { faculties: Faculty[] } }) 
                 loadingText="Creating..."
               >
                 Create department
+              </Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
+
+      {/* Add Programme Modal */}
+      <Dialog open={showProgModal} onOpenChange={(o) => !isProgPending && setShowProgModal(o)}>
+        <DialogContent size="md" showClose={!isProgPending}>
+          <DialogHeader>
+            <DialogTitle>Add programme</DialogTitle>
+            <DialogDescription>
+              Create a new academic programme under a department.
+            </DialogDescription>
+          </DialogHeader>
+
+          <form onSubmit={handleCreateProgramme}>
+            <DialogBody className="space-y-4">
+              <Field label="Department" description="Select the parent department" error={progErrors.departmentId}>
+                <Select
+                  value={progDeptId || null}
+                  onValueChange={(val) => {
+                    setProgDeptId(val);
+                    if (progErrors.departmentId) setProgErrors((prev) => ({ ...prev, departmentId: undefined }));
+                  }}
+                  options={allDepts.map((d) => ({
+                    value: d.id,
+                    label: `${d.name} (${d.code})`,
+                  }))}
+                  placeholder="Select a department"
+                  disabled={isProgPending}
+                />
+              </Field>
+
+              <Field label="Programme name" description="Full official title of the programme" error={progErrors.name}>
+                <Input
+                  placeholder="e.g. Master of Computer Applications"
+                  value={progName}
+                  onChange={(e) => {
+                    setProgName(e.target.value);
+                    if (progErrors.name) setProgErrors((prev) => ({ ...prev, name: undefined }));
+                  }}
+                  disabled={isProgPending}
+                  autoFocus
+                />
+              </Field>
+
+              <Field label="Programme code" description="Unique short code (e.g. MCA)" error={progErrors.code}>
+                <Input
+                  placeholder="e.g. MCA"
+                  value={progCode}
+                  onChange={(e) => {
+                    setProgCode(e.target.value.toUpperCase());
+                    if (progErrors.code) setProgErrors((prev) => ({ ...prev, code: undefined }));
+                  }}
+                  disabled={isProgPending}
+                />
+              </Field>
+
+              <Field label="Degree type" description="Undergraduate (UG) or Postgraduate (PG)">
+                <Select
+                  value={progDegreeType}
+                  onValueChange={setProgDegreeType}
+                  options={[
+                    { value: "UG", label: "Undergraduate (UG)" },
+                    { value: "PG", label: "Postgraduate (PG)" },
+                  ]}
+                  placeholder="Select degree type"
+                  disabled={isProgPending}
+                />
+              </Field>
+
+              <div className="grid grid-cols-2 gap-3">
+                <Field label="Duration (years)" error={progErrors.duration}>
+                  <Input
+                    type="number"
+                    min={1}
+                    max={10}
+                    value={progDuration}
+                    onChange={(e) => {
+                      setProgDuration(e.target.value);
+                      // Auto-update semesters when duration changes
+                      const dur = parseInt(e.target.value, 10);
+                      if (!isNaN(dur) && dur >= 1 && dur <= 10) {
+                        setProgSemesters(String(dur * 2));
+                      }
+                      if (progErrors.duration) setProgErrors((prev) => ({ ...prev, duration: undefined }));
+                    }}
+                    disabled={isProgPending}
+                  />
+                </Field>
+
+                <Field label="Total semesters" error={progErrors.semesters}>
+                  <Input
+                    type="number"
+                    min={1}
+                    max={20}
+                    value={progSemesters}
+                    onChange={(e) => {
+                      setProgSemesters(e.target.value);
+                      if (progErrors.semesters) setProgErrors((prev) => ({ ...prev, semesters: undefined }));
+                    }}
+                    disabled={isProgPending}
+                  />
+                </Field>
+              </div>
+            </DialogBody>
+
+            <DialogFooter>
+              <Button
+                type="button"
+                variant="secondary"
+                onClick={() => setShowProgModal(false)}
+                disabled={isProgPending}
+              >
+                Cancel
+              </Button>
+              <Button
+                type="submit"
+                loading={isProgPending}
+                loadingText="Creating..."
+              >
+                Create programme
               </Button>
             </DialogFooter>
           </form>

@@ -100,7 +100,7 @@ export function InvitesClient({
         const finalCode = useCustomCode ? customCode.trim().toUpperCase() : generatedCode;
         const result = await createInviteCode({
           role,
-          customCode: useCustomCode ? finalCode : undefined,
+          customCode: finalCode || undefined,
           maxUses,
           expiresInDays,
         });
