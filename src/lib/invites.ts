@@ -3,49 +3,59 @@ export type InviteRole = "CLASS_TUTOR" | "COURSE_COORDINATOR" | "SYSTEM_ADMIN" |
 export const ROLE_CONFIGS: Record<InviteRole, { label: string; prefix: string; description: string }> = {
   CLASS_TUTOR: {
     label: "Class Tutor",
-    prefix: "FAC",
+    prefix: "EFCT",
     description: "Class control, section roster & reports",
   },
   COURSE_COORDINATOR: {
     label: "Course Coordinator",
-    prefix: "COORD",
+    prefix: "EFCC",
     description: "Programme electives, courses & allocations",
   },
   SYSTEM_ADMIN: {
     label: "System Admin",
-    prefix: "ADM",
+    prefix: "EFSA",
     description: "Full system administration & governance",
   },
   STUDENT: {
     label: "Student",
-    prefix: "STU",
+    prefix: "EFST",
     description: "Elective choices & student portal",
   },
 };
 
 /**
  * Generates an unambiguous, role-specific invite code.
- * Format: [PREFIX]-[YEAR]-[RANDOM_4_CHARS]
+ * Format: [PREFIX][YEAR]-[RANDOM_5_OR_6_CHARS]
  * Examples:
- * - Faculty: FAC-2026-8K4D
- * - Course Coordinator: COORD-2026-9P2M
- * - Admin: ADM-2026-3X7J
+ * - System Admin: EFSA2026-56TGE
+ * - Course Coordinator: EFCC2026-J45RE
+ * - Class Tutor: EFCT2026-RD365F
  */
 export function generateRoleBasedCode(role: string): string {
   const year = new Date().getFullYear();
-  let prefix = "FAC";
-  if (role === "SYSTEM_ADMIN") prefix = "ADM";
-  else if (role === "COURSE_COORDINATOR") prefix = "COORD";
-  else if (role === "CLASS_TUTOR") prefix = "FAC";
-  else if (role === "STUDENT") prefix = "STU";
+  let prefix = "EFCT";
+  let len = 6;
+  if (role === "SYSTEM_ADMIN") {
+    prefix = "EFSA";
+    len = 5;
+  } else if (role === "COURSE_COORDINATOR") {
+    prefix = "EFCC";
+    len = 5;
+  } else if (role === "CLASS_TUTOR") {
+    prefix = "EFCT";
+    len = 6;
+  } else if (role === "STUDENT") {
+    prefix = "EFST";
+    len = 5;
+  }
 
   // Exclude easily confused characters (0, O, 1, I)
   const chars = "23456789ABCDEFGHJKLMNPQRSTUVWXYZ";
   let randomPart = "";
-  for (let i = 0; i < 4; i++) {
+  for (let i = 0; i < len; i++) {
     randomPart += chars.charAt(Math.floor(Math.random() * chars.length));
   }
-  return `${prefix}-${year}-${randomPart}`;
+  return `${prefix}${year}-${randomPart}`;
 }
 
 /**

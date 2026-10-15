@@ -21,6 +21,7 @@ import { Logo } from "@/components/brand";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { StatusBadge } from "@/components/ui/status-badge";
+import { StudentPresencePing } from "@/components/student/student-presence-ping";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import {
   Dialog,
@@ -269,6 +270,7 @@ export function MyRegistrationClient({
 
   return (
     <div className="flex min-h-dvh flex-col print:block print:min-h-0 bg-canvas">
+      <StudentPresencePing eventId={event.id} stage="SUBMITTED" />
       <StudentHeader className="print:hidden">
         <Link
           href={`/dashboard/subjects?event=${encodeURIComponent(event.id)}`}

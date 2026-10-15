@@ -101,6 +101,23 @@ export function setTestSession(session: UserSession | null | undefined) {
  */
 export async function getSession(): Promise<UserSession | null> {
   if (testSessionOverride !== undefined) {
+    if (!testSessionOverride) return null;
+    if (testSessionOverride.sessionId) {
+      try {
+        const [userRecord] = await db
+          .select({ currentSessionId: users.currentSessionId, isActive: users.isActive })
+          .from(users)
+          .where(eq(users.id, testSessionOverride.userId))
+          .limit(1);
+        if (
+          !userRecord ||
+          !userRecord.isActive ||
+          (userRecord.currentSessionId && userRecord.currentSessionId !== testSessionOverride.sessionId)
+        ) {
+          return null;
+        }
+      } catch {}
+    }
     return testSessionOverride;
   }
 
@@ -112,7 +129,8 @@ export async function getSession(): Promise<UserSession | null> {
 
   // Enforce single session per login: the token's session id must match the
   // user's current session, and the account must still be active.
-  if (session.sessionId) {
+  // For students, multiple concurrent logins are strictly restricted.
+  if (session.sessionId || session.role === "STUDENT") {
     let revoked = false;
     try {
       const [userRecord] = await db
@@ -120,8 +138,20 @@ export async function getSession(): Promise<UserSession | null> {
         .from(users)
         .where(eq(users.id, session.userId))
         .limit(1);
-      revoked = !userRecord || !userRecord.isActive || Boolean(userRecord.currentSessionId && userRecord.currentSessionId !== session.sessionId);
-      if (!revoked && userRecord.name) session.name = cleanDisplayName(userRecord.name);
+
+      if (!userRecord || !userRecord.isActive) {
+        revoked = true;
+      } else if (session.role === "STUDENT") {
+        // Strictly restrict multiple logins for students:
+        // Must have sessionId and it must match the database's currentSessionId exactly.
+        if (!session.sessionId || !userRecord.currentSessionId || userRecord.currentSessionId !== session.sessionId) {
+          revoked = true;
+        }
+      } else if (session.sessionId && userRecord.currentSessionId && userRecord.currentSessionId !== session.sessionId) {
+        revoked = true;
+      }
+
+      if (!revoked && userRecord?.name) session.name = cleanDisplayName(userRecord.name);
     } catch (err) {
       console.warn("Session single-login verification warning (fallback to active check):", err);
       try {

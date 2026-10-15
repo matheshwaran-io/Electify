@@ -21,6 +21,7 @@ import {
 import { eq, and, sql, inArray, not, asc } from "drizzle-orm";
 import { getSession } from "@/lib/auth";
 import { getRegistrationWindow } from "@/lib/registration-window";
+import { syncExpiredRegistrationEvents } from "@/lib/auto-close";
 import { isStudentEligibleForEvent, resolveStudentEvent } from "@/lib/student-events";
 import { cohortLabel, receiptTerm, sessionLabel } from "@/lib/academic";
 import { releaseSeat, SeatTakenError, takeSeat, type Tx } from "@/lib/seat-ops";
@@ -139,6 +140,9 @@ export async function registerElectives(
 
     const window = getRegistrationWindow(event, new Date());
     if (!window.isOpen) {
+      if (window.state === "CLOSED") {
+        await syncExpiredRegistrationEvents();
+      }
       return { success: false, code: "WINDOW_CLOSED", error: window.reason || "Registration is currently closed." };
     }
 

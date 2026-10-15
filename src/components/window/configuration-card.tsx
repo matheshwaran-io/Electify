@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { Info, Save, Pause, Play, RotateCcw, Trash2 } from "lucide-react";
+import { Info, Save, Pause, Play, RotateCcw, Trash2, XCircle } from "lucide-react";
 import { updateWindowTimers, toggleWindowStatus } from "@/app/actions/tutor";
 import { deleteRegistrationEvent, resetRegistrationEvent } from "@/app/actions/coordinator";
 import { useRouter } from "next/navigation";
@@ -138,6 +138,7 @@ export function ConfigurationCard({ event }: { event: WindowEvent }) {
 
   const [resetConfirmOpen, setResetConfirmOpen] = useState(false);
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
+  const [closeConfirmOpen, setCloseConfirmOpen] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
   const [isResetting, setIsResetting] = useState(false);
 
@@ -250,27 +251,51 @@ export function ConfigurationCard({ event }: { event: WindowEvent }) {
 
       <div className="space-y-2 border-t border-border bg-surface-2/50 px-4 py-3 sm:px-5">
         {phase === "live" ? (
-          <Button
-            type="button"
-            variant="outline"
-            onClick={() => handleStatusToggle("PAUSED")}
-            loading={isUpdatingStatus}
-            disabled={isSaving}
-            className="w-full text-warning-text hover:bg-warning/10"
-          >
-            <Pause /> Pause window
-          </Button>
+          <div className="grid grid-cols-2 gap-2">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => handleStatusToggle("PAUSED")}
+              loading={isUpdatingStatus}
+              disabled={isSaving}
+              className="w-full text-warning-text hover:bg-warning/10"
+            >
+              <Pause /> Pause window
+            </Button>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => setCloseConfirmOpen(true)}
+              loading={isUpdatingStatus}
+              disabled={isSaving}
+              className="w-full text-danger-text hover:bg-danger/10 border-danger/30"
+            >
+              <XCircle /> Close window
+            </Button>
+          </div>
         ) : phase === "paused" ? (
-          <Button
-            type="button"
-            variant="outline"
-            onClick={() => handleStatusToggle("OPEN")}
-            loading={isUpdatingStatus}
-            disabled={isSaving}
-            className="w-full text-success-text hover:bg-success/10"
-          >
-            <Play /> Resume window
-          </Button>
+          <div className="grid grid-cols-2 gap-2">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => handleStatusToggle("OPEN")}
+              loading={isUpdatingStatus}
+              disabled={isSaving}
+              className="w-full text-success-text hover:bg-success/10"
+            >
+              <Play /> Resume window
+            </Button>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => setCloseConfirmOpen(true)}
+              loading={isUpdatingStatus}
+              disabled={isSaving}
+              className="w-full text-danger-text hover:bg-danger/10 border-danger/30"
+            >
+              <XCircle /> Close window
+            </Button>
+          </div>
         ) : phase === "closed" ? (
           <Button
             type="button"
@@ -358,6 +383,25 @@ export function ConfigurationCard({ event }: { event: WindowEvent }) {
         requireText="DELETE"
         confirmLabel="Delete event permanently"
         onConfirm={handleDeleteEvent}
+      />
+
+      {/* Close Window Confirmation Dialog */}
+      <ConfirmDialog
+        open={closeConfirmOpen}
+        onOpenChange={setCloseConfirmOpen}
+        tone="danger"
+        title="Close Registration Window?"
+        description="Are you sure you want to close this registration window? Once closed, students will no longer be able to select or mutate their elective choices."
+        impact={[
+          { label: "Event", value: event.name },
+          { label: "Current Status", value: event.status },
+          { label: "New Status", value: "CLOSED", tone: "danger" },
+        ]}
+        confirmLabel="Close Registration Window"
+        onConfirm={async () => {
+          setCloseConfirmOpen(false);
+          await handleStatusToggle("CLOSED");
+        }}
       />
     </section>
   );

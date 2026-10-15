@@ -26,10 +26,13 @@ import {
   BookOpen,
   GraduationCap,
   X,
+  XCircle,
+  Activity,
 } from "lucide-react";
 
 import {
   LiveMonitoringData,
+  ActiveStudentPresence,
   getLiveFeedUpdates,
   getUnregisteredStudentsList,
   toggleEventStatusFromMonitor,
@@ -84,6 +87,11 @@ export function MonitorClient({ initialData, userRole }: MonitorClientProps) {
   const [isLoadingUnregistered, setIsLoadingUnregistered] = React.useState<boolean>(false);
   const [unregisteredSearch, setUnregisteredSearch] = React.useState<string>("");
 
+  // Modal for Active Online Students (Before & During Event)
+  const [activeStudentsModalOpen, setActiveStudentsModalOpen] = React.useState<boolean>(false);
+  const [activeStudentsFilter, setActiveStudentsFilter] = React.useState<"ALL" | "COUNTDOWN" | "IN_SELECTION" | "SUBMITTED">("ALL");
+  const [activeStudentsSearch, setActiveStudentsSearch] = React.useState<string>("");
+
   // Confirm Status Change Dialog
   const [statusConfirmTarget, setStatusConfirmTarget] = React.useState<"OPEN" | "PAUSED" | "CLOSED" | null>(null);
 
@@ -127,7 +135,17 @@ export function MonitorClient({ initialData, userRole }: MonitorClientProps) {
       const res = await getLiveFeedUpdates(data.event.id, latestTimestamp);
 
       if (res.success && res.data) {
-        const { newEvents, kpis: freshKpis, latestCourseSeats, status } = res.data;
+        const {
+          newEvents,
+          kpis: freshKpis,
+          latestCourseSeats,
+          status,
+          activeStudents,
+          activeCount,
+          countdownCount,
+          inSelectionCount,
+          submittedCount,
+        } = res.data;
 
         // Execute side effects outside of the React state reducer
         const existingIds = new Set(data.recentActivity.map((e) => e.id));
@@ -180,6 +198,11 @@ export function MonitorClient({ initialData, userRole }: MonitorClientProps) {
             event: { ...prev.event, status },
             courses: updatedCourses,
             recentActivity: updatedActivity,
+            activeStudents: activeStudents !== undefined ? activeStudents : prev.activeStudents,
+            activeCount: activeCount !== undefined ? activeCount : prev.activeCount,
+            countdownCount: countdownCount !== undefined ? countdownCount : prev.countdownCount,
+            inSelectionCount: inSelectionCount !== undefined ? inSelectionCount : prev.inSelectionCount,
+            submittedCount: submittedCount !== undefined ? submittedCount : prev.submittedCount,
             kpis: {
               ...prev.kpis,
               registeredStudents: registered,
@@ -200,9 +223,10 @@ export function MonitorClient({ initialData, userRole }: MonitorClientProps) {
     fetchRef.current = fetchLatestUpdates;
   }, [fetchLatestUpdates]);
 
-  // Auto-refresh countdown timer - runs cleanly on tick without side-effects inside state updater
+  // Auto-refresh countdown timer - only active when the event is live
   React.useEffect(() => {
-    if (!isAutoRefresh || !data.event) return;
+    const isLive = data.event && (data.event.status === "OPEN" || data.event.status === "PAUSED");
+    if (!isAutoRefresh || !isLive) return;
 
     setCountdown(refreshIntervalSec);
 
@@ -219,7 +243,7 @@ export function MonitorClient({ initialData, userRole }: MonitorClientProps) {
     }, 1000);
 
     return () => clearInterval(interval);
-  }, [isAutoRefresh, refreshIntervalSec, data.event]);
+  }, [isAutoRefresh, refreshIntervalSec, data.event?.status]);
 
   // Manual Refresh Handler
   const handleManualRefresh = async () => {
@@ -566,24 +590,46 @@ export function MonitorClient({ initialData, userRole }: MonitorClientProps) {
         {/* Rapid Status Actions */}
         <div className="flex items-center gap-2">
           {isEventOpen ? (
-            <Button
-              size="sm"
-              variant="outline"
-              onClick={() => setStatusConfirmTarget("PAUSED")}
-              className="border-warning/30 text-warning-text hover:bg-warning/10 text-xs font-medium"
-            >
-              <Pause className="w-3.5 h-3.5 mr-1.5" />
-              Pause Window
-            </Button>
+            <>
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => setStatusConfirmTarget("PAUSED")}
+                className="border-warning/30 text-warning-text hover:bg-warning/10 text-xs font-medium"
+              >
+                <Pause className="w-3.5 h-3.5 mr-1.5" />
+                Pause Window
+              </Button>
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => setStatusConfirmTarget("CLOSED")}
+                className="border-danger/30 text-danger-text hover:bg-danger/10 text-xs font-medium"
+              >
+                <XCircle className="w-3.5 h-3.5 mr-1.5" />
+                Close Event
+              </Button>
+            </>
           ) : isEventPaused ? (
-            <Button
-              size="sm"
-              onClick={() => setStatusConfirmTarget("OPEN")}
-              className="bg-emerald-600 text-white hover:bg-emerald-500 text-xs font-medium shadow-sm"
-            >
-              <Play className="w-3.5 h-3.5 mr-1.5 fill-current" />
-              Resume Window
-            </Button>
+            <>
+              <Button
+                size="sm"
+                onClick={() => setStatusConfirmTarget("OPEN")}
+                className="bg-emerald-600 text-white hover:bg-emerald-500 text-xs font-medium shadow-sm"
+              >
+                <Play className="w-3.5 h-3.5 mr-1.5 fill-current" />
+                Resume Window
+              </Button>
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => setStatusConfirmTarget("CLOSED")}
+                className="border-danger/30 text-danger-text hover:bg-danger/10 text-xs font-medium"
+              >
+                <XCircle className="w-3.5 h-3.5 mr-1.5" />
+                Close Event
+              </Button>
+            </>
           ) : (
             <Button
               size="sm"
@@ -608,7 +654,42 @@ export function MonitorClient({ initialData, userRole }: MonitorClientProps) {
       </div>
 
       {/* ── Key Performance Telemetry / KPIs ── */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-4">
+        {/* KPI 0: Active Students Online (Live Presence) */}
+        <div className="bg-surface border border-emerald-500/25 bg-emerald-500/[0.02] rounded-card p-5 relative overflow-hidden group hover:border-emerald-500/40 transition-all">
+          <div className="flex items-center justify-between text-xs text-fg-muted">
+            <span className="font-medium text-emerald-400 flex items-center gap-1.5">
+              <span className="relative flex h-2 w-2">
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
+              </span>
+              Active Online
+            </span>
+            <Activity className="w-4 h-4 text-emerald-400" />
+          </div>
+          <div className="mt-3 flex items-baseline gap-2">
+            <span className="text-3xl font-light font-mono text-fg">{data.activeCount || 0}</span>
+            <span className="text-xs text-fg-muted">students active</span>
+          </div>
+
+          <div className="mt-3 space-y-1">
+            <div className="flex items-center justify-between text-[11px] text-fg-muted pt-0.5">
+              <span>
+                {data.countdownCount ? `${data.countdownCount} countdown` : ""}
+                {data.countdownCount && data.inSelectionCount ? " · " : ""}
+                {data.inSelectionCount ? `${data.inSelectionCount} choosing` : (!data.countdownCount ? "0 in selection" : "")}
+              </span>
+              <button
+                type="button"
+                onClick={() => setActiveStudentsModalOpen(true)}
+                className="hover:underline text-emerald-400 font-medium"
+              >
+                View list &rarr;
+              </button>
+            </div>
+          </div>
+        </div>
+
         {/* KPI 1: Student Turnout */}
         <div className="bg-surface border border-border rounded-card p-5 relative overflow-hidden group hover:border-border-strong transition-all">
           <div className="flex items-center justify-between text-xs text-fg-muted">
@@ -1112,6 +1193,125 @@ export function MonitorClient({ initialData, userRole }: MonitorClientProps) {
                       </div>
                       <Badge tone="outline" className="border-border text-fg-muted text-[11px]">
                         {s.sectionName}
+                      </Badge>
+                    </div>
+                  ))
+              )}
+            </div>
+          </DialogContent>
+        </Dialog>
+      )}
+
+      {/* ── Active Students Online Modal (During & Before Event) ── */}
+      {activeStudentsModalOpen && (
+        <Dialog open={true} onOpenChange={() => setActiveStudentsModalOpen(false)}>
+          <DialogContent className="max-w-2xl max-h-[85vh] flex flex-col p-6">
+            <DialogHeader>
+              <div className="flex items-center justify-between">
+                <div>
+                  <DialogTitle className="text-base font-medium text-fg flex items-center gap-2">
+                    <span className="relative flex h-2.5 w-2.5">
+                      <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                      <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-emerald-500"></span>
+                    </span>
+                    Active Online Students ({data.activeCount || 0})
+                  </DialogTitle>
+                  <DialogDescription className="text-xs text-fg-muted mt-1">
+                    Live telemetry of students connected to this registration event before and during session.
+                  </DialogDescription>
+                </div>
+              </div>
+            </DialogHeader>
+
+            {/* Stage Filter Tabs & Search Bar */}
+            <div className="pt-3 pb-2 space-y-3 border-b border-border">
+              <div className="flex items-center gap-1.5 flex-wrap">
+                {(
+                  [
+                    { id: "ALL", label: `All (${data.activeCount || 0})` },
+                    { id: "COUNTDOWN", label: `Countdown / Before (${data.countdownCount || 0})` },
+                    { id: "IN_SELECTION", label: `In Picker / Choosing (${data.inSelectionCount || 0})` },
+                    { id: "SUBMITTED", label: `Confirmed (${data.submittedCount || 0})` },
+                  ] as const
+                ).map((tab) => (
+                  <button
+                    key={tab.id}
+                    type="button"
+                    onClick={() => setActiveStudentsFilter(tab.id)}
+                    className={`px-2.5 py-1 text-xs rounded-control transition-colors font-medium ${
+                      activeStudentsFilter === tab.id
+                        ? "bg-primary text-canvas"
+                        : "bg-surface-2 text-fg-muted hover:text-fg hover:bg-surface-3"
+                    }`}
+                  >
+                    {tab.label}
+                  </button>
+                ))}
+              </div>
+
+              <div className="relative">
+                <Search className="w-3.5 h-3.5 absolute left-2.5 top-1/2 -translate-y-1/2 text-fg-muted" />
+                <input
+                  type="text"
+                  placeholder="Filter by student name, register number..."
+                  value={activeStudentsSearch}
+                  onChange={(e) => setActiveStudentsSearch(e.target.value)}
+                  className="w-full pl-8 pr-3 py-1.5 bg-surface-2 border border-border rounded-control text-xs text-fg placeholder:text-fg-muted focus:outline-none"
+                />
+              </div>
+            </div>
+
+            {/* Students List */}
+            <div className="flex-1 overflow-y-auto divide-y divide-border/60 py-2 min-h-60 max-h-96">
+              {!data.activeStudents || data.activeStudents.length === 0 ? (
+                <div className="p-8 text-center text-xs text-fg-muted">
+                  <Users className="w-8 h-8 text-fg-subtle mx-auto mb-2 opacity-50" />
+                  <span className="font-medium text-fg block text-sm">No Students Currently Online</span>
+                  <span>Students will appear here as soon as they open the countdown or registration picker.</span>
+                </div>
+              ) : (
+                data.activeStudents
+                  .filter((s) => {
+                    if (activeStudentsFilter !== "ALL" && s.stage !== activeStudentsFilter) return false;
+                    if (!activeStudentsSearch.trim()) return true;
+                    const q = activeStudentsSearch.toLowerCase();
+                    return (
+                      s.name.toLowerCase().includes(q) ||
+                      (s.registerNumber && s.registerNumber.toLowerCase().includes(q)) ||
+                      s.sectionName.toLowerCase().includes(q)
+                    );
+                  })
+                  .map((s) => (
+                    <div key={s.studentId} className="py-2.5 px-3 flex items-center justify-between text-xs hover:bg-surface-2/60">
+                      <div className="flex items-center gap-3">
+                        <span className="relative flex h-2 w-2 shrink-0">
+                          <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
+                        </span>
+                        <div>
+                          <div className="flex items-center gap-2">
+                            <span className="font-medium text-fg">{s.name}</span>
+                            <span className="text-fg-muted font-mono text-[11px]">{s.registerNumber}</span>
+                          </div>
+                          <span className="text-fg-muted text-[11px] block mt-0.5">
+                            {s.sectionName} · Active {s.lastSeenSecondsAgo < 5 ? "just now" : `${s.lastSeenSecondsAgo}s ago`}
+                          </span>
+                        </div>
+                      </div>
+                      <Badge
+                        tone={
+                          s.stage === "IN_SELECTION"
+                            ? "live"
+                            : s.stage === "SUBMITTED"
+                            ? "success"
+                            : "outline"
+                        }
+                        className="text-[11px]"
+                      >
+                        {s.stage === "COUNTDOWN"
+                          ? "Waiting in Countdown"
+                          : s.stage === "IN_SELECTION"
+                          ? "Selecting Electives"
+                          : "Submitted"}
                       </Badge>
                     </div>
                   ))
