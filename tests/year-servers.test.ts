@@ -1,7 +1,7 @@
 import test, { describe, before, after } from "node:test";
 import assert from "node:assert";
 import { randomUUID } from "node:crypto";
-import { and, eq, inArray, or } from "drizzle-orm";
+import { eq, inArray, or } from "drizzle-orm";
 import { db } from "@/lib/db";
 import {
   academicBatches,

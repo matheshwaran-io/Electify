@@ -17,20 +17,8 @@ export function isRootAdmin(email: string | null | undefined): boolean {
   return normalized === ROOT_ADMIN_EMAIL || normalized === "admin@electify.edu";
 }
 
-export interface UserSession {
-  userId: string;
-  name: string;
-  email: string;
-  role: "SYSTEM_ADMIN" | "COURSE_COORDINATOR" | "CLASS_TUTOR" | "STUDENT";
-  sessionId?: string;
-  employeeId?: string;
-  registerNumber?: string;
-  facultyId?: string;
-  departmentId?: string;
-  programmeId?: string;
-  academicBatchId?: string;
-  sectionId?: string;
-}
+import type { UserSession } from "@/types";
+export type { UserSession };
 
 function assertProductionSecret() {
   if (

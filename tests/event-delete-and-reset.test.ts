@@ -10,7 +10,6 @@ import {
   registrationEvents,
   electiveGroups,
   electives,
-  electiveSeatAllocations,
   studentRegistrations,
   registrations,
   replayEvents,
@@ -263,7 +262,7 @@ describe("Event Management: Delete Event & Reset Registrations", () => {
   });
 
   test("3. Deleting an event permanently purges event, baskets, electives, allocations, and logs", async () => {
-    const { eventId, groupId, electiveId } = await createTestEventWithRegistrations("DeleteCheck");
+    const { eventId, electiveId } = await createTestEventWithRegistrations("DeleteCheck");
 
     setTestSession({
       userId: adminUser.id,

@@ -1,6 +1,6 @@
 import test, { describe, before, after } from "node:test";
 import assert from "node:assert";
-import { db, pool } from "@/lib/db";
+import { db } from "@/lib/db";
 import {
   users,
   registrationEvents,

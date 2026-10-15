@@ -1,0 +1,27 @@
+# Consistent line endings on every OS. The repository stores text files with LF,
+# and a Windows checkout gets LF too, so tools, diffs and lockfiles match macOS/Linux.
+* text=auto eol=lf
+
+# Windows-only scripts keep CRLF.
+*.cmd text eol=crlf
+*.bat text eol=crlf
+*.ps1 text eol=crlf
+
+# Binary assets: never convert.
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.webp binary
+*.ico binary
+*.pdf binary
+*.docx binary
+*.xlsx binary
+*.pptx binary
+*.zip binary
+*.woff binary
+*.woff2 binary
+*.ttf binary
+
+# Extracted Word XML used by the report tooling is committed as-is (contains CRLF).
+documentation/final-report/work/render/** -text

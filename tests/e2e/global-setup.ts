@@ -15,6 +15,9 @@ export default function globalSetup() {
   const env = { ...process.env, DATABASE_URL: E2E_DATABASE_URL, DIRECT_URL: E2E_DATABASE_URL };
   execFileSync("dropdb", [...pg, "--if-exists", "--force", E2E_DB_NAME], { stdio: "inherit" });
   execFileSync("createdb", [...pg, E2E_DB_NAME], { stdio: "inherit" });
-  execFileSync("npx", ["drizzle-kit", "push", "--force"], { stdio: "pipe", env });
-  execFileSync("npx", ["tsx", "tests/e2e/fixtures/seed.ts"], { stdio: "inherit", env });
+  // On Windows `npx` is `npx.cmd`, which Node only launches through a shell
+  // (CVE-2024-27980). The arguments are fixed strings, so the shell is safe here.
+  const npx = { shell: process.platform === "win32", env };
+  execFileSync("npx", ["drizzle-kit", "push", "--force"], { stdio: "pipe", ...npx });
+  execFileSync("npx", ["tsx", "tests/e2e/fixtures/seed.ts"], { stdio: "inherit", ...npx });
 }

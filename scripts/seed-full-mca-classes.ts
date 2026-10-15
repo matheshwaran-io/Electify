@@ -13,7 +13,7 @@ import {
   registrations,
   replayEvents
 } from "../src/lib/db/schema";
-import { eq, and, or, inArray, sql } from "drizzle-orm";
+import { eq, and, inArray, sql } from "drizzle-orm";
 
 async function main() {
   console.log("🚀 Seeding full MCA GenAI cohorts (2 classes: Section A & Section B)...");

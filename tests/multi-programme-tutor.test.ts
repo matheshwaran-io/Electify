@@ -1,31 +1,24 @@
 import test, { describe, before, after } from "node:test";
 import assert from "node:assert";
 import { randomUUID } from "node:crypto";
-import { eq, inArray, and } from "drizzle-orm";
+import { eq, inArray } from "drizzle-orm";
 import { db } from "@/lib/db";
 import {
   academicBatches,
-  academicSessions,
   auditLogs,
   cohortSessionTerms,
   departments,
-  electiveGroups,
-  electives,
   faculties,
   inviteCodes,
   programmes,
   registrationEvents,
-  registrations,
   sections,
-  studentRegistrations,
-  systemSettings,
   tutorSections,
   users,
 } from "@/lib/db/schema";
 import { setTestSession } from "@/lib/auth";
 import {
   requireStaffWorkspace,
-  resolveStaffWorkspace,
   setTestWorkspaceSession,
 } from "@/lib/workspace";
 import {
@@ -35,7 +28,6 @@ import {
   getAllAvailableSections,
   getMyAssignedSections,
   getSectionStudents,
-  getTutorReports,
   getMaxTutorSectionsLimit,
   updateMaxTutorSectionsLimit,
 } from "@/app/actions/tutor";

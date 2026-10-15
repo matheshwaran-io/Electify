@@ -102,7 +102,7 @@ export interface MonitorActivityItem {
   newSubject: string | null;
   seatBefore: number | null;
   seatAfter: number | null;
-  metadata: any;
+  metadata: unknown;
 }
 
 export interface LiveMonitoringData {
@@ -838,8 +838,9 @@ export async function toggleEventStatusFromMonitor(
     safeRevalidatePath("/faculty/monitor", "/faculty/events", "/faculty/window");
 
     return { success: true, newStatus };
-  } catch (error: any) {
+  } catch (error: unknown) {
+    const message = error instanceof Error ? error.message : "Failed to update status.";
     console.error("Error updating event status from monitor:", error);
-    return { success: false, error: error.message || "Failed to update status." };
+    return { success: false, error: message };
   }
 }

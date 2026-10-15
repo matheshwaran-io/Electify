@@ -13,7 +13,7 @@ import {
   registrations,
   replayEvents
 } from "../src/lib/db/schema";
-import { eq, and, inArray, sql } from "drizzle-orm";
+import { eq, and, sql } from "drizzle-orm";
 
 async function main() {
   console.log("🚀 Starting MCA GenAI data setup & fix for Dr. Angel B...");

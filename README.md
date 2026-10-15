@@ -1,27 +1,27 @@
 # Electify – Smart University Elective Registration System
 
-[![Next.js](https://img.shields.io/badge/Next.js-16.0-black?style=flat-square&logo=next.js)](https://nextjs.org/)
-[![React](https://img.shields.io/badge/React-19.0-blue?style=flat-square&logo=react)](https://react.dev/)
+[![Next.js](https://img.shields.io/badge/Next.js-16.2-black?style=flat-square&logo=next.js)](https://nextjs.org/)
+[![React](https://img.shields.io/badge/React-19.2-blue?style=flat-square&logo=react)](https://react.dev/)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.0-blue?style=flat-square&logo=typescript)](https://www.typescriptlang.org/)
 [![PostgreSQL](https://img.shields.io/badge/PostgreSQL-16-336791?style=flat-square&logo=postgresql)](https://www.postgresql.org/)
-[![Drizzle ORM](https://img.shields.io/badge/Drizzle_ORM-0.38-C5F74F?style=flat-square&logo=drizzle)](https://orm.drizzle.team/)
+[![Drizzle ORM](https://img.shields.io/badge/Drizzle_ORM-0.45-C5F74F?style=flat-square&logo=drizzle)](https://orm.drizzle.team/)
 [![Tailwind CSS](https://img.shields.io/badge/Tailwind_CSS-v4-38B2AC?style=flat-square&logo=tailwind-css)](https://tailwindcss.com/)
-[![Tests](https://img.shields.io/badge/Tests-130%2B%20Passing-success?style=flat-square)]()
+[![Tests](https://img.shields.io/badge/Tests-Passing-success?style=flat-square)]()
 
-**Electify** is a high-performance, secure full-stack university elective registration and management system engineered specifically for SRM Institute of Science and Technology (SRMIST) academic cohorts. It guarantees a 100% fair, zero-waitlist, first-come, first-served course selection process powered by atomic PostgreSQL transaction safeguards, real-time seat sync, and an Academic Year Server isolation workflow.
+**Electify** is a high-performance, secure full-stack university elective registration and cohort management system. It guarantees a **100% fair, zero-waitlist, first-come, first-served** course selection process powered by atomic PostgreSQL transaction row-locking safeguards, real-time seat synchronization via WebSockets, and an Academic Year Server isolation workflow.
 
 ---
 
 ## ⚡ Key Highlights & Core Capabilities
 
 - **Atomic Concurrency Guarantee**: PostgreSQL row-locking transactions handle simultaneous submissions with zero overbooking and automatic instant seat release on resubmission.
-- **Academic Year Timeline (Year Server) Isolation**: Dedicated year selection dashboard after staff login (`/faculty/select-year-server`), organizing operations by academic timelines (e.g., 2025, 2026, 2027) with complete workspace isolation.
-- **Root Administrator Immutability**: Hardcoded multi-layer security protections guaranteeing the permanent Root Administrator (`electify@srmist.edu.in`) cannot be deleted, deactivated, or demoted.
+- **Academic Year Timeline (Year Server) Isolation**: Dedicated year selection dashboard after staff login (`/faculty/select-year-server`), organizing operations by academic timelines (e.g. 2025, 2026, 2027) with complete workspace isolation.
+- **Root Administrator Immutability**: Multi-layer security protections guaranteeing the permanent Root Administrator (`electify@srmist.edu.in`) cannot be deleted, deactivated, or demoted.
+- **Single-Session Sentinel**: Anti-sniping protection ensuring that logging in from another device immediately revokes any prior active sessions.
 - **Multi-Programme Tutor Supervision**: Class tutors can claim and manage sections across multiple programmes and batches with strict student roster segregation.
 - **Subject Explorer & Preview Mode**: Students can explore subject descriptions, syllabi, and prerequisites prior to window opening without locking seats.
 - **Live Event Monitor & Surveillance**: Real-time staff monitoring feed, live seat metrics, and unregistered cohort tracking.
-- **Official SRMIST Hierarchy**: Native support for SRM faculties (FET, FOM, FMHS, FSH, FOL, FAS), departments, degree types (UG/PG), and sections.
-- **Audit Logging & Receipts**: Cryptographically signed confirmation receipts with deterministic, tamper-proof audit trails.
+- **Audit Logging & Receipts**: Cryptographically signed confirmation receipts with deterministic, tamper-proof audit trails and downloadable PDF exports.
 
 ---
 
@@ -29,11 +29,11 @@
 
 - **Frontend**: [Next.js 16](https://nextjs.org/) (App Router, Server Components & Server Actions)
 - **UI & Components**: [React 19](https://react.dev/), [shadcn/ui](https://ui.shadcn.com/), Lucide Icons
-- **Styling**: [Tailwind CSS v4](https://tailwindcss.com/)
+- **Styling**: [Tailwind CSS v4](https://tailwindcss.com/) (CSS-first design tokens)
 - **Database & Pooling**: PostgreSQL 16 (via local instance, Neon, or Supabase connection pooling)
 - **ORM & Migrations**: [Drizzle ORM](https://orm.drizzle.team/) & [Drizzle Kit](https://orm.drizzle.team/docs/kit-overview)
 - **Realtime Sync**: [Supabase Realtime](https://supabase.com/docs/guides/realtime) (WebSockets for dynamic seat counters)
-- **Auth & Session Security**: Custom HMAC-signed JWT cookies, Edge routing middleware, and Bcryptjs password hashing (cost factor 12)
+- **Auth & Session Security**: Custom HMAC-signed JWT cookies, Edge routing proxy (`src/proxy.ts`), and Bcryptjs password hashing (cost factor 12)
 - **Brute Force Protection**: Database-backed login attempt tracking and automatic rate-limiting lockout
 - **Export Engine**: Client-side high-fidelity PDF reporting using [jsPDF](https://github.com/parallax/jsPDF) & AutoTable
 
@@ -45,32 +45,41 @@
 electify/
 ├── .github/                # CI/CD Workflows (GitHub Actions)
 ├── docs/                   # System Architecture, Database & Deployment Guides
+│   ├── architecture/       # System design & folder structure documentation
+│   ├── development/        # Code standards & testing workflows
+│   ├── decisions/          # Architecture Decision Records (ADRs)
+│   └── qa/                 # QA regression and test reports
 ├── drizzle/                # Database migrations generated by Drizzle Kit
+├── public/                 # Static branding, presentation, and public assets
+├── scripts/                # Database maintenance & mock data cleanup scripts
 ├── src/
 │   ├── app/                # Next.js App Router Pages and Server Actions
-│   │   ├── actions/        # Server actions (admin, auth, coordinator, tutor, student, etc.)
-│   │   ├── api/            # API Route Handlers (health, switch-section, live feed)
+│   │   ├── actions/        # Mutating server actions (admin, auth, tutor, register)
+│   │   ├── api/            # API Route Handlers (health, switch-section)
 │   │   ├── countdown/      # Pre-registration countdown waiting hall
 │   │   ├── dashboard/      # Student registration portal & elective picker
 │   │   ├── faculty/        # Staff & Administrative Control Panel
-│   │   │   ├── select-year-server/ # Academic Year Server workspace selector
-│   │   │   └── (authenticated)/    # Dashboard, events, catalogue, users, classes
 │   │   ├── login/          # Unified staff and student login portal
 │   │   ├── maintenance/    # Global emergency maintenance redirect
 │   │   ├── globals.css     # Design tokens and Tailwind CSS rules
 │   │   └── layout.tsx      # Root application layout
 │   ├── components/         # Reusable UI elements, modals, badges, data tables
-│   ├── lib/                # Shared utilities and configurations
-│   │   ├── auth.ts         # JWT signing, validation, and Root Admin guard rules
+│   ├── hooks/              # Custom reusable React hooks (e.g. useServerClock)
+│   ├── lib/                # Shared utilities, database client, and security
+│   │   ├── db/             # Drizzle client, unified schema, and seed scripts
+│   │   ├── auth.ts         # JWT signing, validation, and session guard rules
+│   │   ├── cache.ts        # Typed Next.js cache and route revalidation helpers
 │   │   ├── password-policy.ts # Centralized password validation rules
-│   │   ├── db/             # Drizzle client, unified schema, and SRM seed script
-│   │   │   ├── index.ts    # Postgres connection pooler
-│   │   │   ├── schema.ts   # Database schema definitions
-│   │   │   └── seed.ts     # Master SRM university structure & seed data
-│   │   └── supabase.ts     # Supabase Realtime client
-│   └── proxy.ts            # Edge route protection & session validation
-├── tests/                  # Automated test suites (130+ tests across 14 test suites)
-├── scripts/                # Database maintenance & mock data cleanup scripts
+│   │   ├── seat-ops.ts     # ACID row-locking seat operations
+│   │   ├── seats.ts        # Pure seat display logic and thresholds
+│   │   └── workspace.ts    # Academic workspace resolution and security
+│   ├── types/              # Centralized domain and API TypeScript contracts
+│   │   ├── academic.ts     # Hierarchy entities (faculties, depts, programmes)
+│   │   ├── api.ts          # API response and health check contracts
+│   │   ├── registration.ts # Registration and seat availability types
+│   │   └── session.ts      # Authentication session and login types
+│   └── proxy.ts            # Next.js 16 Edge route protection & session validation
+├── tests/                  # Automated test suites (unit, integration, and e2e)
 ├── drizzle.config.ts       # Drizzle Kit configuration file
 ├── next.config.ts          # Next.js configuration
 └── package.json            # Dependencies and npm scripts
@@ -80,7 +89,7 @@ electify/
 
 ## 🗄️ Database Architecture (Drizzle ORM)
 
-The relational schema is defined in [`src/lib/db/schema.ts`](file:///Users/maddy/Current%20Project/Electify/src/lib/db/schema.ts):
+The relational schema is defined in [`src/lib/db/schema.ts`](src/lib/db/schema.ts):
 
 | Entity | Description |
 | :--- | :--- |
@@ -126,9 +135,9 @@ The relational schema is defined in [`src/lib/db/schema.ts`](file:///Users/maddy
 
 ### 1. Root Administrator
 - **Email**: `electify@srmist.edu.in`
-- **Password**: `Electify@Root2026!`
+- **Default Password**: Configured via `INITIAL_ADMIN_PASSWORD` (or bootstrap setup)
 - **Role**: `SYSTEM_ADMIN`
-- **Protection**: Permanently hardcoded as immutable Root Admin; cannot be deleted, deactivated, or demoted.
+- **Protection**: Permanently protected as immutable Root Admin; cannot be deleted, deactivated, or demoted.
 
 ### 2. Faculty / Staff Portal
 - **Onboarding**: Staff sign up via single-use, role-based invite codes created by the Root Admin.
@@ -136,30 +145,20 @@ The relational schema is defined in [`src/lib/db/schema.ts`](file:///Users/maddy
 
 ### 3. Student Portal
 - **Login ID**: Official SRMIST Email (`@srmist.edu.in`)
-- **Initial Password**: Student Register Number (e.g., `RA2532241010001`, case-insensitive)
-- **Password Policy**: Minimum 8 characters, requiring at least one letter and one number, preventing default register numbers.
-
----
-
-## ⚡ Concurrency & Seat Booking Safeguards
-
-To prevent race conditions and overbooking when thousands of students register at the same second:
-
-1. **Transaction Isolation**: All seat reservations run within a PostgreSQL serializable/transactional block.
-2. **Atomic Counter Decrement**: The transaction decrements available seats atomically (`availableSeats = availableSeats - 1`).
-3. **Capacity Invariant Check**: If available seats drop below zero, the transaction rolls back, aborting the write and notifying the student with `SEAT_TAKEN`.
-4. **Instant Seat Return on Resubmission**: When a student switches an elective, the old seat count is incremented atomically within the same database transaction.
-5. **No Orphaned Locks**: Because state is verified at the database level, no external caching inconsistency can cause ghost bookings.
+- **Initial Password**: Student Register Number (e.g. `RA2532241010001`, case-insensitive)
+- **Password Policy**: Minimum 8 characters, requiring at least one letter and one number, blocking trivial defaults.
 
 ---
 
 ## 🛠️ Local Development & Setup
 
+> **On Windows?** Follow **[WINDOWS_SETUP.md](WINDOWS_SETUP.md)**, a complete step-by-step guide for Windows 10/11 with PowerShell commands and troubleshooting.
+
 ### Prerequisites
-- **Node.js**: v18.x or v20.x+
+- **Node.js**: v20.9 or newer (required by Next.js 16); **v24 LTS recommended** (see `.nvmrc`). `npm test` needs v22+.
 - **PostgreSQL**: v14+ (Local, Supabase, or Neon)
 
-### 1. Clone & Install Dependencies
+### 1. Installation
 ```bash
 git clone https://github.com/matheshwaran-io/Electify.git
 cd Electify
@@ -167,72 +166,87 @@ npm install
 ```
 
 ### 2. Configure Environment Variables
-Create `.env.local` in the project root:
+Copy `.env.example` to **both** `.env.local` (read by Next.js and `npm test`) and `.env` (read by drizzle-kit, `db:seed` and `db:reset`):
+```bash
+cp .env.example .env.local && cp .env.example .env
+```
+Windows PowerShell: `Copy-Item .env.example .env.local; Copy-Item .env.example .env`
+Fill in your database URL and a 32+ character JWT secret:
 ```env
-# Database connection string
 DATABASE_URL="postgresql://postgres:password@localhost:5432/electify"
 DIRECT_URL="postgresql://postgres:password@localhost:5432/electify"
-
-# Authentication secret (32+ characters)
-JWT_SECRET="super-secret-electify-key-for-signing-token-change-this-in-production"
-
-# Supabase Realtime (optional for local dev)
-NEXT_PUBLIC_SUPABASE_URL="https://your-project.supabase.co"
-NEXT_PUBLIC_SUPABASE_ANON_KEY="your-supabase-anon-key"
+JWT_SECRET="your-secure-random-secret-at-least-32-chars-long"
 ```
 
 ### 3. Apply Migrations & Seed Database
 ```bash
-# Apply migrations to database
-npm run db:migrate
+# Generate and apply migrations
+npm run db:push
 
-# Seed SRM university hierarchy and Root Administrator
+# Seed university hierarchy and Root Administrator
 npm run db:seed
 ```
 
-### 4. Run the Automated Test Suite
-Electify includes **130+ unit and integration tests across 14 test suites**:
+### 4. Running Checks & Tests
 ```bash
-# Run all automated tests
+# Run unit tests (fast, no database required)
+npm run test:unit
+
+# Run full integration test suite (requires active PostgreSQL)
 npm test
 
 # Type-check TypeScript codebase
-npx tsc --noEmit
+npm run typecheck
 
-# Run ESLint
+# Run ESLint on source code
 npm run lint
+
+# Run ESLint on scripts and tests
+npx eslint scripts tests --format compact
 ```
 
 ### 5. Start Development Server
 ```bash
 npm run dev
 ```
-Open [http://localhost:3000](http://localhost:3000) to view the portal.
+Open [http://localhost:3000](http://localhost:3000) to view the application.
 
----
-
-## 📋 CSV Roster Import Format
-
-Staff can import student rosters using the following CSV format:
-```csv
-registerNumber,name,email
-RA2532241010001,Student One,student1@srmist.edu.in
-RA2532241010002,Student Two,student2@srmist.edu.in
+### 6. Production Build
+```bash
+npm run build
+npm start
 ```
-- Passwords automatically default to their `registerNumber` hashed with Bcrypt (cost 12).
-- Existing students update their name and email without resetting existing registrations.
 
 ---
 
-## 🌐 Production Deployment Guide
+## ❓ Troubleshooting & FAQs
 
-1. **Database Setup**: Create a PostgreSQL instance on Supabase or Neon. Copy the transaction pooler URL for `DATABASE_URL` and direct connection URL for `DIRECT_URL`.
-2. **Environment Configuration**: Set `DATABASE_URL`, `DIRECT_URL`, and a strong, high-entropy `JWT_SECRET` in Vercel / Cloudflare Pages / Railway.
-3. **Database Migration**: Run `npx drizzle-kit migrate` in your deployment pipeline.
-4. **Health Check**: Visit `/api/health` to confirm database connectivity and root admin verification.
+### 1. Database Connection Timeout (`ENOTFOUND` or connection refused)
+- **Symptom**: `Failed query: SELECT 1` or `getaddrinfo ENOTFOUND`.
+- **Solution**: Ensure your PostgreSQL instance is running and reachable. For cloud databases (Supabase/Neon), verify that your project is not paused and that network access is allowed.
+
+### 2. JWT Secret Length Warning
+- **Symptom**: `FATAL: JWT_SECRET must be configured with a secure random key in production`.
+- **Solution**: Set `JWT_SECRET` in `.env.local` to a random string of at least 32 characters: `node -e "console.log(require('crypto').randomBytes(32).toString('base64'))"`.
+
+### 3. Root Admin Bootstrapping in Production
+- **Symptom**: Root admin account does not exist after deploying to a new database.
+- **Solution**: Set `SETUP_SECRET` in your environment variables, then invoke `/api/health?setup=true` passing `x-setup-secret: <YOUR_SETUP_SECRET>` in the header.
+
+---
+
+## 📚 Architectural Documentation
+
+For in-depth architectural and design documentation, see:
+- [Windows Setup Guide](WINDOWS_SETUP.md)
+- [Architecture Overview](docs/architecture/overview.md)
+- [Folder Structure](docs/architecture/folder-structure.md)
+- [Code Standards](docs/development/code-standards.md)
+- [Testing Guide](docs/development/testing.md)
+- [Architecture Decision Records (ADRs)](docs/decisions/)
 
 ---
 
 ## 📄 License & Ownership
-Copyright © 2026 SRM Institute of Science and Technology. All rights reserved.
+Copyright © 2026 SRM Institute of Science and Technology. All rights reserved.  
 Developed for academic elective registration and cohort administration.
