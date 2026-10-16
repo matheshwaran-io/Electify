@@ -1,6 +1,7 @@
 "use server";
 
 import { db } from "@/lib/db";
+import { openNowPatch, toDate } from "@/lib/registration-window";
 import {
   users, electives, electiveGroups, registrationEvents, tutorSections,
   studentRegistrations, eventSections, sections, programmes, academicBatches, auditLogs, registrations, departments,
@@ -12,7 +13,7 @@ import { generateClassSignupCode } from "@/lib/invites";
 import { eq, and, asc, desc, count, inArray, ne, or, sql } from "drizzle-orm";
 import { assertClass, assertEventInWorkspace, requireStaffWorkspace, workspaceEventIds, type Workspace } from "@/lib/workspace";
 import { isStudentEligibleForEvent } from "@/lib/student-events";
-import { releaseSeat, SeatTakenError, takeSeat } from "@/lib/seat-ops";
+import { confirmedCount, releaseSeat, SeatTakenError, takeSeat } from "@/lib/seat-ops";
 import { cohortLabel, cohortYears } from "@/lib/academic";
 
 type TutorContext = UserSession & { workspace: Workspace };
@@ -452,7 +453,7 @@ export async function getRegistrationMetrics(eventId: string) {
 
   for (const el of electivesList) {
     totalSeats += el.maxSeats;
-    filledSeats += (el.maxSeats - el.availableSeats);
+    filledSeats += Math.min(el.maxSeats, Math.max(0, el.maxSeats - el.availableSeats));
     if (el.isFull || el.availableSeats <= 0) fullSubjects++;
   }
 
@@ -604,8 +605,8 @@ export async function createRegistrationWindow(data: { name: string; semester?: 
 
 export async function updateWindowTimers(
   eventId: string,
-  openDate: Date | null,
-  closeDate: Date | null,
+  openDate: Date | string | null,
+  closeDate: Date | string | null,
   config?: {
     allowEditing?: boolean;
     autoClose?: boolean;
@@ -623,44 +624,30 @@ export async function updateWindowTimers(
   if (!existingEvent) throw new Error("Registration event not found.");
 
   const now = new Date();
+  const openDateObj = toDate(openDate);
+  const closeDateObj = toDate(closeDate);
+
   let status = existingEvent.status;
 
   if (config?.status) {
     status = config.status;
+  } else if (existingEvent.status === "PAUSED") {
+    status = "PAUSED";
+  } else if (closeDateObj && now.getTime() >= closeDateObj.getTime() && (config?.autoClose ?? existingEvent.autoClose)) {
+    status = "CLOSED";
+  } else if (openDateObj && now.getTime() < openDateObj.getTime()) {
+    // Scheduled for a future opening time: must be PUBLISHED (scheduled), never OPEN!
+    status = "PUBLISHED";
+  } else if (!openDateObj && !closeDateObj) {
+    status = "DRAFT";
   } else {
-    // Only update status based on dates if status is not explicitly paused
-    if (existingEvent.status === "PAUSED") {
-      status = "PAUSED";
-    } else if (existingEvent.status === "OPEN") {
-      const isAutoClose = config?.autoClose !== undefined ? config.autoClose : existingEvent.autoClose;
-      if (isAutoClose && closeDate && now >= closeDate) {
-        status = "CLOSED";
-      } else {
-        status = "OPEN";
-      }
-    } else if (existingEvent.status === "CLOSED") {
-      if (closeDate && now < closeDate && (!openDate || now >= openDate)) {
-        status = "OPEN";
-      } else {
-        status = "CLOSED";
-      }
-    } else {
-      // For DRAFT or PUBLISHED: schedule accordingly
-      if (!openDate && !closeDate) {
-        status = "DRAFT";
-      } else if (closeDate && now >= closeDate) {
-        status = "CLOSED";
-      } else if (openDate && now >= openDate) {
-        status = "OPEN";
-      } else {
-        status = "PUBLISHED";
-      }
-    }
+    // openDate has arrived and closeDate has not passed
+    status = "OPEN";
   }
 
   const updateData: Record<string, any> = {
-    openDate,
-    closeDate,
+    openDate: openDateObj,
+    closeDate: closeDateObj,
     status,
     updatedAt: new Date(),
   };
@@ -729,9 +716,11 @@ export async function toggleWindowStatus(eventId: string, newStatus: "OPEN" | "P
 
   if (!existingEvent) throw new Error("Registration event not found.");
 
+  // Opening by hand before the scheduled time moves the opening time to now.
+  const patch = newStatus === "OPEN" ? openNowPatch(existingEvent) : { status: newStatus };
   await db
     .update(registrationEvents)
-    .set({ status: newStatus, updatedAt: new Date() })
+    .set({ ...patch, updatedAt: new Date() })
     .where(eq(registrationEvents.id, eventId));
 
   await db.insert(auditLogs).values({
@@ -941,8 +930,9 @@ export async function updateElective(id: string, data: { name: string; maxSeats:
 
   // Adjust availableSeats based on the new maxSeats
   // We need to know how many seats are already taken.
-  const [current] = await db.select({ maxSeats: electives.maxSeats, availableSeats: electives.availableSeats }).from(electives).where(eq(electives.id, id));
-  const bookedSeats = current.maxSeats - current.availableSeats;
+  // Booked seats come from the confirmed choices, not the counter, so a drifted
+  // counter is corrected here instead of being carried into the new capacity.
+  const bookedSeats = await confirmedCount(db, id);
   const newAvailable = data.maxSeats - bookedSeats;
 
   if (newAvailable < 0) {

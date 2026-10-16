@@ -1,6 +1,7 @@
 "use server";
 
 import { db } from "@/lib/db";
+import { confirmedCount } from "@/lib/seat-ops";
 import {
   users, registrationEvents, sections, departments, programmes,
   electiveGroups, electives, electiveSeatAllocations, studentRegistrations,
@@ -11,6 +12,7 @@ import { getSession } from "@/lib/auth";
 import { eq, and, count, asc, desc, inArray, sql } from "drizzle-orm";
 import { assertEventInWorkspace, requireStaffWorkspace, workspaceEventIds, type Workspace } from "@/lib/workspace";
 import { sessionLabel } from "@/lib/academic";
+import { toDate } from "@/lib/registration-window";
 
 async function assertCoordinator() {
   const session = await getSession();
@@ -355,7 +357,8 @@ export async function updateCoordinatorElective(
   const ws = await coordinatorWorkspace();
   const { elective } = await assertElectiveInWorkspace(ws, id);
 
-  const bookedSeats = elective.maxSeats - elective.availableSeats;
+  // From the confirmed choices, not the counter (see confirmedCount).
+  const bookedSeats = await confirmedCount(db, id);
   if (data.maxSeats < bookedSeats) {
     throw new Error(`Cannot decrease max seats below ${bookedSeats} (already registered students).`);
   }
@@ -1005,11 +1008,17 @@ export async function updateRegistrationEvent(
     throw new Error("Semester must be between 1 and 12.");
   }
 
-  const openDate = data.openDate ? new Date(data.openDate) : null;
-  const closeDate = data.closeDate ? new Date(data.closeDate) : null;
+  const openDate = toDate(data.openDate);
+  const closeDate = toDate(data.closeDate);
 
-  if (openDate && closeDate && closeDate < openDate) {
+  if (openDate && closeDate && closeDate.getTime() < openDate.getTime()) {
     throw new Error("Close date cannot be before open date.");
+  }
+
+  const now = new Date();
+  let status = data.status || event.status;
+  if (!data.status && openDate && now.getTime() < openDate.getTime() && status === "OPEN") {
+    status = "PUBLISHED";
   }
 
   await db.transaction(async (tx) => {
@@ -1023,7 +1032,7 @@ export async function updateRegistrationEvent(
         description: data.description?.trim() || null,
         openDate,
         closeDate,
-        status: data.status || event.status,
+        status,
         updatedAt: new Date(),
       })
       .where(eq(registrationEvents.id, eventId));

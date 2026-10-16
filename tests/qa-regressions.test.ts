@@ -43,4 +43,28 @@ describe("Staff window phase follows the student window rule (QA: no Pause for a
       assert.strictEqual(windowPhase({ ...base, status, openDate: at(-1) }, now).phase, "closed", status);
     }
   });
+  test("status OPEN before opening time is scheduled, not live, and target is opensAt", () => {
+    const r = windowPhase({ ...base, status: "OPEN", openDate: at(1), closeDate: at(5) }, now);
+    assert.strictEqual(r.phase, "scheduled");
+    assert.strictEqual(r.target?.getTime(), at(1).getTime());
+  });
+});
+
+describe("toDate timestamp parsing without timezone offset", () => {
+  const { toDate, getRegistrationWindow } = require("@/lib/registration-window");
+  test("parses space-separated Postgres timestamp string as UTC", () => {
+    const d = toDate("2026-10-15 21:36:00");
+    assert.ok(d instanceof Date);
+    assert.strictEqual(d.toISOString(), "2026-10-15T21:36:00.000Z");
+  });
+  test("getRegistrationWindow strictly blocks registration before opening time even if status says OPEN", () => {
+    const win = getRegistrationWindow({
+      openDate: "2026-10-15 21:36:00",
+      closeDate: "2026-10-15 22:30:00",
+      status: "OPEN",
+    }, new Date("2026-10-15T21:35:00.000Z"));
+    assert.strictEqual(win.isOpen, false);
+    assert.strictEqual(win.state, "UPCOMING");
+    assert.strictEqual(win.reason, "Registration has not opened yet.");
+  });
 });

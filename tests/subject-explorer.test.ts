@@ -347,7 +347,9 @@ describe("Registration window rule", () => {
     for (const s of ["CLOSED", "VERIFICATION", "FINALIZED", "ARCHIVED"]) {
       assert.strictEqual(getRegistrationWindow({ status: s, openDate: at(-HOUR), closeDate: at(HOUR) }, now).isOpen, false);
     }
-    assert.strictEqual(getRegistrationWindow({ status: "OPEN", openDate: at(HOUR), closeDate: at(2 * HOUR) }, now).state, "OPEN");
+    // A scheduled opening time wins over a stored OPEN status (nothing opens early).
+    assert.strictEqual(getRegistrationWindow({ status: "OPEN", openDate: at(HOUR), closeDate: at(2 * HOUR) }, now).state, "UPCOMING");
+    assert.strictEqual(getRegistrationWindow({ status: "OPEN", openDate: null, closeDate: at(2 * HOUR) }, now).state, "OPEN");
     assert.strictEqual(getRegistrationWindow({ status: "PUBLISHED", openDate: null, closeDate: null }, now).state, "UNSCHEDULED");
   });
 

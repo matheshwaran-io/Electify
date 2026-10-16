@@ -127,8 +127,11 @@ export default async function StudentDashboardRouterPage({ searchParams }: { sea
         next="If you missed the window, contact your class tutor. Tutors can register you manually after it closes."
       >
         <p>
-          The window for <span className="font-medium text-fg">{event.name}</span> ended
-          {event.closeDate ? ` on ${formatDateTime(event.closeDate)}` : ""}.
+          The window for <span className="font-medium text-fg">{event.name}</span>{" "}
+          {/* Closed by staff before the deadline: don't quote a closing time that hasn't come yet. */}
+          {event.closeDate && new Date(event.closeDate).getTime() <= Date.now()
+            ? `ended on ${formatDateTime(event.closeDate)}.`
+            : "was closed by your class tutor or coordinator."}
         </p>
       </StudentStatus>
     );

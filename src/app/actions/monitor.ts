@@ -1,6 +1,7 @@
 "use server";
 
 import { db } from "@/lib/db";
+import { openNowPatch } from "@/lib/registration-window";
 import {
   registrationEvents,
   eventSections,
@@ -901,12 +902,11 @@ export async function toggleEventStatusFromMonitor(
     // The event must be in the selected session and for a class this user manages.
     const event = await assertEventInWorkspace(await requireStaffWorkspace(), eventId);
 
+    // Opening by hand before the scheduled time moves the opening time to now.
+    const patch = newStatus === "OPEN" ? openNowPatch(event) : { status: newStatus };
     await db
       .update(registrationEvents)
-      .set({
-        status: newStatus,
-        updatedAt: new Date(),
-      })
+      .set({ ...patch, updatedAt: new Date() })
       .where(eq(registrationEvents.id, eventId));
 
     await db.insert(auditLogs).values({
