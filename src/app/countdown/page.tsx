@@ -11,7 +11,7 @@ import { StudentHeader, StudentStatus } from "@/components/student/student-chrom
 import { formatDateTime, formatOpening } from "@/lib/format";
 import { SeatMark } from "@/components/auth/seat-mark";
 import { buttonVariants } from "@/components/ui/button-variants";
-import { getRegistrationWindow } from "@/lib/registration-window";
+import { getRegistrationWindow, toDate } from "@/lib/registration-window";
 import { resolveStudentEvent, withEvent } from "@/lib/student-events";
 import { StudentPresencePing } from "@/components/student/student-presence-ping";
 
@@ -90,6 +90,7 @@ export default async function CountdownPage({ searchParams }: { searchParams: Pr
   const hasSubmitted = studentEvent.registrationStatus === "CONFIRMED";
 
   const now = new Date();
+  const opensAt = toDate(event.openDate);
   // Same rule the register action enforces, evaluated on the server clock.
   const regWindow = getRegistrationWindow(event, now);
 
@@ -134,8 +135,11 @@ export default async function CountdownPage({ searchParams }: { searchParams: Pr
         next="If you missed the window, contact your class tutor. Tutors can register you manually after it closes."
       >
         <p>
-          The window for <span className="font-medium text-fg">{event.name}</span> ended
-          {event.closeDate ? ` on ${formatDateTime(event.closeDate)}` : ""}.
+          The window for <span className="font-medium text-fg">{event.name}</span>{" "}
+          {/* Closed by staff before the deadline: don't quote a closing time that hasn't come yet. */}
+          {event.closeDate && new Date(event.closeDate).getTime() <= Date.now()
+            ? `ended on ${formatDateTime(event.closeDate)}.`
+            : "was closed by your class tutor or coordinator."}
         </p>
       </StudentStatus>
     );
@@ -155,7 +159,7 @@ export default async function CountdownPage({ searchParams }: { searchParams: Pr
 
           <p className="mt-8 inline-flex items-center gap-2 rounded-full border border-border bg-surface px-3.5 py-1.5 text-sm text-fg-muted shadow-1 animate-enter [animation-delay:60ms]">
             <CalendarClock className="size-4 text-fg-subtle" />
-            {event.openDate ? `Opens ${formatOpening(event.openDate)}` : "Opening time not set yet"}
+            {opensAt ? `Opens ${formatOpening(opensAt)}` : "Opening time not set yet"}
           </p>
 
           <h1 className="mt-5 max-w-2xl text-4xl font-light tracking-display text-fg animate-enter [animation-delay:100ms]">
@@ -168,9 +172,9 @@ export default async function CountdownPage({ searchParams }: { searchParams: Pr
           </p>
 
           <div className="mt-10 animate-enter [animation-delay:160ms]">
-            {event.openDate ? (
+            {opensAt ? (
               <CountdownTimer
-                startDateStr={event.openDate.toISOString()}
+                startDateStr={opensAt.toISOString()}
                 registrationEnabled={event.status === "PUBLISHED" || event.status === "OPEN"}
                 serverNow={now.getTime()}
                 targetHref={withEvent("/dashboard", event.id)}

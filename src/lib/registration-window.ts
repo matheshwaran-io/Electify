@@ -42,10 +42,28 @@ export type RegistrationWindow = {
 
 const CLOSED_STATUSES = new Set(["CLOSED", "VERIFICATION", "FINALIZED", "ARCHIVED"])
 
-function toDate(value: Date | string | null): Date | null {
+export function toDate(value: Date | string | number | null | undefined): Date | null {
   if (value == null) return null
-  const d = value instanceof Date ? value : new Date(value)
-  return Number.isNaN(d.getTime()) ? null : d
+  if (value instanceof Date) {
+    return Number.isNaN(value.getTime()) ? null : value
+  }
+  if (typeof value === "number") {
+    const d = new Date(value)
+    return Number.isNaN(d.getTime()) ? null : d
+  }
+  if (typeof value === "string") {
+    const s = value.trim()
+    if (!s) return null
+    // If ISO-like string without timezone indicator (e.g. "2026-10-15 21:36:00" or "2026-10-15T21:36:00"),
+    // Postgres timestamp without time zone stores UTC, so append Z so it parses identically everywhere.
+    if (!s.endsWith("Z") && !s.includes("+") && !s.slice(10).includes("-")) {
+      const d = new Date(s.replace(" ", "T") + "Z")
+      if (!Number.isNaN(d.getTime())) return d
+    }
+    const d = new Date(s)
+    return Number.isNaN(d.getTime()) ? null : d
+  }
+  return null
 }
 
 export function getRegistrationWindow(event: WindowEventFields, now: Date = new Date()): RegistrationWindow {
@@ -61,7 +79,10 @@ export function getRegistrationWindow(event: WindowEventFields, now: Date = new 
     return { ...base, state: "CLOSED", isOpen: false, reason: "Registration has closed." }
   }
 
-  const started = (opensAt !== null && now.getTime() >= opensAt.getTime()) || event.status === "OPEN" || event.status === "ACTIVE"
+  // A scheduled opening time always wins: nothing opens early, whatever the
+  // stored status says. A status of OPEN only opens a window that has no opening
+  // time (opening one manually moves openDate to that moment; see openNowPatch).
+  const started = opensAt !== null ? now.getTime() >= opensAt.getTime() : event.status === "OPEN" || event.status === "ACTIVE"
 
   if (!started) {
     return opensAt
@@ -75,4 +96,14 @@ export function getRegistrationWindow(event: WindowEventFields, now: Date = new 
   }
 
   return { ...base, state: "OPEN", isOpen: true }
+}
+
+/**
+ * Fields to write when staff open a window by hand ("Open now", "Resume",
+ * "Re-open"). A future or missing opening time is moved to now, so the stored
+ * schedule and the window state never disagree.
+ */
+export function openNowPatch(event: { openDate: Date | string | null }, now: Date = new Date()): { status: "OPEN"; openDate?: Date } {
+  const opensAt = toDate(event.openDate)
+  return opensAt === null || opensAt.getTime() > now.getTime() ? { status: "OPEN", openDate: now } : { status: "OPEN" }
 }

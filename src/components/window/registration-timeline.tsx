@@ -2,14 +2,15 @@
 
 import { Check } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { toDate } from "@/lib/registration-window";
 import type { WindowEvent } from "./types";
 
 const STAGES = ["Configured", "Published", "Portal open", "Closing soon", "Closed"];
 
 export function RegistrationTimeline({ event }: { event: WindowEvent }) {
   const now = new Date();
-  const open = event.openDate ? new Date(event.openDate) : null;
-  const close = event.closeDate ? new Date(event.closeDate) : null;
+  const open = toDate(event.openDate);
+  const close = toDate(event.closeDate);
 
   let currentStage = 0; // 0: Configured, 1: Published, 2: Open, 3: Closing Soon, 4: Closed
 

@@ -173,10 +173,13 @@ export function RegistrationForm({ event, student, groups, electives, initialReg
     };
   }, []);
 
-  // Close-time awareness on the server clock. The ticking lives in <CloseTimer>
+  // Open and close time awareness on the server clock. The ticking lives in <CloseTimer>
   // so the picker itself doesn't re-render every second.
+  const openAt = event.openDate ? new Date(event.openDate).getTime() : null;
   const closeAt = event.closeDate ? new Date(event.closeDate).getTime() : null;
   const [closed, setClosed] = React.useState(() => closeAt !== null && closeAt <= serverNow);
+  const [notYetOpen, setNotYetOpen] = React.useState(() => openAt !== null && openAt > serverNow);
+
   const onClosed = React.useCallback(() => {
     setClosed(true);
     if (typeof window !== "undefined") {
@@ -191,6 +194,16 @@ export function RegistrationForm({ event, student, groups, electives, initialReg
       window.location.href = `/dashboard?event=${encodeURIComponent(event.id)}`;
     }
   }, [closed, event.id]);
+
+  React.useEffect(() => {
+    if (notYetOpen) {
+      if (typeof window !== "undefined") {
+        window.location.href = `/countdown?event=${encodeURIComponent(event.id)}`;
+      } else {
+        router.replace(`/countdown?event=${encodeURIComponent(event.id)}`);
+      }
+    }
+  }, [notYetOpen, event.id, router]);
 
   const byId = React.useMemo(() => new Map(localElectives.map((e) => [e.id, e])), [localElectives]);
   const initiallySelected = React.useMemo(() => new Set(initialRegistrations.map((r) => r.electiveId)), [initialRegistrations]);
@@ -217,11 +230,13 @@ export function RegistrationForm({ event, student, groups, electives, initialReg
   }, [localElectives, selections, groups, initiallySelected]);
 
   const canSubmit = React.useMemo(() => {
+    if (notYetOpen || closed) return false;
     return groups.every((g) => groupComplete(g, selections[g.id]?.length || 0)) && student.isEligible;
-  }, [groups, selections, student.isEligible]);
+  }, [notYetOpen, closed, groups, selections, student.isEligible]);
 
   const handleSelect = React.useCallback(
     (groupId: string, electiveId: string) => {
+      if (notYetOpen || closed) return;
       const group = groups.find((g) => g.id === groupId);
       if (!group) return;
       setConflicts((c) => {

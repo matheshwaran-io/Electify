@@ -1,6 +1,7 @@
 "use server";
 
 import { db } from "@/lib/db";
+import { releaseSeat } from "@/lib/seat-ops";
 import {
   users, registrationEvents, faculties, departments,
   programmes, academicBatches, sections, auditLogs, eventTemplates,
@@ -1387,33 +1388,11 @@ export async function deleteUser(userId: string) {
         .from(studentRegistrations)
         .where(eq(studentRegistrations.studentId, userId));
 
+      // Only confirmed choices hold a seat; cancelled ones already gave theirs back.
       for (const reg of studentRegs) {
-        const [elective] = await tx
-          .select({ availableSeats: electives.availableSeats })
-          .from(electives)
-          .where(eq(electives.id, reg.electiveId));
-        if (elective) {
-          await tx
-            .update(electives)
-            .set({ availableSeats: elective.availableSeats + 1, isFull: false })
-            .where(eq(electives.id, reg.electiveId));
-        }
-
-        if (user.sectionId) {
-          await tx
-            .update(electiveSeatAllocations)
-            .set({
-              availableSeats: sql`${electiveSeatAllocations.availableSeats} + 1`,
-              isFull: false,
-              updatedAt: new Date(),
-            })
-            .where(
-              and(
-                eq(electiveSeatAllocations.electiveId, reg.electiveId),
-                eq(electiveSeatAllocations.sectionId, user.sectionId)
-              )
-            );
-        }
+        if (reg.status !== "CONFIRMED") continue;
+        await tx.select({ id: electives.id }).from(electives).where(eq(electives.id, reg.electiveId)).for("update");
+        await releaseSeat(tx, reg.electiveId, user.sectionId);
       }
 
       await tx.delete(studentRegistrations).where(eq(studentRegistrations.studentId, userId));

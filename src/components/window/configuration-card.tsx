@@ -101,8 +101,8 @@ export function ConfigurationCard({ event }: { event: WindowEvent }) {
     try {
       await updateWindowTimers(
         event.id,
-        openDate ? new Date(openDate) : null,
-        closeDate ? new Date(closeDate) : null,
+        openDate ? new Date(openDate).toISOString() : null,
+        closeDate ? new Date(closeDate).toISOString() : null,
         {
           allowEditing,
           autoClose,
@@ -186,18 +186,28 @@ export function ConfigurationCard({ event }: { event: WindowEvent }) {
         </div>
         <Badge
           tone={
-            event.status === "OPEN"
+            phase === "live"
               ? "live"
-              : event.status === "PAUSED"
+              : phase === "scheduled"
+              ? "primary"
+              : phase === "paused"
               ? "warning"
-              : event.status === "CLOSED"
+              : phase === "closed"
               ? "neutral"
               : "outline"
           }
-          dot={event.status === "OPEN"}
+          dot={phase === "live"}
           size="sm"
         >
-          {event.status}
+          {phase === "live"
+            ? "OPEN"
+            : phase === "scheduled"
+            ? "SCHEDULED"
+            : phase === "paused"
+            ? "PAUSED"
+            : phase === "closed"
+            ? "CLOSED"
+            : "DRAFT"}
         </Badge>
       </div>
 
@@ -250,7 +260,30 @@ export function ConfigurationCard({ event }: { event: WindowEvent }) {
       </div>
 
       <div className="space-y-2 border-t border-border bg-surface-2/50 px-4 py-3 sm:px-5">
-        {phase === "live" ? (
+        {phase === "scheduled" ? (
+          <div className="grid grid-cols-2 gap-2">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => handleStatusToggle("OPEN")}
+              loading={isUpdatingStatus}
+              disabled={isSaving}
+              className="w-full text-success-text hover:bg-success/10"
+            >
+              <Play /> Open now
+            </Button>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => handleStatusToggle("PAUSED")}
+              loading={isUpdatingStatus}
+              disabled={isSaving}
+              className="w-full text-warning-text hover:bg-warning/10"
+            >
+              <Pause /> Pause window
+            </Button>
+          </div>
+        ) : phase === "live" ? (
           <div className="grid grid-cols-2 gap-2">
             <Button
               type="button"
