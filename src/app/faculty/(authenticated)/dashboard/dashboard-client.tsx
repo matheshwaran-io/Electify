@@ -247,6 +247,16 @@ function TutorView({ m }: { m: any }) {
               </Link>
             </div>
           </div>
+        ) : total === 0 ? (
+          <div className="flex flex-col items-start gap-4 sm:flex-row sm:items-center sm:justify-between">
+            <div className="space-y-1">
+              <h2 className="text-2xl font-light tracking-display text-fg">No class chosen for this timeline yet</h2>
+              <p className="mt-1 text-sm text-fg-muted">Choose your class from your department to start managing students, registration windows, and reports.</p>
+            </div>
+            <Link href="/faculty/assign-sections" className={buttonVariants({ variant: "primary", size: "lg" })}>
+              Choose your class <ArrowRight className="size-4" />
+            </Link>
+          </div>
         ) : (
           <div className="flex flex-col items-start gap-4 sm:flex-row sm:items-center sm:justify-between">
             <div>

@@ -262,7 +262,7 @@ describe("Year Server Selection Flow & Complete Workspace Isolation", () => {
     const sessionYears = sessions.map((s) => s.startYear);
     assert.ok(sessionYears.includes(2025), "Tutor with 2025 class can see 2025 server");
     assert.ok(sessionYears.includes(2026), "Tutor with 2026 class can see 2026 server");
-    assert.ok(!sessionYears.includes(2027), "Tutor without 2027 class cannot see 2027 server");
+    assert.ok(sessionYears.includes(2027), "Staff can see 2027 timeline to choose and manage classes");
 
     // Admin sees all servers
     const adminScope = (await loadStaffScope({ userId: adminId, name: "Admin", email: "admin@test.com", role: "SYSTEM_ADMIN" }))!;
@@ -345,9 +345,9 @@ describe("Year Server Selection Flow & Complete Workspace Isolation", () => {
   test("8. A tutor cannot access a server or class they are not authorized to manage", async () => {
     setTestSession({ userId: tutorId, name: "Tutor", email: "tutor@test.com", role: "CLASS_TUTOR" });
 
-    // 1. Cannot access unassigned Year Server 2027
+    // 1. Can select Year Server 2027 to choose classes
     const selectRes = await selectAcademicSession(session2027Id);
-    assert.strictEqual(selectRes.success, false, "Tutor cannot select an unauthorized Year Server");
+    assert.strictEqual(selectRes.success, true, "Staff can select an active/planned Year Server");
 
     // 2. Cannot access unassigned class in 2026
     setTestWorkspaceSession(session2026Id);

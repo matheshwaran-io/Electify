@@ -81,8 +81,11 @@ export default async function SessionSelectPage({ searchParams }: { searchParams
         label: `${s.startYear} Academic Timeline`,
         status: s.status,
         classCount: classes.length,
+        hasOwnClasses: own.length > 0,
+        ownClassCount: own.length,
+        departmentName: scope.departmentName ?? undefined,
         programmes: Array.from(new Set(classes.map((c) => c.programmeName))).slice(0, 4),
-        classes: shown.map((c) => ({ label: c.label, stage: c.stage })),
+        classes: shown.map((c) => ({ label: c.label, stage: c.stage, isTutorClass: c.isTutorClass })),
         moreClasses: Math.max(0, (own.length ? own.length : classes.length) - shown.length),
         timelineTag,
       };

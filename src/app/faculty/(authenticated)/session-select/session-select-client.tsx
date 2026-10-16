@@ -17,8 +17,11 @@ export type SessionCard = {
   label: string;
   status: string;
   classCount: number;
+  hasOwnClasses?: boolean;
+  ownClassCount?: number;
+  departmentName?: string;
   programmes: string[];
-  classes: { label: string; stage: string }[];
+  classes: { label: string; stage: string; isTutorClass?: boolean }[];
   moreClasses: number;
   timelineTag?: "Last Year" | "Current Year" | "Next Year";
 };
@@ -46,16 +49,20 @@ export function SessionSelectClient({
   const [pending, setPending] = React.useState<string | null>(null);
 
   const choose = async (s: SessionCard) => {
-    if (!isAdmin && s.classCount === 0) {
-      toast.error(`No classes have been assigned to you in ${s.label} yet.`);
-      return;
-    }
     setPending(s.id);
     try {
       const res = await selectAcademicSession(s.id);
       if (!res.success) throw new Error(res.error);
-      toast.success(`Working in ${s.label}`);
-      router.push(destination);
+
+      // Class Tutors and Coordinators choose their own classes from their department.
+      // If they haven't claimed a class in this timeline yet, route them directly to claim one.
+      if (!isAdmin && !s.hasOwnClasses) {
+        toast.success(`Working in ${s.label}. Choose your class from your department.`);
+        router.push("/faculty/assign-sections");
+      } else {
+        toast.success(`Working in ${s.label}`);
+        router.push(destination);
+      }
       router.refresh();
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Couldn't open that academic timeline");
@@ -77,11 +84,11 @@ export function SessionSelectClient({
 
       {sessions.length === 0 ? (
         <div className="mx-auto max-w-lg rounded-card border border-border bg-surface p-6 text-center shadow-1">
-          <p className="font-medium text-fg">No Academic Timeline includes your classes yet</p>
+          <p className="font-medium text-fg">No Academic Timelines available yet</p>
           <p className="mt-1 text-sm text-fg-muted">
             {isAdmin
               ? "Create an Academic Timeline to start managing programmes and classes."
-              : "An administrator needs to configure your classes in an Academic Timeline. You can still manage your class assignments."}
+              : "An administrator needs to configure an Academic Timeline."}
           </p>
           <div className="mt-5 flex flex-wrap justify-center gap-2">
             {canManage ? (
@@ -116,7 +123,9 @@ export function SessionSelectClient({
                 >
                   <div className="flex items-start justify-between gap-2">
                     <div>
-                      <p className="text-2xs font-semibold uppercase tracking-wider text-fg-subtle">ACADEMIC TIMELINE</p>
+                      <p className="text-2xs font-semibold uppercase tracking-wider text-fg-subtle truncate max-w-[180px]" title={s.departmentName}>
+                        {s.departmentName ? `${s.departmentName}` : "ACADEMIC TIMELINE"}
+                      </p>
                       <p className="mt-1 text-2xl font-light tabular-nums tracking-display text-fg">{s.year}</p>
                     </div>
                     <div className="flex flex-col items-end gap-1.5">
@@ -149,15 +158,29 @@ export function SessionSelectClient({
                     <p className="mt-4 text-sm text-fg-subtle">No classes have been added to this timeline yet.</p>
                   ) : (
                     <div className="mt-4 space-y-1.5">
-                      <p className="text-sm text-fg-muted">
-                        {s.classCount} {s.classCount === 1 ? "class" : "classes"}
-                        {s.programmes.length ? ` · ${s.programmes.join(", ")}` : ""}
-                      </p>
+                      <div className="flex items-center justify-between gap-2">
+                        <p className="text-sm text-fg-muted truncate">
+                          {s.hasOwnClasses ? (
+                            <span className="font-medium text-fg">{s.ownClassCount} assigned {s.ownClassCount === 1 ? "class" : "classes"}</span>
+                          ) : (
+                            <span>{s.classCount} {s.classCount === 1 ? "class" : "classes"} in department</span>
+                          )}
+                          {s.programmes.length ? ` · ${s.programmes.join(", ")}` : ""}
+                        </p>
+                        {!s.hasOwnClasses && !isAdmin ? (
+                          <Badge size="sm" tone="neutral" className="text-2xs shrink-0">Available to claim</Badge>
+                        ) : null}
+                      </div>
                       <ul className="space-y-1">
                         {s.classes.map((c) => (
-                          <li key={c.label} className="flex flex-wrap items-baseline gap-x-2 text-sm">
+                          <li key={c.label} className="flex flex-wrap items-baseline justify-between gap-x-2 text-sm">
                             <span className="font-medium text-fg">{c.label}</span>
-                            <span className="text-xs text-fg-subtle">{c.stage}</span>
+                            <div className="flex items-center gap-1.5">
+                              <span className="text-xs text-fg-subtle">{c.stage}</span>
+                              {c.isTutorClass ? (
+                                <Badge size="sm" tone="primary" className="text-2xs py-0 px-1.5">Your class</Badge>
+                              ) : null}
+                            </div>
                           </li>
                         ))}
                         {s.moreClasses > 0 ? <li className="text-xs text-fg-subtle">and {s.moreClasses} more</li> : null}
@@ -168,7 +191,11 @@ export function SessionSelectClient({
                   {!archived ? (
                     <span className="mt-auto inline-flex items-center gap-1.5 pt-5 text-sm font-medium text-fg">
                       {pending === s.id ? <Spinner className="size-4" /> : null}
-                      {isCurrent ? "Continue" : "Open this timeline"}
+                      {isCurrent
+                        ? "Continue"
+                        : !isAdmin && !s.hasOwnClasses && s.classCount > 0
+                          ? "Choose class in this timeline"
+                          : "Open this timeline"}
                       <ArrowRight className="size-4 transition-transform group-hover:translate-x-0.5" aria-hidden />
                     </span>
                   ) : null}
