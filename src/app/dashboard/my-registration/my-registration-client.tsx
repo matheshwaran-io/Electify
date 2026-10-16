@@ -16,6 +16,7 @@ import {
   Info,
   BookOpen,
   ShieldAlert,
+  Lock,
 } from "lucide-react";
 import { Logo } from "@/components/brand";
 import { Button } from "@/components/ui/button";
@@ -39,6 +40,7 @@ import {
   changeStudentElective,
   cancelStudentElective,
   cancelEntireRegistration,
+  finalizeStudentRegistration,
 } from "@/app/actions/register";
 import { formatDateTime, formatRemaining } from "@/lib/format";
 
@@ -65,6 +67,7 @@ export interface RegistrationChoice {
   courseCode: string | null;
   credits: number;
   status: string; // "CONFIRMED" | "CANCELLED"
+  isLocked?: boolean;
   submittedAt: Date | string;
   availableSeats: number;
   maxSeats: number;
@@ -92,6 +95,7 @@ export interface MyRegistrationProps {
   registration: {
     id: string;
     status: string; // "CONFIRMED" | "CANCELLED" | "RESET_BY_COORDINATOR"
+    isFinalized?: boolean;
     receiptNumber: string | null;
     submittedAt: Date | string | null;
     receiptSnapshot: any;
@@ -121,6 +125,13 @@ export function MyRegistrationClient({
   const choices = initialChoices;
   const [copied, setCopied] = React.useState(false);
   const [pdfPending, setPdfPending] = React.useState(false);
+  const [finalizeConfirmOpen, setFinalizeConfirmOpen] = React.useState(false);
+  const [finalizePending, setFinalizePending] = React.useState(false);
+
+  const isFinalized = Boolean(
+    registration.isFinalized ||
+    (registration.receiptNumber && registration.receiptNumber !== "PENDING")
+  );
 
   // Modal states
   const [changeModalChoice, setChangeModalChoice] = React.useState<RegistrationChoice | null>(null);
@@ -155,19 +166,56 @@ export function MyRegistrationClient({
     }
   };
 
+  const handleConfirmFinalize = async () => {
+    setFinalizePending(true);
+    try {
+      const res = await finalizeStudentRegistration(event.id);
+      if (!res.success) {
+        toast.error(res.error || "Failed to finalize registration.");
+        return;
+      }
+
+      toast.success(
+        res.receiptNumber
+          ? `Registration finalized! Receipt ${res.receiptNumber} generated.`
+          : "Registration finalized successfully!"
+      );
+      setFinalizeConfirmOpen(false);
+      router.refresh();
+    } catch (err: any) {
+      toast.error(err.message || "Failed to finalize registration.");
+    } finally {
+      setFinalizePending(false);
+    }
+  };
+
+  const handlePrint = () => {
+    if (!isFinalized || !registration.receiptNumber) {
+      toast.info("Finish your registration first to print your official receipt.");
+      return;
+    }
+    window.print();
+  };
+
   const downloadPdf = async () => {
+    if (!isFinalized || !registration.receiptNumber) {
+      toast.info("Finish your registration first to download your official PDF.");
+      return;
+    }
     setPdfPending(true);
     try {
       await downloadReceiptPdf({
-        receiptNumber: registration.receiptNumber ?? "N/A",
+        receiptNumber: registration.receiptNumber,
         eventName: event.name,
         submittedAt: submittedAtDate ?? new Date(),
         student,
         academic: { classLabel: event.classLabel, academicSession: event.sessionLabel, semester: event.semester },
-        electives: choices.map((c) => ({
-          groupName: c.groupName,
-          electiveName: c.courseCode ? `${c.courseCode} - ${c.electiveName}` : c.electiveName,
-        })),
+        electives: choices
+          .filter((c) => c.status === "CONFIRMED")
+          .map((c) => ({
+            groupName: c.groupName,
+            electiveName: c.courseCode ? `${c.courseCode} - ${c.electiveName}` : c.electiveName,
+          })),
       });
     } catch {
       toast.error("The PDF didn't generate. Try Print instead.");
@@ -295,6 +343,11 @@ export function MyRegistrationClient({
             <div className="flex items-center gap-2">
               <span className="text-xs font-medium text-fg-muted uppercase tracking-wider">{event.name}</span>
               <StatusBadge status={registration.status} size="sm" />
+              {isFinalized ? (
+                <Badge tone="success" size="sm" dot>Finalized</Badge>
+              ) : (
+                <Badge tone="warning" size="sm" dot>Pending Finalization</Badge>
+              )}
             </div>
             <h1 className="mt-1 text-3xl font-light tracking-display text-fg">My Registration</h1>
             <p className="mt-0.5 text-sm text-fg-muted">
@@ -304,20 +357,50 @@ export function MyRegistrationClient({
           </div>
 
           <div className="flex flex-wrap items-center gap-2 sm:self-start">
-            <Button variant="outline" size="sm" onClick={downloadPdf} loading={pdfPending}>
-              <Download className="size-3.5" /> PDF
-            </Button>
-            <Button variant="outline" size="sm" onClick={() => window.print()}>
-              <Printer className="size-3.5" /> Print
-            </Button>
-            {!isAllCancelled && isWindowActive && (
-              <Button
-                variant="destructive"
-                size="sm"
-                onClick={() => setCancelAllOpen(true)}
-              >
-                <XCircle className="size-3.5" /> Cancel Registration
-              </Button>
+            {isFinalized ? (
+              <>
+                <Button variant="outline" size="sm" onClick={downloadPdf} loading={pdfPending}>
+                  <Download className="size-3.5" /> PDF
+                </Button>
+                <Button variant="outline" size="sm" onClick={handlePrint}>
+                  <Printer className="size-3.5" /> Print
+                </Button>
+              </>
+            ) : (
+              <>
+                <Button
+                  size="sm"
+                  onClick={() => setFinalizeConfirmOpen(true)}
+                  className="bg-primary text-primary-fg hover:bg-primary/90 font-medium shadow-sm"
+                >
+                  <Check className="size-3.5 mr-1" /> Finish Registration
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => toast.info("Finish your registration first to download your official PDF proof.")}
+                  className="opacity-50 cursor-not-allowed"
+                >
+                  <Download className="size-3.5" /> PDF
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => toast.info("Finish your registration first to print your official receipt.")}
+                  className="opacity-50 cursor-not-allowed"
+                >
+                  <Printer className="size-3.5" /> Print
+                </Button>
+                {!isAllCancelled && isWindowActive && (
+                  <Button
+                    variant="destructive"
+                    size="sm"
+                    onClick={() => setCancelAllOpen(true)}
+                  >
+                    <XCircle className="size-3.5" /> Cancel Registration
+                  </Button>
+                )}
+              </>
             )}
           </div>
         </div>
@@ -343,18 +426,43 @@ export function MyRegistrationClient({
             </div>
 
             <div className="flex items-center gap-2">
-              {isWindowActive ? (
+              {isFinalized ? (
+                <Badge tone="success" size="sm" dot>Registration Finalized</Badge>
+              ) : isWindowActive ? (
                 <Badge tone="live" dot size="sm">Window Open</Badge>
               ) : (
                 <Badge tone="neutral" size="sm">Window Closed</Badge>
               )}
-              {event.allowEditing ? (
+              {isFinalized ? (
+                <Badge tone="neutral" size="sm">Choices Locked</Badge>
+              ) : event.allowEditing ? (
                 <Badge tone="neutral" size="sm">Changes Allowed</Badge>
               ) : (
                 <Badge tone="warning" size="sm">Changes Locked</Badge>
               )}
             </div>
           </div>
+
+          {!isFinalized && isWindowActive && !isAllCancelled && (
+            <div className="border-t border-border bg-primary/10 px-4 py-2.5 text-xs text-primary-text flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+              <div className="flex items-center gap-2">
+                <Info className="size-4 shrink-0" />
+                <span>
+                  <strong>Selections are provisional.</strong> You can change subjects freely. When satisfied, click <strong>Finish Registration</strong> to lock your choices and generate your official receipt & PDF.
+                </span>
+              </div>
+              <Button size="sm" onClick={() => setFinalizeConfirmOpen(true)} className="shrink-0 text-xs h-7 px-2.5">
+                Finish Now
+              </Button>
+            </div>
+          )}
+
+          {isFinalized && (
+            <div className="border-t border-border bg-success/10 px-4 py-2.5 text-xs text-success-text flex items-center gap-2">
+              <Check className="size-4 shrink-0 text-success-text" />
+              <span>Registration completed. Your elective choices are officially locked and your official receipt is generated below.</span>
+            </div>
+          )}
 
           {!isWindowActive && (
             <div className="border-t border-border bg-surface-2 px-4 py-2.5 text-xs text-fg-muted flex items-center gap-2">
@@ -363,7 +471,7 @@ export function MyRegistrationClient({
             </div>
           )}
 
-          {isWindowActive && !event.allowEditing && (
+          {isWindowActive && !event.allowEditing && !isFinalized && (
             <div className="border-t border-border bg-warning/10 px-4 py-2.5 text-xs text-warning-text flex items-center gap-2">
               <Info className="size-4 shrink-0" />
               <span>Faculty has disabled student modifications for this event.</span>
@@ -454,7 +562,7 @@ export function MyRegistrationClient({
                   </div>
 
                   {/* Actions per elective */}
-                  {!isChoiceCancelled && isWindowActive && event.allowEditing && (
+                  {!isChoiceCancelled && isWindowActive && event.allowEditing && !isFinalized && (
                     <div className="flex items-center gap-2 shrink-0 border-t border-border pt-3 sm:border-t-0 sm:pt-0">
                       <Button
                         variant="secondary"
@@ -473,6 +581,14 @@ export function MyRegistrationClient({
                       </Button>
                     </div>
                   )}
+
+                  {!isChoiceCancelled && isFinalized && (
+                    <div className="flex items-center gap-1 shrink-0 text-xs text-fg-muted border-t border-border pt-3 sm:border-t-0 sm:pt-0">
+                      <span className="inline-flex items-center gap-1 rounded-badge border border-border bg-surface-2 px-2.5 py-1 text-2xs font-medium text-fg-muted">
+                        <Lock className="size-3 text-fg-subtle" /> Choice Locked
+                      </span>
+                    </div>
+                  )}
                 </div>
               );
             })}
@@ -480,99 +596,126 @@ export function MyRegistrationClient({
         </section>
 
         {/* Formal Receipt Section (A4 Compatible / Printable) */}
-        <article
-          id="receipt"
-          aria-label="Registration receipt"
-          className="rounded-card border border-border bg-surface shadow-2 overflow-hidden print:rounded-none print:border-0 print:shadow-none"
-        >
-          <header className="flex flex-col gap-4 border-b border-border p-5 sm:flex-row sm:items-start sm:justify-between sm:p-6 bg-surface-2/40">
-            <div>
-              <Logo size="sm" />
-              <p className="mt-3 text-xs text-fg-muted">Official Registration Receipt</p>
-            </div>
-            <div className="sm:text-right">
-              <div className="flex items-center gap-1 sm:justify-end">
-                <span className="font-mono text-sm font-semibold text-fg">
-                  {registration.receiptNumber || "PENDING"}
-                </span>
-                <button
-                  type="button"
-                  onClick={copyReceipt}
-                  aria-label="Copy receipt number"
-                  className="inline-flex size-7 items-center justify-center rounded-badge text-fg-muted hover:bg-surface-2 hover:text-fg print:hidden"
-                >
-                  {copied ? <Check className="size-3.5 text-success-text" /> : <Copy className="size-3.5" />}
-                </button>
+        {isFinalized && registration.receiptNumber ? (
+          <article
+            id="receipt"
+            aria-label="Registration receipt"
+            className="rounded-card border border-border bg-surface shadow-2 overflow-hidden print:rounded-none print:border-0 print:shadow-none"
+          >
+            <header className="flex flex-col gap-4 border-b border-border p-5 sm:flex-row sm:items-start sm:justify-between sm:p-6 bg-surface-2/40">
+              <div>
+                <Logo size="sm" />
+                <p className="mt-3 text-xs text-fg-muted">Official Registration Receipt</p>
               </div>
-              <p className="mt-1 text-xs text-fg-muted">
-                {submittedAtDate ? formatDateTime(submittedAtDate) : "N/A"}
-              </p>
+              <div className="sm:text-right">
+                <div className="flex items-center gap-1 sm:justify-end">
+                  <span className="font-mono text-sm font-semibold text-fg">
+                    {registration.receiptNumber}
+                  </span>
+                  <button
+                    type="button"
+                    onClick={copyReceipt}
+                    aria-label="Copy receipt number"
+                    className="inline-flex size-7 items-center justify-center rounded-badge text-fg-muted hover:bg-surface-2 hover:text-fg print:hidden"
+                  >
+                    {copied ? <Check className="size-3.5 text-success-text" /> : <Copy className="size-3.5" />}
+                  </button>
+                </div>
+                <p className="mt-1 text-xs text-fg-muted">
+                  {submittedAtDate ? formatDateTime(submittedAtDate) : "N/A"}
+                </p>
+              </div>
+            </header>
+
+            <div className="space-y-6 p-5 sm:p-6">
+              <div className="flex items-center gap-2 rounded-full border border-border bg-surface-2/50 px-4 py-2.5 text-sm">
+                <StatusBadge status={registration.status} size="sm" />
+                <span className="font-medium text-fg">Status for {event.name}</span>
+              </div>
+
+              <section aria-label="Student Information">
+                <h3 className="mb-3 text-xs font-semibold uppercase tracking-wider text-fg-subtle">Student Details</h3>
+                <dl className="grid grid-cols-1 gap-x-6 gap-y-3 sm:grid-cols-2">
+                  <div>
+                    <dt className="text-xs text-fg-muted">Full Name</dt>
+                    <dd className="mt-0.5 text-sm font-medium text-fg">{student.name}</dd>
+                  </div>
+                  <div>
+                    <dt className="text-xs text-fg-muted">Register Number</dt>
+                    <dd className="mt-0.5 font-mono text-sm font-medium text-fg">{student.registerNumber}</dd>
+                  </div>
+                  <div>
+                    <dt className="text-xs text-fg-muted">Email</dt>
+                    <dd className="mt-0.5 text-sm font-medium text-fg">{student.email}</dd>
+                  </div>
+                  <div>
+                    <dt className="text-xs text-fg-muted">Programme / Degree</dt>
+                    <dd className="mt-0.5 text-sm font-medium text-fg">{student.degree || "N/A"}</dd>
+                  </div>
+                  <div>
+                    <dt className="text-xs text-fg-muted">Department</dt>
+                    <dd className="mt-0.5 text-sm font-medium text-fg">{student.department || "N/A"}</dd>
+                  </div>
+                  <div>
+                    <dt className="text-xs text-fg-muted">Section</dt>
+                    <dd className="mt-0.5 text-sm font-medium text-fg">{student.section || "N/A"}</dd>
+                  </div>
+                </dl>
+              </section>
+
+              <section aria-label="Elective Course Allotment">
+                <h3 className="mb-3 text-xs font-semibold uppercase tracking-wider text-fg-subtle">Elective Course Allotment</h3>
+                <ul className="divide-y divide-border overflow-hidden rounded-control border border-border">
+                  {choices.map((c, i) => (
+                    <li key={i} className="flex flex-col gap-1 px-4 py-3 sm:flex-row sm:items-center sm:justify-between sm:gap-4">
+                      <span className="text-xs text-fg-muted sm:w-1/3">{c.groupName}</span>
+                      <span className="text-sm font-medium text-fg sm:flex-1">
+                        {c.courseCode ? `${c.courseCode} - ` : ""}{c.electiveName}
+                      </span>
+                      <span className="text-right sm:w-1/4">
+                        <StatusBadge status={c.status} size="sm" />
+                      </span>
+                    </li>
+                  ))}
+                </ul>
+              </section>
+
+              <div className="hidden justify-between pt-16 print:flex">
+                <span className="w-48 border-t border-border-strong pt-2 text-center text-xs text-fg-muted">Student signature</span>
+                <span className="w-48 border-t border-border-strong pt-2 text-center text-xs text-fg-muted">Authorised signatory</span>
+              </div>
             </div>
-          </header>
 
-          <div className="space-y-6 p-5 sm:p-6">
-            <div className="flex items-center gap-2 rounded-full border border-border bg-surface-2/50 px-4 py-2.5 text-sm">
-              <StatusBadge status={registration.status} size="sm" />
-              <span className="font-medium text-fg">Status for {event.name}</span>
+            <footer className="border-t border-border bg-surface-2/50 px-5 py-3 text-xs text-fg-muted sm:px-6">
+              Computer generated document from Electify portal. Valid without physical signature.
+            </footer>
+          </article>
+        ) : (
+          <article
+            id="receipt-pending"
+            aria-label="Official receipt pending finalization"
+            className="rounded-card border border-dashed border-border bg-surface shadow-1 p-6 sm:p-8 text-center print:hidden"
+          >
+            <div className="mx-auto inline-flex size-12 items-center justify-center rounded-full bg-primary/10 text-primary-text mb-3">
+              <Clock className="size-6" />
             </div>
-
-            <section aria-label="Student Information">
-              <h3 className="mb-3 text-xs font-semibold uppercase tracking-wider text-fg-subtle">Student Details</h3>
-              <dl className="grid grid-cols-1 gap-x-6 gap-y-3 sm:grid-cols-2">
-                <div>
-                  <dt className="text-xs text-fg-muted">Full Name</dt>
-                  <dd className="mt-0.5 text-sm font-medium text-fg">{student.name}</dd>
-                </div>
-                <div>
-                  <dt className="text-xs text-fg-muted">Register Number</dt>
-                  <dd className="mt-0.5 font-mono text-sm font-medium text-fg">{student.registerNumber}</dd>
-                </div>
-                <div>
-                  <dt className="text-xs text-fg-muted">Email</dt>
-                  <dd className="mt-0.5 text-sm font-medium text-fg">{student.email}</dd>
-                </div>
-                <div>
-                  <dt className="text-xs text-fg-muted">Programme / Degree</dt>
-                  <dd className="mt-0.5 text-sm font-medium text-fg">{student.degree || "N/A"}</dd>
-                </div>
-                <div>
-                  <dt className="text-xs text-fg-muted">Department</dt>
-                  <dd className="mt-0.5 text-sm font-medium text-fg">{student.department || "N/A"}</dd>
-                </div>
-                <div>
-                  <dt className="text-xs text-fg-muted">Section</dt>
-                  <dd className="mt-0.5 text-sm font-medium text-fg">{student.section || "N/A"}</dd>
-                </div>
-              </dl>
-            </section>
-
-            <section aria-label="Elective Course Allotment">
-              <h3 className="mb-3 text-xs font-semibold uppercase tracking-wider text-fg-subtle">Elective Course Allotment</h3>
-              <ul className="divide-y divide-border overflow-hidden rounded-control border border-border">
-                {choices.map((c, i) => (
-                  <li key={i} className="flex flex-col gap-1 px-4 py-3 sm:flex-row sm:items-center sm:justify-between sm:gap-4">
-                    <span className="text-xs text-fg-muted sm:w-1/3">{c.groupName}</span>
-                    <span className="text-sm font-medium text-fg sm:flex-1">
-                      {c.courseCode ? `${c.courseCode} - ` : ""}{c.electiveName}
-                    </span>
-                    <span className="text-right sm:w-1/4">
-                      <StatusBadge status={c.status} size="sm" />
-                    </span>
-                  </li>
-                ))}
-              </ul>
-            </section>
-
-            <div className="hidden justify-between pt-16 print:flex">
-              <span className="w-48 border-t border-border-strong pt-2 text-center text-xs text-fg-muted">Student signature</span>
-              <span className="w-48 border-t border-border-strong pt-2 text-center text-xs text-fg-muted">Authorised signatory</span>
+            <h3 className="text-lg font-medium text-fg">Official Electify Receipt & PDF Pending</h3>
+            <p className="mt-1 text-xs text-fg-muted max-w-lg mx-auto">
+              Your elective seats are currently reserved in provisional status. You can review or change your choices above. Once you are finished, click <strong>Finish Registration</strong> below to permanently lock your choices and generate your official verifiable Electify receipt and downloadable PDF.
+            </p>
+            <div className="mt-5 flex flex-wrap items-center justify-center gap-3">
+              <Button
+                onClick={() => setFinalizeConfirmOpen(true)}
+                className="bg-primary text-primary-fg hover:bg-primary/90 font-medium"
+              >
+                <Check className="size-3.5 mr-1" /> Finish Registration & Generate Receipt
+              </Button>
             </div>
-          </div>
-
-          <footer className="border-t border-border bg-surface-2/50 px-5 py-3 text-xs text-fg-muted sm:px-6">
-            Computer generated document from Electify portal. Valid without physical signature.
-          </footer>
-        </article>
+            <p className="mt-3 text-2xs text-fg-subtle">
+              Note: If not finished manually, your registration will be automatically finalized and locked when the window closes.
+            </p>
+          </article>
+        )}
       </main>
 
       {/* ── Dialog: Change Elective ── */}
@@ -770,6 +913,39 @@ export function MyRegistrationClient({
       >
         <p className="text-xs text-fg-muted">
           All your confirmed seats are released back to the general pool. If the registration window is still open, you may submit a new registration.
+        </p>
+      </ConfirmDialog>
+
+      {/* ── Confirm Dialog: Finish Registration ── */}
+      <ConfirmDialog
+        open={finalizeConfirmOpen}
+        onOpenChange={setFinalizeConfirmOpen}
+        title="Finish and Lock Registration?"
+        confirmLabel="Finish & Lock Registration"
+        cancelLabel="Keep Editing"
+        tone="default"
+        onConfirm={handleConfirmFinalize}
+        description="Finalizing your registration will permanently lock your elective choices and generate your official Electify receipt with a verifiable number and downloadable PDF proof."
+        impact={[
+          {
+            label: "Registration Status",
+            value: "Will be locked permanently",
+            tone: "neutral",
+          },
+          {
+            label: "Selected Electives",
+            value: `${choices.filter((c) => c.status === "CONFIRMED").length} confirmed courses`,
+            tone: "neutral",
+          },
+          {
+            label: "Official Receipt & PDF",
+            value: "Will be generated immediately",
+            tone: "neutral",
+          },
+        ]}
+      >
+        <p className="text-xs text-fg-muted">
+          Once finished, your elective choices are locked and cannot be changed or cancelled. If you need to make changes later, you will have to request your class tutor to unlock your registration.
         </p>
       </ConfirmDialog>
     </div>

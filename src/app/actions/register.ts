@@ -269,7 +269,7 @@ export async function registerElectives(
             groupId: sel.groupId,
             electiveId: sel.electiveId,
             status: "CONFIRMED",
-            isLocked: true,
+            isLocked: false,
             submittedAt: new Date(),
             updatedAt: new Date(),
           })
@@ -278,7 +278,7 @@ export async function registerElectives(
             set: {
               electiveId: sel.electiveId,
               status: "CONFIRMED",
-              isLocked: true,
+              isLocked: false,
               submittedAt: new Date(),
               updatedAt: new Date(),
             },
@@ -296,48 +296,29 @@ export async function registerElectives(
         });
       }
 
-      // Keep the snapshot in the event's group order for a readable receipt.
-      const groupOrder = new Map(eventGroups.map((g) => [g.id, g.sortOrder]));
-      electiveSnapshots.sort((a, b) => (groupOrder.get(a.groupId) ?? 0) - (groupOrder.get(b.groupId) ?? 0));
-
-      // Receipt number. The advisory lock serialises allocation so two simultaneous
-      // confirmations can never compute the same number.
-      const semester = receiptTerm(event);
-      const year = new Date().getFullYear();
-
-      let receiptNumber = existingReg?.receiptNumber;
-      if (!receiptNumber) {
-        await tx.execute(sql`SELECT pg_advisory_xact_lock(hashtext('electify_receipt_number'))`);
-        const [seqRow] = await tx
-          .select({
-            maxSeq: sql<number>`COALESCE(MAX(CAST(NULLIF(SUBSTRING(${registrations.receiptNumber} FROM '^ELC-[0-9]+-[A-Za-z]+-([0-9]+)$'), '') AS BIGINT)), 0)`,
-          })
-          .from(registrations);
-
-        const nextSeq = Number(seqRow?.maxSeq || 0) + 1;
-        receiptNumber = `ELC-${year}-${semester}-${String(nextSeq).padStart(6, "0")}`;
-      }
-
-      const receiptSnapshot = {
-        receiptNumber,
-        submittedAt: new Date().toISOString(),
-        student: studentDetails,
-        academic,
-        electives: electiveSnapshots,
-      };
-
+      // Initial registration reserves seats but does NOT generate the official receipt.
+      // The official receipt and PDF are only generated when the student explicitly
+      // finishes registration (or when the window closes).
       if (existingReg) {
         await tx
           .update(registrations)
-          .set({ status: "CONFIRMED", receiptNumber, receiptSnapshot, submittedAt: new Date(), updatedAt: new Date() })
+          .set({
+            status: "CONFIRMED",
+            isFinalized: false,
+            receiptNumber: null,
+            receiptSnapshot: null,
+            submittedAt: new Date(),
+            updatedAt: new Date(),
+          })
           .where(eq(registrations.id, existingReg.id));
       } else {
         await tx.insert(registrations).values({
           studentId,
           eventId,
           status: "CONFIRMED",
-          receiptNumber,
-          receiptSnapshot,
+          isFinalized: false,
+          receiptNumber: null,
+          receiptSnapshot: null,
           submittedAt: new Date(),
         });
       }
@@ -348,7 +329,6 @@ export async function registerElectives(
         userRole: "STUDENT",
         metadata: {
           eventId,
-          receiptNumber,
           selectionsCount: selections.length,
           sectionId: student.sectionId,
           academicBatchId: student.academicBatchId,
@@ -371,6 +351,208 @@ export async function registerElectives(
       code: "SERVER_ERROR",
       error: "Registration didn't go through because of a server error. Nothing was registered. Please try again.",
     };
+  }
+}
+
+/**
+ * Internal logic to finalize a student's confirmed registration:
+ * Generates official receipt number, creates frozen receipt snapshot, and locks all choices.
+ */
+export async function internalFinalizeRegistration(tx: Tx, studentId: string, eventId: string) {
+  const [student] = await tx.select().from(users).where(eq(users.id, studentId)).limit(1);
+  if (!student) throw new Error("Student record not found.");
+  const [event] = await tx.select().from(registrationEvents).where(eq(registrationEvents.id, eventId)).limit(1);
+  if (!event) throw new Error("Registration event not found.");
+
+  const [parentReg] = await tx
+    .select()
+    .from(registrations)
+    .where(and(eq(registrations.studentId, studentId), eq(registrations.eventId, eventId)))
+    .limit(1)
+    .for("update");
+
+  if (!parentReg || parentReg.status !== "CONFIRMED") {
+    throw new Error("No active confirmed registration found to finalize.");
+  }
+
+  if (parentReg.isFinalized && parentReg.receiptNumber) {
+    return { receiptNumber: parentReg.receiptNumber, alreadyFinalized: true };
+  }
+
+  const activeChoicesList = await tx
+    .select({
+      id: studentRegistrations.id,
+      groupId: studentRegistrations.groupId,
+      electiveId: studentRegistrations.electiveId,
+      groupName: electiveGroups.name,
+      groupSortOrder: electiveGroups.sortOrder,
+      electiveName: electives.name,
+      courseCode: electives.courseCode,
+      credits: electives.credits,
+    })
+    .from(studentRegistrations)
+    .innerJoin(electives, eq(studentRegistrations.electiveId, electives.id))
+    .innerJoin(electiveGroups, eq(studentRegistrations.groupId, electiveGroups.id))
+    .where(
+      and(
+        eq(studentRegistrations.studentId, studentId),
+        eq(studentRegistrations.eventId, eventId),
+        eq(studentRegistrations.status, "CONFIRMED")
+      )
+    )
+    .orderBy(asc(electiveGroups.sortOrder));
+
+  if (activeChoicesList.length === 0) {
+    throw new Error("You must have at least one active elective selected to finish registration.");
+  }
+
+  const [studentInfo] = await tx
+    .select({
+      name: users.name,
+      registerNumber: users.registerNumber,
+      email: users.email,
+      sectionName: sections.label,
+      programmeName: programmes.name,
+      departmentName: departments.name,
+    })
+    .from(users)
+    .leftJoin(sections, eq(users.sectionId, sections.id))
+    .leftJoin(academicBatches, eq(users.academicBatchId, academicBatches.id))
+    .leftJoin(programmes, eq(academicBatches.programmeId, programmes.id))
+    .leftJoin(departments, eq(programmes.departmentId, departments.id))
+    .where(eq(users.id, studentId))
+    .limit(1);
+
+  const studentDetails = {
+    name: studentInfo?.name || student.name,
+    registerNumber: studentInfo?.registerNumber || student.registerNumber || "N/A",
+    email: studentInfo?.email || student.email,
+    department: studentInfo?.departmentName || "N/A",
+    degree: studentInfo?.programmeName || "N/A",
+    section: studentInfo?.sectionName || "N/A",
+  };
+  const academic = await receiptAcademicIdentity(tx, student, event);
+
+  const semester = receiptTerm(event);
+  const year = new Date().getFullYear();
+
+  await tx.execute(sql`SELECT pg_advisory_xact_lock(hashtext('electify_receipt_number'))`);
+  const [seqRow] = await tx
+    .select({
+      maxSeq: sql<number>`COALESCE(MAX(CAST(NULLIF(SUBSTRING(${registrations.receiptNumber} FROM '^ELC-[0-9]+-[A-Za-z]+-([0-9]+)$'), '') AS BIGINT)), 0)`,
+    })
+    .from(registrations);
+
+  const nextSeq = Number(seqRow?.maxSeq || 0) + 1;
+  const receiptNumber = `ELC-${year}-${semester}-${String(nextSeq).padStart(6, "0")}`;
+
+  const electiveSnapshots = activeChoicesList.map((c) => ({
+    groupId: c.groupId,
+    groupName: c.groupName,
+    electiveId: c.electiveId,
+    electiveName: c.courseCode ? `${c.courseCode} - ${c.electiveName}` : c.electiveName,
+    courseCode: c.courseCode || undefined,
+    credits: c.credits,
+    status: "CONFIRMED" as const,
+  }));
+
+  const receiptSnapshot = {
+    receiptNumber,
+    submittedAt: new Date().toISOString(),
+    student: studentDetails,
+    academic,
+    electives: electiveSnapshots,
+  };
+
+  // Lock choices permanently
+  await tx
+    .update(studentRegistrations)
+    .set({ isLocked: true, updatedAt: new Date() })
+    .where(
+      and(
+        eq(studentRegistrations.studentId, studentId),
+        eq(studentRegistrations.eventId, eventId),
+        eq(studentRegistrations.status, "CONFIRMED")
+      )
+    );
+
+  // Set finalized status and official receipt
+  await tx
+    .update(registrations)
+    .set({
+      isFinalized: true,
+      receiptNumber,
+      receiptSnapshot,
+      updatedAt: new Date(),
+    })
+    .where(eq(registrations.id, parentReg.id));
+
+  await tx.insert(auditLogs).values({
+    action: "STUDENT_FINALIZED_REGISTRATION",
+    userId: studentId,
+    userRole: "STUDENT",
+    metadata: {
+      eventId,
+      receiptNumber,
+      selectionsCount: activeChoicesList.length,
+      sectionId: student.sectionId,
+      academicBatchId: student.academicBatchId,
+      academicSessionId: event.academicSessionId,
+    },
+  });
+
+  await tx.insert(replayEvents).values({
+    registrationEventId: eventId,
+    studentId,
+    studentName: studentDetails.name,
+    eventType: "STUDENT_FINALIZED_REGISTRATION",
+    subjectName: receiptNumber,
+    performedBy: studentId,
+  });
+
+  return { receiptNumber, alreadyFinalized: false };
+}
+
+/**
+ * Public server action invoked by student to finalize and lock registration,
+ * which generates the official receipt and enables PDF download / printing.
+ */
+export async function finalizeStudentRegistration(
+  eventId: string
+): Promise<MutationResult & { receiptNumber?: string }> {
+  try {
+    const session = await getSession();
+    if (!session || session.role !== "STUDENT") {
+      return { success: false, error: "Unauthorized. Please log in as a student." };
+    }
+
+    if (await maintenanceOn()) {
+      return { success: false, error: "System is currently undergoing maintenance." };
+    }
+
+    const student = await loadStudent(session.userId);
+    if (!student || !student.isActive || !student.isEligible) {
+      return { success: false, error: "You are not eligible to finalize registration. Please contact faculty." };
+    }
+
+    const [event] = await db.select().from(registrationEvents).where(eq(registrationEvents.id, eventId)).limit(1);
+    if (!event) {
+      return { success: false, error: "Registration event not found." };
+    }
+
+    if (!(await isStudentEligibleForEvent(db, student.id, eventId))) {
+      return { success: false, error: "This registration event is not open to your class." };
+    }
+
+    const res = await db.transaction(async (tx) => {
+      return await internalFinalizeRegistration(tx, student.id, eventId);
+    });
+
+    return { success: true, receiptNumber: res.receiptNumber };
+  } catch (error: unknown) {
+    const errorMessage = error instanceof Error ? error.message : "Failed to finalize registration.";
+    console.error("Finalize registration error:", errorMessage);
+    return { success: false, error: errorMessage };
   }
 }
 
@@ -450,6 +632,16 @@ async function authorizeModification(eventId: string, requireEditing: boolean) {
     return { error: "Elective modifications are disabled for this registration event." } as const;
   }
 
+  const [parentReg] = await db
+    .select({ isFinalized: registrations.isFinalized })
+    .from(registrations)
+    .where(and(eq(registrations.studentId, student.id), eq(registrations.eventId, eventId)))
+    .limit(1);
+
+  if (parentReg?.isFinalized) {
+    return { error: "Your registration has been finalized and locked. Subject changes are not permitted. Please contact your class tutor." } as const;
+  }
+
   return { student, event } as const;
 }
 
@@ -520,6 +712,9 @@ export async function changeStudentElective(
       }
       if (currentReg.status === "CANCELLED") {
         throw new Error("This elective registration has been cancelled. Please register anew.");
+      }
+      if (currentReg.isLocked) {
+        throw new Error("Your registration is finalized and locked. Subject changes are not permitted. Please contact your class tutor.");
       }
 
       // 2. Not already held in another group
@@ -682,6 +877,9 @@ export async function cancelStudentElective(eventId: string, groupId: string, el
       if (currentReg.status === "CANCELLED") {
         throw new Error("This elective registration has already been cancelled.");
       }
+      if (currentReg.isLocked) {
+        throw new Error("Your registration is finalized and locked. You cannot cancel electives. Please contact your class tutor.");
+      }
 
       const [elective] = await tx.select().from(electives).where(eq(electives.id, electiveId)).for("update");
 
@@ -776,6 +974,9 @@ export async function cancelEntireRegistration(eventId: string): Promise<Mutatio
       }
       if (parentReg.status === "CANCELLED") {
         throw new Error("Registration has already been cancelled.");
+      }
+      if (parentReg.isFinalized) {
+        throw new Error("Your registration is finalized and locked. To cancel your registration, please contact your class tutor.");
       }
 
       const userChoices = await tx
@@ -910,6 +1111,23 @@ export async function getStudentRegistrationDetails(eventId?: string) {
       return { success: true, hasRegistered: false, event: eventSummary };
     }
 
+    let currentUserReg = userReg;
+    if (!windowCheck.isOpen && !currentUserReg.isFinalized && currentUserReg.status === "CONFIRMED") {
+      try {
+        await db.transaction(async (tx) => {
+          await internalFinalizeRegistration(tx, studentId, event.id);
+        });
+        const [refreshed] = await db
+          .select()
+          .from(registrations)
+          .where(and(eq(registrations.studentId, studentId), eq(registrations.eventId, event.id)))
+          .limit(1);
+        if (refreshed) currentUserReg = refreshed;
+      } catch (err) {
+        console.error("Auto-finalize error upon window close:", err);
+      }
+    }
+
     const studentChoices = await db
       .select({
         id: studentRegistrations.id,
@@ -920,6 +1138,7 @@ export async function getStudentRegistrationDetails(eventId?: string) {
         courseCode: electives.courseCode,
         credits: electives.credits,
         status: studentRegistrations.status,
+        isLocked: studentRegistrations.isLocked,
         submittedAt: studentRegistrations.submittedAt,
         availableSeats: electives.availableSeats,
         maxSeats: electives.maxSeats,
@@ -1019,6 +1238,7 @@ export async function getStudentRegistrationDetails(eventId?: string) {
       const alternatives = (alternativesByGroup.get(c.groupId) || []).filter((a) => a.id !== c.electiveId);
       return {
         ...c,
+        isLocked: c.isLocked,
         availableSeats: Math.max(0, effectiveAvailable),
         sectionAvailableSeats: secAlloc?.availableSeats,
         sectionMaxSeats: secAlloc?.maxSeats,
@@ -1026,17 +1246,18 @@ export async function getStudentRegistrationDetails(eventId?: string) {
       };
     });
 
-    const snapshot = userReg.receiptSnapshot as { student?: Record<string, string> } | null;
+    const snapshot = currentUserReg.receiptSnapshot as { student?: Record<string, string> } | null;
 
     return {
       success: true,
       hasRegistered: true,
       event: eventSummary,
       registration: {
-        id: userReg.id,
-        status: userReg.status,
-        receiptNumber: userReg.receiptNumber,
-        submittedAt: userReg.submittedAt,
+        id: currentUserReg.id,
+        status: currentUserReg.status,
+        isFinalized: currentUserReg.isFinalized,
+        receiptNumber: currentUserReg.receiptNumber,
+        submittedAt: currentUserReg.submittedAt,
         receiptSnapshot: snapshot,
       },
       student: {
