@@ -32,7 +32,6 @@ import {
 
 import {
   LiveMonitoringData,
-  ActiveStudentPresence,
   getLiveFeedUpdates,
   getUnregisteredStudentsList,
   toggleEventStatusFromMonitor,
@@ -224,8 +223,9 @@ export function MonitorClient({ initialData, userRole }: MonitorClientProps) {
   }, [fetchLatestUpdates]);
 
   // Auto-refresh countdown timer - only active when the event is live
+  const eventStatus = data.event?.status;
   React.useEffect(() => {
-    const isLive = data.event && (data.event.status === "OPEN" || data.event.status === "PAUSED");
+    const isLive = eventStatus === "OPEN" || eventStatus === "PAUSED";
     if (!isAutoRefresh || !isLive) return;
 
     setCountdown(refreshIntervalSec);
@@ -243,7 +243,7 @@ export function MonitorClient({ initialData, userRole }: MonitorClientProps) {
     }, 1000);
 
     return () => clearInterval(interval);
-  }, [isAutoRefresh, refreshIntervalSec, data.event?.status]);
+  }, [isAutoRefresh, refreshIntervalSec, eventStatus]);
 
   // Manual Refresh Handler
   const handleManualRefresh = async () => {

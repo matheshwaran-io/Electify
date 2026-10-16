@@ -34,14 +34,12 @@ export function SessionSelectClient({
   currentId,
   destination,
   isAdmin,
-  isRootAdmin,
   canManage,
 }: {
   sessions: SessionCard[];
   currentId: string | null;
   destination: string;
   isAdmin: boolean;
-  isRootAdmin?: boolean;
   canManage: boolean;
 }) {
   const router = useRouter();

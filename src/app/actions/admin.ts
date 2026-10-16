@@ -6,7 +6,7 @@ import {
   users, registrationEvents, faculties, departments,
   programmes, academicBatches, sections, auditLogs, eventTemplates,
   templateGroups, inviteCodes, systemSettings, tutorSections,
-  studentRegistrations, registrations, electives, electiveSeatAllocations, eventStudents, eventSections
+  studentRegistrations, registrations, electives, eventStudents, eventSections
 } from "@/lib/db/schema";
 import { getSession, isRootAdmin, ROOT_ADMIN_EMAIL } from "@/lib/auth";
 import { eq, desc, count, asc, or, inArray, sql, and, ne } from "drizzle-orm";
