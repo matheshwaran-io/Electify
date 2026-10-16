@@ -817,6 +817,10 @@ export async function unlockStudentRegistration(studentId: string, eventId?: str
       .set({ isLocked: false })
       .where(and(...conditions));
 
+    await tx.update(registrations)
+      .set({ isFinalized: false, receiptNumber: null, receiptSnapshot: null, updatedAt: new Date() })
+      .where(and(eq(registrations.studentId, studentId), inArray(registrations.eventId, eventIds)));
+
     // Audit log
     await tx.insert(auditLogs).values({
       action: "UNLOCK_STUDENT_REGISTRATION",

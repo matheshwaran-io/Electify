@@ -563,6 +563,7 @@ export const registrations = pgTable("registrations", {
   studentId: uuid("student_id").notNull().references(() => users.id),
   eventId: uuid("event_id").notNull().references(() => registrationEvents.id),
   status: registrationStatusEnum("status").default("NOT_REGISTERED").notNull(),
+  isFinalized: boolean("is_finalized").default(false).notNull(),
   receiptNumber: text("receipt_number").unique(),
   receiptSnapshot: jsonb("receipt_snapshot"),
   submittedAt: timestamp("submitted_at"),

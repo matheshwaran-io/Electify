@@ -8,6 +8,7 @@ import {
   changeStudentElective,
   cancelStudentElective,
   cancelEntireRegistration,
+  finalizeStudentRegistration,
 } from "@/app/actions/register";
 import { addSectionQuota, asStudent, cleanup, createWorld, seats, setEventWindow, type World } from "./helpers/world";
 
@@ -61,10 +62,18 @@ describe("Registration changes, cancellations and capacity (no waitlist)", () =>
     assert.strictEqual(choice.electiveId, w.electives.A2);
     assert.strictEqual(choice.status, "CONFIRMED");
 
+    // Finalize registration to lock choices and generate official receipt
+    const fin = await finalizeStudentRegistration(w.eventId);
+    assert.strictEqual(fin.success, true);
+
     const [parent] = await db.select().from(registrations).where(and(eq(registrations.studentId, w.students[0]), eq(registrations.eventId, w.eventId)));
     const snapshot = parent.receiptSnapshot as { electives: { electiveId: string; status: string }[] };
     assert.strictEqual(snapshot.electives[0].electiveId, w.electives.A2, "receipt points at the new elective");
     assert.strictEqual(snapshot.electives[0].status, "CONFIRMED");
+
+    // Once finalized, changes are locked
+    const changeAfterFinal = await changeStudentElective(w.eventId, w.groups.A, w.electives.A2, w.electives.A1);
+    assert.strictEqual(changeAfterFinal.success, false, "change rejected after finalization");
   });
 
   test("2. Changing to a full elective is rejected and the current seat is kept", async () => {
@@ -258,19 +267,26 @@ describe("Registration changes, cancellations and capacity (no waitlist)", () =>
       ])).success,
       true
     );
+
+    // Finalize registration
+    const fin = await finalizeStudentRegistration(w.eventId);
+    assert.strictEqual(fin.success, true);
+
     const [parent] = await db.select().from(registrations).where(eq(registrations.studentId, w.students[0]));
     assert.strictEqual(parent.status, "CONFIRMED");
+    assert.strictEqual(parent.isFinalized, true);
     assert.match(parent.receiptNumber ?? "", /^ELC-\d{4}-(ODD|EVEN)-\d{6}$/);
     const snap = JSON.stringify(parent.receiptSnapshot);
     assert.ok(!/waitlist/i.test(snap), "receipt has no waitlist fields");
 
     const types = (await db.select().from(replayEvents).where(eq(replayEvents.registrationEventId, w.eventId))).map((r) => r.eventType);
-    assert.deepStrictEqual(types.sort(), ["STUDENT_REGISTERED", "STUDENT_REGISTERED"]);
+    assert.ok(types.includes("STUDENT_REGISTERED"));
+    assert.ok(types.includes("STUDENT_FINALIZED_REGISTRATION"));
 
     const audits = await db
       .select()
       .from(auditLogs)
-      .where(and(eq(auditLogs.userId, w.students[0]), eq(auditLogs.action, "STUDENT_REGISTERED")));
+      .where(and(eq(auditLogs.userId, w.students[0]), eq(auditLogs.action, "STUDENT_FINALIZED_REGISTRATION")));
     assert.strictEqual(audits.length, 1);
   });
 
@@ -283,6 +299,16 @@ describe("Registration changes, cancellations and capacity (no waitlist)", () =>
       })
     );
     assert.ok(results.every((r) => r.success), JSON.stringify(results));
+
+    // Simultaneously finalize all 4 registrations
+    const finResults = await Promise.all(
+      w.students.map((_, i) => {
+        asStudent(w, i);
+        return finalizeStudentRegistration(w.eventId);
+      })
+    );
+    assert.ok(finResults.every((r) => r.success), JSON.stringify(finResults));
+
     const parents = await db.select().from(registrations).where(eq(registrations.eventId, w.eventId));
     const numbers = new Set(parents.map((p) => p.receiptNumber));
     assert.strictEqual(numbers.size, 4, "four distinct receipt numbers");
