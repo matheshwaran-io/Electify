@@ -3,7 +3,7 @@
 import { getSession } from "@/lib/auth";
 import { recordStudentPresence, removeStudentPresence, type StudentPresenceStage } from "@/lib/student-presence";
 import { db } from "@/lib/db";
-import { users, sections } from "@/lib/db/schema";
+import { sections } from "@/lib/db/schema";
 import { eq } from "drizzle-orm";
 
 /**

@@ -218,7 +218,6 @@ export async function registerElectives(
         degree: studentInfo?.programmeName || "N/A",
         section: studentInfo?.sectionName || "N/A",
       };
-      const academic = await receiptAcademicIdentity(tx, student, event);
 
       // Lock chosen electives in a stable order so concurrent submissions cannot deadlock.
       const ordered = [...selections].sort((a, b) => a.electiveId.localeCompare(b.electiveId));

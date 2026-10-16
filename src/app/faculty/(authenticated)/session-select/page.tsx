@@ -4,7 +4,6 @@ import { SessionSelectClient, type SessionCard } from "./session-select-client";
 import { db } from "@/lib/db";
 import { academicSessions } from "@/lib/db/schema";
 import { asc, inArray } from "drizzle-orm";
-import { isRootAdmin } from "@/lib/auth";
 
 export const dynamic = "force-dynamic";
 export const metadata = { title: "Choose an Academic Timeline · Electify" };
@@ -23,13 +22,12 @@ export default async function SessionSelectPage({ searchParams }: { searchParams
   const destination = safeNext(next) ?? (role === "COURSE_COORDINATOR" ? "/faculty/portal-select" : "/faculty/dashboard");
 
   const scope = res.status === "OK" ? res.workspace.scope : res.scope;
-  const user = res.status === "OK" ? res.workspace.user : res.user;
 
   const currentYear = new Date().getFullYear();
   // Strictly show 3 years: Last Year (currentYear - 1), Current Year (currentYear), Next Year (currentYear + 1)
   const allowedYears = [currentYear - 1, currentYear, currentYear + 1];
 
-  let dbSessions = await db
+  const dbSessions = await db
     .select()
     .from(academicSessions)
     .where(inArray(academicSessions.startYear, allowedYears))
@@ -100,7 +98,6 @@ export default async function SessionSelectPage({ searchParams }: { searchParams
       currentId={res.status === "OK" ? res.workspace.session.id : null}
       destination={destination}
       isAdmin={role === "SYSTEM_ADMIN"}
-      isRootAdmin={isRootAdmin(user?.email)}
       canManage={role === "SYSTEM_ADMIN" || role === "COURSE_COORDINATOR"}
     />
   );

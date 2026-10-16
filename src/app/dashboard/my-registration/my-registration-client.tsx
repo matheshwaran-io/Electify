@@ -126,7 +126,6 @@ export function MyRegistrationClient({
   const [copied, setCopied] = React.useState(false);
   const [pdfPending, setPdfPending] = React.useState(false);
   const [finalizeConfirmOpen, setFinalizeConfirmOpen] = React.useState(false);
-  const [finalizePending, setFinalizePending] = React.useState(false);
 
   const isFinalized = Boolean(
     registration.isFinalized ||
@@ -167,7 +166,6 @@ export function MyRegistrationClient({
   };
 
   const handleConfirmFinalize = async () => {
-    setFinalizePending(true);
     try {
       const res = await finalizeStudentRegistration(event.id);
       if (!res.success) {
@@ -184,8 +182,6 @@ export function MyRegistrationClient({
       router.refresh();
     } catch (err: any) {
       toast.error(err.message || "Failed to finalize registration.");
-    } finally {
-      setFinalizePending(false);
     }
   };
 

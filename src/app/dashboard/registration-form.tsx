@@ -178,7 +178,7 @@ export function RegistrationForm({ event, student, groups, electives, initialReg
   const openAt = event.openDate ? new Date(event.openDate).getTime() : null;
   const closeAt = event.closeDate ? new Date(event.closeDate).getTime() : null;
   const [closed, setClosed] = React.useState(() => closeAt !== null && closeAt <= serverNow);
-  const [notYetOpen, setNotYetOpen] = React.useState(() => openAt !== null && openAt > serverNow);
+  const notYetOpen = openAt !== null && openAt > serverNow;
 
   const onClosed = React.useCallback(() => {
     setClosed(true);
@@ -269,7 +269,7 @@ export function RegistrationForm({ event, student, groups, electives, initialReg
         return prev;
       });
     },
-    [groups, byId]
+    [groups, byId, closed, notYetOpen]
   );
 
   const toggleCompare = React.useCallback((id: string) => {
