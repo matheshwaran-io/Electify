@@ -42,6 +42,7 @@ export function TutorSectionOnboarding({ isManageMode = false }: { isManageMode?
 
   // Filters
   const [query, setQuery] = useState("");
+  const [filterTimeline, setFilterTimeline] = useState<string>("ALL");
   const [filterProgramme, setFilterProgramme] = useState<string>("ALL");
   const [filterBatch, setFilterBatch] = useState<string>("ALL");
   const [filterStatus, setFilterStatus] = useState<string>("ALL");
@@ -119,7 +120,17 @@ export function TutorSectionOnboarding({ isManageMode = false }: { isManageMode?
     });
   };
 
-  // Unique programmes and batches for filter pills
+  // Unique timelines, programmes and batches for filter pills
+  const availableTimelines = useMemo(() => {
+    const map = new Map<string, string>();
+    sections.forEach((s) => {
+      s.activeSessions.forEach((sess) => map.set(sess.id, sess.label));
+    });
+    return Array.from(map.entries())
+      .map(([id, label]) => ({ id, label }))
+      .sort((a, b) => a.label.localeCompare(b.label));
+  }, [sections]);
+
   const availableProgrammes = useMemo(() => {
     const set = new Set<string>();
     sections.forEach((s) => set.add(s.programmeName));
@@ -147,6 +158,7 @@ export function TutorSectionOnboarding({ isManageMode = false }: { isManageMode?
   const filteredAvailable = useMemo(() => {
     const q = query.trim().toLowerCase();
     return sections.filter((s) => {
+      if (filterTimeline !== "ALL" && !s.activeSessions.some((sess) => sess.id === filterTimeline)) return false;
       if (filterProgramme !== "ALL" && s.programmeName !== filterProgramme) return false;
       if (filterBatch !== "ALL" && s.batchYear !== filterBatch) return false;
       if (filterStatus === "AVAILABLE" && s.status !== "AVAILABLE") return false;
@@ -157,7 +169,7 @@ export function TutorSectionOnboarding({ isManageMode = false }: { isManageMode?
       const haystack = `${s.programmeName} ${s.programmeCode} ${s.batchYear} ${s.label} ${s.departmentName} ${s.classLabel} ${s.cohortYears}`.toLowerCase();
       return haystack.includes(q);
     });
-  }, [sections, query, filterProgramme, filterBatch, filterStatus]);
+  }, [sections, query, filterTimeline, filterProgramme, filterBatch, filterStatus]);
 
   // Grouped available sections by Programme & Batch
   const groupedAvailable = useMemo(() => {
@@ -179,12 +191,19 @@ export function TutorSectionOnboarding({ isManageMode = false }: { isManageMode?
             <span className="inline-flex size-10 items-center justify-center rounded-xl border border-border bg-surface text-fg shadow-1">
               <LayoutGrid className="size-5 text-primary-text" />
             </span>
-            <h1 className="text-2xl sm:text-3xl font-light tracking-display text-fg">
-              {isManageMode ? "Manage your tutored classes" : "Class Tutor Workspaces"}
-            </h1>
+            <div>
+              <h1 className="text-2xl sm:text-3xl font-light tracking-display text-fg">
+                {isManageMode ? "Manage your tutored classes" : "Class Tutor Workspaces"}
+              </h1>
+              {sections[0]?.departmentName ? (
+                <p className="text-xs font-semibold uppercase tracking-wider text-primary mt-0.5">
+                  {sections[0].departmentName}
+                </p>
+              ) : null}
+            </div>
           </div>
           <p className="text-sm text-fg-muted max-w-2xl">
-            You can manage multiple classes across different programmes, batches and Academic Years within your authorized department.
+            Classes are chosen by class tutors and coordinators by department. Select a timeline and department classes below to claim and manage.
           </p>
         </div>
 
@@ -340,7 +359,7 @@ export function TutorSectionOnboarding({ isManageMode = false }: { isManageMode?
           </div>
 
           {/* Filter Bar */}
-          <div className="grid grid-cols-1 sm:grid-cols-4 gap-2.5 pt-1">
+          <div className="grid grid-cols-1 sm:grid-cols-5 gap-2.5 pt-1">
             {/* Search Input */}
             <div className="sm:col-span-2">
               <Input
@@ -352,6 +371,23 @@ export function TutorSectionOnboarding({ isManageMode = false }: { isManageMode?
                 inputSize="sm"
                 className="h-9"
               />
+            </div>
+
+            {/* Academic Timeline Filter */}
+            <div>
+              <select
+                aria-label="Filter by Academic Timeline"
+                value={filterTimeline}
+                onChange={(e) => setFilterTimeline(e.target.value)}
+                className="h-9 w-full rounded-control border border-border bg-surface px-2.5 text-xs text-fg font-medium focus:border-border-strong focus:outline-none"
+              >
+                <option value="ALL">All Timelines</option>
+                {availableTimelines.map((t) => (
+                  <option key={t.id} value={t.id}>
+                    {t.label}
+                  </option>
+                ))}
+              </select>
             </div>
 
             {/* Programme Filter */}

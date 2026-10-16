@@ -4,7 +4,7 @@ import * as React from "react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
 import { toast } from "sonner"
-import { Check, ChevronsUpDown, LogOut, Search, Settings2 } from "lucide-react"
+import { Check, ChevronsUpDown, LogOut, Plus, Search, Settings2 } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 import { Spinner } from "@/components/ui/spinner"
@@ -80,7 +80,27 @@ export function SectionSwitcher({
     `${s.classLabel ?? ""} ${s.programme} ${s.batch} ${s.label}`.toLowerCase().includes(query.trim().toLowerCase())
   )
 
-  if (!active) return null
+  if (!active) {
+    return (
+      <Link
+        href="/faculty/assign-sections"
+        aria-label="Choose your class"
+        className={cn(
+          "group flex w-full items-center gap-2 rounded-control border border-dashed border-primary/50 bg-primary/5 text-left text-xs font-medium text-primary shadow-1 transition-colors hover:bg-primary/10",
+          collapsed ? "size-10 justify-center p-0" : "px-2.5 py-2"
+        )}
+      >
+        <span className="inline-flex size-7 shrink-0 items-center justify-center rounded-badge bg-primary/10 text-primary">
+          <Plus className="size-4" />
+        </span>
+        {!collapsed ? (
+          <span className="min-w-0 flex-1 truncate">
+            Choose your class
+          </span>
+        ) : null}
+      </Link>
+    )
+  }
 
   const trigger = (
     <PopoverTrigger

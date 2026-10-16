@@ -41,6 +41,9 @@ export type StaffScope = {
   role: StaffRole;
   /** Admins manage every class. */
   allClasses: boolean;
+  /** Department this staff member belongs to. */
+  departmentId?: string | null;
+  departmentName?: string | null;
   /** Programmes a coordinator manages (from the user record). */
   programmeIds: string[];
   /** Classes explicitly assigned through tutor_sections. */
@@ -136,13 +139,37 @@ function toSession(row: typeof academicSessions.$inferSelect): WorkspaceSession 
 export async function loadStaffScope(user: UserSession): Promise<StaffScope | null> {
   if (!STAFF_ROLES.has(user.role)) return null;
   const [record] = await db
-    .select({ role: users.role, programmeId: users.programmeId, isActive: users.isActive })
+    .select({
+      role: users.role,
+      programmeId: users.programmeId,
+      departmentId: users.departmentId,
+      isActive: users.isActive,
+    })
     .from(users)
     .where(eq(users.id, user.userId))
     .limit(1);
   // The role on the record wins over the token, so a demotion takes effect immediately.
   if (!record || !record.isActive || !STAFF_ROLES.has(record.role)) return null;
   const role = record.role as StaffRole;
+
+  let departmentId = record.departmentId;
+  let departmentName: string | null = null;
+  if (!departmentId && record.programmeId) {
+    const [prog] = await db
+      .select({ departmentId: programmes.departmentId })
+      .from(programmes)
+      .where(eq(programmes.id, record.programmeId))
+      .limit(1);
+    departmentId = prog?.departmentId ?? null;
+  }
+  if (departmentId) {
+    const [dept] = await db
+      .select({ name: departments.name })
+      .from(departments)
+      .where(eq(departments.id, departmentId))
+      .limit(1);
+    departmentName = dept?.name ?? null;
+  }
 
   const assigned =
     role === "SYSTEM_ADMIN"
@@ -153,6 +180,8 @@ export async function loadStaffScope(user: UserSession): Promise<StaffScope | nu
     userId: user.userId,
     role,
     allClasses: role === "SYSTEM_ADMIN",
+    departmentId,
+    departmentName,
     programmeIds: role === "COURSE_COORDINATOR" && record.programmeId ? [record.programmeId] : [],
     tutorSectionIds: assigned.map((a) => a.sectionId),
   };
@@ -162,27 +191,16 @@ export async function loadStaffScope(user: UserSession): Promise<StaffScope | nu
 function classFilter(scope: StaffScope) {
   if (scope.allClasses) return undefined;
   const conditions = [];
+  if (scope.departmentId) conditions.push(eq(programmes.departmentId, scope.departmentId));
   if (scope.programmeIds.length) conditions.push(inArray(academicBatches.programmeId, scope.programmeIds));
   if (scope.tutorSectionIds.length) conditions.push(inArray(sections.id, scope.tutorSectionIds));
   return conditions.length ? or(...conditions) : sql`false`;
 }
 
-/** Sessions in which this staff member has at least one class (admins: all). */
+/** Sessions available for staff workspace selection (all non-archived academic timelines). */
 export async function listSessionsForScope(scope: StaffScope): Promise<WorkspaceSession[]> {
-  if (scope.allClasses) {
-    const rows = await db.select().from(academicSessions).orderBy(asc(academicSessions.startYear));
-    return rows.map(toSession);
-  }
-  const filter = classFilter(scope);
-  const rows = await db
-    .selectDistinct({ session: academicSessions })
-    .from(academicSessions)
-    .innerJoin(cohortSessionTerms, eq(cohortSessionTerms.academicSessionId, academicSessions.id))
-    .innerJoin(academicBatches, eq(academicBatches.id, cohortSessionTerms.academicBatchId))
-    .innerJoin(sections, eq(sections.academicBatchId, academicBatches.id))
-    .where(filter)
-    .orderBy(asc(academicSessions.startYear));
-  return rows.map((r) => toSession(r.session));
+  const rows = await db.select().from(academicSessions).orderBy(asc(academicSessions.startYear));
+  return rows.map(toSession);
 }
 
 /** Every class the scope may manage inside one session, with its full identity. */
@@ -253,7 +271,19 @@ export const resolveStaffWorkspace = cache(async (): Promise<WorkspaceResolution
   // getSession() has already checked the active-class cookie against tutor_sections.
   const activeClass = tutorClasses.find((c) => c.sectionId === user.sectionId) ?? tutorClasses[0] ?? null;
 
-  return { status: "OK", sessions, workspace: { user, scope, session: selected, implicit, classes, tutorClasses, activeClass } };
+  return {
+    status: "OK",
+    sessions,
+    workspace: {
+      user,
+      scope,
+      session: selected,
+      implicit,
+      classes: scope.role === "CLASS_TUTOR" ? tutorClasses : classes,
+      tutorClasses,
+      activeClass,
+    },
+  };
 });
 
 /** For server actions: the current workspace, or a clear error asking to pick a session. */
