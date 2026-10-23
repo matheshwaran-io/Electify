@@ -6,9 +6,9 @@
 [![PostgreSQL](https://img.shields.io/badge/PostgreSQL-16-336791?style=flat-square&logo=postgresql)](https://www.postgresql.org/)
 [![Drizzle ORM](https://img.shields.io/badge/Drizzle_ORM-0.45-C5F74F?style=flat-square&logo=drizzle)](https://orm.drizzle.team/)
 [![Tailwind CSS](https://img.shields.io/badge/Tailwind_CSS-v4-38B2AC?style=flat-square&logo=tailwind-css)](https://tailwindcss.com/)
-[![Tests](https://img.shields.io/badge/Tests-Passing-success?style=flat-square)]()
+[![CI](https://github.com/matheshwaran-io/Electify/actions/workflows/ci.yml/badge.svg)](https://github.com/matheshwaran-io/Electify/actions/workflows/ci.yml)
 
-**Electify** is a high-performance, secure full-stack university elective registration and cohort management system. It guarantees a **100% fair, zero-waitlist, first-come, first-served** course selection process powered by atomic PostgreSQL transaction row-locking safeguards, real-time seat synchronization via WebSockets, and an Academic Year Server isolation workflow.
+**Electify** is a high-performance, secure full-stack university elective registration and cohort management system. It guarantees a **100% fair, zero-waitlist, first-come, first-served** course selection process powered by atomic PostgreSQL transaction row-locking safeguards, optional real-time seat updates via Supabase Realtime, and an Academic Year Server isolation workflow.
 
 ---
 
@@ -21,7 +21,7 @@
 - **Multi-Programme Tutor Supervision**: Class tutors can claim and manage sections across multiple programmes and batches with strict student roster segregation.
 - **Subject Explorer & Preview Mode**: Students can explore subject descriptions, syllabi, and prerequisites prior to window opening without locking seats.
 - **Live Event Monitor & Surveillance**: Real-time staff monitoring feed, live seat metrics, and unregistered cohort tracking.
-- **Audit Logging & Receipts**: Uniquely numbered confirmation receipts stored as snapshots at confirmation time, an audit log, a registration replay, and downloadable PDF exports.
+- **Audit Logging & Receipts**: A uniquely numbered receipt (`ELC-<year>-<ODD|EVEN>-<seq>`) and PDF are issued only when the student finalizes their registration (or when the window closes), plus an audit log, a registration replay, and PDF exports.
 
 ---
 
@@ -32,7 +32,7 @@
 - **Styling**: [Tailwind CSS v4](https://tailwindcss.com/) (CSS-first design tokens)
 - **Database & Pooling**: PostgreSQL 16 (via local instance, Neon, or Supabase connection pooling)
 - **ORM & Migrations**: [Drizzle ORM](https://orm.drizzle.team/) & [Drizzle Kit](https://orm.drizzle.team/docs/kit-overview)
-- **Realtime Sync**: [Supabase Realtime](https://supabase.com/docs/guides/realtime) (WebSockets for dynamic seat counters)
+- **Realtime Sync (optional)**: [Supabase Realtime](https://supabase.com/docs/guides/realtime) channels; disabled automatically when the Supabase URL/key are empty
 - **Auth & Session Security**: Custom HMAC-signed JWT cookies, routing proxy (`src/proxy.ts`), and Bcryptjs password hashing (cost factor 12)
 - **Brute Force Protection**: Database-backed login attempt tracking and automatic rate-limiting lockout
 - **Export Engine**: Client-side high-fidelity PDF reporting using [jsPDF](https://github.com/parallax/jsPDF) & AutoTable
@@ -179,6 +179,8 @@ JWT_SECRET="your-secure-random-secret-at-least-32-chars-long"
 ```
 
 ### 3. Apply Migrations & Seed Database
+> ⚠️ `db:push`, `db:seed` and `db:reset` act on the database in `.env` without asking which host it is. Use them on a **local, new** database only. `npm run db:migrate` is not a supported path (its journal covers only migrations 0000–0002). See the [maintenance manual §7.4 and §14](documentation/PROJECT_MAINTENANCE_MANUAL.md#74-migrations--read-before-touching-the-schema).
+
 ```bash
 # Create the tables from the schema (new, empty database only)
 npm run db:push
@@ -192,8 +194,12 @@ npm run db:seed
 # Run unit tests (fast, no database required)
 npm run test:unit
 
-# Run full integration test suite (requires active PostgreSQL)
-npm test
+# Run full integration test suite (requires PostgreSQL; WRITES fixture rows).
+# `npm test` loads .env.local — point it at a LOCAL test database explicitly:
+DATABASE_URL=postgresql://localhost:5432/electify_test DIRECT_URL=postgresql://localhost:5432/electify_test npm test
+
+# End-to-end tests (local PostgreSQL + Chrome; recreates the throwaway electify_e2e DB)
+npm run test:e2e
 
 # Type-check TypeScript codebase
 npm run typecheck
@@ -235,10 +241,16 @@ npm start
 
 ---
 
-## 📚 Architectural Documentation
+## 📚 Documentation
 
-For in-depth architectural and design documentation, see:
-- [Windows Setup Guide](WINDOWS_SETUP.md)
+Start here (current, source-verified):
+- [Project Maintenance Manual](documentation/PROJECT_MAINTENANCE_MANUAL.md) — architecture, data model, workflows, safe maintenance, security, known issues
+- [Architecture](documentation/ARCHITECTURE.md) · [Development Setup](documentation/DEVELOPMENT_SETUP.md) · [Deployment](documentation/DEPLOYMENT.md) · [Testing](documentation/TESTING.md)
+- [Repository Cleanup Report](documentation/REPOSITORY_CLEANUP_REPORT.md)
+- [Windows Setup Guide](WINDOWS_SETUP.md) · [Contributing](CONTRIBUTING.md) · [Security Policy](SECURITY.md)
+
+Older design notes (some sections superseded — see the banner in each file):
+
 - [Architecture Overview](docs/architecture/overview.md)
 - [Folder Structure](docs/architecture/folder-structure.md)
 - [Code Standards](docs/development/code-standards.md)

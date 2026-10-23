@@ -1,5 +1,7 @@
 # Electify Testing Guide & Verification Workflows
 
+> **Partly superseded (23 Oct 2026).** This file is kept for history. It is out of date on how `npm test` selects its database and the current test results. Use [documentation/PROJECT_MAINTENANCE_MANUAL.md](../../documentation/PROJECT_MAINTENANCE_MANUAL.md) and the guides next to it.
+
 This document outlines the testing architecture, commands, and strategies used to ensure correctness, reliability, and concurrency safety.
 
 ---

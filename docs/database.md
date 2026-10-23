@@ -1,5 +1,7 @@
 # Electify Database Reference & Migration Guide
 
+> **Partly superseded (23 Oct 2026).** This file is kept for history. It is out of date on migrations (`npm run db:migrate` does not work for existing databases; 0007 has no npm script). Use [documentation/PROJECT_MAINTENANCE_MANUAL.md](../documentation/PROJECT_MAINTENANCE_MANUAL.md) and the guides next to it.
+
 ## 1. Relational Schema Architecture
 
 Electify uses **PostgreSQL** with schema definitions maintained using **Drizzle ORM** (`src/lib/db/schema.ts`).

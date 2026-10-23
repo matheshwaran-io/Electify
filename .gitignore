@@ -53,3 +53,10 @@ next-env.d.ts
 # playwright
 /test-results/
 /playwright-report/
+
+# python bytecode (report generators)
+__pycache__/
+*.py[cod]
+
+# office lock files
+~$*

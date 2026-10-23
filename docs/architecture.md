@@ -1,5 +1,7 @@
 # Electify Architecture Documentation
 
+> **Partly superseded (23 Oct 2026).** This file is kept for history. It is out of date on the receipt format and timing (receipts are now `ELC-<year>-<ODD|EVEN>-<seq>` and are issued only at finalization). Use [documentation/PROJECT_MAINTENANCE_MANUAL.md](../documentation/PROJECT_MAINTENANCE_MANUAL.md) and the guides next to it.
+
 ## 1. System Overview
 
 **Electify** is an enterprise-grade university elective registration system engineered for high concurrency, fair seat allocation, and clean academic hierarchy management.

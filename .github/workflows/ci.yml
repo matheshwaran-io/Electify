@@ -8,7 +8,7 @@ on:
 
 jobs:
   validate:
-    name: Lint, Type Check & Build
+    name: Lint, Unit Tests, Type Check & Build
     runs-on: ubuntu-latest
 
     steps:
@@ -18,7 +18,7 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version-file: ".nvmrc"
           cache: "npm"
 
       - name: Install dependencies
@@ -26,6 +26,11 @@ jobs:
 
       - name: Run ESLint
         run: npm run lint
+
+      # Database-free tests only; the integration and e2e suites need PostgreSQL
+      # (see documentation/TESTING.md).
+      - name: Run unit tests
+        run: npm run test:unit
 
       - name: Run TypeScript type check
         run: npx tsc --noEmit

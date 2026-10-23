@@ -1,5 +1,7 @@
 # Electify Production Deployment & Operations Guide
 
+> **Partly superseded (23 Oct 2026).** This file is kept for history. It is out of date on database migration steps (`npm run db:migrate` is not a supported path). Use [documentation/PROJECT_MAINTENANCE_MANUAL.md](../documentation/PROJECT_MAINTENANCE_MANUAL.md) and the guides next to it.
+
 ## 1. Hosting Architecture Recommendations
 
 Electify is a hybrid Next.js 16 full-stack application. It can be deployed via:
