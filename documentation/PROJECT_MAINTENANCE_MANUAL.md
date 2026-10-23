@@ -2,7 +2,7 @@
 
 > Audience: the next developer or maintainer of this repository.
 > Every statement here was checked against the source on **23 October 2026**
-> (commit `e7b3151` plus the working tree). Where something could not be
+> (commit `db3b7d0` plus the working tree). Where something could not be
 > verified it is marked **Unverified**. When the code and this manual disagree,
 > the code wins — please fix the manual.
 
@@ -338,7 +338,7 @@ check; never rely on hiding a menu item.
 After staff sign-in the app shows `/faculty/session-select`; the choice is
 stored in `electify_academic_session`. `isSessionScopedPath()` lists the pages
 that require one. `listSessionsForScope()` currently returns **all** sessions to
-every staff role (changed deliberately in commit `e7b3151`); class visibility
+every staff role (changed deliberately in commit `db3b7d0`); class visibility
 is still limited by role/department/tutor assignment.
 
 ## 9. Core workflows
@@ -568,7 +568,7 @@ repaired (needs owner approval).
 | 7 | Third-party report files and personal-style data tracked in a public repo | High (privacy/licensing) |
 | 8 | No cron for status sync (lazy) | Low |
 | 9 | Older docs in `docs/` partly superseded (banners added) | Low |
-| 10 | Lint warning in `workspace.ts` (unused `scope` after e7b3151) | Low |
+| 10 | Lint warning in `workspace.ts` (unused `scope` after db3b7d0) | Low |
 | 11 | Large binary report intermediates tracked under `documentation/final-report/work/render/` | Low |
 
 ## 17. Quick reference

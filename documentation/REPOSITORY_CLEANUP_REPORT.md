@@ -1,6 +1,6 @@
 # Repository Cleanup Report
 
-Date: 23 October 2026 · Base commit: `e7b3151` (branch `main`)
+Date: 23 October 2026 · Base commit: `db3b7d0` (branch `main`)
 Scope: read-only audit, then small, reversible changes. Nothing was staged,
 committed, pushed, deployed or deleted from Git history.
 

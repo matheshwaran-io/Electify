@@ -55,7 +55,7 @@ Requirements: local PostgreSQL with `createdb`/`dropdb` on the PATH (set
 only. The setup drops the database, so it refuses to run unless the URL's host
 is `localhost`/`127.0.0.1` and the database name is exactly `electify_e2e`.
 
-## Latest observed results (23 October 2026, `main` @ `e7b3151` + working tree)
+## Latest observed results (23 October 2026, `main` @ `db3b7d0` + working tree)
 
 | Suite | Result |
 | --- | --- |
@@ -74,9 +74,9 @@ commits. They should be updated by someone who confirms the intended rules.
 
 | Test | Expectation in test | Current behaviour | Changed in |
 | --- | --- | --- | --- |
-| `tests/academic-sessions.test.ts` › 2. The selected academic session filters the workspace | `listSessionsForScope` returns only the sessions a tutor teaches in | Returns all sessions to every staff role; classes remain scoped | `e7b3151` |
-| `tests/academic-sessions.test.ts` › 10. Receipts and reports carry the full cohort and session identity | Receipt number exists right after `registerElectives` | Receipt is issued by `finalizeStudentRegistration` (or when the window closes) | "Pdf" commit (`254de48`) |
-| `tests/subject-explorer.test.ts` › 6. Late and paused submissions are rejected; confirmed records are kept | Same receipt-at-registration assumption | Same as above | `254de48` |
+| `tests/academic-sessions.test.ts` › 2. The selected academic session filters the workspace | `listSessionsForScope` returns only the sessions a tutor teaches in | Returns all sessions to every staff role; classes remain scoped | `db3b7d0` |
+| `tests/academic-sessions.test.ts` › 10. Receipts and reports carry the full cohort and session identity | Receipt number exists right after `registerElectives` | Receipt is issued by `finalizeStudentRegistration` (or when the window closes) | "Pdf" commit (`0e5b41d`) |
+| `tests/subject-explorer.test.ts` › 6. Late and paused submissions are rejected; confirmed records are kept | Same receipt-at-registration assumption | Same as above | `0e5b41d` |
 | `tests/academic-sessions.test.ts` › 13. Staff cannot reach classes… outside their scope | Event status stays `PUBLISHED` after a rejected cross-scope pause | The unauthorized pause **is rejected**; the status becomes `OPEN` because `syncExpiredRegistrationEvents` auto-opens PUBLISHED events whose `open_date` has passed | auto-open in `src/lib/auto-close.ts` |
 
 None of these indicate an authorization gap: in test 13 the forbidden action
@@ -87,7 +87,7 @@ is refused; only the follow-up status assertion is stale.
 | Cause | Tests affected | Fix needed in tests |
 | --- | --- | --- |
 | `chooseYearServer()` in `tests/e2e/helpers.ts` clicks a button named `/^Year 2026,/`. Commit `402c74d` renamed the Year Server buttons to `"2026–2027, <status>…"`, so the click waits until the test times out. | 12 staff tests: `accessibility` › staff pages; `mobile-layout` › tutor pages, coordinator and admin pages; `navigation-a11y` › phone, tablet; `route-reload` › tutor, coordinator, administrator pages; `session` › tampered cookie; `staff-isolation` › workspace reloads, pause window, foreign replay | Match the new name (e.g. `^2026–\d{4},`). Until then, every check after the Year Server screen in these tests is untested. |
-| `student-workflow.spec.ts` expects `receipt_number` right after confirming | 1 test | Finalize the registration first (receipts are issued at finalization since `254de48`). |
+| `student-workflow.spec.ts` expects `receipt_number` right after confirming | 1 test | Finalize the registration first (receipts are issued at finalization since `0e5b41d`). |
 
 ## Writing tests
 

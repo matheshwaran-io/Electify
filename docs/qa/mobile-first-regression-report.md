@@ -1,6 +1,6 @@
 # Electify — Reload, Regression and Mobile-First QA Report
 
-Date: 14 October 2026 · Branch: `chore/repo-cleanup-and-production-readiness` (base commit `2ceabe6`, changes uncommitted at time of writing)
+Date: 14 October 2026 · Branch: `chore/repo-cleanup-and-production-readiness` (base commit `c4089e0`, changes uncommitted at time of writing)
 
 This report records what was actually tested, what was found, what was changed and what remains. Every result below comes from a run on the development machine; nothing was measured against production.
 
@@ -149,7 +149,7 @@ Workflows verified in the browser with database assertions: sign-in and reload; 
 2. The proxy (`src/proxy.ts`) and `lib/auth.ts` fall back to a built-in JWT secret when `JWT_SECRET` is missing; signing refuses this in production, but verification in the proxy does not. Set `JWT_SECRET` in every deployed environment.
 3. "Reopen" after an automatic deadline has passed sets the status to OPEN, but the window rule still closes the window after `close_date`; staff must move the closing time instead. The button label does not explain this.
 4. The R4 realtime race fix and presence channels that share the topic `online-users` (tutor class and report pages) should be re-tested with realtime configured.
-5. `src/lib/workspace.ts`'s header comment still says a single Year Server is selected automatically; since commit `2ceabe6` staff always choose explicitly after sign-in (intended behaviour, covered by tests). Comment only.
+5. `src/lib/workspace.ts`'s header comment still says a single Year Server is selected automatically; since commit `c4089e0` staff always choose explicitly after sign-in (intended behaviour, covered by tests). Comment only.
 
 6a. **Hydration mismatch with reduced motion (open).** Found on 15 October 2026 while capturing report screenshots: when the browser requests reduced motion, the decorative `SeatMark` graphic on `/login` and `/join` renders a different `style` on the server than on the client, and React logs a hydration error. The e2e suite runs without that preference, so it does not catch this. Fix: render the same markup on both sides (decide the reduced-motion variant after mount), then add a Playwright project with `reducedMotion: "reduce"`.
 
