@@ -79,7 +79,6 @@ Only tracked, meaningful paths are listed.
 ```text
 .
 ├── .github/workflows/ci.yml   CI: install, lint, unit tests, type-check, build (no DB)
-├── .claude/launch.json        Local dev-server launcher config for Claude Code (npm run dev, port 3000)
 ├── .agents/skills/, skills-lock.json   Third-party Supabase agent-skill text (tooling only, not used by the app)
 ├── src/
 │   ├── proxy.ts               Next.js 16 routing proxy (cookie check, role redirects)

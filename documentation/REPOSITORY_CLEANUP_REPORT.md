@@ -72,8 +72,8 @@ still be wanted for reference.
 ### 3.4 Tooling content
 
 `.agents/skills/supabase*` (40 files) and `skills-lock.json` are third-party
-AI-agent skill text, unused by the application. `.claude/launch.json` is a
-local dev-server launcher. Both are harmless; keep them or untrack them as you prefer.
+AI-agent skill text, unused by the application. They are harmless; keep them
+or untrack them as you prefer.
 
 ### 3.5 Database hygiene (hosted development database)
 
