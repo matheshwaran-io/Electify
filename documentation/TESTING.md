@@ -63,7 +63,7 @@ is `localhost`/`127.0.0.1` and the database name is exactly `electify_e2e`.
 | Type-check | pass |
 | Unit | 15 / 15 pass |
 | Integration (local DB) | 141 / 145 pass, 4 fail (below) |
-| E2E | **Incomplete / failing.** At the time of writing the run was still in progress: 17 specs passed and 6 staff-page specs failed by timeout (`accessibility` › staff pages, `mobile-layout` › tutor pages and coordinator/admin pages, `navigation-a11y` › phone and tablet navigation, `route-reload` › class tutor pages). Cause not yet analysed — could be dev-server compile time or a change in the staff flow after `e7b3151`. |
+| E2E | 23 passed, 13 failed (59.6 min). All failures are stale test code, see below. |
 | Build | pass (isolated `NEXT_DIST_DIR`) |
 
 ### Known failures
@@ -81,6 +81,13 @@ commits. They should be updated by someone who confirms the intended rules.
 
 None of these indicate an authorization gap: in test 13 the forbidden action
 is refused; only the follow-up status assertion is stale.
+
+### Known e2e failures
+
+| Cause | Tests affected | Fix needed in tests |
+| --- | --- | --- |
+| `chooseYearServer()` in `tests/e2e/helpers.ts` clicks a button named `/^Year 2026,/`. Commit `402c74d` renamed the Year Server buttons to `"2026–2027, <status>…"`, so the click waits until the test times out. | 12 staff tests: `accessibility` › staff pages; `mobile-layout` › tutor pages, coordinator and admin pages; `navigation-a11y` › phone, tablet; `route-reload` › tutor, coordinator, administrator pages; `session` › tampered cookie; `staff-isolation` › workspace reloads, pause window, foreign replay | Match the new name (e.g. `^2026–\d{4},`). Until then, every check after the Year Server screen in these tests is untested. |
+| `student-workflow.spec.ts` expects `receipt_number` right after confirming | 1 test | Finalize the registration first (receipts are issued at finalization since `254de48`). |
 
 ## Writing tests
 
